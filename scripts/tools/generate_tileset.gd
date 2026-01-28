@@ -61,43 +61,13 @@ func _run() -> void:
 		print("✗ Error saving tileset: ", err)
 
 func draw_isometric_tile(image: Image, x: int, y: int, width: int, height: int, color: Color) -> void:
-	# Draw an isometric diamond shape
-	var half_width = width / 2
-	var half_height = height / 2
-
-	# Fill the diamond tile
+	# Draw a solid filled rectangle
 	for py in range(height):
 		for px in range(width):
-			# Calculate if pixel is inside diamond
-			var dx = abs(px - half_width)
-			var dy = abs(py - half_height)
-
-			# Isometric diamond equation
-			if (dx / float(half_width)) + (dy / float(half_height)) <= 1.0:
-				var pixel_x = x + px
-				var pixel_y = y + py
-
-				# Add some shading for depth
-				var shade_factor = 1.0
-				if py < half_height:
-					# Top half slightly lighter
-					shade_factor = 1.1
-				else:
-					# Bottom half slightly darker
-					shade_factor = 0.9
-
-				var shaded_color = Color(
-					color.r * shade_factor,
-					color.g * shade_factor,
-					color.b * shade_factor,
-					1.0
-				)
-
-				if pixel_x >= 0 and pixel_x < image.get_width() and pixel_y >= 0 and pixel_y < image.get_height():
-					image.set_pixel(pixel_x, pixel_y, shaded_color)
-
-	# Draw outline
-	draw_isometric_outline(image, x, y, width, height, Color.BLACK)
+			var pixel_x = x + px
+			var pixel_y = y + py
+			if pixel_x >= 0 and pixel_x < image.get_width() and pixel_y >= 0 and pixel_y < image.get_height():
+				image.set_pixel(pixel_x, pixel_y, color)
 
 func draw_isometric_outline(image: Image, x: int, y: int, width: int, height: int, color: Color) -> void:
 	var half_width = width / 2

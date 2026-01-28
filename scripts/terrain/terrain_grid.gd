@@ -15,6 +15,10 @@ signal tile_changed(position: Vector2i, old_type: int, new_type: int)
 
 func _ready() -> void:
 	_initialize_grid()
+	print("TerrainGrid position: ", global_position)
+	if tile_map:
+		print("TileMapLayer position: ", tile_map.global_position)
+		print("TileMapLayer tile_set: ", tile_map.tile_set)
 
 func _initialize_grid() -> void:
 	for x in range(grid_width):
@@ -24,14 +28,12 @@ func _initialize_grid() -> void:
 			_update_tile_visual(pos)
 
 func screen_to_grid(screen_pos: Vector2) -> Vector2i:
-	var cart_x = (screen_pos.x / (tile_width / 2.0) + screen_pos.y / (tile_height / 2.0)) / 2.0
-	var cart_y = (screen_pos.y / (tile_height / 2.0) - screen_pos.x / (tile_width / 2.0)) / 2.0
-	return Vector2i(int(floor(cart_x)), int(floor(cart_y)))
+	# Simple grid conversion for regular tile layout
+	return Vector2i(int(floor(screen_pos.x / tile_width)), int(floor(screen_pos.y / tile_height)))
 
 func grid_to_screen(grid_pos: Vector2i) -> Vector2:
-	var screen_x = (grid_pos.x - grid_pos.y) * (tile_width / 2.0)
-	var screen_y = (grid_pos.x + grid_pos.y) * (tile_height / 2.0)
-	return Vector2(screen_x, screen_y)
+	# Simple grid conversion for regular tile layout
+	return Vector2(grid_pos.x * tile_width, grid_pos.y * tile_height)
 
 func is_valid_position(pos: Vector2i) -> bool:
 	return pos.x >= 0 and pos.x < grid_width and pos.y >= 0 and pos.y < grid_height

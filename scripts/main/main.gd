@@ -62,8 +62,12 @@ func _connect_ui_buttons() -> void:
 
 func _initialize_game() -> void:
 	GameManager.new_game("My Golf Course")
-	var center = terrain_grid.grid_to_screen(Vector2i(terrain_grid.grid_width / 2, terrain_grid.grid_height / 2))
-	camera.focus_on(center, true)
+	# Center camera on the middle of the grid
+	# With 128x128 tiles of size 64x32, center is at (64*64, 64*32) = (4096, 2048)
+	var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
+	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
+	camera.focus_on(Vector2(center_x, center_y), true)
+	print("Camera centered at: ", center_x, ", ", center_y)
 
 func _update_ui() -> void:
 	money_label.text = "$%d" % GameManager.money
@@ -84,6 +88,7 @@ func _start_painting() -> void:
 	if hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
 		var mouse_world = camera.get_mouse_world_position()
 		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+		print("Hole placement click at grid pos: ", grid_pos, " placement_mode: ", hole_tool.placement_mode)
 		hole_tool.handle_click(grid_pos)
 		return
 
