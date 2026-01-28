@@ -19,7 +19,9 @@ func _ready() -> void:
 func _initialize_grid() -> void:
 	for x in range(grid_width):
 		for y in range(grid_height):
-			_grid[Vector2i(x, y)] = TerrainTypes.Type.GRASS
+			var pos = Vector2i(x, y)
+			_grid[pos] = TerrainTypes.Type.GRASS
+			_update_tile_visual(pos)
 
 func screen_to_grid(screen_pos: Vector2) -> Vector2i:
 	var cart_x = (screen_pos.x / (tile_width / 2.0) + screen_pos.y / (tile_height / 2.0)) / 2.0
