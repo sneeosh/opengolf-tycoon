@@ -15,6 +15,23 @@ var reputation: float = 50.0
 var current_day: int = 1
 var current_hour: float = 6.0
 
+# Reference to terrain grid (set by main scene)
+var terrain_grid: TerrainGrid = null
+
+# Expose properties for backward compatibility
+var course_data: CourseData:
+	get:
+		return current_course
+
+var game_mode: GameMode:
+	get:
+		return current_mode
+
+func get_game_speed_multiplier() -> float:
+	if is_paused:
+		return 0.0
+	return float(current_speed)
+
 const HOURS_PER_DAY: float = 24.0
 const COURSE_OPEN_HOUR: float = 6.0
 const COURSE_CLOSE_HOUR: float = 20.0
@@ -99,6 +116,7 @@ class HoleData:
 	var par: int = 4
 	var tee_position: Vector2i = Vector2i.ZERO
 	var green_position: Vector2i = Vector2i.ZERO
+	var hole_position: Vector2i = Vector2i.ZERO  # Actual cup position on green
 	var fairway_tiles: Array = []
 	var hazard_tiles: Array = []
 	var distance_yards: int = 0

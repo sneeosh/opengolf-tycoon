@@ -79,7 +79,17 @@ func get_total_maintenance_cost() -> int:
 func _update_tile_visual(pos: Vector2i) -> void:
 	if tile_map:
 		var terrain_type = get_tile(pos)
-		tile_map.set_cell(pos, 0, Vector2i(terrain_type, 0))
+		var atlas_coords = _get_atlas_coords_for_type(terrain_type)
+		tile_map.set_cell(pos, 0, atlas_coords)
+
+func _get_atlas_coords_for_type(terrain_type: int) -> Vector2i:
+	# Tileset is arranged in a 7-column grid (2 rows)
+	# Row 0: EMPTY, GRASS, FAIRWAY, ROUGH, HEAVY_ROUGH, GREEN, TEE_BOX
+	# Row 1: BUNKER, WATER, PATH, OUT_OF_BOUNDS, TREES, FLOWER_BED, ROCKS
+	const TILES_PER_ROW = 7
+	var x = terrain_type % TILES_PER_ROW
+	var y = terrain_type / TILES_PER_ROW
+	return Vector2i(x, y)
 
 func serialize() -> Dictionary:
 	var data: Dictionary = {}

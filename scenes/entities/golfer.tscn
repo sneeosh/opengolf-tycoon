@@ -1,0 +1,34 @@
+[gd_scene load_steps=2 format=3 uid="uid://b7qvx8k3n6mhj"]
+
+[ext_resource type="Script" path="res://scripts/entities/golfer.gd" id="1_golfer"]
+
+[node name="Golfer" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_golfer")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(0.3, 0.6, 0.9, 1)
+
+[node name="ColorRect" type="ColorRect" parent="Sprite2D"]
+offset_left = -8.0
+offset_top = -12.0
+offset_right = 8.0
+offset_bottom = 12.0
+color = Color(0.3, 0.6, 0.9, 1)
+
+[node name="Label" type="Label" parent="."]
+offset_left = -32.0
+offset_top = -32.0
+offset_right = 32.0
+offset_bottom = -16.0
+text = "Golfer"
+horizontal_alignment = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_golfer"]
+radius = 8.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_golfer")

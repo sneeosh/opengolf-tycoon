@@ -4,7 +4,7 @@ extends Node2D
 @onready var terrain_grid: TerrainGrid = $TerrainGrid
 @onready var camera: IsometricCamera = $IsometricCamera
 @onready var money_label: Label = $UI/HUD/TopBar/MoneyLabel
-@onready var day_label: Label = $UI/HUD/TopBar/DayLabel
+@ontml:parameter>
 @onready var reputation_label: Label = $UI/HUD/TopBar/ReputationLabel
 @onready var coordinate_label: Label = $UI/HUD/BottomBar/CoordinateLabel
 @onready var tool_panel: VBoxContainer = $UI/HUD/ToolPanel
@@ -14,7 +14,15 @@ var brush_size: int = 1
 var is_painting: bool = false
 var last_paint_pos: Vector2i = Vector2i(-1, -1)
 
+var hole_tool: HoleCreationTool = HoleCreationTool.new()
+
 func _ready() -> void:
+	# Set terrain grid reference in GameManager
+	GameManager.terrain_grid = terrain_grid
+
+	# Add hole creation tool
+	add_child(hole_tool)
+
 	_connect_signals()
 	_connect_ui_buttons()
 	_initialize_game()
@@ -46,7 +54,8 @@ func _connect_ui_buttons() -> void:
 	tool_panel.get_node("WaterBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.WATER))
 	tool_panel.get_node("PathBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.PATH))
 	tool_panel.get_node("TeeBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.TEE_BOX))
-	
+	tool_panel.get_node("CreateHoleBtn").pressed.connect(_on_create_hole_pressed)
+
 	$UI/HUD/BottomBar/SpeedControls/PauseBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.PAUSED))
 	$UI/HUD/BottomBar/SpeedControls/PlayBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.NORMAL))
 	$UI/HUD/BottomBar/SpeedControls/FastBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.FAST))
@@ -71,6 +80,13 @@ func _handle_mouse_hover() -> void:
 		coordinate_label.text = "Out of bounds"
 
 func _start_painting() -> void:
+	# Check if we're in hole placement mode
+	if hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
+		var mouse_world = camera.get_mouse_world_position()
+		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+		hole_tool.handle_click(grid_pos)
+		return
+
 	is_painting = true
 	_paint_at_mouse()
 
@@ -106,8 +122,14 @@ func _cancel_action() -> void:
 	last_paint_pos = Vector2i(-1, -1)
 
 func _on_tool_selected(tool_type: int) -> void:
+	# Cancel any hole placement
+	hole_tool.cancel_placement()
+
 	current_tool = tool_type
 	print("Tool selected: " + TerrainTypes.get_name(tool_type))
+
+func _on_create_hole_pressed() -> void:
+	hole_tool.start_tee_placement()
 
 func _on_speed_selected(speed: int) -> void:
 	GameManager.set_speed(speed)

@@ -1,11 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://dj8qvx2f3c5hy"]
+[gd_scene load_steps=6 format=3 uid="uid://dj8qvx2f3c5hy"]
 
 [ext_resource type="Script" path="res://scripts/main/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/utils/isometric_camera.gd" id="2_camera"]
 [ext_resource type="Script" path="res://scripts/terrain/terrain_grid.gd" id="3_terrain"]
-
-[sub_resource type="TileSet" id="TileSet_placeholder"]
-tile_size = Vector2i(64, 32)
+[ext_resource type="TileSet" path="res://assets/tilesets/terrain_tileset.tres" id="4_tileset"]
+[ext_resource type="Script" path="res://scripts/managers/golfer_manager.gd" id="5_golfer_manager"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -14,13 +13,16 @@ script = ExtResource("1_main")
 script = ExtResource("3_terrain")
 
 [node name="TileMapLayer" type="TileMapLayer" parent="TerrainGrid"]
-tile_set = SubResource("TileSet_placeholder")
+tile_set = ExtResource("4_tileset")
 
 [node name="Entities" type="Node2D" parent="."]
 
 [node name="Golfers" type="Node2D" parent="Entities"]
 
 [node name="Buildings" type="Node2D" parent="Entities"]
+
+[node name="GolferManager" type="Node" parent="."]
+script = ExtResource("5_golfer_manager")
 
 [node name="IsometricCamera" type="Camera2D" parent="."]
 position = Vector2(2000, 1000)
@@ -97,6 +99,17 @@ text = "Path"
 [node name="TeeBtn" type="Button" parent="UI/HUD/ToolPanel"]
 layout_mode = 2
 text = "Tee Box"
+
+[node name="Separator" type="HSeparator" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+
+[node name="HoleLabel" type="Label" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Hole Tools"
+
+[node name="CreateHoleBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Create Hole"
 
 [node name="BottomBar" type="HBoxContainer" parent="UI/HUD"]
 layout_mode = 1
