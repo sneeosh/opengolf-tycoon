@@ -16,10 +16,23 @@ var is_painting: bool = false
 var last_paint_pos: Vector2i = Vector2i(-1, -1)
 
 var hole_tool: HoleCreationTool = HoleCreationTool.new()
+var placement_manager: PlacementManager = PlacementManager.new()
+var building_registry: Node = null
+var entity_layer: EntityLayer = null
 
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
 	GameManager.terrain_grid = terrain_grid
+
+	# Initialize building registry and entity layer
+	building_registry = Node.new()
+	add_child(building_registry)
+	building_registry.script = load("res://scripts/managers/building_registry.gd")
+	
+	entity_layer = EntityLayer.new()
+	add_child(entity_layer)
+	entity_layer.set_terrain_grid(terrain_grid)
+	entity_layer.set_building_registry(building_registry)
 
 	# Add hole creation tool
 	add_child(hole_tool)
@@ -61,6 +74,12 @@ func _connect_ui_buttons() -> void:
 	$UI/HUD/BottomBar/SpeedControls/PauseBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.PAUSED))
 	$UI/HUD/BottomBar/SpeedControls/PlayBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.NORMAL))
 	$UI/HUD/BottomBar/SpeedControls/FastBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.FAST))
+	
+	# Connect building and tree placement buttons if they exist
+	if tool_panel.has_node("TreeBtn"):
+		tool_panel.get_node("TreeBtn").pressed.connect(_on_tree_placement_pressed)
+	if tool_panel.has_node("BuildingBtn"):
+		tool_panel.get_node("BuildingBtn").pressed.connect(_on_building_placement_pressed)
 
 func _initialize_game() -> void:
 	GameManager.new_game("My Golf Course")
@@ -84,6 +103,13 @@ func _handle_mouse_hover() -> void:
 		coordinate_label.text = "Out of bounds"
 
 func _start_painting() -> void:
+	# Check if we're in placement mode (building or tree)
+	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
+		var mouse_world = camera.get_mouse_world_position()
+		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+		_handle_placement_click(grid_pos)
+		return
+	
 	# Check if we're in hole placement mode
 	if hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
 		var mouse_world = camera.get_mouse_world_position()
@@ -124,6 +150,9 @@ func _paint_at_mouse() -> void:
 func _cancel_action() -> void:
 	is_painting = false
 	last_paint_pos = Vector2i(-1, -1)
+	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
+		placement_manager.cancel_placement()
+		print("Cancelled placement mode")
 
 func _on_tool_selected(tool_type: int) -> void:
 	# Cancel any hole placement
@@ -151,3 +180,55 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	var hole_label = Label.new()
 	hole_label.text = "Hole %d: Par %d (%d yds)" % [hole_number, par, distance_yards]
 	hole_list.add_child(hole_label)
+
+func _on_tree_placement_pressed() -> void:
+	"""Start tree placement mode"""
+	hole_tool.cancel_placement()
+	is_painting = false
+	placement_manager.start_tree_placement()
+
+func _on_building_placement_pressed() -> void:
+	"""Show building selection menu and start building placement"""
+	hole_tool.cancel_placement()
+	is_painting = false
+	# For now, just start with clubhouse as default
+	if building_registry:
+		var clubhouse_data = building_registry.get_building("clubhouse")
+		if not clubhouse_data.is_empty():
+			placement_manager.start_building_placement("clubhouse", clubhouse_data)
+
+func _handle_placement_click(grid_pos: Vector2i) -> void:
+	"""Handle clicking during building/tree placement"""
+	if not placement_manager.can_place_at(grid_pos, terrain_grid):
+		EventBus.notify("Cannot place here!", "error")
+		return
+	
+	var cost = placement_manager.get_placement_cost()
+	if cost > 0 and GameManager.money < cost:
+		EventBus.notify("Not enough money!", "error")
+		return
+	
+	if placement_manager.placement_mode == PlacementManager.PlacementMode.TREE:
+		_place_tree(grid_pos, cost)
+	elif placement_manager.placement_mode == PlacementManager.PlacementMode.BUILDING:
+		_place_building(grid_pos, cost)
+
+func _place_tree(grid_pos: Vector2i, cost: int) -> void:
+	"""Place a tree at the grid position"""
+	entity_layer.place_tree(grid_pos, "oak")
+	GameManager.modify_money(-cost)
+	EventBus.log_transaction("Tree placement", -cost)
+	print("Placed tree at %s" % grid_pos)
+
+func _place_building(grid_pos: Vector2i, cost: int) -> void:
+	"""Place a building at the grid position"""
+	var building_type = placement_manager.selected_building_type
+	var building = entity_layer.place_building(building_type, grid_pos, building_registry)
+	
+	if building:
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Building: %s" % building_registry.get_building_name(building_type), -cost)
+		print("Placed %s at %s" % [building_type, grid_pos])
+	else:
+		EventBus.notify("Failed to place building!", "error")
+
