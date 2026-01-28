@@ -67,7 +67,7 @@ func _ai_take_shot(golfer: Golfer, hole_data: Dictionary) -> void:
 	var hole_position = hole_data.hole_position
 
 	# Check if on the green
-	var distance_to_hole = golfer.ball_position.distance_to(hole_position)
+	var distance_to_hole = Vector2(golfer.ball_position).distance_to(Vector2(hole_position))
 
 	if distance_to_hole < 2.0:
 		# Close enough to hole it

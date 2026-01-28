@@ -4,7 +4,7 @@ extends Node2D
 @onready var terrain_grid: TerrainGrid = $TerrainGrid
 @onready var camera: IsometricCamera = $IsometricCamera
 @onready var money_label: Label = $UI/HUD/TopBar/MoneyLabel
-@ontml:parameter>
+@onready var day_label: Label = $UI/HUD/TopBar/DayLabel
 @onready var reputation_label: Label = $UI/HUD/TopBar/ReputationLabel
 @onready var coordinate_label: Label = $UI/HUD/BottomBar/CoordinateLabel
 @onready var tool_panel: VBoxContainer = $UI/HUD/ToolPanel

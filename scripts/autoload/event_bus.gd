@@ -23,24 +23,25 @@ signal building_removed(position: Vector2i)
 signal terrain_tool_selected(tool_type: String)
 
 # Course Design Signals
-signal hole_created(hole_number: int)
+signal hole_created(hole_number: int, par: int, distance_yards: int)
 signal hole_modified(hole_number: int)
+signal hole_deleted(hole_number: int)
 signal tee_placed(hole_number: int, position: Vector2i)
 signal green_placed(hole_number: int, position: Vector2i)
 signal par_calculated(hole_number: int, par: int)
 
 # Golfer Signals
-signal golfer_spawned(golfer_id: int)
+signal golfer_spawned(golfer_id: int, golfer_name: String)
 signal golfer_started_hole(golfer_id: int, hole_number: int)
-signal golfer_finished_hole(golfer_id: int, hole_number: int, strokes: int)
+signal golfer_finished_hole(golfer_id: int, hole_number: int, strokes: int, par: int)
 signal golfer_finished_round(golfer_id: int, total_score: int)
-signal golfer_mood_changed(golfer_id: int, old_mood: float, new_mood: float)
-signal golfer_left_course(golfer_id: int, reason: String)
+signal golfer_mood_changed(golfer_id: int, new_mood: float)
+signal golfer_left_course(golfer_id: int)
 
 # Shot Signals
-signal shot_taken(golfer_id: int, from_pos: Vector2, to_pos: Vector2, club: String)
-signal ball_landed(golfer_id: int, position: Vector2, terrain_type: int)
-signal ball_in_hole(golfer_id: int, hole_number: int, strokes: int)
+signal shot_taken(golfer_id: int, hole_number: int, strokes: int)
+signal ball_landed(golfer_id: int, position: Vector2i, terrain_type: int)
+signal ball_in_hole(golfer_id: int, hole_number: int)
 
 # UI Signals
 signal ui_notification(message: String, type: String)

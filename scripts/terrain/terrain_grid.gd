@@ -61,7 +61,7 @@ func get_brush_tiles(center: Vector2i, radius: int) -> Array:
 		for y in range(-radius, radius + 1):
 			var offset = Vector2i(x, y)
 			var pos = center + offset
-			if offset.length() <= radius and is_valid_position(pos):
+			if Vector2(offset).length() <= radius and is_valid_position(pos):
 				tiles.append(pos)
 	return tiles
 

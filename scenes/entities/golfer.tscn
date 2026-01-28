@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3 uid="uid://b7qvx8k3n6mhj"]
+[gd_scene load_steps=3 format=3 uid="uid://b7qvx8k3n6mhj"]
 
 [ext_resource type="Script" path="res://scripts/entities/golfer.gd" id="1_golfer"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_golfer"]
+radius = 8.0
 
 [node name="Golfer" type="CharacterBody2D"]
 collision_layer = 4
@@ -24,11 +27,6 @@ offset_right = 32.0
 offset_bottom = -16.0
 text = "Golfer"
 horizontal_alignment = 1
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-
-[sub_resource type="CircleShape2D" id="CircleShape2D_golfer"]
-radius = 8.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_golfer")

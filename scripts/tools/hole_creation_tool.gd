@@ -86,7 +86,7 @@ func _place_green(position: Vector2i) -> bool:
 		return false
 
 	# Ensure green is reasonable distance from tee
-	var distance = pending_tee_position.distance_to(position)
+	var distance = Vector2(pending_tee_position).distance_to(Vector2(position))
 	if distance < 20:
 		print("Green must be at least 20 tiles from tee (100 yards)")
 		return false

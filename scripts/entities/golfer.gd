@@ -157,8 +157,8 @@ func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 	var skill_factor = (driving_skill + accuracy_skill) / 2.0
 	var max_distance = int(250.0 * skill_factor)  # Max drive distance in yards (tiles)
 
-	var direction = (hole_position - ball_position).normalized()
-	var distance = min(ball_position.distance_to(hole_position), max_distance)
+	var direction = Vector2(hole_position - ball_position).normalized()
+	var distance = min(Vector2(ball_position).distance_to(Vector2(hole_position)), max_distance)
 
 	# Add some randomness
 	var accuracy_variance = (1.0 - accuracy_skill) * 20.0
