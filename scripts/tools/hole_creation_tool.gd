@@ -41,37 +41,29 @@ func cancel_placement() -> void:
 
 ## Handle click to place tee or green
 func handle_click(grid_position: Vector2i) -> bool:
-	print("handle_click called with position: ", grid_position, " mode: ", placement_mode)
 	if not GameManager.terrain_grid:
-		print("ERROR: GameManager.terrain_grid is null!")
 		return false
 
 	match placement_mode:
 		PlacementMode.PLACING_TEE:
-			print("Attempting to place tee...")
 			return _place_tee(grid_position)
 		PlacementMode.PLACING_GREEN:
-			print("Attempting to place green...")
 			return _place_green(grid_position)
 
 	return false
 
 ## Place tee box at position
 func _place_tee(position: Vector2i) -> bool:
-	print("_place_tee called with position: ", position)
 	if not GameManager.terrain_grid.is_valid_position(position):
-		print("Position is not valid!")
 		return false
 
 	# Paint tee box tiles in a 3x3 area
 	var tee_tiles = GameManager.terrain_grid.get_brush_tiles(position, 1)
-	print("Tee tiles count: ", tee_tiles.size())
 
 	# Check if we can afford it
 	var cost = TerrainTypes.get_placement_cost(TerrainTypes.Type.TEE_BOX) * tee_tiles.size()
-	print("Cost: $", cost, " Money: $", GameManager.money)
 	if GameManager.money < cost:
-		print("Not enough money to place tee box (need $", cost, ")")
+		EventBus.notify("Not enough money to place tee box (need $%d)" % cost, "error")
 		return false
 
 	# Place the tee box
@@ -80,8 +72,6 @@ func _place_tee(position: Vector2i) -> bool:
 
 	GameManager.modify_money(-cost)
 	pending_tee_position = position
-
-	print("Tee box placed at ", position)
 
 	# Automatically move to green placement
 	start_green_placement()

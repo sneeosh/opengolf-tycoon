@@ -58,6 +58,32 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Reputation: 50"
 
+[node name="HoleInfoPanel" type="PanelContainer" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 10.0
+offset_top = -200.0
+offset_right = 210.0
+offset_bottom = 200.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/HUD/HoleInfoPanel"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="UI/HUD/HoleInfoPanel/VBoxContainer"]
+layout_mode = 2
+text = "Course Holes"
+horizontal_alignment = 1
+
+[node name="ScrollContainer" type="ScrollContainer" parent="UI/HUD/HoleInfoPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="HoleList" type="VBoxContainer" parent="UI/HUD/HoleInfoPanel/VBoxContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
 [node name="ToolPanel" type="VBoxContainer" parent="UI/HUD"]
 layout_mode = 1
 anchors_preset = 6
@@ -101,7 +127,26 @@ text = "Path"
 layout_mode = 2
 text = "Tee Box"
 
-[node name="Separator" type="HSeparator" parent="UI/HUD/ToolPanel"]
+[node name="Separator1" type="HSeparator" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+
+[node name="ObjectsLabel" type="Label" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Objects"
+
+[node name="TreesBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Trees"
+
+[node name="FlowerBedBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Flower Bed"
+
+[node name="RocksBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Rocks"
+
+[node name="Separator2" type="HSeparator" parent="UI/HUD/ToolPanel"]
 layout_mode = 2
 
 [node name="HoleLabel" type="Label" parent="UI/HUD/ToolPanel"]

@@ -8,6 +8,7 @@ extends Node2D
 @onready var reputation_label: Label = $UI/HUD/TopBar/ReputationLabel
 @onready var coordinate_label: Label = $UI/HUD/BottomBar/CoordinateLabel
 @onready var tool_panel: VBoxContainer = $UI/HUD/ToolPanel
+@onready var hole_list: VBoxContainer = $UI/HUD/HoleInfoPanel/VBoxContainer/ScrollContainer/HoleList
 
 var current_tool: int = TerrainTypes.Type.FAIRWAY
 var brush_size: int = 1
@@ -45,6 +46,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _connect_signals() -> void:
 	EventBus.connect("money_changed", _on_money_changed)
 	EventBus.connect("day_changed", _on_day_changed)
+	EventBus.connect("hole_created", _on_hole_created)
 
 func _connect_ui_buttons() -> void:
 	tool_panel.get_node("FairwayBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.FAIRWAY))
@@ -63,11 +65,9 @@ func _connect_ui_buttons() -> void:
 func _initialize_game() -> void:
 	GameManager.new_game("My Golf Course")
 	# Center camera on the middle of the grid
-	# With 128x128 tiles of size 64x32, center is at (64*64, 64*32) = (4096, 2048)
 	var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
 	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
 	camera.focus_on(Vector2(center_x, center_y), true)
-	print("Camera centered at: ", center_x, ", ", center_y)
 
 func _update_ui() -> void:
 	money_label.text = "$%d" % GameManager.money
@@ -88,7 +88,6 @@ func _start_painting() -> void:
 	if hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
 		var mouse_world = camera.get_mouse_world_position()
 		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
-		print("Hole placement click at grid pos: ", grid_pos, " placement_mode: ", hole_tool.placement_mode)
 		hole_tool.handle_click(grid_pos)
 		return
 
@@ -147,3 +146,8 @@ func _on_day_changed(new_day: int) -> void:
 	if maintenance > 0:
 		GameManager.modify_money(-maintenance)
 		EventBus.log_transaction("Daily maintenance", -maintenance)
+
+func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
+	var hole_label = Label.new()
+	hole_label.text = "Hole %d: Par %d (%d yds)" % [hole_number, par, distance_yards]
+	hole_list.add_child(hole_label)

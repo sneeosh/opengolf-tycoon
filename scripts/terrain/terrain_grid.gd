@@ -15,10 +15,6 @@ signal tile_changed(position: Vector2i, old_type: int, new_type: int)
 
 func _ready() -> void:
 	_initialize_grid()
-	print("TerrainGrid position: ", global_position)
-	if tile_map:
-		print("TileMapLayer position: ", tile_map.global_position)
-		print("TileMapLayer tile_set: ", tile_map.tile_set)
 
 func _initialize_grid() -> void:
 	for x in range(grid_width):
