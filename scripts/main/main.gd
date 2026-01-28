@@ -17,17 +17,15 @@ var last_paint_pos: Vector2i = Vector2i(-1, -1)
 
 var hole_tool: HoleCreationTool = HoleCreationTool.new()
 var placement_manager: PlacementManager = PlacementManager.new()
-var building_registry: Node = null
+var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
 
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
 	GameManager.terrain_grid = terrain_grid
 
-	# Initialize building registry and entity layer
-	building_registry = Node.new()
-	add_child(building_registry)
-	building_registry.script = load("res://scripts/managers/building_registry.gd")
+	# Load buildings from JSON
+	_load_buildings_data()
 	
 	entity_layer = EntityLayer.new()
 	add_child(entity_layer)
@@ -41,6 +39,22 @@ func _ready() -> void:
 	_connect_ui_buttons()
 	_initialize_game()
 	print("Main scene ready")
+
+func _load_buildings_data() -> void:
+	"""Load buildings from buildings.json"""
+	var file = FileAccess.open("res://data/buildings.json", FileAccess.READ)
+	if file == null:
+		push_error("Failed to load buildings.json")
+		return
+	
+	var json_string = file.get_as_text()
+	var data = JSON.parse_string(json_string)
+	
+	if data and data.has("buildings"):
+		building_registry = data["buildings"]
+		print("Loaded %d building types" % building_registry.size())
+	else:
+		push_error("Invalid buildings.json format")
 
 func _process(_delta: float) -> void:
 	_update_ui()
@@ -75,11 +89,26 @@ func _connect_ui_buttons() -> void:
 	$UI/HUD/BottomBar/SpeedControls/PlayBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.NORMAL))
 	$UI/HUD/BottomBar/SpeedControls/FastBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.FAST))
 	
-	# Connect building and tree placement buttons if they exist
-	if tool_panel.has_node("TreeBtn"):
-		tool_panel.get_node("TreeBtn").pressed.connect(_on_tree_placement_pressed)
-	if tool_panel.has_node("BuildingBtn"):
-		tool_panel.get_node("BuildingBtn").pressed.connect(_on_building_placement_pressed)
+	# Create and add building and tree placement buttons if they don't exist
+	_add_placement_buttons()
+
+func _add_placement_buttons() -> void:
+	"""Programmatically add Tree and Building buttons to the tool panel"""
+	# Add Tree button
+	if not tool_panel.has_node("TreeBtn"):
+		var tree_btn = Button.new()
+		tree_btn.name = "TreeBtn"
+		tree_btn.text = "Plant Tree"
+		tree_btn.pressed.connect(_on_tree_placement_pressed)
+		tool_panel.add_child(tree_btn)
+	
+	# Add Building button
+	if not tool_panel.has_node("BuildingBtn"):
+		var building_btn = Button.new()
+		building_btn.name = "BuildingBtn"
+		building_btn.text = "Place Building"
+		building_btn.pressed.connect(_on_building_placement_pressed)
+		tool_panel.add_child(building_btn)
 
 func _initialize_game() -> void:
 	GameManager.new_game("My Golf Course")
@@ -155,13 +184,18 @@ func _cancel_action() -> void:
 		print("Cancelled placement mode")
 
 func _on_tool_selected(tool_type: int) -> void:
-	# Cancel any hole placement
+	# Cancel any hole placement and building/tree placement
 	hole_tool.cancel_placement()
+	placement_manager.cancel_placement()
+	is_painting = false
 
 	current_tool = tool_type
 	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
 
 func _on_create_hole_pressed() -> void:
+	# Cancel any building/tree placement or terrain painting
+	placement_manager.cancel_placement()
+	is_painting = false
 	hole_tool.start_tee_placement()
 
 func _on_speed_selected(speed: int) -> void:
@@ -189,13 +223,58 @@ func _on_tree_placement_pressed() -> void:
 
 func _on_building_placement_pressed() -> void:
 	"""Show building selection menu and start building placement"""
+	print("Building button pressed!")
 	hole_tool.cancel_placement()
 	is_painting = false
-	# For now, just start with clubhouse as default
-	if building_registry:
-		var clubhouse_data = building_registry.get_building("clubhouse")
-		if not clubhouse_data.is_empty():
-			placement_manager.start_building_placement("clubhouse", clubhouse_data)
+	
+	if building_registry.is_empty():
+		print("ERROR: Building registry is empty!")
+		EventBus.notify("Building system not initialized!", "error")
+		return
+	
+	# Get building names from dictionary
+	var building_names = building_registry.keys()
+	print("Available buildings: ", building_names)
+	if building_names.is_empty():
+		EventBus.notify("No buildings available!", "error")
+		return
+	
+	# Create a simple dialog with building options
+	var dialog = AcceptDialog.new()
+	dialog.title = "Select Building"
+	dialog.size = Vector2i(400, 300)
+	
+	# Create scroll container for many buildings
+	var scroll = ScrollContainer.new()
+	var vbox = VBoxContainer.new()
+	
+	for building_type in building_names:
+		var building_data = building_registry[building_type]
+		var name_text = building_data.get("name", building_type)
+		var cost = building_data.get("cost", 0)
+		
+		var btn = Button.new()
+		btn.text = "%s ($%d)" % [name_text, cost]
+		btn.custom_minimum_size = Vector2(350, 30)
+		btn.pressed.connect(_on_building_type_selected.bind(building_type, dialog))
+		vbox.add_child(btn)
+	
+	scroll.add_child(vbox)
+	dialog.add_child(scroll)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered_ratio(0.4)
+
+func _on_building_type_selected(building_type: String, dialog: AcceptDialog) -> void:
+	"""Handle building type selection"""
+	print("Selected building: %s" % building_type)
+	dialog.queue_free()
+	
+	if building_type in building_registry:
+		var building_data = building_registry[building_type]
+		placement_manager.start_building_placement(building_type, building_data)
+		print("Building placement mode: %s" % building_type)
+	else:
+		print("ERROR: Building type not found: %s" % building_type)
 
 func _handle_placement_click(grid_pos: Vector2i) -> void:
 	"""Handle clicking during building/tree placement"""
@@ -227,8 +306,8 @@ func _place_building(grid_pos: Vector2i, cost: int) -> void:
 	
 	if building:
 		GameManager.modify_money(-cost)
-		EventBus.log_transaction("Building: %s" % building_registry.get_building_name(building_type), -cost)
+		var building_name = building_registry[building_type].get("name", building_type) if building_type in building_registry else building_type
+		EventBus.log_transaction("Building: %s" % building_name, -cost)
 		print("Placed %s at %s" % [building_type, grid_pos])
 	else:
 		EventBus.notify("Failed to place building!", "error")
-

@@ -6,7 +6,7 @@ var buildings: Dictionary = {}  # key: Vector2i (grid_pos), value: Building node
 var trees: Dictionary = {}      # key: Vector2i (grid_pos), value: Tree node
 
 var terrain_grid: TerrainGrid
-var building_registry: Node
+var building_registry: Dictionary = {}  # Can accept either Node or Dictionary
 
 signal building_placed(building: Building, cost: int)
 signal tree_placed(tree: Tree, cost: int)
@@ -25,16 +25,22 @@ func _ready() -> void:
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 
-func set_building_registry(registry: Node) -> void:
+func set_building_registry(registry) -> void:
 	building_registry = registry
 
-func place_building(building_type: String, grid_pos: Vector2i, building_registry: Node) -> Building:
+func place_building(building_type: String, grid_pos: Vector2i, building_registry) -> Building:
 	"""Place a building at the specified grid position"""
-	if building_registry == null:
+	if building_registry == null or (building_registry is Dictionary and building_registry.is_empty()):
 		push_error("Building registry not set")
 		return null
 	
-	var building_data = building_registry.get_building(building_type)
+	var building_data
+	if building_registry is Dictionary:
+		building_data = building_registry.get(building_type, {})
+	else:
+		# Support legacy Node-based registry
+		building_data = building_registry.get_building(building_type) if building_registry.has_method("get_building") else {}
+	
 	if building_data.is_empty():
 		push_error("Unknown building type: %s" % building_type)
 		return null
