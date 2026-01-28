@@ -1,0 +1,130 @@
+[gd_scene load_steps=5 format=3 uid="uid://dj8qvx2f3c5hy"]
+
+[ext_resource type="Script" path="res://scripts/main/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/utils/isometric_camera.gd" id="2_camera"]
+[ext_resource type="Script" path="res://scripts/terrain/terrain_grid.gd" id="3_terrain"]
+
+[sub_resource type="TileSet" id="TileSet_placeholder"]
+tile_size = Vector2i(64, 32)
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="TerrainGrid" type="Node2D" parent="."]
+script = ExtResource("3_terrain")
+
+[node name="TileMapLayer" type="TileMapLayer" parent="TerrainGrid"]
+tile_set = SubResource("TileSet_placeholder")
+
+[node name="Entities" type="Node2D" parent="."]
+
+[node name="Golfers" type="Node2D" parent="Entities"]
+
+[node name="Buildings" type="Node2D" parent="Entities"]
+
+[node name="IsometricCamera" type="Camera2D" parent="."]
+position = Vector2(2000, 1000)
+script = ExtResource("2_camera")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HUD" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="TopBar" type="HBoxContainer" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 50.0
+
+[node name="MoneyLabel" type="Label" parent="UI/HUD/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "$50,000"
+
+[node name="DayLabel" type="Label" parent="UI/HUD/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Day 1 - 6:00 AM"
+
+[node name="ReputationLabel" type="Label" parent="UI/HUD/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Reputation: 50"
+
+[node name="ToolPanel" type="VBoxContainer" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -200.0
+offset_bottom = 200.0
+
+[node name="ToolsLabel" type="Label" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Terrain Tools"
+
+[node name="FairwayBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Fairway"
+
+[node name="RoughBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Rough"
+
+[node name="GreenBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Green"
+
+[node name="BunkerBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Bunker"
+
+[node name="WaterBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Water"
+
+[node name="PathBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Path"
+
+[node name="TeeBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Tee Box"
+
+[node name="BottomBar" type="HBoxContainer" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -60.0
+
+[node name="SpeedControls" type="HBoxContainer" parent="UI/HUD/BottomBar"]
+layout_mode = 2
+
+[node name="PauseBtn" type="Button" parent="UI/HUD/BottomBar/SpeedControls"]
+layout_mode = 2
+text = "||"
+
+[node name="PlayBtn" type="Button" parent="UI/HUD/BottomBar/SpeedControls"]
+layout_mode = 2
+text = ">"
+
+[node name="FastBtn" type="Button" parent="UI/HUD/BottomBar/SpeedControls"]
+layout_mode = 2
+text = ">>"
+
+[node name="Spacer" type="Control" parent="UI/HUD/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CoordinateLabel" type="Label" parent="UI/HUD/BottomBar"]
+layout_mode = 2
+text = "Tile: (0, 0)"

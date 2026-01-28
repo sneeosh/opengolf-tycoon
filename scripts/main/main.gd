@@ -1,0 +1,122 @@
+extends Node2D
+## Main - Primary game scene controller
+
+@onready var terrain_grid: TerrainGrid = $TerrainGrid
+@onready var camera: IsometricCamera = $IsometricCamera
+@onready var money_label: Label = $UI/HUD/TopBar/MoneyLabel
+@onready var day_label: Label = $UI/HUD/TopBar/DayLabel
+@onready var reputation_label: Label = $UI/HUD/TopBar/ReputationLabel
+@onready var coordinate_label: Label = $UI/HUD/BottomBar/CoordinateLabel
+@onready var tool_panel: VBoxContainer = $UI/HUD/ToolPanel
+
+var current_tool: int = TerrainTypes.Type.FAIRWAY
+var brush_size: int = 1
+var is_painting: bool = false
+var last_paint_pos: Vector2i = Vector2i(-1, -1)
+
+func _ready() -> void:
+	_connect_signals()
+	_connect_ui_buttons()
+	_initialize_game()
+	print("Main scene ready")
+
+func _process(_delta: float) -> void:
+	_update_ui()
+	_handle_mouse_hover()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("select"):
+		_start_painting()
+	elif event.is_action_released("select"):
+		_stop_painting()
+	if event.is_action_pressed("cancel"):
+		_cancel_action()
+	if is_painting and event is InputEventMouseMotion:
+		_paint_at_mouse()
+
+func _connect_signals() -> void:
+	EventBus.connect("money_changed", _on_money_changed)
+	EventBus.connect("day_changed", _on_day_changed)
+
+func _connect_ui_buttons() -> void:
+	tool_panel.get_node("FairwayBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.FAIRWAY))
+	tool_panel.get_node("RoughBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.ROUGH))
+	tool_panel.get_node("GreenBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.GREEN))
+	tool_panel.get_node("BunkerBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.BUNKER))
+	tool_panel.get_node("WaterBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.WATER))
+	tool_panel.get_node("PathBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.PATH))
+	tool_panel.get_node("TeeBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.TEE_BOX))
+	
+	$UI/HUD/BottomBar/SpeedControls/PauseBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.PAUSED))
+	$UI/HUD/BottomBar/SpeedControls/PlayBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.NORMAL))
+	$UI/HUD/BottomBar/SpeedControls/FastBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.FAST))
+
+func _initialize_game() -> void:
+	GameManager.new_game("My Golf Course")
+	var center = terrain_grid.grid_to_screen(Vector2i(terrain_grid.grid_width / 2, terrain_grid.grid_height / 2))
+	camera.focus_on(center, true)
+
+func _update_ui() -> void:
+	money_label.text = "$%d" % GameManager.money
+	day_label.text = "Day %d - %s" % [GameManager.current_day, GameManager.get_time_string()]
+	reputation_label.text = "Rep: %.0f" % GameManager.reputation
+
+func _handle_mouse_hover() -> void:
+	var mouse_world = camera.get_mouse_world_position()
+	var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+	if terrain_grid.is_valid_position(grid_pos):
+		var terrain_name = TerrainTypes.get_name(terrain_grid.get_tile(grid_pos))
+		coordinate_label.text = "Tile: (%d, %d) - %s" % [grid_pos.x, grid_pos.y, terrain_name]
+	else:
+		coordinate_label.text = "Out of bounds"
+
+func _start_painting() -> void:
+	is_painting = true
+	_paint_at_mouse()
+
+func _stop_painting() -> void:
+	is_painting = false
+	last_paint_pos = Vector2i(-1, -1)
+
+func _paint_at_mouse() -> void:
+	var mouse_world = camera.get_mouse_world_position()
+	var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+	if grid_pos == last_paint_pos: return
+	last_paint_pos = grid_pos
+	if not terrain_grid.is_valid_position(grid_pos): return
+	
+	var cost = TerrainTypes.get_placement_cost(current_tool)
+	if cost > 0 and GameManager.money < cost:
+		EventBus.notify("Not enough money!", "error")
+		return
+	
+	var tiles_to_paint = [grid_pos] if brush_size <= 1 else terrain_grid.get_brush_tiles(grid_pos, brush_size)
+	var total_cost = 0
+	for tile_pos in tiles_to_paint:
+		if terrain_grid.get_tile(tile_pos) != current_tool:
+			terrain_grid.set_tile(tile_pos, current_tool)
+			total_cost += cost
+	
+	if total_cost > 0:
+		GameManager.modify_money(-total_cost)
+		EventBus.log_transaction("Terrain: " + TerrainTypes.get_name(current_tool), -total_cost)
+
+func _cancel_action() -> void:
+	is_painting = false
+	last_paint_pos = Vector2i(-1, -1)
+
+func _on_tool_selected(tool_type: int) -> void:
+	current_tool = tool_type
+	print("Tool selected: " + TerrainTypes.get_name(tool_type))
+
+func _on_speed_selected(speed: int) -> void:
+	GameManager.set_speed(speed)
+
+func _on_money_changed(_old: int, _new: int) -> void:
+	pass
+
+func _on_day_changed(new_day: int) -> void:
+	var maintenance = terrain_grid.get_total_maintenance_cost()
+	if maintenance > 0:
+		GameManager.modify_money(-maintenance)
+		EventBus.log_transaction("Daily maintenance", -maintenance)

@@ -1,0 +1,12 @@
+{
+  "buildings": {
+    "clubhouse": {"id": "clubhouse", "name": "Clubhouse", "size": [4, 4], "cost": 10000, "required": true},
+    "pro_shop": {"id": "pro_shop", "name": "Pro Shop", "size": [2, 2], "cost": 5000, "income_per_golfer": 15},
+    "restaurant": {"id": "restaurant", "name": "Restaurant", "size": [3, 3], "cost": 15000, "income_per_golfer": 25},
+    "snack_bar": {"id": "snack_bar", "name": "Snack Bar", "size": [1, 1], "cost": 2000, "placeable_on_course": true},
+    "driving_range": {"id": "driving_range", "name": "Driving Range", "size": [6, 3], "cost": 8000},
+    "cart_shed": {"id": "cart_shed", "name": "Cart Shed", "size": [2, 3], "cost": 4000, "enables_cart_rental": true},
+    "restroom": {"id": "restroom", "name": "Restroom", "size": [1, 1], "cost": 1500, "placeable_on_course": true},
+    "bench": {"id": "bench", "name": "Bench", "size": [1, 1], "cost": 200, "placeable_on_course": true}
+  }
+}

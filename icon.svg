@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <circle cx="64" cy="64" r="60" fill="#2d5016"/>
+  <ellipse cx="64" cy="70" rx="35" ry="20" fill="#4a8522"/>
+  <rect x="62" y="30" width="3" height="45" fill="#8b4513"/>
+  <polygon points="65,30 90,40 65,50" fill="#ff4444"/>
+  <circle cx="50" cy="75" r="6" fill="white"/>
+  <circle cx="48" cy="73" r="1" fill="#ddd"/>
+  <circle cx="52" cy="73" r="1" fill="#ddd"/>
+  <circle cx="50" cy="77" r="1" fill="#ddd"/>
+  <text x="64" y="110" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="white">OGT</text>
+</svg>

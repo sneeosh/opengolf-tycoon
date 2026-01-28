@@ -1,0 +1,74 @@
+extends Node
+## EventBus - Global signal hub for decoupled communication
+
+# Game State Signals
+signal game_mode_changed(old_mode: int, new_mode: int)
+signal game_speed_changed(new_speed: int)
+signal pause_toggled(is_paused: bool)
+signal new_game_started()
+
+# Time Signals
+signal day_changed(new_day: int)
+signal hour_changed(new_hour: float)
+
+# Economic Signals
+signal money_changed(old_amount: int, new_amount: int)
+signal reputation_changed(old_rep: float, new_rep: float)
+signal transaction_completed(description: String, amount: int)
+
+# Terrain/Building Signals
+signal terrain_tile_changed(position: Vector2i, old_type: int, new_type: int)
+signal building_placed(building_type: String, position: Vector2i)
+signal building_removed(position: Vector2i)
+signal terrain_tool_selected(tool_type: String)
+
+# Course Design Signals
+signal hole_created(hole_number: int)
+signal hole_modified(hole_number: int)
+signal tee_placed(hole_number: int, position: Vector2i)
+signal green_placed(hole_number: int, position: Vector2i)
+signal par_calculated(hole_number: int, par: int)
+
+# Golfer Signals
+signal golfer_spawned(golfer_id: int)
+signal golfer_started_hole(golfer_id: int, hole_number: int)
+signal golfer_finished_hole(golfer_id: int, hole_number: int, strokes: int)
+signal golfer_finished_round(golfer_id: int, total_score: int)
+signal golfer_mood_changed(golfer_id: int, old_mood: float, new_mood: float)
+signal golfer_left_course(golfer_id: int, reason: String)
+
+# Shot Signals
+signal shot_taken(golfer_id: int, from_pos: Vector2, to_pos: Vector2, club: String)
+signal ball_landed(golfer_id: int, position: Vector2, terrain_type: int)
+signal ball_in_hole(golfer_id: int, hole_number: int, strokes: int)
+
+# UI Signals
+signal ui_notification(message: String, type: String)
+signal tooltip_requested(text: String, position: Vector2)
+signal tooltip_hidden()
+
+# Camera Signals
+signal camera_moved(new_position: Vector2)
+signal camera_zoomed(new_zoom: float)
+
+# Selection Signals
+signal tile_selected(position: Vector2i)
+signal tile_hovered(position: Vector2i)
+signal selection_cleared()
+
+# Save/Load Signals
+signal save_requested()
+signal save_completed(success: bool)
+signal load_requested(save_name: String)
+signal load_completed(success: bool)
+
+func _ready() -> void:
+	print("EventBus initialized")
+
+func notify(message: String, type: String = "info") -> void:
+	emit_signal("ui_notification", message, type)
+
+func log_transaction(description: String, amount: int) -> void:
+	var sign_str = "+" if amount >= 0 else ""
+	print("[Transaction] %s: %s$%d" % [description, sign_str, amount])
+	emit_signal("transaction_completed", description, amount)

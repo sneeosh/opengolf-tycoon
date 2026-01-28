@@ -1,0 +1,73 @@
+# OpenGolf Tycoon
+
+An open source golf course builder and management game inspired by Sid Meier's SimGolf, built with Godot 4.
+
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Godot](https://img.shields.io/badge/Godot-4.3+-blue.svg)
+![Status](https://img.shields.io/badge/status-early%20development-orange.svg)
+
+## About
+
+OpenGolf Tycoon is a spiritual successor to the classic SimGolf (2002). Design and build your own golf courses, manage your country club, attract members, and compete to create the ultimate golfing destination.
+
+### Planned Features
+
+- **Course Designer**: Create unique holes with terrain sculpting, hazards, and decorations
+- **Club Management**: Build amenities, hire staff, set prices, and grow your membership
+- **Golfer Simulation**: Watch AI golfers play your course with realistic behavior
+- **Economic System**: Balance income and expenses, unlock upgrades, expand your empire
+- **Play Mode**: Take to the course yourself and play the holes you've designed
+
+## Getting Started
+
+### Prerequisites
+
+- [Godot Engine 4.3+](https://godotengine.org/download) (standard version)
+
+### Installation
+
+1. Clone this repository
+2. Open Godot Engine
+3. Click "Import" and navigate to the `project.godot` file
+4. Click "Import & Edit"
+5. Press F5 to run the game
+
+## Project Structure
+
+```
+opengolf-tycoon/
+├── data/                    # Game data (JSON configs)
+├── resources/               # Assets (sprites, audio, fonts)
+├── scenes/                  # Godot scenes (.tscn files)
+├── scripts/                 # GDScript files
+│   ├── autoload/           # Singleton managers
+│   ├── terrain/            # Terrain system
+│   ├── golfers/            # Golfer AI
+│   ├── economy/            # Economic simulation
+│   └── ...
+└── project.godot
+```
+
+## Contributing
+
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Areas Needing Help
+
+- Art: Isometric sprites for terrain, buildings, golfers
+- Audio: Music and sound effects
+- Code: Core systems implementation
+- Documentation: Tutorials, wiki pages
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- Sid Meier and Firaxis for the original SimGolf
+- The Godot Engine community
+
+---
+
+*This is a fan project and is not affiliated with Firaxis Games.*

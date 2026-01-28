@@ -1,0 +1,16 @@
+{
+  "golfer_archetypes": {
+    "casual": {"id": "casual", "name": "Casual Golfer", "spawn_weight": 40, "skill_range": [20, 50], "patience": 0.7},
+    "serious": {"id": "serious", "name": "Serious Golfer", "spawn_weight": 30, "skill_range": [40, 75], "patience": 0.5},
+    "beginner": {"id": "beginner", "name": "Beginner", "spawn_weight": 20, "skill_range": [5, 25], "patience": 0.9},
+    "pro": {"id": "pro", "name": "Professional", "spawn_weight": 5, "skill_range": [80, 100], "patience": 0.3},
+    "retiree": {"id": "retiree", "name": "Retiree", "spawn_weight": 15, "skill_range": [30, 60], "patience": 1.0}
+  },
+  "mood_states": {
+    "ecstatic": {"threshold": 90, "return_chance": 0.9},
+    "happy": {"threshold": 70, "return_chance": 0.7},
+    "content": {"threshold": 50, "return_chance": 0.5},
+    "annoyed": {"threshold": 30, "return_chance": 0.2},
+    "angry": {"threshold": 0, "return_chance": 0.0}
+  }
+}
