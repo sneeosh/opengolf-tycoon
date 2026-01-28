@@ -74,7 +74,7 @@ func _handle_mouse_hover() -> void:
 	var mouse_world = camera.get_mouse_world_position()
 	var grid_pos = terrain_grid.screen_to_grid(mouse_world)
 	if terrain_grid.is_valid_position(grid_pos):
-		var terrain_name = TerrainTypes.get_name(terrain_grid.get_tile(grid_pos))
+		var terrain_name = TerrainTypes.get_type_name(terrain_grid.get_tile(grid_pos))
 		coordinate_label.text = "Tile: (%d, %d) - %s" % [grid_pos.x, grid_pos.y, terrain_name]
 	else:
 		coordinate_label.text = "Out of bounds"
@@ -115,7 +115,7 @@ func _paint_at_mouse() -> void:
 	
 	if total_cost > 0:
 		GameManager.modify_money(-total_cost)
-		EventBus.log_transaction("Terrain: " + TerrainTypes.get_name(current_tool), -total_cost)
+		EventBus.log_transaction("Terrain: " + TerrainTypes.get_type_name(current_tool), -total_cost)
 
 func _cancel_action() -> void:
 	is_painting = false
@@ -126,7 +126,7 @@ func _on_tool_selected(tool_type: int) -> void:
 	hole_tool.cancel_placement()
 
 	current_tool = tool_type
-	print("Tool selected: " + TerrainTypes.get_name(tool_type))
+	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
 
 func _on_create_hole_pressed() -> void:
 	hole_tool.start_tee_placement()

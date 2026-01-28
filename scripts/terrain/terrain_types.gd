@@ -28,7 +28,7 @@ const PROPERTIES: Dictionary = {
 static func get_properties(type: Type) -> Dictionary:
 	return PROPERTIES.get(type, PROPERTIES[Type.EMPTY])
 
-static func get_name(type: Type) -> String:
+static func get_type_name(type: Type) -> String:
 	return get_properties(type).get("name", "Unknown")
 
 static func get_color(type: Type) -> Color:
