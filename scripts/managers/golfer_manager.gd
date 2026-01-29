@@ -117,6 +117,16 @@ func spawn_random_golfer() -> Golfer:
 
 	return spawn_golfer(random_name, random_skill)
 
+## Spawn initial group of golfers when course opens
+func spawn_initial_group() -> void:
+	var group_size = randi_range(1, 4)  # Groups of 1-4 players
+	print("Spawning initial group of %d golfers" % group_size)
+
+	for i in range(group_size):
+		spawn_random_golfer()
+		# Small delay between spawns in the same group
+		await get_tree().create_timer(0.5).timeout
+
 ## Remove a golfer from the course
 func remove_golfer(golfer_id: int) -> void:
 	for i in range(active_golfers.size()):

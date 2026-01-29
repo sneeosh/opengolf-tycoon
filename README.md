@@ -30,12 +30,21 @@ OpenGolf Tycoon is a spiritual successor to the classic SimGolf (2002). Design a
 - Score tracking and display
 - Shot calculation based on golfer skills
 - Visual feedback for ball states (in flight, rolling, in water, OB)
+- Automatic golfer spawning in groups of 1-4 players
+
+✅ **Game Modes & Controls**:
+- Building mode for course design and construction
+- Play mode for golfer simulation
+- Play/Pause/Fast speed controls
+- Validation system (requires at least one hole to play)
+- Visual game state indicators
 
 ✅ **UI & Controls**:
 - Isometric camera with pan and zoom
 - Intuitive arrow key controls
 - Tool palette for terrain editing
 - Real-time budget and day tracking
+- Game mode status display
 
 ### Planned Features
 

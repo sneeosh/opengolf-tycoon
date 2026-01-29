@@ -5,12 +5,20 @@ extends Node2D
 @onready var camera: IsometricCamera = $IsometricCamera
 @onready var ball_manager: BallManager = $BallManager
 @onready var hole_manager: HoleManager = $HoleManager
+@onready var golfer_manager: GolferManager = $GolferManager
 @onready var money_label: Label = $UI/HUD/TopBar/MoneyLabel
 @onready var day_label: Label = $UI/HUD/TopBar/DayLabel
 @onready var reputation_label: Label = $UI/HUD/TopBar/ReputationLabel
 @onready var coordinate_label: Label = $UI/HUD/BottomBar/CoordinateLabel
 @onready var tool_panel: VBoxContainer = $UI/HUD/ToolPanel
 @onready var hole_list: VBoxContainer = $UI/HUD/HoleInfoPanel/VBoxContainer/ScrollContainer/HoleList
+@onready var pause_btn: Button = $UI/HUD/BottomBar/SpeedControls/PauseBtn
+@onready var play_btn: Button = $UI/HUD/BottomBar/SpeedControls/PlayBtn
+@onready var fast_btn: Button = $UI/HUD/BottomBar/SpeedControls/FastBtn
+@onready var speed_controls: HBoxContainer = $UI/HUD/BottomBar/SpeedControls
+
+var game_mode_label: Label = null
+var build_mode_btn: Button = null
 
 var current_tool: int = TerrainTypes.Type.FAIRWAY
 var brush_size: int = 1
@@ -47,6 +55,7 @@ func _ready() -> void:
 
 	_connect_signals()
 	_connect_ui_buttons()
+	_create_game_mode_label()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -129,10 +138,87 @@ func _initialize_game() -> void:
 	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
 	camera.focus_on(Vector2(center_x, center_y), true)
 
+func _create_game_mode_label() -> void:
+	"""Create a label to show the current game mode"""
+	game_mode_label = Label.new()
+	game_mode_label.name = "GameModeLabel"
+
+	# Add theme overrides for visibility
+	game_mode_label.add_theme_font_size_override("font_size", 18)
+
+	# Insert as first child in top bar
+	var top_bar = $UI/HUD/TopBar
+	top_bar.add_child(game_mode_label)
+	top_bar.move_child(game_mode_label, 0)
+
+	# Create "Build Mode" button to return from simulation
+	build_mode_btn = Button.new()
+	build_mode_btn.name = "BuildModeBtn"
+	build_mode_btn.text = "🔨 Build"
+	build_mode_btn.pressed.connect(_on_build_mode_pressed)
+	speed_controls.add_child(build_mode_btn)
+
+func _on_build_mode_pressed() -> void:
+	"""Return to building mode from simulation"""
+	if GameManager.current_mode == GameManager.GameMode.SIMULATING:
+		GameManager.stop_simulation()
+		print("Returned to building mode")
+
 func _update_ui() -> void:
 	money_label.text = "$%d" % GameManager.money
 	day_label.text = "Day %d - %s" % [GameManager.current_day, GameManager.get_time_string()]
 	reputation_label.text = "Rep: %.0f" % GameManager.reputation
+
+	# Update game mode label
+	if game_mode_label:
+		match GameManager.current_mode:
+			GameManager.GameMode.BUILDING:
+				game_mode_label.text = "🔨 BUILDING MODE"
+				game_mode_label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.2))
+			GameManager.GameMode.SIMULATING:
+				var speed_text = ""
+				match GameManager.current_speed:
+					GameManager.GameSpeed.PAUSED:
+						speed_text = "⏸ PAUSED"
+					GameManager.GameSpeed.NORMAL:
+						speed_text = "▶ PLAYING"
+					GameManager.GameSpeed.FAST:
+						speed_text = "⏩ FAST"
+				game_mode_label.text = speed_text
+				game_mode_label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
+			_:
+				game_mode_label.text = "MODE: %s" % GameManager.current_mode
+
+	# Update button states
+	_update_button_states()
+
+func _update_button_states() -> void:
+	"""Update button appearance based on game mode and speed"""
+	if GameManager.current_mode == GameManager.GameMode.BUILDING:
+		# In building mode, only play button is relevant
+		pause_btn.disabled = true
+		play_btn.disabled = false
+		fast_btn.disabled = true
+		play_btn.text = "▶ Start"
+
+		# Hide build mode button when in building mode
+		if build_mode_btn:
+			build_mode_btn.visible = false
+	else:
+		# In simulation mode, all buttons are enabled
+		pause_btn.disabled = false
+		play_btn.disabled = false
+		fast_btn.disabled = false
+		play_btn.text = "▶"
+
+		# Show build mode button in simulation
+		if build_mode_btn:
+			build_mode_btn.visible = true
+
+		# Highlight active speed button
+		pause_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.PAUSED else Color(1, 1, 1, 1)
+		play_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.NORMAL else Color(1, 1, 1, 1)
+		fast_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.FAST else Color(1, 1, 1, 1)
 
 func _handle_mouse_hover() -> void:
 	var mouse_world = camera.get_mouse_world_position()
@@ -211,7 +297,26 @@ func _on_create_hole_pressed() -> void:
 	hole_tool.start_tee_placement()
 
 func _on_speed_selected(speed: int) -> void:
-	GameManager.set_speed(speed)
+	# Handle transition from building mode to simulation
+	if GameManager.current_mode == GameManager.GameMode.BUILDING:
+		# Only allow transition if trying to play (not pause)
+		if speed == GameManager.GameSpeed.PAUSED:
+			EventBus.notify("Course is in building mode", "info")
+			return
+
+		# Validate and start simulation
+		if GameManager.start_simulation():
+			print("Started simulation mode")
+			# Spawn initial group of golfers
+			golfer_manager.spawn_initial_group()
+		return
+
+	# Handle normal speed changes during simulation
+	if GameManager.current_mode == GameManager.GameMode.SIMULATING:
+		GameManager.set_speed(speed)
+
+		var speed_name = "Paused" if speed == GameManager.GameSpeed.PAUSED else ("Fast" if speed == GameManager.GameSpeed.FAST else "Normal")
+		print("Game speed: %s" % speed_name)
 
 func _on_money_changed(_old: int, _new: int) -> void:
 	pass

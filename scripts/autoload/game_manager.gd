@@ -87,6 +87,29 @@ func new_game(course_name_input: String = "New Course") -> void:
 func is_course_open() -> bool:
 	return current_hour >= COURSE_OPEN_HOUR and current_hour < COURSE_CLOSE_HOUR
 
+func can_start_playing() -> bool:
+	"""Check if the course is ready to start playing (has at least one complete hole)"""
+	if not current_course:
+		return false
+	return current_course.holes.size() > 0
+
+func start_simulation() -> bool:
+	"""Attempt to start the simulation mode"""
+	if not can_start_playing():
+		EventBus.notify("Need at least one hole to start playing!", "error")
+		return false
+
+	set_mode(GameMode.SIMULATING)
+	set_speed(GameSpeed.NORMAL)
+	EventBus.notify("Golf course opened!", "info")
+	return true
+
+func stop_simulation() -> void:
+	"""Stop the simulation and return to building mode"""
+	set_mode(GameMode.BUILDING)
+	set_speed(GameSpeed.PAUSED)
+	EventBus.notify("Returned to building mode", "info")
+
 func get_time_string() -> String:
 	var hour_int = int(current_hour)
 	var minute_int = int((current_hour - hour_int) * 60)
