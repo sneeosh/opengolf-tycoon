@@ -50,6 +50,7 @@ const CLUB_STATS = {
 ## Golfer identification
 @export var golfer_name: String = "Golfer"
 @export var golfer_id: int = -1
+@export var group_id: int = -1  # Which group this golfer belongs to
 
 ## Skill stats (0.0 to 1.0, where 1.0 is best)
 @export_range(0.0, 1.0) var driving_skill: float = 0.5
@@ -72,6 +73,10 @@ var current_strokes: int = 0
 var total_strokes: int = 0
 var ball_position: Vector2i = Vector2i.ZERO
 var target_position: Vector2i = Vector2i.ZERO
+
+## Shot preparation
+var preparation_time: float = 0.0
+const PREPARATION_DURATION: float = 1.0  # 1 second to prepare shot
 
 ## Movement
 @export var walk_speed: float = 100.0
@@ -134,7 +139,6 @@ func _process_walking(delta: float) -> void:
 		path_index += 1
 		if path_index >= path.size():
 			global_position = target
-			_change_state(State.IDLE)
 			_on_reached_destination()
 		return
 
@@ -151,10 +155,14 @@ func _process_walking(delta: float) -> void:
 		var swing_amount = sin(Time.get_ticks_msec() / 200.0) * 0.2
 		arms.rotation = swing_amount
 
-func _process_preparing_shot(_delta: float) -> void:
+func _process_preparing_shot(delta: float) -> void:
 	# AI thinks about the shot
-	# Could add a thinking timer here
-	pass
+	preparation_time += delta
+
+	if preparation_time >= PREPARATION_DURATION:
+		preparation_time = 0.0
+		# Ready to take shot - let AI decide target
+		_take_ai_shot()
 
 var swing_animation_playing: bool = false
 
@@ -193,6 +201,27 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	EventBus.emit_signal("golfer_started_hole", golfer_id, hole_number)
 	_update_score_display()
 	_change_state(State.PREPARING_SHOT)
+
+## AI automatically takes shot based on current hole
+func _take_ai_shot() -> void:
+	# Get current hole data
+	var course_data = GameManager.course_data
+	if not course_data or course_data.holes.is_empty():
+		print("No course data available for shot")
+		return
+
+	if current_hole >= course_data.holes.size():
+		print("Hole index out of range")
+		return
+
+	var hole_data = course_data.holes[current_hole]
+	var hole_position = hole_data.hole_position
+
+	# Decide where to aim
+	var target = decide_shot_target(hole_position)
+
+	# Take the shot
+	take_shot(target)
 
 ## Take a shot
 func take_shot(target: Vector2i) -> void:
@@ -635,7 +664,8 @@ func _find_path_around_water(start: Vector2i, end: Vector2i) -> Array[Vector2]:
 ## Called when golfer reaches destination
 func _on_reached_destination() -> void:
 	if current_state == State.WALKING:
-		_change_state(State.PREPARING_SHOT)
+		# Transition to IDLE and wait for turn system to advance us
+		_change_state(State.IDLE)
 
 ## Change state with signal emission
 func _change_state(new_state: State) -> void:
