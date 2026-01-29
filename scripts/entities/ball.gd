@@ -130,17 +130,17 @@ func _land_ball() -> void:
 		TerrainTypes.Type.GREEN:
 			# Ball rolls smoothly on green (longest roll)
 			_change_state(BallState.ROLLING)
-			await _simulate_roll(8, 0.6)  # 8 tiles max, 0.6 sec duration
+			await _simulate_roll(4, 0.6)  # 4 tiles max, 0.6 sec duration
 			_change_state(BallState.AT_REST)
 		TerrainTypes.Type.FAIRWAY:
 			# Ball rolls well on fairway (medium roll)
 			_change_state(BallState.ROLLING)
-			await _simulate_roll(5, 0.4)  # 5 tiles max, 0.4 sec duration
+			await _simulate_roll(3, 0.4)  # 3 tiles max, 0.4 sec duration
 			_change_state(BallState.AT_REST)
 		TerrainTypes.Type.ROUGH, TerrainTypes.Type.HEAVY_ROUGH:
 			# Ball rolls minimally in rough (short roll)
 			_change_state(BallState.ROLLING)
-			await _simulate_roll(2, 0.3)  # 2 tiles max, 0.3 sec duration
+			await _simulate_roll(1, 0.3)  # 1 tile max, 0.3 sec duration
 			_change_state(BallState.AT_REST)
 		_:
 			# Default for other terrain types

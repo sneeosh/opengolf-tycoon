@@ -198,7 +198,7 @@ func _is_landing_area_clear(shooting_golfer: Golfer, group_golfers: Array) -> bo
 	var target = shooting_golfer.decide_shot_target(hole_position)
 
 	# Define a landing zone (radius around target)
-	const LANDING_ZONE_RADIUS = 10.0  # tiles
+	const LANDING_ZONE_RADIUS = 5.0  # tiles (50 yards at 10 yards/tile)
 
 	# Check if any golfer from EARLIER groups is in the landing zone
 	# Only check groups ahead (lower group_id) to prevent deadlocks
@@ -259,7 +259,7 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 		print("DEBUG: %s at ball, distance to hole: %.1f tiles" % [golfer.golfer_name, distance_to_hole])
 
-		if distance_to_hole < 2.0:
+		if distance_to_hole < 1.0:
 			# Close enough to hole out
 			print("DEBUG: %s holing out on hole %d" % [golfer.golfer_name, golfer.current_hole + 1])
 			EventBus.emit_signal("ball_in_hole", golfer.golfer_id, hole_data.hole_number)
