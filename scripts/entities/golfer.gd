@@ -12,6 +12,41 @@ enum State {
 	FINISHED        # Completed round
 }
 
+enum Club {
+	DRIVER,   # Long distance, lower accuracy (250-300 yards)
+	IRON,     # Medium distance, medium accuracy (150-200 yards)
+	WEDGE,    # Short distance, high accuracy (50-100 yards)
+	PUTTER    # Green only, distance-based accuracy (10-40 feet)
+}
+
+## Club characteristics
+const CLUB_STATS = {
+	Club.DRIVER: {
+		"max_distance": 60,    # tiles (300 yards at 5 yards/tile)
+		"min_distance": 40,    # tiles (200 yards)
+		"accuracy_modifier": 0.7,
+		"name": "Driver"
+	},
+	Club.IRON: {
+		"max_distance": 40,    # tiles (200 yards)
+		"min_distance": 20,    # tiles (100 yards)
+		"accuracy_modifier": 0.85,
+		"name": "Iron"
+	},
+	Club.WEDGE: {
+		"max_distance": 20,    # tiles (100 yards)
+		"min_distance": 4,     # tiles (20 yards)
+		"accuracy_modifier": 0.95,
+		"name": "Wedge"
+	},
+	Club.PUTTER: {
+		"max_distance": 8,     # tiles (40 yards, ~120 feet)
+		"min_distance": 0,     # tiles
+		"accuracy_modifier": 0.98,
+		"name": "Putter"
+	}
+}
+
 ## Golfer identification
 @export var golfer_name: String = "Golfer"
 @export var golfer_id: int = -1
@@ -163,6 +198,18 @@ func take_shot(target: Vector2i) -> void:
 	# Calculate shot outcome based on skill and terrain
 	var shot_result = _calculate_shot(ball_position, target)
 
+	# Debug output
+	var club_name = CLUB_STATS[shot_result.club]["name"]
+	print("%s (ID:%d) - Hole %d, Stroke %d: %s shot, %d yards, %.1f%% accuracy" % [
+		golfer_name,
+		golfer_id,
+		current_hole + 1,
+		current_strokes,
+		club_name,
+		shot_result.distance,
+		shot_result.accuracy * 100
+	])
+
 	# Update ball position
 	ball_position = shot_result.landing_position
 
@@ -201,58 +248,168 @@ func finish_round() -> void:
 	EventBus.emit_signal("golfer_finished_round", golfer_id, total_strokes)
 	_change_state(State.FINISHED)
 
+## Select appropriate club based on distance and terrain
+func select_club(distance_to_target: float, current_terrain: int) -> Club:
+	# If on green, always use putter
+	if current_terrain == TerrainTypes.Type.GREEN:
+		return Club.PUTTER
+
+	# Select club based on distance (in tiles) - putter only valid on green
+	if distance_to_target >= CLUB_STATS[Club.DRIVER]["min_distance"]:
+		return Club.DRIVER
+	elif distance_to_target >= CLUB_STATS[Club.IRON]["min_distance"]:
+		return Club.IRON
+	else:
+		# For short distances off the green, use wedge (never putter off green)
+		return Club.WEDGE
+
 ## AI decision making - decide where to aim shot
 func decide_shot_target(hole_position: Vector2i) -> Vector2i:
-	# Simple AI: aim for the hole with some randomness based on skill
-	var skill_factor = (driving_skill + accuracy_skill) / 2.0
-	var max_distance = int(250.0 * skill_factor)  # Max drive distance in yards (tiles)
+	var terrain_grid = GameManager.terrain_grid
+	if not terrain_grid:
+		return hole_position
 
+	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
+	var current_terrain = terrain_grid.get_tile(ball_position)
+
+	# Select appropriate club
+	var club = select_club(distance_to_hole, current_terrain)
+	var club_stats = CLUB_STATS[club]
+
+	# Calculate shot distance based on club and skill
+	var skill_factor = driving_skill if club == Club.DRIVER else accuracy_skill
+	var max_shot_distance = club_stats["max_distance"] * skill_factor
+
+	# Aim for hole if within range, otherwise aim for max distance
 	var direction = Vector2(hole_position - ball_position).normalized()
-	var distance = min(Vector2(ball_position).distance_to(Vector2(hole_position)), max_distance)
+	var shot_distance = min(distance_to_hole, max_shot_distance)
 
-	# Add some randomness
-	var accuracy_variance = (1.0 - accuracy_skill) * 20.0
+	# Add accuracy variance based on club and skill
+	var base_accuracy = club_stats["accuracy_modifier"]
+	var skill_accuracy = accuracy_skill if club != Club.DRIVER else (accuracy_skill + driving_skill) / 2.0
+	var total_accuracy = base_accuracy * skill_accuracy
+
+	var accuracy_variance = (1.0 - total_accuracy) * 15.0
 	var random_offset = Vector2i(
 		randi_range(-int(accuracy_variance), int(accuracy_variance)),
 		randi_range(-int(accuracy_variance), int(accuracy_variance))
 	)
 
-	return ball_position + Vector2i(direction * distance) + random_offset
+	return ball_position + Vector2i(direction * shot_distance) + random_offset
 
 ## Calculate shot outcome
 func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
-		return {"landing_position": target, "distance": 0, "accuracy": 1.0}
+		return {"landing_position": target, "distance": 0, "accuracy": 1.0, "club": Club.DRIVER}
 
-	# Get terrain difficulty at start
-	var terrain_type = terrain_grid.get_tile(from)
-	var difficulty = TerrainTypes.get_properties(terrain_type).get("shot_difficulty", 0.0)
+	# Determine club selection
+	var current_terrain = terrain_grid.get_tile(from)
+	var distance_to_target = Vector2(from).distance_to(Vector2(target))
+	var club = select_club(distance_to_target, current_terrain)
+	var club_stats = CLUB_STATS[club]
 
-	# Calculate actual landing position with skill and terrain modifiers
-	var skill_modifier = (driving_skill + accuracy_skill) / 2.0
-	var total_accuracy = skill_modifier * (1.0 - difficulty)
+	# Get terrain modifiers
+	var lie_modifier = _get_lie_modifier(current_terrain, club)
 
-	# Add randomness based on accuracy
-	var error_range = int((1.0 - total_accuracy) * 30.0)
-	var landing_position = target + Vector2i(
-		randi_range(-error_range, error_range),
-		randi_range(-error_range, error_range)
+	# Calculate skill-based accuracy
+	var skill_accuracy = 0.0
+	match club:
+		Club.DRIVER:
+			skill_accuracy = (driving_skill * 0.7 + accuracy_skill * 0.3)
+		Club.IRON:
+			skill_accuracy = (driving_skill * 0.4 + accuracy_skill * 0.6)
+		Club.WEDGE:
+			skill_accuracy = (accuracy_skill * 0.7 + recovery_skill * 0.3)
+		Club.PUTTER:
+			skill_accuracy = putting_skill
+
+	# Combine all accuracy factors
+	var base_accuracy = club_stats["accuracy_modifier"]
+	var total_accuracy = base_accuracy * skill_accuracy * lie_modifier
+
+	# Distance modifier based on club and skill
+	var distance_modifier = 1.0
+	if club == Club.DRIVER:
+		distance_modifier = 0.85 + (driving_skill * 0.3)  # 85%-115% of intended distance
+	elif club == Club.IRON:
+		distance_modifier = 0.9 + (accuracy_skill * 0.2)  # 90%-110%
+	elif club == Club.WEDGE:
+		distance_modifier = 0.95 + (accuracy_skill * 0.1)  # 95%-105%
+	elif club == Club.PUTTER:
+		distance_modifier = 0.98 + (putting_skill * 0.04)  # 98%-102%
+
+	# Apply terrain distance penalty
+	var terrain_distance_modifier = _get_terrain_distance_modifier(current_terrain)
+	distance_modifier *= terrain_distance_modifier
+
+	# Calculate actual distance
+	var intended_distance = Vector2(from).distance_to(Vector2(target))
+	var actual_distance = intended_distance * distance_modifier
+
+	# Add directional error based on accuracy
+	var error_range = int((1.0 - total_accuracy) * 25.0)
+	var direction = Vector2(target - from).normalized()
+	var landing_point = Vector2(from) + (direction * actual_distance)
+
+	# Add random offset
+	var random_offset = Vector2(
+		randf_range(-error_range, error_range),
+		randf_range(-error_range, error_range)
 	)
+	landing_point += random_offset
+
+	var landing_position = Vector2i(landing_point.round())
 
 	# Ensure landing position is valid
 	if not terrain_grid.is_valid_position(landing_position):
 		landing_position = target
 
-	var distance = terrain_grid.calculate_distance_yards(from, landing_position)
+	var distance_yards = terrain_grid.calculate_distance_yards(from, landing_position)
 
 	EventBus.emit_signal("ball_landed", golfer_id, landing_position, terrain_grid.get_tile(landing_position))
 
 	return {
 		"landing_position": landing_position,
-		"distance": distance,
-		"accuracy": total_accuracy
+		"distance": distance_yards,
+		"accuracy": total_accuracy,
+		"club": club
 	}
+
+## Get lie modifier based on terrain type and club
+func _get_lie_modifier(terrain_type: int, club: Club) -> float:
+	match terrain_type:
+		TerrainTypes.Type.GRASS, TerrainTypes.Type.FAIRWAY:
+			return 1.0  # Perfect lie
+		TerrainTypes.Type.TEE_BOX:
+			return 1.05 if club == Club.DRIVER else 1.0  # Slight bonus on tee
+		TerrainTypes.Type.GREEN:
+			return 1.0  # Putting surface
+		TerrainTypes.Type.ROUGH:
+			return 0.75  # 25% accuracy penalty
+		TerrainTypes.Type.HEAVY_ROUGH:
+			return 0.5   # 50% accuracy penalty
+		TerrainTypes.Type.BUNKER:
+			# Wedges handle sand better
+			return 0.6 if club == Club.WEDGE else 0.4
+		TerrainTypes.Type.TREES:
+			return 0.3   # Very difficult shot
+		_:
+			return 0.8   # Default penalty
+
+## Get distance modifier based on terrain
+func _get_terrain_distance_modifier(terrain_type: int) -> float:
+	match terrain_type:
+		TerrainTypes.Type.ROUGH:
+			return 0.85  # 15% distance loss
+		TerrainTypes.Type.HEAVY_ROUGH:
+			return 0.7   # 30% distance loss
+		TerrainTypes.Type.BUNKER:
+			return 0.75  # 25% distance loss
+		TerrainTypes.Type.TREES:
+			return 0.6   # 40% distance loss (punch out)
+		_:
+			return 1.0   # No penalty
 
 ## Walk to ball position
 func _walk_to_ball() -> void:
