@@ -49,11 +49,11 @@ func _handle_keyboard_input(delta: float) -> void:
 	if Input.is_action_pressed("camera_pan_down"): direction.y += 1
 	if Input.is_action_pressed("camera_pan_left"): direction.x -= 1
 	if Input.is_action_pressed("camera_pan_right"): direction.x += 1
-	
+
 	if direction != Vector2.ZERO:
 		direction = direction.normalized()
-		var iso_direction = Vector2(direction.x - direction.y, (direction.x + direction.y) * 0.5).normalized()
-		_target_position += iso_direction * pan_speed * delta / zoom.x
+		# Move camera in screen space (visual direction) instead of isometric coordinates
+		_target_position += direction * pan_speed * delta / zoom.x
 
 func _zoom_camera(zoom_delta: float) -> void:
 	_target_zoom = clamp(_target_zoom + zoom_delta, min_zoom, max_zoom)

@@ -19,6 +19,8 @@ var hole_tool: HoleCreationTool = HoleCreationTool.new()
 var placement_manager: PlacementManager = PlacementManager.new()
 var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
+var selected_tree_type: String = "oak"
+var selected_rock_size: String = "medium"
 
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
@@ -84,6 +86,8 @@ func _connect_ui_buttons() -> void:
 	tool_panel.get_node("PathBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.PATH))
 	tool_panel.get_node("TeeBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.TEE_BOX))
 	tool_panel.get_node("CreateHoleBtn").pressed.connect(_on_create_hole_pressed)
+	tool_panel.get_node("RocksBtn").pressed.connect(_on_rock_placement_pressed)
+	tool_panel.get_node("FlowerBedBtn").pressed.connect(_on_flower_bed_placement_pressed)
 
 	$UI/HUD/BottomBar/SpeedControls/PauseBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.PAUSED))
 	$UI/HUD/BottomBar/SpeedControls/PlayBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.NORMAL))
@@ -216,10 +220,36 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	hole_list.add_child(hole_label)
 
 func _on_tree_placement_pressed() -> void:
-	"""Start tree placement mode"""
+	"""Show tree selection menu and start tree placement mode"""
 	hole_tool.cancel_placement()
 	is_painting = false
-	placement_manager.start_tree_placement()
+
+	# Create tree selection dialog
+	var dialog = AcceptDialog.new()
+	dialog.title = "Select Tree Type"
+	dialog.size = Vector2i(350, 250)
+
+	var vbox = VBoxContainer.new()
+
+	# Add button for each tree type
+	var tree_types = {
+		"oak": {"name": "Oak Tree", "cost": 20},
+		"pine": {"name": "Pine Tree", "cost": 18},
+		"maple": {"name": "Maple Tree", "cost": 25},
+		"birch": {"name": "Birch Tree", "cost": 22}
+	}
+
+	for tree_type in tree_types.keys():
+		var tree_data = tree_types[tree_type]
+		var btn = Button.new()
+		btn.text = "%s ($%d)" % [tree_data["name"], tree_data["cost"]]
+		btn.custom_minimum_size = Vector2(300, 40)
+		btn.pressed.connect(_on_tree_type_selected.bind(tree_type, dialog))
+		vbox.add_child(btn)
+
+	dialog.add_child(vbox)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered_ratio(0.3)
 
 func _on_building_placement_pressed() -> void:
 	"""Show building selection menu and start building placement"""
@@ -268,13 +298,64 @@ func _on_building_type_selected(building_type: String, dialog: AcceptDialog) -> 
 	"""Handle building type selection"""
 	print("Selected building: %s" % building_type)
 	dialog.queue_free()
-	
+
 	if building_type in building_registry:
 		var building_data = building_registry[building_type]
 		placement_manager.start_building_placement(building_type, building_data)
 		print("Building placement mode: %s" % building_type)
 	else:
 		print("ERROR: Building type not found: %s" % building_type)
+
+func _on_tree_type_selected(tree_type: String, dialog: AcceptDialog) -> void:
+	"""Handle tree type selection"""
+	print("Selected tree: %s" % tree_type)
+	dialog.queue_free()
+	selected_tree_type = tree_type
+	placement_manager.start_tree_placement(tree_type)
+	print("Tree placement mode: %s" % tree_type)
+
+func _on_rock_placement_pressed() -> void:
+	"""Show rock size selection menu and start rock placement mode"""
+	hole_tool.cancel_placement()
+	is_painting = false
+
+	# Create rock selection dialog
+	var dialog = AcceptDialog.new()
+	dialog.title = "Select Rock Size"
+	dialog.size = Vector2i(350, 200)
+
+	var vbox = VBoxContainer.new()
+
+	# Add button for each rock size
+	var rock_sizes = {
+		"small": {"name": "Small Rock", "cost": 10},
+		"medium": {"name": "Medium Rock", "cost": 15},
+		"large": {"name": "Large Rock", "cost": 20}
+	}
+
+	for rock_size in rock_sizes.keys():
+		var rock_data = rock_sizes[rock_size]
+		var btn = Button.new()
+		btn.text = "%s ($%d)" % [rock_data["name"], rock_data["cost"]]
+		btn.custom_minimum_size = Vector2(300, 40)
+		btn.pressed.connect(_on_rock_size_selected.bind(rock_size, dialog))
+		vbox.add_child(btn)
+
+	dialog.add_child(vbox)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered_ratio(0.3)
+
+func _on_rock_size_selected(rock_size: String, dialog: AcceptDialog) -> void:
+	"""Handle rock size selection"""
+	print("Selected rock size: %s" % rock_size)
+	dialog.queue_free()
+	selected_rock_size = rock_size
+	placement_manager.start_rock_placement(rock_size)
+	print("Rock placement mode: %s" % rock_size)
+
+func _on_flower_bed_placement_pressed() -> void:
+	"""Flower bed placement - to be implemented"""
+	EventBus.notify("Flower beds coming soon!", "info")
 
 func _handle_placement_click(grid_pos: Vector2i) -> void:
 	"""Handle clicking during building/tree placement"""
@@ -291,19 +372,24 @@ func _handle_placement_click(grid_pos: Vector2i) -> void:
 		_place_tree(grid_pos, cost)
 	elif placement_manager.placement_mode == PlacementManager.PlacementMode.BUILDING:
 		_place_building(grid_pos, cost)
+	elif placement_manager.placement_mode == PlacementManager.PlacementMode.ROCK:
+		_place_rock(grid_pos, cost)
 
 func _place_tree(grid_pos: Vector2i, cost: int) -> void:
 	"""Place a tree at the grid position"""
-	entity_layer.place_tree(grid_pos, "oak")
-	GameManager.modify_money(-cost)
-	EventBus.log_transaction("Tree placement", -cost)
-	print("Placed tree at %s" % grid_pos)
+	var tree = entity_layer.place_tree(grid_pos, selected_tree_type)
+	if tree:
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Tree: %s" % selected_tree_type.capitalize(), -cost)
+		print("Placed %s tree at %s" % [selected_tree_type, grid_pos])
+	else:
+		EventBus.notify("Failed to place tree!", "error")
 
 func _place_building(grid_pos: Vector2i, cost: int) -> void:
 	"""Place a building at the grid position"""
 	var building_type = placement_manager.selected_building_type
 	var building = entity_layer.place_building(building_type, grid_pos, building_registry)
-	
+
 	if building:
 		GameManager.modify_money(-cost)
 		var building_name = building_registry[building_type].get("name", building_type) if building_type in building_registry else building_type
@@ -311,3 +397,13 @@ func _place_building(grid_pos: Vector2i, cost: int) -> void:
 		print("Placed %s at %s" % [building_type, grid_pos])
 	else:
 		EventBus.notify("Failed to place building!", "error")
+
+func _place_rock(grid_pos: Vector2i, cost: int) -> void:
+	"""Place a rock at the grid position"""
+	var rock = entity_layer.place_rock(grid_pos, selected_rock_size)
+	if rock:
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Rock: %s" % selected_rock_size.capitalize(), -cost)
+		print("Placed %s rock at %s" % [selected_rock_size, grid_pos])
+	else:
+		EventBus.notify("Failed to place rock!", "error")

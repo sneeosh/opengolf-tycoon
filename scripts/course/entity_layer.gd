@@ -4,23 +4,29 @@ class_name EntityLayer
 
 var buildings: Dictionary = {}  # key: Vector2i (grid_pos), value: Building node
 var trees: Dictionary = {}      # key: Vector2i (grid_pos), value: Tree node
+var rocks: Dictionary = {}      # key: Vector2i (grid_pos), value: Rock node
 
 var terrain_grid: TerrainGrid
 var building_registry: Dictionary = {}  # Can accept either Node or Dictionary
 
 signal building_placed(building: Building, cost: int)
 signal tree_placed(tree: Tree, cost: int)
+signal rock_placed(rock: Rock, cost: int)
 signal building_removed(grid_pos: Vector2i)
 signal tree_removed(grid_pos: Vector2i)
+signal rock_removed(grid_pos: Vector2i)
 
 @onready var buildings_container = Node2D.new()
 @onready var trees_container = Node2D.new()
+@onready var rocks_container = Node2D.new()
 
 func _ready() -> void:
 	buildings_container.name = "Buildings"
 	trees_container.name = "Trees"
+	rocks_container.name = "Rocks"
 	add_child(buildings_container)
 	add_child(trees_container)
+	add_child(rocks_container)
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -77,15 +83,41 @@ func place_tree(grid_pos: Vector2i, tree_type: String = "oak") -> Tree:
 	# Connect signals
 	tree.tree_selected.connect(_on_tree_selected)
 	tree.tree_destroyed.connect(_on_tree_destroyed)
-	
-	tree_placed.emit(tree, 20)  # Tree cost is hardcoded to 20
+
+	# Get actual tree cost from tree data
+	var tree_cost = tree.tree_data.get("cost", 20)
+	tree_placed.emit(tree, tree_cost)
 	return tree
+
+func place_rock(grid_pos: Vector2i, rock_size: String = "medium") -> Rock:
+	"""Place a rock at the specified grid position"""
+	var rock = Rock.new()
+	rock.rock_size = rock_size
+	rock.set_terrain_grid(terrain_grid)
+	rock.set_position_in_grid(grid_pos)
+
+	rocks_container.add_child(rock)
+
+	# Store by grid position
+	rocks[grid_pos] = rock
+
+	# Connect signals
+	rock.rock_selected.connect(_on_rock_selected)
+	rock.rock_destroyed.connect(_on_rock_destroyed)
+
+	# Get actual rock cost from rock data
+	var rock_cost = rock.rock_data.get("cost", 15)
+	rock_placed.emit(rock, rock_cost)
+	return rock
 
 func get_building_at(grid_pos: Vector2i) -> Building:
 	return buildings.get(grid_pos, null)
 
 func get_tree_at(grid_pos: Vector2i) -> Tree:
 	return trees.get(grid_pos, null)
+
+func get_rock_at(grid_pos: Vector2i) -> Rock:
+	return rocks.get(grid_pos, null)
 
 func get_buildings_in_area(top_left: Vector2i, bottom_right: Vector2i) -> Array:
 	"""Get all buildings within the specified area"""
@@ -105,6 +137,15 @@ func get_trees_in_area(top_left: Vector2i, bottom_right: Vector2i) -> Array:
 			result.append(trees[pos])
 	return result
 
+func get_rocks_in_area(top_left: Vector2i, bottom_right: Vector2i) -> Array:
+	"""Get all rocks within the specified area"""
+	var result: Array = []
+	for pos in rocks.keys():
+		if pos.x >= top_left.x and pos.x <= bottom_right.x and \
+		   pos.y >= top_left.y and pos.y <= bottom_right.y:
+			result.append(rocks[pos])
+	return result
+
 func remove_building(grid_pos: Vector2i) -> void:
 	var building = buildings.get(grid_pos, null)
 	if building:
@@ -119,24 +160,38 @@ func remove_tree(grid_pos: Vector2i) -> void:
 		trees.erase(grid_pos)
 		tree_removed.emit(grid_pos)
 
+func remove_rock(grid_pos: Vector2i) -> void:
+	var rock = rocks.get(grid_pos, null)
+	if rock:
+		rock.destroy()
+		rocks.erase(grid_pos)
+		rock_removed.emit(grid_pos)
+
 func get_all_buildings() -> Array:
 	return buildings.values()
 
 func get_all_trees() -> Array:
 	return trees.values()
 
+func get_all_rocks() -> Array:
+	return rocks.values()
+
 func serialize() -> Dictionary:
 	var data: Dictionary = {
 		"buildings": {},
-		"trees": {}
+		"trees": {},
+		"rocks": {}
 	}
-	
+
 	for pos in buildings:
 		data["buildings"]["%d,%d" % [pos.x, pos.y]] = buildings[pos].get_building_info()
-	
+
 	for pos in trees:
 		data["trees"]["%d,%d" % [pos.x, pos.y]] = trees[pos].get_tree_info()
-	
+
+	for pos in rocks:
+		data["rocks"]["%d,%d" % [pos.x, pos.y]] = rocks[pos].get_rock_info()
+
 	return data
 
 func _on_building_selected(building: Building) -> void:
@@ -149,4 +204,10 @@ func _on_tree_selected(tree: Tree) -> void:
 	pass  # Handle tree selection if needed
 
 func _on_tree_destroyed(tree: Tree) -> void:
+	pass  # Clean up if needed
+
+func _on_rock_selected(rock: Rock) -> void:
+	pass  # Handle rock selection if needed
+
+func _on_rock_destroyed(rock: Rock) -> void:
 	pass  # Clean up if needed

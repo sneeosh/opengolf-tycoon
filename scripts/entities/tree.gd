@@ -53,11 +53,15 @@ func destroy() -> void:
 
 func _update_visuals() -> void:
 	"""Create visual representation for the tree"""
+	# Remove existing visual if it exists
+	if has_node("Visual"):
+		get_node("Visual").queue_free()
+
 	# Create a Node2D to hold the visual
 	var visual = Node2D.new()
 	visual.name = "Visual"
 	add_child(visual)
-	
+
 	var color = tree_data.get("color", Color.GREEN)
 	
 	# Draw trunk

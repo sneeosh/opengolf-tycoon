@@ -8,11 +8,14 @@ signal placement_preview_updated(grid_pos: Vector2i, valid: bool)
 enum PlacementMode {
 	NONE = 0,
 	BUILDING = 1,
-	TREE = 2
+	TREE = 2,
+	ROCK = 3
 }
 
 var placement_mode: PlacementMode = PlacementMode.NONE
 var selected_building_type: String = ""
+var selected_tree_type: String = "oak"
+var selected_rock_size: String = "medium"
 var current_placement_data: Dictionary = {}
 
 func start_building_placement(building_type: String, building_data: Dictionary) -> void:
@@ -22,12 +25,21 @@ func start_building_placement(building_type: String, building_data: Dictionary) 
 	placement_mode_changed.emit(placement_mode)
 	print("Started building placement: %s" % building_type)
 
-func start_tree_placement() -> void:
+func start_tree_placement(tree_type: String = "oak") -> void:
 	placement_mode = PlacementMode.TREE
 	selected_building_type = ""
+	selected_tree_type = tree_type
 	current_placement_data = {}
 	placement_mode_changed.emit(placement_mode)
-	print("Started tree placement")
+	print("Started tree placement: %s" % tree_type)
+
+func start_rock_placement(rock_size: String = "medium") -> void:
+	placement_mode = PlacementMode.ROCK
+	selected_building_type = ""
+	selected_rock_size = rock_size
+	current_placement_data = {}
+	placement_mode_changed.emit(placement_mode)
+	print("Started rock placement: %s" % rock_size)
 
 func cancel_placement() -> void:
 	placement_mode = PlacementMode.NONE
@@ -38,12 +50,14 @@ func cancel_placement() -> void:
 func can_place_at(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 	if placement_mode == PlacementMode.NONE:
 		return false
-	
+
 	if placement_mode == PlacementMode.TREE:
 		return _can_place_tree(grid_pos, terrain_grid)
 	elif placement_mode == PlacementMode.BUILDING:
 		return _can_place_building(grid_pos, terrain_grid)
-	
+	elif placement_mode == PlacementMode.ROCK:
+		return _can_place_rock(grid_pos, terrain_grid)
+
 	return false
 
 func _can_place_tree(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
@@ -58,6 +72,19 @@ func _can_place_tree(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 		TerrainTypes.Type.ROUGH,
 		TerrainTypes.Type.HEAVY_ROUGH,
 		TerrainTypes.Type.PATH
+	]
+
+func _can_place_rock(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
+	# Rocks can be placed on grass, rough, fairway, and heavy rough
+	if not terrain_grid.is_valid_position(grid_pos):
+		return false
+
+	var tile_type = terrain_grid.get_tile(grid_pos)
+	return tile_type in [
+		TerrainTypes.Type.GRASS,
+		TerrainTypes.Type.FAIRWAY,
+		TerrainTypes.Type.ROUGH,
+		TerrainTypes.Type.HEAVY_ROUGH
 	]
 
 func _can_place_building(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
@@ -95,10 +122,25 @@ func _can_place_building(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 
 func get_placement_cost() -> int:
 	if placement_mode == PlacementMode.TREE:
-		return 20  # Trees cost $20
+		# Return cost based on tree type
+		var tree_costs = {
+			"oak": 20,
+			"pine": 18,
+			"maple": 25,
+			"birch": 22
+		}
+		return tree_costs.get(selected_tree_type, 20)
+	elif placement_mode == PlacementMode.ROCK:
+		# Return cost based on rock size
+		var rock_costs = {
+			"small": 10,
+			"medium": 15,
+			"large": 20
+		}
+		return rock_costs.get(selected_rock_size, 15)
 	elif placement_mode == PlacementMode.BUILDING:
 		return current_placement_data.get("cost", 0)
-	
+
 	return 0
 
 func get_building_footprint() -> Array:
