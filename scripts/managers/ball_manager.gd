@@ -148,20 +148,12 @@ func _on_shot_taken(golfer_id: int, hole_number: int, stroke_count: int) -> void
 	# which contains the from/to positions
 	pass
 
-func _on_ball_landed(golfer_id: int, landing_position: Vector2i, terrain_type: int) -> void:
+func _on_ball_landed(golfer_id: int, from_position: Vector2i, landing_position: Vector2i, terrain_type: int) -> void:
 	# This is called from golfer._calculate_shot()
-	# We need to animate the ball from current position to landing position
-	var ball = get_ball(golfer_id)
-	if not ball:
-		return
-
-	var from_pos = ball.grid_position
-	var to_pos = landing_position
-
-	# Calculate approximate distance in yards
+	# We need to animate the ball from the shot origin to landing position
 	if terrain_grid:
-		var distance = terrain_grid.calculate_distance_yards(from_pos, to_pos)
-		animate_shot(golfer_id, from_pos, to_pos, distance)
+		var distance = terrain_grid.calculate_distance_yards(from_position, landing_position)
+		animate_shot(golfer_id, from_position, landing_position, distance)
 
 func _on_ball_landed_at_position(landing_pos: Vector2i, golfer_id: int) -> void:
 	# Ball has finished landing animation

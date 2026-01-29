@@ -47,6 +47,7 @@ The game currently supports:
 - ✅ Ball state management (AT_REST, IN_FLIGHT, ROLLING, IN_WATER, OUT_OF_BOUNDS)
 - ✅ BallManager handles all ball instances and connects to golfer shot system
 - ✅ Automatic ball visibility management (hidden between holes, visible during play)
+- ✅ Golfers watch ball flight before walking (swing → watch → walk sequence)
 
 ### [X] Golfer Visual Rendering
 **STATUS: COMPLETE** - Golfers fully visible with animations and info display:
@@ -415,6 +416,7 @@ The game currently supports:
 - ✅ Golfer accuracy too low - increased skill range to 0.5-0.9 and reduced error spread
 - ✅ Round finish bug - golfers now properly clear the final green
 - ✅ Groups deadlocking each other on par 3s - fixed with directional blocking and par 3 holds
+- ✅ Ball flight not visible - BallManager failed to create ball on first shot; fixed by adding from_position to ball_landed signal and using get_or_create_ball
 
 ### Minor
 - (Add bugs as discovered)
