@@ -19,6 +19,8 @@ func _ready() -> void:
 		EventBus.connect("hole_deleted", _on_hole_deleted)
 	if EventBus.has_signal("hole_updated"):
 		EventBus.connect("hole_updated", _on_hole_updated)
+	if EventBus.has_signal("hole_toggled"):
+		EventBus.connect("hole_toggled", _on_hole_toggled)
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -111,6 +113,11 @@ func _on_hole_deleted(hole_number: int) -> void:
 
 func _on_hole_updated(hole_number: int) -> void:
 	update_hole_visualization(hole_number)
+
+func _on_hole_toggled(hole_number: int, is_open: bool) -> void:
+	var visualizer = get_hole_visualizer(hole_number)
+	if visualizer:
+		visualizer.modulate = Color(1, 1, 1, 1) if is_open else Color(0.4, 0.4, 0.4, 0.5)
 
 func _on_hole_visualization_selected(hole_number: int) -> void:
 	emit_signal("hole_selected", hole_number)

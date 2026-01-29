@@ -106,10 +106,10 @@ func is_course_open() -> bool:
 	return current_hour >= COURSE_OPEN_HOUR and current_hour < COURSE_CLOSE_HOUR
 
 func can_start_playing() -> bool:
-	"""Check if the course is ready to start playing (has at least one complete hole)"""
+	"""Check if the course is ready to start playing (has at least one open hole)"""
 	if not current_course:
 		return false
-	return current_course.holes.size() > 0
+	return current_course.get_open_holes().size() > 0
 
 func start_simulation() -> bool:
 	"""Attempt to start the simulation mode"""
@@ -152,6 +152,21 @@ class CourseData:
 		for hole in holes:
 			total_par += hole.par
 
+	func get_open_holes() -> Array:
+		var open: Array = []
+		for hole in holes:
+			if hole.is_open:
+				open.append(hole)
+		return open
+
+	func toggle_hole_open(hole_number: int) -> bool:
+		for hole in holes:
+			if hole.hole_number == hole_number:
+				hole.is_open = not hole.is_open
+				EventBus.emit_signal("hole_toggled", hole_number, hole.is_open)
+				return hole.is_open
+		return false
+
 class HoleData:
 	var hole_number: int = 1
 	var par: int = 4
@@ -161,3 +176,4 @@ class HoleData:
 	var fairway_tiles: Array = []
 	var hazard_tiles: Array = []
 	var distance_yards: int = 0
+	var is_open: bool = true  # Whether the hole is open for play

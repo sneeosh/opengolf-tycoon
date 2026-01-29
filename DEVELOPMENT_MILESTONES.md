@@ -20,6 +20,9 @@ The game currently supports:
 15. **Green fee system** - Configurable green fees ($10-$200), golfers pay on spawn with floating notification
 16. **Dynamic golfer spawning** - Groups spawn when first tee is clear, with group sizes weighted by green fee
 17. **Turn-based group play** - Groups play holes turn-based with tee order and "away" rules, par 3 safety holds, deadlock prevention
+18. **Hole management** - Open/close holes, delete holes with renumbering, golfers skip closed holes
+19. **Undo/Redo in build mode** - Ctrl+Z/Ctrl+Y for terrain painting and entity placements with cost refund
+20. **Green fee UI controls** - In-game +/- buttons to adjust green fees during play
 
 ---
 
@@ -138,23 +141,34 @@ The game currently supports:
 - ⏳ Prefer walking on paths (future enhancement)
 - ⏳ More sophisticated A* pathfinding (future enhancement)
 
-### [] Hole Open/Close Management
-- UI to mark holes as open or closed
-- Closed holes removed from play rotation
-- Prevent golfers from playing closed holes
-- Display hole status on course
-- Require minimum one open hole to play
+### [X] Hole Open/Close Management
+**STATUS: COMPLETE** - Full hole management with UI controls:
+- ✅ UI toggle button to mark holes as open or closed
+- ✅ Delete button to remove holes from course (with renumbering)
+- ✅ Closed holes skipped in golfer play rotation
+- ✅ Closed holes dimmed on course visualization
+- ✅ Requires at least one open hole to start playing
+- ✅ Cannot delete holes during simulation
 
-### [~] Green Fee & Revenue System
-**STATUS: PARTIAL** - Core green fee mechanics implemented, UI and traffic tuning pending:
+### [X] Undo/Redo in Build Mode
+**STATUS: COMPLETE** - Full undo/redo system for build mode actions:
+- ✅ Ctrl+Z to undo, Ctrl+Y / Ctrl+Shift+Z to redo
+- ✅ Terrain painting strokes grouped as single undo action (mouse down → mouse up)
+- ✅ Entity placements (trees, buildings, rocks) tracked and undoable
+- ✅ Cost refunded on undo, re-deducted on redo
+- ✅ 50-action undo stack limit
+- ✅ Only available in build mode
+
+### [X] Green Fee & Revenue System
+**STATUS: COMPLETE** - Full green fee system with UI controls:
 - ✅ Golfers pay green fee on spawn
 - ✅ Green fee configurable ($10-$200, default $30)
 - ✅ Floating "+$XX" payment notification appears above golfer's head
 - ✅ Green fee affects group size distribution (higher fees attract foursomes)
 - ✅ Revenue tracked in budget system
-- ⏳ UI to adjust green fee during gameplay
-- ⏳ Golfer traffic varies based on course rating and difficulty
-- ⏳ Payment happens at clubhouse (currently on spawn)
+- ✅ UI +/- buttons to adjust green fee during gameplay
+- ⏳ Golfer traffic varies based on course rating and difficulty (deferred to P6)
+- ⏳ Payment happens at clubhouse (deferred to P4)
 
 ---
 
@@ -428,7 +442,10 @@ The game currently supports:
 6. ✅ ~~Complete Golfer Shot System with club types and shot mechanics~~ - COMPLETE
 7. ✅ ~~Implement Golfer AI & Path Finding~~ - COMPLETE
 8. ✅ ~~Golfer Spawn & Management System~~ - COMPLETE (dynamic tee-based spawning, group play, deadlock prevention)
-9. Finish Green Fee & Revenue System (UI to adjust fees, traffic tuning) OR Implement Hole Open/Close Management (Priority 2 - NEXT UP)
+9. ✅ ~~Hole Open/Close Management~~ - COMPLETE (toggle open/closed, delete holes, golfers skip closed holes)
+10. ✅ ~~Undo/Redo in Build Mode~~ - COMPLETE (Ctrl+Z/Ctrl+Y, terrain strokes, entity placements)
+11. ✅ ~~Green Fee UI~~ - COMPLETE (all P2 items done!)
+12. Start Priority 3: Terrain & Course Design Features (water hazards, bunkers, elevation)
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.
