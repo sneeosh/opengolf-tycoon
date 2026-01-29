@@ -361,8 +361,17 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 	for golfer in active_golfers:
 		if golfer.group_id == group_id:
 			group_golfers.append(golfer)
+			var state_name = ["IDLE", "WALKING", "PREPARING_SHOT", "SWINGING", "WATCHING", "PUTTING", "FINISHED"][golfer.current_state]
+			print("DEBUG:   - Golfer %d (%s): State=%s, Hole=%d/%d" % [
+				golfer.golfer_id,
+				golfer.golfer_name,
+				state_name,
+				golfer.current_hole + 1,
+				GameManager.course_data.holes.size()
+			])
 			if golfer.current_state != Golfer.State.FINISHED:
 				all_finished = false
+				print("DEBUG:     ^ This golfer is NOT finished yet")
 
 	if all_finished:
 		print("DEBUG: All %d golfers in group %d are finished! Removing group in 1 second..." % [group_golfers.size(), group_id])

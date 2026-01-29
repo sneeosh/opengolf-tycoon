@@ -281,8 +281,8 @@ func finish_hole(par: int) -> void:
 
 ## Finish the round
 func finish_round() -> void:
-	EventBus.emit_signal("golfer_finished_round", golfer_id, total_strokes)
 	_change_state(State.FINISHED)
+	EventBus.emit_signal("golfer_finished_round", golfer_id, total_strokes)
 
 ## Select appropriate club based on distance and terrain
 func select_club(distance_to_target: float, current_terrain: int) -> Club:
