@@ -537,6 +537,24 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	if not terrain_grid.is_valid_position(landing_position):
 		landing_position = target
 
+	# For putts, ensure ball stays on green or goes in hole
+	if club == Club.PUTTER:
+		var landing_terrain = terrain_grid.get_tile(landing_position)
+		if landing_terrain != TerrainTypes.Type.GREEN:
+			# Putt went off green - check if it should go in the hole
+			var course_data = GameManager.course_data
+			if course_data and not course_data.holes.is_empty() and current_hole < course_data.holes.size():
+				var hole_data = course_data.holes[current_hole]
+				var hole_position = hole_data.hole_position
+
+				var distance_to_hole = Vector2(landing_position).distance_to(Vector2(hole_position))
+				if distance_to_hole < 2.0:
+					# Close enough - ball goes in hole
+					landing_position = hole_position
+				else:
+					# Too far off green - ball stays at original position (conservatively short)
+					landing_position = from
+
 	var distance_yards = terrain_grid.calculate_distance_yards(from, landing_position)
 
 	EventBus.emit_signal("ball_landed", golfer_id, landing_position, terrain_grid.get_tile(landing_position))

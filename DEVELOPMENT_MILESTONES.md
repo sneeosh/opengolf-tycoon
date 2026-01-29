@@ -17,6 +17,9 @@ The game currently supports:
 12. **Complete shot system with club types** - Driver, Iron, Wedge, Putter with terrain modifiers
 13. **Intelligent golfer AI** - Smart target selection, hazard avoidance, personality traits, terrain-aware pathfinding
 14. Intuitive camera controls with arrow keys moving in visual direction
+15. **Green fee system** - Configurable green fees ($10-$200), golfers pay on spawn with floating notification
+16. **Dynamic golfer spawning** - Groups spawn when first tee is clear, with group sizes weighted by green fee
+17. **Turn-based group play** - Groups play holes turn-based with tee order and "away" rules, par 3 safety holds, deadlock prevention
 
 ---
 
@@ -84,14 +87,20 @@ The game currently supports:
 - ✅ Initial golfer spawning (1-4 players) when entering play mode
 - ✅ Notifications for state changes and validation errors
 
-### [~] Golfer Spawn & Management System
-**STATUS: PARTIAL** - Basic spawning complete, advanced features pending:
+### [X] Golfer Spawn & Management System
+**STATUS: COMPLETE** - Full group spawning with dynamic tee-time management:
 - ✅ Spawn golfers in groups of 1-4 players randomly when game starts
-- ✅ Automatic spawning at 5-minute intervals during play
-- ✅ Track active golfers on course
-- ✅ Remove golfers after completing round
+- ✅ Dynamic spawning based on first tee availability (new group spawns when tee is clear)
+- ✅ Minimum 10-second cooldown between group spawns
+- ✅ Group size weighted by green fee (budget courses = more singles, premium = more foursomes)
+- ✅ Track active golfers on course (max 8 concurrent)
+- ✅ Remove golfers after completing round (with 1-second delay for visibility)
+- ✅ Turn-based play within groups (tee order by ID, then "away" rule for subsequent shots)
+- ✅ Landing zone safety checks prevent shooting into groups ahead (10-tile radius)
+- ✅ Par 3 tee shot hold: groups wait until earlier groups fully clear the hole
+- ✅ Deadlock prevention: only groups ahead (lower group_id) can block, preventing circular waits
+- ✅ Reputation gain when golfers finish rounds
 - ⏳ Start golfers near clubhouse (currently spawn at tee box)
-- ⏳ New golfers should spawn once a group gets to the fairway on the first hole
 - ⏳ Course fun rating should bias for more foursomes
 
 ### [X] Complete Golfer Shot System
@@ -136,12 +145,16 @@ The game currently supports:
 - Display hole status on course
 - Require minimum one open hole to play
 
-### [] Green Fee & Revenue System
-- Golfers pay green fee before starting round
-- Green fee can be increased or decreased. Green fee and overall course rating should then determine how frequently new golfers spawn and their group size.
-- Payment happens at clubhouse
-- Golfer traffic should vary based on green fee and course rating and difficulty
-- When a golfer pays, a small notification should appear above their head.
+### [~] Green Fee & Revenue System
+**STATUS: PARTIAL** - Core green fee mechanics implemented, UI and traffic tuning pending:
+- ✅ Golfers pay green fee on spawn
+- ✅ Green fee configurable ($10-$200, default $30)
+- ✅ Floating "+$XX" payment notification appears above golfer's head
+- ✅ Green fee affects group size distribution (higher fees attract foursomes)
+- ✅ Revenue tracked in budget system
+- ⏳ UI to adjust green fee during gameplay
+- ⏳ Golfer traffic varies based on course rating and difficulty
+- ⏳ Payment happens at clubhouse (currently on spawn)
 
 ---
 
@@ -394,6 +407,10 @@ The game currently supports:
 - ✅ Clicking plant tree causes the game to crash - Fixed by renaming Tree class to TreeEntity
 - ✅ Placing rocks doesn't work - Fully implemented with 3 size options
 - ✅ Arrow key camera movement is isometric instead of intuitive - Now moves in visual screen direction
+- ✅ Landing zone check was blocking within the same group instead of only other groups
+- ✅ Golfer accuracy too low - increased skill range to 0.5-0.9 and reduced error spread
+- ✅ Round finish bug - golfers now properly clear the final green
+- ✅ Groups deadlocking each other on par 3s - fixed with directional blocking and par 3 holds
 
 ### Minor
 - (Add bugs as discovered)
@@ -410,7 +427,8 @@ The game currently supports:
 5. ✅ ~~Implement play/pause with golfer spawning~~ - COMPLETE
 6. ✅ ~~Complete Golfer Shot System with club types and shot mechanics~~ - COMPLETE
 7. ✅ ~~Implement Golfer AI & Path Finding~~ - COMPLETE
-8. Implement Hole Open/Close Management OR Green Fee & Revenue System (Priority 2 - NEXT UP)
+8. ✅ ~~Golfer Spawn & Management System~~ - COMPLETE (dynamic tee-based spawning, group play, deadlock prevention)
+9. Finish Green Fee & Revenue System (UI to adjust fees, traffic tuning) OR Implement Hole Open/Close Management (Priority 2 - NEXT UP)
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.

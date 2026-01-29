@@ -5,7 +5,7 @@ class_name GolferManager
 const GOLFER_SCENE = preload("res://scenes/entities/golfer.tscn")
 
 @export var max_concurrent_golfers: int = 8
-@export var base_spawn_interval_seconds: float = 300.0  # 5 minutes base interval
+@export var min_spawn_cooldown_seconds: float = 10.0  # Minimum cooldown between group spawns
 
 var active_golfers: Array[Golfer] = []
 var next_golfer_id: int = 0
@@ -20,20 +20,6 @@ signal golfer_removed(golfer_id: int)
 func _ready() -> void:
 	# Connect to EventBus
 	EventBus.connect("golfer_finished_round", _on_golfer_finished_round)
-
-func get_spawn_interval() -> float:
-	"""Calculate spawn interval based on green fee (lower fee = more golfers)"""
-	var fee = GameManager.green_fee
-
-	# Formula: Higher fees = longer intervals (fewer golfers)
-	# $10 fee: ~120 seconds (2 min) - very busy
-	# $30 fee: ~300 seconds (5 min) - normal
-	# $50 fee: ~450 seconds (7.5 min) - quieter
-	# $100 fee: ~750 seconds (12.5 min) - exclusive
-	# $200 fee: ~1200 seconds (20 min) - very exclusive
-
-	var interval_multiplier = fee / 30.0  # 30 is the base fee
-	return base_spawn_interval_seconds * interval_multiplier
 
 func get_group_size_weights() -> Array:
 	"""Get weighted probabilities for group sizes based on green fee"""
@@ -55,19 +41,24 @@ func get_group_size_weights() -> Array:
 		# Exclusive: Mostly foursomes
 		return [0.05, 0.15, 0.25, 0.55]  # 5% singles, 15% pairs, 25% threesomes, 55% foursomes
 
+func _is_first_tee_clear() -> bool:
+	"""Check if the first tee is clear (no golfer on hole 0 waiting to tee off)"""
+	for golfer in active_golfers:
+		if golfer.current_hole == 0 and golfer.current_strokes == 0 and golfer.current_state != Golfer.State.FINISHED:
+			return false
+	return true
+
 func _process(delta: float) -> void:
 	if GameManager.game_mode != GameManager.GameMode.SIMULATING:
 		return
 
-	# Auto-spawn golfers at intervals (dynamically adjusted by green fee)
+	# Dynamic spawning: spawn when first tee is clear (with minimum cooldown)
 	time_since_last_spawn += delta * GameManager.get_game_speed_multiplier()
 
-	var current_spawn_interval = get_spawn_interval()
-	if time_since_last_spawn >= current_spawn_interval:
-		if active_golfers.size() < max_concurrent_golfers:
-			# Spawn a new group
+	if time_since_last_spawn >= min_spawn_cooldown_seconds:
+		if active_golfers.size() < max_concurrent_golfers and _is_first_tee_clear():
 			spawn_initial_group()
-		time_since_last_spawn = 0.0
+			time_since_last_spawn = 0.0
 
 	# Update active golfers
 	_update_golfers(delta)
@@ -98,9 +89,24 @@ func _update_group(group_golfers: Array) -> void:
 	if not someone_shooting:
 		var next_golfer = _determine_next_golfer_in_group(group_golfers)
 		if next_golfer:
+			# Debug: Show who was selected
+			if next_golfer.current_strokes == 0:
+				print("DEBUG: Group %d - Selected %s (ID:%d) for FIRST shot on hole %d" % [next_golfer.group_id, next_golfer.golfer_name, next_golfer.golfer_id, next_golfer.current_hole + 1])
+
 			# Check if landing area is clear before advancing
 			if _is_landing_area_clear(next_golfer, group_golfers):
 				_advance_golfer(next_golfer)
+			else:
+				print("DEBUG: Group %d - %s cannot shoot, landing area blocked" % [next_golfer.group_id, next_golfer.golfer_name])
+		else:
+			# Debug: Why was no golfer selected?
+			if group_golfers.size() > 0:
+				var first_golfer = group_golfers[0]
+				if first_golfer.current_state != Golfer.State.FINISHED:
+					print("DEBUG: Group %d - No golfer selected. Group size: %d" % [first_golfer.group_id, group_golfers.size()])
+					for golfer in group_golfers:
+						var state_name = ["IDLE", "WALKING", "PREPARING_SHOT", "SWINGING", "WATCHING", "PUTTING", "FINISHED"][golfer.current_state]
+						print("DEBUG:   - %s: State=%s, Hole=%d, Strokes=%d" % [golfer.golfer_name, state_name, golfer.current_hole, golfer.current_strokes])
 
 func _determine_next_golfer_in_group(group_golfers: Array) -> Golfer:
 	"""Determine which golfer in this group should shoot next"""
@@ -164,7 +170,7 @@ func _get_away_golfer_in_group(golfers: Array[Golfer]) -> Golfer:
 	return furthest_golfer if furthest_golfer else golfers[0]
 
 func _is_landing_area_clear(shooting_golfer: Golfer, group_golfers: Array) -> bool:
-	"""Check if the landing area is clear of golfers from OTHER groups"""
+	"""Check if the landing area is clear of golfers from groups ahead"""
 	var course_data = GameManager.course_data
 	if not course_data or course_data.holes.is_empty():
 		return true
@@ -175,13 +181,27 @@ func _is_landing_area_clear(shooting_golfer: Golfer, group_golfers: Array) -> bo
 	var hole_data = course_data.holes[shooting_golfer.current_hole]
 	var hole_position = hole_data.hole_position
 
+	# Par 3 tee shot rule: don't tee off until all earlier groups have cleared the hole
+	if shooting_golfer.current_strokes == 0 and hole_data.par == 3:
+		for golfer in active_golfers:
+			if golfer.group_id == shooting_golfer.group_id:
+				continue
+			if golfer.current_state == Golfer.State.FINISHED:
+				continue
+			# Only check groups that started before us (they're ahead on the course)
+			if golfer.group_id > shooting_golfer.group_id:
+				continue
+			if golfer.current_hole == shooting_golfer.current_hole:
+				return false  # An earlier group is still on this par 3
+
 	# Estimate where the golfer will aim
 	var target = shooting_golfer.decide_shot_target(hole_position)
 
 	# Define a landing zone (radius around target)
-	const LANDING_ZONE_RADIUS = 5.0  # tiles (reduced from 15.0 for less conservative play)
+	const LANDING_ZONE_RADIUS = 10.0  # tiles
 
-	# Check if any golfer from OTHER groups is in the landing zone
+	# Check if any golfer from EARLIER groups is in the landing zone
+	# Only check groups ahead (lower group_id) to prevent deadlocks
 	for golfer in active_golfers:
 		# Skip golfers in the same group (they play turn-based, only one shoots at a time)
 		if golfer.group_id == shooting_golfer.group_id:
@@ -189,6 +209,11 @@ func _is_landing_area_clear(shooting_golfer: Golfer, group_golfers: Array) -> bo
 
 		# Skip finished golfers - they're leaving the course and shouldn't block play
 		if golfer.current_state == Golfer.State.FINISHED:
+			continue
+
+		# Only check groups that started before us (lower group_id = ahead on course)
+		# This prevents circular deadlocks between groups
+		if golfer.group_id > shooting_golfer.group_id:
 			continue
 
 		# Only check golfers who are on the same hole
@@ -284,6 +309,8 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	# Process green fee payment
 	GameManager.process_green_fee_payment(golfer.golfer_id, golfer_name)
 
+	print("DEBUG: Spawned golfer %d (%s) in group %d - State: IDLE, Hole: 0, Strokes: 0" % [golfer.golfer_id, golfer_name, group_id])
+
 	EventBus.emit_signal("golfer_spawned", golfer.golfer_id, golfer_name)
 	emit_signal("golfer_spawned", golfer)
 
@@ -307,12 +334,17 @@ func spawn_initial_group() -> void:
 	var new_group_id = next_group_id
 	next_group_id += 1
 
+	print("=== SPAWNING NEW GROUP ===")
 	print("Spawning group of %d golfers (Group %d, Fee: $%d)" % [group_size, new_group_id, GameManager.green_fee])
+	print("Active golfers before spawn: %d" % active_golfers.size())
 
 	for i in range(group_size):
 		spawn_random_golfer(new_group_id)
 		# Small delay between spawns in the same group
 		await get_tree().create_timer(0.5).timeout
+
+	print("=== GROUP %d SPAWN COMPLETE ===" % new_group_id)
+	print("Active golfers after spawn: %d" % active_golfers.size())
 
 func _select_weighted_group_size() -> int:
 	"""Select group size based on weighted probabilities from green fee"""
