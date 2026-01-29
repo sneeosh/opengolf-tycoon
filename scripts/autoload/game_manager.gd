@@ -23,6 +23,9 @@ const MAX_GREEN_FEE: int = 200
 # Reference to terrain grid (set by main scene)
 var terrain_grid: TerrainGrid = null
 
+# Reference to wind system (set by main scene)
+var wind_system: WindSystem = null
+
 # Expose properties for backward compatibility
 var course_data: CourseData:
 	get:
@@ -51,7 +54,13 @@ func _process(delta: float) -> void:
 func _advance_time(delta: float) -> void:
 	# 1 real minute = 1 game hour at NORMAL speed
 	var time_multiplier: float = float(current_speed)
+	var old_hour = current_hour
 	current_hour += (delta * time_multiplier) / 60.0
+
+	# Update wind drift each game hour
+	if wind_system and int(current_hour) != int(old_hour):
+		wind_system.update_wind_drift(current_hour - COURSE_OPEN_HOUR)
+
 	if current_hour >= HOURS_PER_DAY:
 		current_hour -= HOURS_PER_DAY
 		current_day += 1

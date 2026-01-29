@@ -115,6 +115,15 @@ func animate_shot(golfer_id: int, from_grid: Vector2i, to_grid: Vector2i, distan
 	# Make sure ball is visible
 	ball.visible = true
 
+	# Calculate wind visual offset for the flight animation
+	var wind_offset = Vector2.ZERO
+	if not is_putt and GameManager.wind_system and terrain_grid:
+		var shot_direction = Vector2(to_grid - from_grid).normalized()
+		var distance_tiles = Vector2(to_grid - from_grid).length()
+		# Convert wind tile displacement to screen pixels for visual effect
+		var wind_tile_disp = GameManager.wind_system.get_wind_displacement(shot_direction, distance_tiles, 1)  # Use IRON sensitivity for visual
+		wind_offset = wind_tile_disp * terrain_grid.tile_width * 0.5  # Scale to screen space
+
 	# Calculate flight duration based on distance (longer shots take longer)
 	if is_putt:
 		# Putts are ground rolls - shorter, consistent duration
@@ -125,7 +134,7 @@ func animate_shot(golfer_id: int, from_grid: Vector2i, to_grid: Vector2i, distan
 		var base_duration = 1.0
 		var duration = base_duration + (distance_yards / 300.0) * 1.5
 		duration = clamp(duration, 0.5, 3.0)
-		ball.start_flight(from_grid, to_grid, duration, false)
+		ball.start_flight(from_grid, to_grid, duration, false, wind_offset)
 
 	emit_signal("ball_flight_started", golfer_id, from_grid, to_grid)
 

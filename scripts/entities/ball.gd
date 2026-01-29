@@ -21,6 +21,7 @@ var flight_end_pos: Vector2 = Vector2.ZERO
 var flight_progress: float = 0.0
 var flight_duration: float = 1.0
 var flight_max_height: float = 100.0
+var wind_visual_offset: Vector2 = Vector2.ZERO  # Visual wind drift during flight
 
 signal ball_landed(landing_pos: Vector2i)
 signal ball_state_changed(old_state: BallState, new_state: BallState)
@@ -46,7 +47,7 @@ func set_position_in_grid(pos: Vector2i) -> void:
 	_update_visual()
 
 ## Start a flight animation from one position to another
-func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5, is_putt: bool = false) -> void:
+func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5, is_putt: bool = false, wind_offset: Vector2 = Vector2.ZERO) -> void:
 	if not terrain_grid:
 		return
 
@@ -59,9 +60,11 @@ func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5,
 	# Putts roll along the ground; other shots fly in an arc
 	if is_putt:
 		flight_max_height = 0.0
+		wind_visual_offset = Vector2.ZERO  # No wind on putts
 	else:
 		var distance = flight_start_pos.distance_to(flight_end_pos)
 		flight_max_height = min(distance * 0.3, 150.0)
+		wind_visual_offset = wind_offset
 
 	_change_state(BallState.IN_FLIGHT)
 	global_position = flight_start_pos
@@ -85,7 +88,10 @@ func _process_flight(delta: float) -> void:
 	var linear_pos = flight_start_pos.lerp(flight_end_pos, flight_progress)
 	var arc_height = sin(flight_progress * PI) * flight_max_height
 
-	global_position = linear_pos - Vector2(0, arc_height)
+	# Apply wind visual drift progressively during flight
+	var wind_drift = wind_visual_offset * flight_progress
+
+	global_position = linear_pos - Vector2(0, arc_height) + wind_drift
 
 	# Update visual scale for depth perception (skip for putts rolling on ground)
 	if flight_max_height > 0.0:
