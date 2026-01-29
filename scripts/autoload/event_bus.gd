@@ -44,7 +44,7 @@ signal golfer_left_course(golfer_id: int)
 
 # Shot Signals
 signal shot_taken(golfer_id: int, hole_number: int, strokes: int)
-signal ball_landed(golfer_id: int, position: Vector2i, terrain_type: int)
+signal ball_landed(golfer_id: int, from_position: Vector2i, position: Vector2i, terrain_type: int)
 signal ball_in_hole(golfer_id: int, hole_number: int)
 
 # UI Signals

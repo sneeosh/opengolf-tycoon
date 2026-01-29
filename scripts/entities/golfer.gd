@@ -565,7 +565,7 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 
 	var distance_yards = terrain_grid.calculate_distance_yards(from, landing_position)
 
-	EventBus.emit_signal("ball_landed", golfer_id, landing_position, terrain_grid.get_tile(landing_position))
+	EventBus.emit_signal("ball_landed", golfer_id, from, landing_position, terrain_grid.get_tile(landing_position))
 
 	return {
 		"landing_position": landing_position,
