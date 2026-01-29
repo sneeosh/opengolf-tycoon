@@ -180,116 +180,115 @@ The game currently supports:
 
 ## PRIORITY 3: Terrain & Course Design Features
 
-### [] Water Hazards
-- Pond placement tool
-- Lake/river creation
-- Penalty stroke for water balls
-- Water affects hole fun and difficulty rating
+### [] Water Hazard Placement Tools
+_Note: Shot mechanics for water penalties already exist in code._
+- Pond placement tool (brush-based painting)
+- Lake/river creation with connected tiles
+- Visual water animation
+- Water affects hole difficulty rating
 
-### [] Sand Traps & Bunkers
-- Sand trap placement tool
-- Reduced shot accuracy from sand
-- Bunkers should affect hole fun and difficulty rating
-- Visual sand spray effects
+### [] Sand Trap & Bunker Placement Tools
+_Note: Shot accuracy/distance modifiers for bunkers already exist (wedge 0.6, other clubs 0.4 lie modifier; 25% distance loss)._
+- Sand trap placement tool (brush-based painting)
+- Visual sand spray particle effects
+- Bunkers affect hole difficulty rating
+
+### [] Wind Effects on Ball Flight
+- Wind direction and strength (variable per day or per hole)
+- Wind affects ball trajectory during flight
+- Headwind reduces distance, tailwind increases it
+- Crosswind pushes ball laterally
+- AI golfers account for wind in shot planning
+- Wind indicator in HUD
 
 ### [] Terrain Elevation System
 - Hills and valleys
-- Uphill/downhill shot adjustments (uphill shots should go shorter and downhill should go farther)
-- Elevation affects ball roll
+- Uphill/downhill shot adjustments (uphill shorter, downhill farther)
+- Elevation affects ball roll direction and speed
 - Visual elevation indicators
 
-### [] Advanced Fairway & Rough System
-- Differentiated rough levels (light, heavy)
-- Rough affects shot distance/accuracy
-- Maintenance costs for different grass types
-
 ### [] Out of Bounds Areas
-- OB markers and boundaries
-- Stroke and distance penalty
-- Prevent building in certain areas
+- OB markers and boundary painting
+- Stroke and distance penalty enforcement
 - Natural boundaries (trees, water)
 
 ---
 
-## PRIORITY 4: Buildings & Facilities
+## PRIORITY 4: Save/Load & Essential UX
 
-### [] Clubhouse Expansion
-- Upgrade system for clubhouse
-- Pro shop revenue
-- Restaurant/bar facilities
-- Locker rooms
-- Impact on golfer satisfaction
+### [] Save/Load System
+- Save course layout, economy state, and day progress
+- Auto-save at end of each day
+- At least one save slot (multiple slots later)
+- Load from main menu
 
-### [] Maintenance Buildings
-- Equipment shed
-- Maintenance crew quarters
-- Storage facilities
-- Reduce upkeep costs over time
+### [] Day/Night Cycle & Course Closing
+- Visual dimming as evening approaches
+- Golfers finish current hole and leave at closing time (8 PM)
+- New day begins at course open (6 AM)
+- Day transition screen or notification
 
-### [] Practice Facilities
-- Driving range
-- Putting green
-- Chipping area
-- Attracts better golfers
-- Additional revenue stream
+### [] End-of-Day Summary
+- Revenue earned today
+- Number of golfers served
+- Notable scores (eagles, hole-in-ones)
+- Average pace of play
+- Daily profit/loss
 
-### [] Parking & Amenities
-- Cart barn and cart paths
-- Restrooms along course
-- Water stations
-- Benches and shelters
+### [] Golfer Feedback System
+- Thought bubbles above golfers showing reactions ("Great hole!", "Too slow!", "Overpriced!")
+- Feedback tied to actual game state (pace of play, green fee vs course quality, hole design)
+- Gives the player actionable information about what to improve
+- Aggregate feedback visible in a simple log or summary
 
 ---
 
-## PRIORITY 5: Economy & Management
-
+## PRIORITY 5: Economy & Satisfaction Loop
 
 ### [] Operating Costs
-- Maintenance crew salaries
-- Utilities (water, electricity)
+- Daily maintenance costs per hole (based on terrain quality)
+- Baseline daily operating cost for the course
+- Player sees income vs expenses each day
 
-### [] Course Maintenance Schedule
-- Mowing schedule and costs
-- Equipment upgrades
+### [] Golfer Satisfaction & Course Rating
+- Course condition rating (based on maintenance)
+- Pace of play tracking (slow play reduces satisfaction)
+- Price/value perception (green fee vs course quality)
+- Overall course rating (1-5 stars) affects golfer traffic
+- Higher ratings attract more golfers and justify higher green fees
 
-### [] Staff Management
-- Hire groundskeepers
-- Pro shop employees
-- Starter/marshal positions
-- Staff quality affects course condition
-- Salary vs. performance balance
+### [] Golfer Types & Skill Tiers
+- Beginner, casual, serious, and pro skill tiers
+- Each tier has different expectations and spending
+- Better courses attract higher-tier golfers
+- Pro golfers generate reputation
+
+### [] Course Records & Notable Events
+- Track course records (lowest round, hole-in-ones)
+- Hole-in-one celebration animation
+- Low round recognition notification
+- Records displayed somewhere accessible
 
 ---
 
-## PRIORITY 6: Golfer Systems & Satisfaction
+## PRIORITY 6: Buildings & Facilities
 
-### [] Golfer Attributes & Personalities
-- Skill levels (beginner to pro)
-- Personality types (cautious, aggressive, etc.)
-- Preferences (course difficulty, amenities)
-- Loyalty and return visits
+### [] Clubhouse
+- Starting clubhouse (already implied by spawn system)
+- Upgrade tiers that unlock amenities (pro shop, restaurant)
+- Each upgrade increases golfer satisfaction and revenue
+- Visual upgrades reflected on the map
 
-### [] Satisfaction & Rating System
-- Course condition rating
-- Pace of play tracking
-- Amenity satisfaction
-- Price/value perception
-- Overall course rating (1-5 stars)
+### [] Cart Paths
+- Paintable cart path terrain type
+- Golfers prefer walking on paths (faster movement)
+- Visual distinction on the isometric map
+- Connects tees, greens, and clubhouse
 
-### [] Golfer Types & Demographics
-- Casual players
-- Serious golfers
-- Families
-- Party golfers
-- Pros
-- Members
-
-### [] Achievement & Progression
-- Course records tracking
-- Hole-in-one celebrations
-- Low round recognition
-- Regular player benefits
-- Pro shop discounts for loyal customers
+### [] Additional Facilities (defer details until economy loop exists)
+- Practice facilities (driving range, putting green) - additional revenue
+- Restrooms along course - satisfaction boost
+- Benches and shelters - satisfaction boost
 
 ---
 
@@ -297,37 +296,30 @@ The game currently supports:
 
 ### [] Course Overview Map
 - Mini-map showing full course layout
-- Zoom in/out controls
 - Click to jump to location
 - Show active golfers on map
 - Highlight selected hole
 
 ### [] Financial Dashboard
-- Current budget display
+- Current budget display (already partial)
 - Income/expense breakdown
 - Revenue trends over time
-- Cost per hole analysis
-- Profitability metrics
+- Daily and cumulative profit/loss
 
 ### [] Build Mode Improvements
 - Categorized terrain menu
 - Quick-select hotkeys
-- Undo/redo functionality
-- Copy/paste terrain sections
-- Template saving for hole designs
+- Cost preview before placement
+- Hover tooltips for terrain types
 
 ### [] Information Overlays
-- Hover tooltips for terrain types
-- Building information panels
 - Golfer stats when clicked
-- Hole statistics
-- Cost preview before placement
+- Hole statistics (average score, pace of play)
+- Building information panels
 
-### [] Tutorial System
-- First-time player guidance
-- Progressive feature unlocking
-- Tooltip hints
-- Achievement-based tutorials
+### [] Tutorial & Help
+- First-time player guidance (optional)
+- Tooltip hints for UI elements
 - Help menu with tips
 
 ---
@@ -335,31 +327,29 @@ The game currently supports:
 ## PRIORITY 8: Advanced Features
 
 ### [] Weather System
-- Different weather conditions (sunny, rain, wind)
-- Weather affects ball flight
-- Weather affects golfer spawn rate
-- The course should never close
-- Ball accuracy and distance affected by rain and wind
-- Seasonal changes
+- Weather conditions (sunny, cloudy, rain)
+- Rain reduces golfer spawn rate
+- Visual weather effects (rain particles, darker sky)
+- Course never closes due to weather
 
 ### [] Tournament Mode
-- Host tournaments
-- Prize money system
-- Attract pro golfers
+- Host tournaments on your course
+- Prize money system (course pays out, earns prestige)
+- Attracts pro golfers and media attention
+- Reputation boost for hosting
 
-### [] Course Certification System
-- Difficulty rating (slope/rating)
-- Professional certification levels
-- Unlock features with better ratings
-- Attract higher-paying golfers
-- Tour event hosting opportunities
+### [] Course Difficulty Rating
+- Automatic slope/difficulty rating based on hole design
+- Rating displayed to player
+- Affects which golfer tiers are attracted
+- Higher difficulty with good design = more prestige
 
 ---
 
 ## PRIORITY 9: Polish & Content
 
 ### [] Visual & Audio Polish
-- Create custom sprites for all terrain types
+- Custom sprites for all terrain types
 - Animated water and flags
 - Ambient sounds (birds, wind, golf shots)
 - Music tracks for different game states
@@ -367,16 +357,9 @@ The game currently supports:
 
 ### [] Additional Terrain Objects
 - Flower beds and gardens
-- Decorative rocks and boulders
-- Statues and monuments
 - Bridges over water
 - Cart paths (visual and functional)
-
-### [] Seasonal Content
-- Fall foliage colors
-- Spring flowers
-- Summer lush greens
-- Seasonal events and tournaments
+- Additional decorative objects
 
 ### [~] Zoom & Scale Tuning
 **STATUS: PARTIAL** - Yardage scale adjusted, zoom polish remaining:
@@ -388,34 +371,31 @@ The game currently supports:
 
 ---
 
-## PRIORITY 10: Optimization & Expansion
+## PRIORITY 10: Performance & Optimization
 
 ### [] Performance Optimization
-- Optimize rendering for large courses
+- Optimize rendering for large courses (18+ holes)
 - Reduce memory usage
 - Improve pathfinding efficiency
 - Object pooling for golfers/balls
 - Level of detail system
 
-### [] Save/Load System
-- Save course progress
-- Multiple save slots
-- Auto-save functionality
-- Export/import course designs
-
 ### [] Achievements & Unlockables
 - Unlock new terrain types
 - Special buildings
-- Legendary golfers
-- Unique decorations
 - Bonus challenges
 
-### [] Expansion Ideas
+---
+
+## Post-1.0 Ideas
+
+_These are ambitious ideas that would each represent significant scope. Deferred until the core game is complete and polished._
+
 - Mini-golf mode
 - Disc golf variant
-- Historical famous courses
-- Fantasy/themed courses
-- Career mode progression
+- Career mode with progressive challenges
+- Seasonal visual changes (fall foliage, spring flowers)
+- Course export/import and sharing
 
 ---
 
