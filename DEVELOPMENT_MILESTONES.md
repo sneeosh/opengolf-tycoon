@@ -423,6 +423,9 @@ The game currently supports:
 - ✅ Infinite putting loop - putts never converged toward hole, blocking next group's tee shots; fixed with gimme range, short putts aim at hole, off-green putts stop at green edge
 - ✅ Putter shots flying in arc like wedge shots - putts now roll along the ground with club-aware animation
 - ✅ Landing zone deadlock from stuck putters - added putt accuracy floor (95% short, 75% long) and double-par pickup rule
+- ✅ Too many groups spawning at once - tightened first tee clear check to also block when golfers are mid-action (walking, preparing, swinging, watching) on hole 0
+- ✅ Golfers hitting from green instead of walking to next tee - reset current_strokes after hole-out and added walk-to-tee logic for subsequent holes
+- ✅ Walk-to-tee broke first-hole spawning - added first-hole exemption so golfers teleport to tee on hole 1
 
 ### Minor
 - (Add bugs as discovered)

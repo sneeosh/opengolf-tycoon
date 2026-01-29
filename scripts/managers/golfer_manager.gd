@@ -235,7 +235,17 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 	# Start the hole or prepare for next shot
 	if golfer.current_strokes == 0:
-		# Starting new hole - move to tee position and prepare for tee shot
+		# For holes after the first, walk from previous green to the next tee
+		if next_hole_index > 0 and GameManager.terrain_grid:
+			var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(hole_data.tee_position)
+			var distance_to_tee = golfer.global_position.distance_to(tee_screen_pos)
+			if distance_to_tee > 10.0:
+				# Walk to the next tee first
+				golfer.path = golfer._find_path_to(tee_screen_pos)
+				golfer.path_index = 0
+				golfer._change_state(Golfer.State.WALKING)
+				return
+		# At the tee (or first hole) - start the hole
 		golfer.start_hole(next_hole_index, hole_data.tee_position)
 	else:
 		# Already hit at least one shot
@@ -266,6 +276,7 @@ func _advance_golfer(golfer: Golfer) -> void:
 			EventBus.emit_signal("ball_in_hole", golfer.golfer_id, hole_data.hole_number)
 			golfer.finish_hole(hole_data.par)
 			golfer.current_hole += 1
+			golfer.current_strokes = 0
 
 			# Check if round is complete after advancing to next hole
 			if golfer.current_hole >= course_data.holes.size():
@@ -325,6 +336,8 @@ func spawn_initial_group() -> void:
 	var group_size = _select_weighted_group_size()
 	var new_group_id = next_group_id
 	next_group_id += 1
+
+	print("New group %d: %d golfers (Fee: $%d)" % [new_group_id, group_size, GameManager.green_fee])
 
 	for i in range(group_size):
 		spawn_random_golfer(new_group_id)
