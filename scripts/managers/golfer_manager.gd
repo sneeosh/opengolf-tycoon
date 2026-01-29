@@ -226,6 +226,12 @@ func _advance_golfer(golfer: Golfer) -> void:
 		return
 
 	var next_hole_index = golfer.current_hole
+
+	# Skip closed holes when starting a new hole
+	if golfer.current_strokes == 0:
+		next_hole_index = _find_next_open_hole(next_hole_index, course_data)
+		golfer.current_hole = next_hole_index
+
 	if next_hole_index >= course_data.holes.size():
 		# Round completed
 		golfer.finish_round()
@@ -278,6 +284,9 @@ func _advance_golfer(golfer: Golfer) -> void:
 			golfer.current_hole += 1
 			golfer.current_strokes = 0
 
+			# Skip any closed holes after finishing
+			golfer.current_hole = _find_next_open_hole(golfer.current_hole, course_data)
+
 			# Check if round is complete after advancing to next hole
 			if golfer.current_hole >= course_data.holes.size():
 				golfer.finish_round()
@@ -285,6 +294,16 @@ func _advance_golfer(golfer: Golfer) -> void:
 			# Golfer is already at their ball (walked there after last shot)
 			# Just transition to PREPARING_SHOT to start their turn
 			golfer._change_state(Golfer.State.PREPARING_SHOT)
+
+func _find_next_open_hole(from_index: int, course_data: GameManager.CourseData) -> int:
+	"""Find the next open hole starting from from_index, skipping closed holes"""
+	var index = from_index
+	while index < course_data.holes.size():
+		if course_data.holes[index].is_open:
+			return index
+		print("DEBUG: Skipping closed hole %d" % (index + 1))
+		index += 1
+	return index  # Past end = round complete
 
 ## Spawn a new golfer
 func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int = -1) -> Golfer:

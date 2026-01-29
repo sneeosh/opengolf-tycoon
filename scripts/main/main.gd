@@ -30,6 +30,7 @@ var last_paint_pos: Vector2i = Vector2i(-1, -1)
 
 var hole_tool: HoleCreationTool = HoleCreationTool.new()
 var placement_manager: PlacementManager = PlacementManager.new()
+var undo_manager: UndoManager = UndoManager.new()
 var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
 var selected_tree_type: String = "oak"
@@ -55,6 +56,10 @@ func _ready() -> void:
 
 	# Add hole creation tool
 	add_child(hole_tool)
+
+	# Add undo manager
+	add_child(undo_manager)
+	terrain_grid.tile_changed.connect(_on_terrain_tile_changed_for_undo)
 
 	_connect_signals()
 	_connect_ui_buttons()
@@ -83,6 +88,20 @@ func _process(_delta: float) -> void:
 	_update_ui()
 	_handle_mouse_hover()
 
+func _input(event: InputEvent) -> void:
+	# Undo/Redo keyboard shortcuts - handled in _input so UI controls don't swallow them
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.is_command_or_control_pressed():
+			if event.keycode == KEY_Z and not event.shift_pressed:
+				_perform_undo()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_Z and event.shift_pressed:
+				_perform_redo()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_Y:
+				_perform_redo()
+				get_viewport().set_input_as_handled()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("select"):
 		_start_painting()
@@ -97,6 +116,8 @@ func _connect_signals() -> void:
 	EventBus.connect("money_changed", _on_money_changed)
 	EventBus.connect("day_changed", _on_day_changed)
 	EventBus.connect("hole_created", _on_hole_created)
+	EventBus.connect("hole_deleted", _on_hole_deleted)
+	EventBus.connect("hole_toggled", _on_hole_toggled)
 	EventBus.connect("green_fee_changed", _on_green_fee_changed)
 
 func _connect_ui_buttons() -> void:
@@ -297,11 +318,13 @@ func _start_painting() -> void:
 		return
 
 	is_painting = true
+	undo_manager.begin_stroke()
 	_paint_at_mouse()
 
 func _stop_painting() -> void:
 	is_painting = false
 	last_paint_pos = Vector2i(-1, -1)
+	undo_manager.end_stroke()
 
 func _paint_at_mouse() -> void:
 	var mouse_world = camera.get_mouse_world_position()
@@ -380,9 +403,76 @@ func _on_day_changed(new_day: int) -> void:
 		EventBus.log_transaction("Daily maintenance", -maintenance)
 
 func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
+	var row = HBoxContainer.new()
+	row.name = "HoleRow%d" % hole_number
+
 	var hole_label = Label.new()
+	hole_label.name = "HoleLabel"
 	hole_label.text = "Hole %d: Par %d (%d yds)" % [hole_number, par, distance_yards]
-	hole_list.add_child(hole_label)
+	hole_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(hole_label)
+
+	var toggle_btn = Button.new()
+	toggle_btn.name = "ToggleBtn"
+	toggle_btn.text = "Open"
+	toggle_btn.custom_minimum_size = Vector2(55, 0)
+	toggle_btn.pressed.connect(_on_hole_toggle_pressed.bind(hole_number))
+	row.add_child(toggle_btn)
+
+	var delete_btn = Button.new()
+	delete_btn.name = "DeleteBtn"
+	delete_btn.text = "X"
+	delete_btn.custom_minimum_size = Vector2(30, 0)
+	delete_btn.pressed.connect(_on_hole_delete_pressed.bind(hole_number))
+	row.add_child(delete_btn)
+
+	hole_list.add_child(row)
+
+func _on_hole_toggle_pressed(hole_number: int) -> void:
+	if not GameManager.current_course:
+		return
+	var is_open = GameManager.current_course.toggle_hole_open(hole_number)
+	var status = "opened" if is_open else "closed"
+	EventBus.notify("Hole %d %s" % [hole_number, status], "info")
+
+func _on_hole_delete_pressed(hole_number: int) -> void:
+	# Don't allow deletion during simulation
+	if GameManager.current_mode == GameManager.GameMode.SIMULATING:
+		EventBus.notify("Cannot delete holes while playing!", "error")
+		return
+	hole_tool.delete_hole(hole_number)
+
+func _on_hole_deleted(hole_number: int) -> void:
+	# Remove the hole row from the UI
+	var row_name = "HoleRow%d" % hole_number
+	if hole_list.has_node(row_name):
+		hole_list.get_node(row_name).queue_free()
+	# Rebuild the hole list to reflect renumbered holes
+	_rebuild_hole_list()
+
+func _on_hole_toggled(hole_number: int, is_open: bool) -> void:
+	var row_name = "HoleRow%d" % hole_number
+	if hole_list.has_node(row_name):
+		var row = hole_list.get_node(row_name)
+		var toggle_btn = row.get_node("ToggleBtn") as Button
+		var hole_label = row.get_node("HoleLabel") as Label
+		if toggle_btn:
+			toggle_btn.text = "Open" if is_open else "Closed"
+			toggle_btn.modulate = Color(1, 1, 1) if is_open else Color(0.6, 0.6, 0.6)
+		if hole_label:
+			hole_label.modulate = Color(1, 1, 1) if is_open else Color(0.5, 0.5, 0.5)
+
+func _rebuild_hole_list() -> void:
+	# Clear existing hole rows
+	for child in hole_list.get_children():
+		child.queue_free()
+	# Re-add from course data
+	if GameManager.current_course:
+		for hole in GameManager.current_course.holes:
+			_on_hole_created(hole.hole_number, hole.par, hole.distance_yards)
+			# Re-apply closed state
+			if not hole.is_open:
+				_on_hole_toggled(hole.hole_number, false)
 
 func _on_tree_placement_pressed() -> void:
 	"""Show tree selection menu and start tree placement mode"""
@@ -546,6 +636,7 @@ func _place_tree(grid_pos: Vector2i, cost: int) -> void:
 	if tree:
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Tree: %s" % selected_tree_type.capitalize(), -cost)
+		undo_manager.record_entity_placement("tree", grid_pos, selected_tree_type, cost)
 		print("Placed %s tree at %s" % [selected_tree_type, grid_pos])
 	else:
 		EventBus.notify("Failed to place tree!", "error")
@@ -559,6 +650,7 @@ func _place_building(grid_pos: Vector2i, cost: int) -> void:
 		GameManager.modify_money(-cost)
 		var building_name = building_registry[building_type].get("name", building_type) if building_type in building_registry else building_type
 		EventBus.log_transaction("Building: %s" % building_name, -cost)
+		undo_manager.record_entity_placement("building", grid_pos, building_type, cost)
 		print("Placed %s at %s" % [building_type, grid_pos])
 	else:
 		EventBus.notify("Failed to place building!", "error")
@@ -569,6 +661,104 @@ func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 	if rock:
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Rock: %s" % selected_rock_size.capitalize(), -cost)
+		undo_manager.record_entity_placement("rock", grid_pos, selected_rock_size, cost)
 		print("Placed %s rock at %s" % [selected_rock_size, grid_pos])
 	else:
 		EventBus.notify("Failed to place rock!", "error")
+
+# --- Undo/Redo System ---
+
+var _is_undoing: bool = false  # Prevent re-recording changes triggered by undo/redo
+
+func _on_terrain_tile_changed_for_undo(position: Vector2i, old_type: int, new_type: int) -> void:
+	if _is_undoing:
+		print("DEBUG UNDO: Tile change ignored (_is_undoing=true)")
+		return
+	undo_manager.record_tile_change(position, old_type, new_type)
+
+func _perform_undo() -> void:
+	if GameManager.current_mode != GameManager.GameMode.BUILDING:
+		EventBus.notify("Undo only available in build mode", "info")
+		return
+	if not undo_manager.can_undo():
+		return
+
+	var action = undo_manager.undo()
+	if action.is_empty():
+		return
+
+	_is_undoing = true
+	_execute_undo_action(action)
+	_is_undoing = false
+	EventBus.notify("Undo", "info")
+
+func _perform_redo() -> void:
+	if GameManager.current_mode != GameManager.GameMode.BUILDING:
+		EventBus.notify("Redo only available in build mode", "info")
+		return
+	if not undo_manager.can_redo():
+		return
+
+	var action = undo_manager.redo()
+	if action.is_empty():
+		return
+
+	_is_undoing = true
+	_execute_redo_action(action)
+	_is_undoing = false
+	EventBus.notify("Redo", "info")
+
+func _execute_undo_action(action: Dictionary) -> void:
+	print("DEBUG UNDO: Executing undo for type=%s" % action.get("type", "unknown"))
+	match action.get("type", ""):
+		"terrain":
+			# Revert all tile changes in reverse order
+			var changes = action.get("changes", [])
+			var refund = 0
+			for i in range(changes.size() - 1, -1, -1):
+				var change = changes[i]
+				terrain_grid.set_tile(change["position"], change["old_type"])
+				refund += TerrainTypes.get_placement_cost(change["new_type"])
+			if refund > 0:
+				GameManager.modify_money(refund)
+		"entity_place":
+			# Remove the entity and refund cost
+			var grid_pos = action.get("grid_pos", Vector2i.ZERO)
+			var entity_type = action.get("entity_type", "")
+			var cost = action.get("cost", 0)
+			match entity_type:
+				"tree":
+					entity_layer.remove_tree(grid_pos)
+				"building":
+					entity_layer.remove_building(grid_pos)
+				"rock":
+					entity_layer.remove_rock(grid_pos)
+			if cost > 0:
+				GameManager.modify_money(cost)
+
+func _execute_redo_action(action: Dictionary) -> void:
+	match action.get("type", ""):
+		"terrain":
+			# Re-apply all tile changes in order
+			var changes = action.get("changes", [])
+			var cost = 0
+			for change in changes:
+				terrain_grid.set_tile(change["position"], change["new_type"])
+				cost += TerrainTypes.get_placement_cost(change["new_type"])
+			if cost > 0:
+				GameManager.modify_money(-cost)
+		"entity_place":
+			# Re-place the entity and deduct cost
+			var grid_pos = action.get("grid_pos", Vector2i.ZERO)
+			var entity_type = action.get("entity_type", "")
+			var subtype = action.get("subtype", "")
+			var cost = action.get("cost", 0)
+			match entity_type:
+				"tree":
+					entity_layer.place_tree(grid_pos, subtype)
+				"building":
+					entity_layer.place_building(subtype, grid_pos, building_registry)
+				"rock":
+					entity_layer.place_rock(grid_pos, subtype)
+			if cost > 0:
+				GameManager.modify_money(-cost)
