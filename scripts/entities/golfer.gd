@@ -22,25 +22,25 @@ enum Club {
 ## Club characteristics
 const CLUB_STATS = {
 	Club.DRIVER: {
-		"max_distance": 60,    # tiles (300 yards at 5 yards/tile)
-		"min_distance": 40,    # tiles (200 yards)
+		"max_distance": 30,    # tiles (300 yards at 10 yards/tile)
+		"min_distance": 20,    # tiles (200 yards)
 		"accuracy_modifier": 0.7,
 		"name": "Driver"
 	},
 	Club.IRON: {
-		"max_distance": 40,    # tiles (200 yards)
-		"min_distance": 20,    # tiles (100 yards)
+		"max_distance": 20,    # tiles (200 yards)
+		"min_distance": 10,    # tiles (100 yards)
 		"accuracy_modifier": 0.85,
 		"name": "Iron"
 	},
 	Club.WEDGE: {
-		"max_distance": 20,    # tiles (100 yards)
-		"min_distance": 4,     # tiles (20 yards)
+		"max_distance": 10,    # tiles (100 yards)
+		"min_distance": 2,     # tiles (20 yards)
 		"accuracy_modifier": 0.95,
 		"name": "Wedge"
 	},
 	Club.PUTTER: {
-		"max_distance": 8,     # tiles (40 yards, ~120 feet)
+		"max_distance": 4,     # tiles (40 yards, ~120 feet)
 		"min_distance": 0,     # tiles
 		"accuracy_modifier": 0.98,
 		"name": "Putter"
@@ -450,7 +450,7 @@ func _decide_putt_target(hole_position: Vector2i) -> Vector2i:
 	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
 
 	# For very short putts, just aim for the hole
-	if distance_to_hole < 1.5:
+	if distance_to_hole < 0.75:
 		return hole_position
 
 	# For longer putts, aim slightly past the hole (never up short!)
@@ -548,7 +548,7 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 				var hole_position = hole_data.hole_position
 
 				var distance_to_hole = Vector2(landing_position).distance_to(Vector2(hole_position))
-				if distance_to_hole < 2.0:
+				if distance_to_hole < 1.0:
 					# Close enough - ball goes in hole
 					landing_position = hole_position
 				else:
@@ -626,7 +626,7 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 	# Check if path crosses water or is short enough to go direct
 	var path_distance = Vector2(start_grid).distance_to(Vector2(end_grid))
 
-	if path_distance < 5.0 or not _path_crosses_obstacle(start_grid, end_grid, true):
+	if path_distance < 2.5 or not _path_crosses_obstacle(start_grid, end_grid, true):
 		# Short distance or no obstacles - go direct
 		var result: Array[Vector2] = []
 		result.append(target_pos)
