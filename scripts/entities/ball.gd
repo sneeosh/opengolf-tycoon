@@ -104,8 +104,22 @@ func _simulate_roll(max_tiles: int, duration: float) -> void:
 	# Calculate roll direction (continue in same direction as flight)
 	var roll_direction = (flight_end_pos - flight_start_pos).normalized()
 
+	# Apply slope influence on roll direction
+	var slope = terrain_grid.get_slope_direction(grid_position)
+	if slope.length() > 0:
+		# Ball breaks toward lower ground - blend slope with roll direction
+		roll_direction = (roll_direction + slope * 0.5).normalized()
+
 	# Determine how far the ball will actually roll
 	var roll_distance = randi_range(max_tiles / 2, max_tiles)
+
+	# Slope affects roll distance: downhill rolls further, uphill rolls less
+	var slope_dot = slope.dot(roll_direction)
+	if slope_dot > 0:
+		roll_distance = int(roll_distance * 1.3)  # Downhill: 30% more roll
+	elif slope_dot < 0:
+		roll_distance = int(roll_distance * 0.7)  # Uphill: 30% less roll
+
 	var roll_target_pos = global_position + (roll_direction * roll_distance * 16)  # 16 pixels per tile approx
 
 	# Animate the roll

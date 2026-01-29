@@ -8,13 +8,17 @@ class_name TerrainGrid
 @export var tile_height: int = 32
 
 var _grid: Dictionary = {}
+var _elevation_grid: Dictionary = {}  # Vector2i -> int (-5 to +5)
+var _elevation_overlay: ElevationOverlay = null
 
 @onready var tile_map: TileMapLayer = $TileMapLayer if has_node("TileMapLayer") else null
 
 signal tile_changed(position: Vector2i, old_type: int, new_type: int)
+signal elevation_changed(position: Vector2i, old_elevation: int, new_elevation: int)
 
 func _ready() -> void:
 	_initialize_grid()
+	_setup_elevation_overlay()
 
 func _initialize_grid() -> void:
 	for x in range(grid_width):
@@ -95,11 +99,70 @@ func _get_atlas_coords_for_type(terrain_type: int) -> Vector2i:
 	var y = terrain_type / TILES_PER_ROW
 	return Vector2i(x, y)
 
+func _setup_elevation_overlay() -> void:
+	_elevation_overlay = ElevationOverlay.new()
+	_elevation_overlay.name = "ElevationOverlay"
+	add_child(_elevation_overlay)
+	_elevation_overlay.initialize(self)
+
+## Get elevation at a position (default 0)
+func get_elevation(pos: Vector2i) -> int:
+	return _elevation_grid.get(pos, 0)
+
+## Set elevation at a position (clamped to -5..+5)
+func set_elevation(pos: Vector2i, height: int) -> void:
+	if not is_valid_position(pos):
+		return
+	var old_elevation = _elevation_grid.get(pos, 0)
+	var new_elevation = clampi(height, -5, 5)
+	if old_elevation == new_elevation:
+		return
+	if new_elevation == 0:
+		_elevation_grid.erase(pos)  # Don't store default value
+	else:
+		_elevation_grid[pos] = new_elevation
+	emit_signal("elevation_changed", pos, old_elevation, new_elevation)
+	if _elevation_overlay:
+		_elevation_overlay.queue_redraw()
+
+## Get elevation difference between two points (positive = uphill from→to)
+func get_elevation_difference(from: Vector2i, to: Vector2i) -> int:
+	return get_elevation(to) - get_elevation(from)
+
+## Get downhill slope direction at a position (Vector2 pointing downhill)
+func get_slope_direction(pos: Vector2i) -> Vector2:
+	var current_elev = get_elevation(pos)
+	var slope = Vector2.ZERO
+	var neighbors = [
+		[Vector2i(1, 0), Vector2(1, 0)],
+		[Vector2i(-1, 0), Vector2(-1, 0)],
+		[Vector2i(0, 1), Vector2(0, 1)],
+		[Vector2i(0, -1), Vector2(0, -1)]
+	]
+	for n in neighbors:
+		var neighbor_pos: Vector2i = pos + n[0]
+		if is_valid_position(neighbor_pos):
+			var diff = current_elev - get_elevation(neighbor_pos)
+			if diff > 0:
+				slope += n[1] * float(diff)
+	return slope.normalized() if slope.length() > 0 else Vector2.ZERO
+
+## Toggle elevation overlay prominence
+func set_elevation_overlay_active(active: bool) -> void:
+	if _elevation_overlay:
+		_elevation_overlay.set_elevation_mode_active(active)
+
 func serialize() -> Dictionary:
 	var data: Dictionary = {}
 	for pos in _grid:
 		if _grid[pos] != TerrainTypes.Type.GRASS:
 			data["%d,%d" % [pos.x, pos.y]] = _grid[pos]
+	return data
+
+func serialize_elevation() -> Dictionary:
+	var data: Dictionary = {}
+	for pos in _elevation_grid:
+		data["%d,%d" % [pos.x, pos.y]] = _elevation_grid[pos]
 	return data
 
 func deserialize(data: Dictionary) -> void:
@@ -110,3 +173,14 @@ func deserialize(data: Dictionary) -> void:
 			var pos = Vector2i(int(parts[0]), int(parts[1]))
 			if is_valid_position(pos):
 				_grid[pos] = data[key]
+
+func deserialize_elevation(data: Dictionary) -> void:
+	_elevation_grid.clear()
+	for key in data:
+		var parts = key.split(",")
+		if parts.size() == 2:
+			var pos = Vector2i(int(parts[0]), int(parts[1]))
+			if is_valid_position(pos):
+				_elevation_grid[pos] = data[key]
+	if _elevation_overlay:
+		_elevation_overlay.queue_redraw()
