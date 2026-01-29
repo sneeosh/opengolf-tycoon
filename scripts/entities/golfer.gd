@@ -516,6 +516,13 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 		var short_game_floor = lerpf(0.85, 0.6, distance_ratio)
 		total_accuracy = max(total_accuracy, short_game_floor)
 
+	# Putt accuracy floor - even bad putters don't wildly miss short putts
+	# Short putts (<1 tile) are nearly automatic, longer putts still require skill
+	if club == Club.PUTTER:
+		var putt_distance_ratio = clamp(distance_to_target / float(club_stats["max_distance"]), 0.0, 1.0)
+		var putt_floor = lerpf(0.95, 0.75, putt_distance_ratio)
+		total_accuracy = max(total_accuracy, putt_floor)
+
 	# Distance modifier based on club and skill
 	var distance_modifier = 1.0
 	if club == Club.DRIVER:

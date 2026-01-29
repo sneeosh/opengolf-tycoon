@@ -10,7 +10,7 @@ The game currently supports:
 5. Adding trees (4 types: Oak, Pine, Maple, Birch) and decorative rocks (3 sizes)
 6. Budget tracking - adding objects subtracts from overall budget
 7. Golfer AI framework with basic shot calculation
-8. **Ball physics and visualization system** - Complete arc trajectory animation with terrain-based rolling
+8. **Ball physics and visualization system** - Arc trajectory for full shots, ground roll for putts, terrain-based physics
 9. **Golfer visual rendering** - Animated golfers with walking/swinging animations and score tracking
 10. **Hole visualization system** - Visual flags, connecting lines, hole info labels with par and yardage
 11. **Play/Pause system with golfer spawning** - Game mode switching with validation and automatic golfer spawning
@@ -48,6 +48,7 @@ The game currently supports:
 - ✅ BallManager handles all ball instances and connects to golfer shot system
 - ✅ Automatic ball visibility management (hidden between holes, visible during play)
 - ✅ Golfers watch ball flight before walking (swing → watch → walk sequence)
+- ✅ Putts roll along the ground instead of flying in an arc (club-aware animation)
 
 ### [X] Golfer Visual Rendering
 **STATUS: COMPLETE** - Golfers fully visible with animations and info display:
@@ -116,8 +117,9 @@ The game currently supports:
 - ✅ Shot calculations use appropriate skill stats per club type
 - ✅ Lie type affects accuracy (rough: -25%, bunker: -40-60%, trees: -70%)
 - ✅ Terrain affects distance (rough: -15%, bunker: -25%, trees: -40%)
-- ✅ Debug output showing club, distance, and accuracy for each shot
 - ✅ Short game accuracy boost: distance-based floor for wedge shots matches real amateur averages (20yds ~7yd error, 100yds ~20yd error)
+- ✅ Putt accuracy floor: short putts 95% minimum, long putts 75% minimum (prevents wildly missed short putts)
+- ✅ Double par pickup rule: golfers pick up after 2x par strokes to prevent infinite loops
 - ⏳ Wind effects on ball flight (future enhancement)
 
 ### [X] Golfer AI & Path Finding
@@ -419,6 +421,8 @@ The game currently supports:
 - ✅ Ball flight not visible - BallManager failed to create ball on first shot; fixed by adding from_position to ball_landed signal and using get_or_create_ball
 - ✅ Golfer/ball tile offset - entities positioned at tile corner instead of center; added grid_to_screen_center helper
 - ✅ Infinite putting loop - putts never converged toward hole, blocking next group's tee shots; fixed with gimme range, short putts aim at hole, off-green putts stop at green edge
+- ✅ Putter shots flying in arc like wedge shots - putts now roll along the ground with club-aware animation
+- ✅ Landing zone deadlock from stuck putters - added putt accuracy floor (95% short, 75% long) and double-par pickup rule
 
 ### Minor
 - (Add bugs as discovered)

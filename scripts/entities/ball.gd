@@ -46,7 +46,7 @@ func set_position_in_grid(pos: Vector2i) -> void:
 	_update_visual()
 
 ## Start a flight animation from one position to another
-func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5) -> void:
+func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5, is_putt: bool = false) -> void:
 	if not terrain_grid:
 		return
 
@@ -56,9 +56,12 @@ func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5)
 	flight_progress = 0.0
 	flight_duration = duration
 
-	# Calculate max height based on distance
-	var distance = flight_start_pos.distance_to(flight_end_pos)
-	flight_max_height = min(distance * 0.3, 150.0)
+	# Putts roll along the ground; other shots fly in an arc
+	if is_putt:
+		flight_max_height = 0.0
+	else:
+		var distance = flight_start_pos.distance_to(flight_end_pos)
+		flight_max_height = min(distance * 0.3, 150.0)
 
 	_change_state(BallState.IN_FLIGHT)
 	global_position = flight_start_pos
@@ -84,9 +87,10 @@ func _process_flight(delta: float) -> void:
 
 	global_position = linear_pos - Vector2(0, arc_height)
 
-	# Update visual scale for depth perception
-	var scale_factor = 1.0 + (arc_height / flight_max_height) * 0.5
-	scale = Vector2(scale_factor, scale_factor)
+	# Update visual scale for depth perception (skip for putts rolling on ground)
+	if flight_max_height > 0.0:
+		var scale_factor = 1.0 + (arc_height / flight_max_height) * 0.5
+		scale = Vector2(scale_factor, scale_factor)
 
 func _process_rolling(_delta: float) -> void:
 	# Roll animation is handled by _simulate_roll
@@ -127,23 +131,7 @@ func _land_ball() -> void:
 	match terrain_type:
 		TerrainTypes.Type.WATER:
 			_change_state(BallState.IN_WATER)
-		TerrainTypes.Type.GREEN:
-			# Ball rolls smoothly on green (longest roll)
-			_change_state(BallState.ROLLING)
-			await _simulate_roll(4, 0.6)  # 4 tiles max, 0.6 sec duration
-			_change_state(BallState.AT_REST)
-		TerrainTypes.Type.FAIRWAY:
-			# Ball rolls well on fairway (medium roll)
-			_change_state(BallState.ROLLING)
-			await _simulate_roll(3, 0.4)  # 3 tiles max, 0.4 sec duration
-			_change_state(BallState.AT_REST)
-		TerrainTypes.Type.ROUGH, TerrainTypes.Type.HEAVY_ROUGH:
-			# Ball rolls minimally in rough (short roll)
-			_change_state(BallState.ROLLING)
-			await _simulate_roll(1, 0.3)  # 1 tile max, 0.3 sec duration
-			_change_state(BallState.AT_REST)
 		_:
-			# Default for other terrain types
 			_change_state(BallState.AT_REST)
 
 	ball_landed.emit(grid_position)

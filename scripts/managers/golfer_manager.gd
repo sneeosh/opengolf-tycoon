@@ -89,24 +89,9 @@ func _update_group(group_golfers: Array) -> void:
 	if not someone_shooting:
 		var next_golfer = _determine_next_golfer_in_group(group_golfers)
 		if next_golfer:
-			# Debug: Show who was selected
-			if next_golfer.current_strokes == 0:
-				print("DEBUG: Group %d - Selected %s (ID:%d) for FIRST shot on hole %d" % [next_golfer.group_id, next_golfer.golfer_name, next_golfer.golfer_id, next_golfer.current_hole + 1])
-
 			# Check if landing area is clear before advancing
 			if _is_landing_area_clear(next_golfer, group_golfers):
 				_advance_golfer(next_golfer)
-			else:
-				print("DEBUG: Group %d - %s cannot shoot, landing area blocked" % [next_golfer.group_id, next_golfer.golfer_name])
-		else:
-			# Debug: Why was no golfer selected?
-			if group_golfers.size() > 0:
-				var first_golfer = group_golfers[0]
-				if first_golfer.current_state != Golfer.State.FINISHED:
-					print("DEBUG: Group %d - No golfer selected. Group size: %d" % [first_golfer.group_id, group_golfers.size()])
-					for golfer in group_golfers:
-						var state_name = ["IDLE", "WALKING", "PREPARING_SHOT", "SWINGING", "WATCHING", "PUTTING", "FINISHED"][golfer.current_state]
-						print("DEBUG:   - %s: State=%s, Hole=%d, Strokes=%d" % [golfer.golfer_name, state_name, golfer.current_hole, golfer.current_strokes])
 
 func _determine_next_golfer_in_group(group_golfers: Array) -> Golfer:
 	"""Determine which golfer in this group should shoot next"""
@@ -229,18 +214,13 @@ func _is_landing_area_clear(shooting_golfer: Golfer, group_golfers: Array) -> bo
 
 func _advance_golfer(golfer: Golfer) -> void:
 	"""Advance a specific golfer to their next shot"""
-	print("DEBUG: _advance_golfer called for %s (ID:%d)" % [golfer.golfer_name, golfer.golfer_id])
-
 	var course_data = GameManager.course_data
 	if not course_data or course_data.holes.is_empty():
-		print("DEBUG: No course data or holes")
 		return
 
 	var next_hole_index = golfer.current_hole
-	print("DEBUG: %s current_hole=%d, total_holes=%d" % [golfer.golfer_name, next_hole_index, course_data.holes.size()])
 	if next_hole_index >= course_data.holes.size():
 		# Round completed
-		print("DEBUG: Round completed for %s! Calling finish_round()" % golfer.golfer_name)
 		golfer.finish_round()
 		return
 
@@ -249,7 +229,6 @@ func _advance_golfer(golfer: Golfer) -> void:
 	# Start the hole or prepare for next shot
 	if golfer.current_strokes == 0:
 		# Starting new hole - move to tee position and prepare for tee shot
-		print("DEBUG: Starting hole %d for %s" % [next_hole_index, golfer.golfer_name])
 		golfer.start_hole(next_hole_index, hole_data.tee_position)
 	else:
 		# Already hit at least one shot
@@ -257,24 +236,25 @@ func _advance_golfer(golfer: Golfer) -> void:
 		var hole_position = hole_data.hole_position
 		var distance_to_hole = Vector2(golfer.ball_position).distance_to(Vector2(hole_position))
 
-		print("DEBUG: %s at ball, distance to hole: %.1f tiles" % [golfer.golfer_name, distance_to_hole])
+		# Max stroke limit: double par pickup rule (standard in casual golf)
+		var max_strokes = hole_data.par * 2
+		if golfer.current_strokes >= max_strokes:
+			print("%s picking up on hole %d (max %d strokes)" % [golfer.golfer_name, golfer.current_hole + 1, max_strokes])
+			golfer.ball_position = hole_position
+			distance_to_hole = 0.0
 
 		if distance_to_hole < 0.25:
 			# Close enough to hole out (gimme putt ~3.75 yards)
-			print("DEBUG: %s holing out on hole %d" % [golfer.golfer_name, golfer.current_hole + 1])
 			EventBus.emit_signal("ball_in_hole", golfer.golfer_id, hole_data.hole_number)
 			golfer.finish_hole(hole_data.par)
 			golfer.current_hole += 1
-			print("DEBUG: %s advanced to hole %d (total holes: %d)" % [golfer.golfer_name, golfer.current_hole + 1, course_data.holes.size()])
 
 			# Check if round is complete after advancing to next hole
 			if golfer.current_hole >= course_data.holes.size():
-				print("DEBUG: Round completed for %s! Calling finish_round()" % golfer.golfer_name)
 				golfer.finish_round()
 		else:
 			# Golfer is already at their ball (walked there after last shot)
 			# Just transition to PREPARING_SHOT to start their turn
-			print("DEBUG: Transitioning %s to PREPARING_SHOT" % golfer.golfer_name)
 			golfer._change_state(Golfer.State.PREPARING_SHOT)
 
 ## Spawn a new golfer
@@ -299,17 +279,11 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	golfer.aggression = randf_range(0.2, 0.9)  # Range from cautious to aggressive
 	golfer.patience = randf_range(0.3, 0.8)    # Range from impatient to patient
 
-	print("Spawned %s: Driving=%.2f, Accuracy=%.2f, Putting=%.2f, Aggression=%.2f" % [
-		golfer_name, golfer.driving_skill, golfer.accuracy_skill, golfer.putting_skill, golfer.aggression
-	])
-
 	golfers_container.add_child(golfer)
 	active_golfers.append(golfer)
 
 	# Process green fee payment
 	GameManager.process_green_fee_payment(golfer.golfer_id, golfer_name)
-
-	print("DEBUG: Spawned golfer %d (%s) in group %d - State: IDLE, Hole: 0, Strokes: 0" % [golfer.golfer_id, golfer_name, group_id])
 
 	EventBus.emit_signal("golfer_spawned", golfer.golfer_id, golfer_name)
 	emit_signal("golfer_spawned", golfer)
@@ -334,17 +308,10 @@ func spawn_initial_group() -> void:
 	var new_group_id = next_group_id
 	next_group_id += 1
 
-	print("=== SPAWNING NEW GROUP ===")
-	print("Spawning group of %d golfers (Group %d, Fee: $%d)" % [group_size, new_group_id, GameManager.green_fee])
-	print("Active golfers before spawn: %d" % active_golfers.size())
-
 	for i in range(group_size):
 		spawn_random_golfer(new_group_id)
 		# Small delay between spawns in the same group
 		await get_tree().create_timer(0.5).timeout
-
-	print("=== GROUP %d SPAWN COMPLETE ===" % new_group_id)
-	print("Active golfers after spawn: %d" % active_golfers.size())
 
 func _select_weighted_group_size() -> int:
 	"""Select group size based on weighted probabilities from green fee"""
@@ -371,9 +338,6 @@ func remove_golfer(golfer_id: int) -> void:
 			return
 
 func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
-	print("=== GOLFER FINISHED ROUND ===")
-	print("Golfer %d finished round with %d strokes" % [golfer_id, total_strokes])
-
 	# Increase reputation based on golfer satisfaction
 	var reputation_gain = randi_range(1, 5)
 	GameManager.reputation += reputation_gain
@@ -381,11 +345,9 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 	# Find the golfer to get their group_id
 	var finished_golfer = get_golfer(golfer_id)
 	if not finished_golfer:
-		print("DEBUG: Could not find golfer %d" % golfer_id)
 		return
 
 	var group_id = finished_golfer.group_id
-	print("DEBUG: Checking if entire group %d is finished..." % group_id)
 
 	# Check if all golfers in this group are finished
 	var all_finished = true
@@ -393,28 +355,15 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 	for golfer in active_golfers:
 		if golfer.group_id == group_id:
 			group_golfers.append(golfer)
-			var state_name = ["IDLE", "WALKING", "PREPARING_SHOT", "SWINGING", "WATCHING", "PUTTING", "FINISHED"][golfer.current_state]
-			print("DEBUG:   - Golfer %d (%s): State=%s, Hole=%d/%d" % [
-				golfer.golfer_id,
-				golfer.golfer_name,
-				state_name,
-				golfer.current_hole + 1,
-				GameManager.course_data.holes.size()
-			])
 			if golfer.current_state != Golfer.State.FINISHED:
 				all_finished = false
-				print("DEBUG:     ^ This golfer is NOT finished yet")
 
 	if all_finished:
-		print("DEBUG: All %d golfers in group %d are finished! Removing group in 1 second..." % [group_golfers.size(), group_id])
 		# Wait a moment so players can see the group finish
 		await get_tree().create_timer(1.0).timeout
 		# Remove all golfers in the group
 		for golfer in group_golfers:
-			print("DEBUG: Removing golfer %d (%s) from group %d" % [golfer.golfer_id, golfer.golfer_name, group_id])
 			remove_golfer(golfer.golfer_id)
-	else:
-		print("DEBUG: Group %d still has golfers playing. Waiting for all to finish." % group_id)
 
 ## Get all active golfers
 func get_active_golfers() -> Array[Golfer]:

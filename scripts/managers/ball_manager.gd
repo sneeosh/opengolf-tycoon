@@ -107,7 +107,7 @@ func handle_ob_penalty(golfer_id: int, previous_position: Vector2i) -> void:
 	emit_signal("ball_in_hazard", golfer_id, "ob")
 
 ## Animate ball flight from one position to another
-func animate_shot(golfer_id: int, from_grid: Vector2i, to_grid: Vector2i, distance_yards: int) -> void:
+func animate_shot(golfer_id: int, from_grid: Vector2i, to_grid: Vector2i, distance_yards: int, is_putt: bool = false) -> void:
 	var ball = get_or_create_ball(golfer_id)
 	if not ball:
 		return
@@ -116,11 +116,17 @@ func animate_shot(golfer_id: int, from_grid: Vector2i, to_grid: Vector2i, distan
 	ball.visible = true
 
 	# Calculate flight duration based on distance (longer shots take longer)
-	var base_duration = 1.0
-	var duration = base_duration + (distance_yards / 300.0) * 1.5
-	duration = clamp(duration, 0.5, 3.0)
+	if is_putt:
+		# Putts are ground rolls - shorter, consistent duration
+		var duration = 0.3 + (distance_yards / 100.0) * 0.7
+		duration = clamp(duration, 0.3, 1.5)
+		ball.start_flight(from_grid, to_grid, duration, true)
+	else:
+		var base_duration = 1.0
+		var duration = base_duration + (distance_yards / 300.0) * 1.5
+		duration = clamp(duration, 0.5, 3.0)
+		ball.start_flight(from_grid, to_grid, duration, false)
 
-	ball.start_flight(from_grid, to_grid, duration)
 	emit_signal("ball_flight_started", golfer_id, from_grid, to_grid)
 
 ## Place ball at rest position (for tee shots)
@@ -153,7 +159,8 @@ func _on_ball_landed(golfer_id: int, from_position: Vector2i, landing_position: 
 	# We need to animate the ball from the shot origin to landing position
 	if terrain_grid:
 		var distance = terrain_grid.calculate_distance_yards(from_position, landing_position)
-		animate_shot(golfer_id, from_position, landing_position, distance)
+		var is_putt = terrain_grid.get_tile(from_position) == TerrainTypes.Type.GREEN
+		animate_shot(golfer_id, from_position, landing_position, distance, is_putt)
 
 func _on_ball_landed_at_position(landing_pos: Vector2i, golfer_id: int) -> void:
 	# Ball has finished landing animation
