@@ -355,7 +355,7 @@ func _find_best_landing_zone(hole_position: Vector2i, max_distance: float, club:
 			best_target = test_position
 
 	# Also consider slight left/right adjustments to avoid hazards
-	for offset_angle in [-0.15, 0.0, 0.15]:  # -8.5°, 0°, +8.5°
+	for offset_angle in [-0.05, 0.0, 0.05]:  # -3°, 0°, +3° (reduced from ±8.5° for straighter shots)
 		var adjusted_direction = direction_to_hole.rotated(offset_angle)
 		var test_position = ball_position + Vector2i(adjusted_direction * target_distance)
 
@@ -405,7 +405,13 @@ func _evaluate_landing_zone(position: Vector2i, hole_position: Vector2i, club: C
 
 	# Bonus for getting closer to hole
 	var distance_to_hole = Vector2(position).distance_to(Vector2(hole_position))
-	score -= distance_to_hole * 2.0  # Prefer closer to hole
+	var current_distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
+
+	# Strong penalty if shot doesn't move us closer to the hole
+	if distance_to_hole >= current_distance_to_hole:
+		score -= 500.0  # Large penalty for shots that don't advance towards the hole
+
+	score -= distance_to_hole * 4.0  # Increased from 2.0 to 4.0 - strongly prefer closer to hole
 
 	# Personality adjustments
 	if aggression < 0.3:  # Cautious players heavily penalize hazards
@@ -511,7 +517,7 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	var actual_distance = intended_distance * distance_modifier
 
 	# Add directional error based on accuracy
-	var error_range = int((1.0 - total_accuracy) * 25.0)
+	var error_range = int((1.0 - total_accuracy) * 10.0)  # Reduced from 25.0 to 10.0 for better accuracy
 	var direction = Vector2(target - from).normalized()
 	var landing_point = Vector2(from) + (direction * actual_distance)
 

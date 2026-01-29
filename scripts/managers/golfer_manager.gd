@@ -263,7 +263,7 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 	]
 
 	var random_name = names[randi() % names.size()]
-	var random_skill = randf_range(0.3, 0.8)
+	var random_skill = randf_range(0.5, 0.9)  # Increased from 0.3-0.8 to 0.5-0.9
 
 	return spawn_golfer(random_name, random_skill, group_id)
 
