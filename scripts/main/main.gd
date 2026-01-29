@@ -88,19 +88,10 @@ func _process(_delta: float) -> void:
 	_update_ui()
 	_handle_mouse_hover()
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("select"):
-		_start_painting()
-	elif event.is_action_released("select"):
-		_stop_painting()
-	if event.is_action_pressed("cancel"):
-		_cancel_action()
-	if is_painting and event is InputEventMouseMotion:
-		_paint_at_mouse()
-
-	# Undo/Redo keyboard shortcuts (only in build mode)
+func _input(event: InputEvent) -> void:
+	# Undo/Redo keyboard shortcuts - handled in _input so UI controls don't swallow them
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.ctrl_pressed:
+		if event.is_command_or_control_pressed():
 			if event.keycode == KEY_Z and not event.shift_pressed:
 				_perform_undo()
 				get_viewport().set_input_as_handled()
@@ -110,6 +101,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif event.keycode == KEY_Y:
 				_perform_redo()
 				get_viewport().set_input_as_handled()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("select"):
+		_start_painting()
+	elif event.is_action_released("select"):
+		_stop_painting()
+	if event.is_action_pressed("cancel"):
+		_cancel_action()
+	if is_painting and event is InputEventMouseMotion:
+		_paint_at_mouse()
 
 func _connect_signals() -> void:
 	EventBus.connect("money_changed", _on_money_changed)
@@ -671,6 +672,7 @@ var _is_undoing: bool = false  # Prevent re-recording changes triggered by undo/
 
 func _on_terrain_tile_changed_for_undo(position: Vector2i, old_type: int, new_type: int) -> void:
 	if _is_undoing:
+		print("DEBUG UNDO: Tile change ignored (_is_undoing=true)")
 		return
 	undo_manager.record_tile_change(position, old_type, new_type)
 
@@ -707,6 +709,7 @@ func _perform_redo() -> void:
 	EventBus.notify("Redo", "info")
 
 func _execute_undo_action(action: Dictionary) -> void:
+	print("DEBUG UNDO: Executing undo for type=%s" % action.get("type", "unknown"))
 	match action.get("type", ""):
 		"terrain":
 			# Revert all tile changes in reverse order
