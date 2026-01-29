@@ -65,7 +65,7 @@ The game currently supports:
 - ✅ Hole number displayed on flag
 - ✅ Info label shows hole number, par, and yardage at midpoint between tee and green
 - ✅ Par automatically calculated based on distance (Par 3: <250yds, Par 4: 250-470yds, Par 5: >470yds)
-- ✅ Yardage calculated using 10 yards per tile conversion (par 5 fits on one screen)
+- ✅ Yardage calculated using 15 yards per tile conversion
 - ✅ Flag can be repositioned on multi-tile greens (validates green terrain)
 - ✅ HoleManager coordinates all hole visualizations
 - ✅ Holes automatically visualized when created through EventBus integration
@@ -360,7 +360,7 @@ The game currently supports:
 
 ### [~] Zoom & Scale Tuning
 **STATUS: PARTIAL** - Yardage scale adjusted, zoom polish remaining:
-- ✅ Yardage scale doubled (5 → 10 yards/tile) so par 5 holes fit on one screen
+- ✅ Yardage scale tripled (5 → 15 yards/tile) for more realistic hole yardages
 - ✅ All club distances, ball rolling, safety radii, and thresholds scaled to match
 - ⏳ Adjust default zoom for realistic yardage
 - ⏳ Smooth zoom transitions
