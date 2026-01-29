@@ -114,6 +114,7 @@ The game currently supports:
 - ✅ Lie type affects accuracy (rough: -25%, bunker: -40-60%, trees: -70%)
 - ✅ Terrain affects distance (rough: -15%, bunker: -25%, trees: -40%)
 - ✅ Debug output showing club, distance, and accuracy for each shot
+- ✅ Short game accuracy boost: distance-based floor for wedge shots matches real amateur averages (20yds ~7yd error, 100yds ~20yd error)
 - ⏳ Wind effects on ball flight (future enhancement)
 
 ### [X] Golfer AI & Path Finding

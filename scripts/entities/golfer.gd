@@ -500,6 +500,14 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	var base_accuracy = club_stats["accuracy_modifier"]
 	var total_accuracy = base_accuracy * skill_accuracy * lie_modifier
 
+	# Short game accuracy boost for wedge shots based on real amateur golfer data
+	# Closer wedge shots should be much more accurate regardless of skill level
+	# Real-world averages: 20yds ~7yd error, 50yds ~15yd error, 100yds ~20yd error
+	if club == Club.WEDGE:
+		var distance_ratio = clamp(distance_to_target / float(club_stats["max_distance"]), 0.0, 1.0)
+		var short_game_floor = lerpf(0.85, 0.6, distance_ratio)
+		total_accuracy = max(total_accuracy, short_game_floor)
+
 	# Distance modifier based on club and skill
 	var distance_modifier = 1.0
 	if club == Club.DRIVER:
