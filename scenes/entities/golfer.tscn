@@ -10,23 +10,44 @@ collision_layer = 4
 collision_mask = 1
 script = ExtResource("1_golfer")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
-modulate = Color(0.3, 0.6, 0.9, 1)
+[node name="Visual" type="Node2D" parent="."]
 
-[node name="ColorRect" type="ColorRect" parent="Sprite2D"]
-offset_left = -8.0
-offset_top = -12.0
-offset_right = 8.0
-offset_bottom = 12.0
+[node name="Shadow" type="Polygon2D" parent="Visual"]
+color = Color(0, 0, 0, 0.3)
+polygon = PackedVector2Array(-6, 14, 6, 14, 8, 16, -8, 16)
+
+[node name="Legs" type="Polygon2D" parent="Visual"]
+color = Color(0.2, 0.2, 0.5, 1)
+polygon = PackedVector2Array(-3, 4, -2, 12, 2, 12, 3, 4)
+
+[node name="Body" type="Polygon2D" parent="Visual"]
 color = Color(0.3, 0.6, 0.9, 1)
+polygon = PackedVector2Array(-5, -4, -5, 8, 5, 8, 5, -4)
 
-[node name="Label" type="Label" parent="."]
-offset_left = -32.0
-offset_top = -32.0
-offset_right = 32.0
-offset_bottom = -16.0
+[node name="Arms" type="Polygon2D" parent="Visual"]
+color = Color(0.9, 0.7, 0.5, 1)
+polygon = PackedVector2Array(-8, 0, -5, 0, -5, 2, 5, 2, 5, 0, 8, 0, 8, 3, 5, 3, 5, 4, -5, 4, -5, 3, -8, 3)
+
+[node name="Head" type="Polygon2D" parent="Visual"]
+color = Color(0.9, 0.7, 0.5, 1)
+
+[node name="InfoContainer" type="VBoxContainer" parent="."]
+offset_left = -40.0
+offset_top = -45.0
+offset_right = 40.0
+offset_bottom = -20.0
+
+[node name="ScoreLabel" type="Label" parent="InfoContainer"]
+layout_mode = 2
+text = "E, Hole 1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="NameLabel" type="Label" parent="InfoContainer"]
+layout_mode = 2
 text = "Golfer"
 horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_golfer")

@@ -39,9 +39,13 @@ var target_position: Vector2i = Vector2i.ZERO
 var path: Array[Vector2] = []
 var path_index: int = 0
 
-## Visual components (to be added in scene)
-@onready var sprite: Sprite2D = $Sprite2D if has_node("Sprite2D") else null
-@onready var label: Label = $Label if has_node("Label") else null
+## Visual components
+@onready var visual: Node2D = $Visual if has_node("Visual") else null
+@onready var name_label: Label = $InfoContainer/NameLabel if has_node("InfoContainer/NameLabel") else null
+@onready var score_label: Label = $InfoContainer/ScoreLabel if has_node("InfoContainer/ScoreLabel") else null
+@onready var head: Polygon2D = $Visual/Head if has_node("Visual/Head") else null
+@onready var body: Polygon2D = $Visual/Body if has_node("Visual/Body") else null
+@onready var arms: Polygon2D = $Visual/Arms if has_node("Visual/Arms") else null
 
 signal state_changed(old_state: State, new_state: State)
 signal shot_completed(distance: int, accuracy: float)
@@ -52,10 +56,22 @@ func _ready() -> void:
 	collision_layer = 4  # Layer 3 (golfers)
 	collision_mask = 1   # Layer 1 (terrain/obstacles)
 
-	if label:
-		label.text = golfer_name
+	# Set up head as a circle
+	if head:
+		var head_points = PackedVector2Array()
+		for i in range(12):
+			var angle = (i / 12.0) * TAU
+			var x = cos(angle) * 4
+			var y = sin(angle) * 4 - 8  # Offset up to sit on body
+			head_points.append(Vector2(x, y))
+		head.polygon = head_points
+
+	# Set up labels
+	if name_label:
+		name_label.text = golfer_name
 
 	_update_visual()
+	_update_score_display()
 
 func _process(delta: float) -> void:
 	match current_state:
@@ -86,13 +102,45 @@ func _process_walking(delta: float) -> void:
 	velocity = direction * walk_speed
 	move_and_slide()
 
+	# Simple walking animation - bob up and down
+	if visual:
+		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * 2.0
+		visual.position.y = bob_amount
+
+	# Swing arms while walking
+	if arms:
+		var swing_amount = sin(Time.get_ticks_msec() / 200.0) * 0.2
+		arms.rotation = swing_amount
+
 func _process_preparing_shot(_delta: float) -> void:
 	# AI thinks about the shot
+	# Could add a thinking timer here
 	pass
 
+var swing_animation_playing: bool = false
+
 func _process_swinging(_delta: float) -> void:
-	# Animation plays
-	pass
+	# Play swing animation once
+	if not swing_animation_playing and arms:
+		swing_animation_playing = true
+		_play_swing_animation()
+
+func _play_swing_animation() -> void:
+	if not arms:
+		return
+
+	var tween = create_tween()
+	tween.set_ease(Tween.EASE_IN_OUT)
+
+	# Backswing
+	tween.tween_property(arms, "rotation", 1.2, 0.3)
+	# Downswing
+	tween.tween_property(arms, "rotation", -0.8, 0.15)
+	# Follow through
+	tween.tween_property(arms, "rotation", 0.0, 0.2)
+
+	await tween.finished
+	swing_animation_playing = false
 
 ## Start playing a hole
 func start_hole(hole_number: int, tee_position: Vector2i) -> void:
@@ -104,6 +152,7 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	global_position = screen_pos
 
 	EventBus.emit_signal("golfer_started_hole", golfer_id, hole_number)
+	_update_score_display()
 	_change_state(State.PREPARING_SHOT)
 
 ## Take a shot
@@ -144,6 +193,7 @@ func finish_hole(par: int) -> void:
 	EventBus.emit_signal("golfer_finished_hole", golfer_id, current_hole, current_strokes, par)
 	emit_signal("hole_completed", current_strokes, par)
 
+	_update_score_display()
 	_change_state(State.IDLE)
 
 ## Finish the round
@@ -245,21 +295,63 @@ func _adjust_mood(amount: float) -> void:
 
 ## Update visual representation
 func _update_visual() -> void:
-	if not sprite:
+	if not visual:
 		return
 
-	# Placeholder visual updates
+	# Reset to default pose
+	visual.position = Vector2.ZERO
+	if arms:
+		arms.rotation = 0
+
+	# Update visual based on state
 	match current_state:
 		State.IDLE:
-			modulate = Color.WHITE
+			if body:
+				body.modulate = Color(0.3, 0.6, 0.9, 1)
 		State.WALKING:
-			modulate = Color.LIGHT_BLUE
+			if body:
+				body.modulate = Color(0.4, 0.7, 1.0, 1)
+			# Walk animation handled in _process_walking
 		State.PREPARING_SHOT:
-			modulate = Color.YELLOW
+			if body:
+				body.modulate = Color(1.0, 0.9, 0.3, 1)
+			# Golfer is thinking/preparing
 		State.SWINGING:
-			modulate = Color.ORANGE
+			if arms:
+				# Rotate arms to simulate swing
+				arms.rotation = -0.5
+			if body:
+				body.modulate = Color(1.0, 0.6, 0.2, 1)
+		State.WATCHING:
+			if body:
+				body.modulate = Color(0.8, 0.8, 1.0, 1)
+		State.PUTTING:
+			if body:
+				body.modulate = Color(0.5, 1.0, 0.5, 1)
 		State.FINISHED:
-			modulate = Color.GRAY
+			if body:
+				body.modulate = Color(0.5, 0.5, 0.5, 1)
+
+## Update score display
+func _update_score_display() -> void:
+	if not score_label:
+		return
+
+	# Calculate score relative to par
+	var score_relative_to_par = total_strokes - (current_hole * 4)  # Assuming par 4 average
+	var score_text = ""
+
+	if score_relative_to_par == 0:
+		score_text = "E"  # Even
+	elif score_relative_to_par > 0:
+		score_text = "+%d" % score_relative_to_par  # Over par
+	else:
+		score_text = "%d" % score_relative_to_par  # Under par (shows negative)
+
+	# Show current hole
+	var hole_text = "Hole %d" % (current_hole + 1)
+
+	score_label.text = "%s, %s" % [score_text, hole_text]
 
 ## Serialize golfer state
 func serialize() -> Dictionary:

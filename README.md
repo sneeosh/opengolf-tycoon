@@ -10,12 +10,37 @@ An open source golf course builder and management game inspired by Sid Meier's S
 
 OpenGolf Tycoon is a spiritual successor to the classic SimGolf (2002). Design and build your own golf courses, manage your country club, attract members, and compete to create the ultimate golfing destination.
 
+### Current Features (Early Development)
+
+✅ **Course Designer**:
+- Terrain painting (fairway, rough, green, bunker, water, paths)
+- Hole creation with tee boxes and greens
+- Tree placement (Oak, Pine, Maple, Birch)
+- Decorative rocks (small, medium, large)
+- Building placement system
+- Budget tracking
+
+✅ **Golfer Simulation**:
+- Animated AI golfers with walking and swing animations
+- Ball physics with parabolic arc trajectories
+- Terrain-based ball rolling (different for greens, fairways, rough)
+- Score tracking and display
+- Shot calculation based on golfer skills
+- Visual feedback for ball states (in flight, rolling, in water, OB)
+
+✅ **UI & Controls**:
+- Isometric camera with pan and zoom
+- Intuitive arrow key controls
+- Tool palette for terrain editing
+- Real-time budget and day tracking
+
 ### Planned Features
 
-- **Course Designer**: Create unique holes with terrain sculpting, hazards, and decorations
+- **Advanced Golfer AI**: Complete shot types (driver, irons, wedges, putters)
 - **Club Management**: Build amenities, hire staff, set prices, and grow your membership
-- **Golfer Simulation**: Watch AI golfers play your course with realistic behavior
 - **Economic System**: Balance income and expenses, unlock upgrades, expand your empire
+- **Weather System**: Dynamic conditions affecting gameplay
+- **Tournament Mode**: Host events and attract pro golfers
 - **Play Mode**: Take to the course yourself and play the holes you've designed
 
 ## Getting Started

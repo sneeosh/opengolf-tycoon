@@ -11,7 +11,8 @@ The game currently supports:
 6. Budget tracking - adding objects subtracts from overall budget
 7. Golfer AI framework with basic shot calculation
 8. **Ball physics and visualization system** - Complete arc trajectory animation with terrain-based rolling
-9. Intuitive camera controls with arrow keys moving in visual direction
+9. **Golfer visual rendering** - Animated golfers with walking/swinging animations and score tracking
+10. Intuitive camera controls with arrow keys moving in visual direction
 
 ---
 
@@ -39,14 +40,16 @@ The game currently supports:
 - ✅ BallManager handles all ball instances and connects to golfer shot system
 - ✅ Automatic ball visibility management (hidden between holes, visible during play)
 
-### [] Golfer Visual Rendering
-Make golfers visible on the course:
-- Add sprite or simple shape to golfer.tscn
-- Position golfers correctly on isometric grid
-- Animate walking between shots
-- Add swing animation state
-- Display golfer name labels
-- Show current score/hole info above golfer
+### [X] Golfer Visual Rendering
+**STATUS: COMPLETE** - Golfers fully visible with animations and info display:
+- ✅ Human-like visual representation (head, body, arms, legs, shadow)
+- ✅ Positioned correctly on isometric grid
+- ✅ Walking animation with bobbing motion and arm swinging
+- ✅ Swing animation with backswing, downswing, and follow-through
+- ✅ Name label displays golfer's name
+- ✅ Score label shows current score relative to par (E, +2, -1, etc.) and hole number
+- ✅ State-based color changes (idle, walking, preparing, swinging, watching, putting, finished)
+- ✅ Smooth animation transitions using tweens
 
 ### [] Hole Tracker & Visual Connection
 After placing a teebox, guide the green placement:
@@ -370,8 +373,8 @@ Smart shot selection and course navigation:
 **Next Immediate Steps:**
 1. ✅ ~~Fix the three critical bugs~~ - COMPLETE
 2. ✅ ~~Implement ball visualization~~ - COMPLETE
-3. Make golfers visible and animated (Priority 1 remaining)
-4. Complete the hole tracker visual system (Priority 1 remaining)
+3. ✅ ~~Make golfers visible and animated~~ - COMPLETE
+4. Complete the hole tracker visual system (Priority 1 - LAST REMAINING!)
 5. Implement play/pause with golfer spawning (Priority 2)
 
 **Long-term Vision:**
