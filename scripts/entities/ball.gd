@@ -131,6 +131,8 @@ func _land_ball() -> void:
 	match terrain_type:
 		TerrainTypes.Type.WATER:
 			_change_state(BallState.IN_WATER)
+		TerrainTypes.Type.OUT_OF_BOUNDS:
+			_change_state(BallState.OUT_OF_BOUNDS)
 		_:
 			_change_state(BallState.AT_REST)
 

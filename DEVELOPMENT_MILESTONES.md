@@ -207,10 +207,11 @@ _Note: Shot accuracy/distance modifiers for bunkers already exist (wedge 0.6, ot
 - Elevation affects ball roll direction and speed
 - Visual elevation indicators
 
-### [] Out of Bounds Areas
-- OB markers and boundary painting
-- Stroke and distance penalty enforcement
-- Natural boundaries (trees, water)
+### [X] Out of Bounds Areas
+**STATUS: COMPLETE** - OB visual markers and detection fix:
+- ✅ OB markers and boundary painting (white stakes with red caps at OB edges)
+- ✅ Stroke and distance penalty enforcement (fixed OB detection bug in ball.gd)
+- ✅ OB boundary tile detection helper (get_boundary_tiles in terrain_grid)
 
 ---
 

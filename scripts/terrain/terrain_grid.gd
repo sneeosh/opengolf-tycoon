@@ -13,8 +13,11 @@ var _grid: Dictionary = {}
 
 signal tile_changed(position: Vector2i, old_type: int, new_type: int)
 
+var _ob_markers_overlay: OBMarkersOverlay = null
+
 func _ready() -> void:
 	_initialize_grid()
+	_setup_ob_markers_overlay()
 
 func _initialize_grid() -> void:
 	for x in range(grid_width):
@@ -94,6 +97,33 @@ func _get_atlas_coords_for_type(terrain_type: int) -> Vector2i:
 	var x = terrain_type % TILES_PER_ROW
 	var y = terrain_type / TILES_PER_ROW
 	return Vector2i(x, y)
+
+func _setup_ob_markers_overlay() -> void:
+	_ob_markers_overlay = OBMarkersOverlay.new()
+	_ob_markers_overlay.name = "OBMarkersOverlay"
+	add_child(_ob_markers_overlay)
+	_ob_markers_overlay.initialize(self)
+
+## Get tiles of a given type that are at the boundary (adjacent to a different type)
+func get_boundary_tiles(terrain_type: int) -> Array:
+	var boundary: Array = []
+	for x in range(grid_width):
+		for y in range(grid_height):
+			var pos = Vector2i(x, y)
+			if get_tile(pos) != terrain_type:
+				continue
+			# Check if any neighbor is a different type
+			var neighbors = [
+				pos + Vector2i(1, 0), pos + Vector2i(-1, 0),
+				pos + Vector2i(0, 1), pos + Vector2i(0, -1)
+			]
+			for neighbor in neighbors:
+				if not is_valid_position(neighbor):
+					continue
+				if get_tile(neighbor) != terrain_type:
+					boundary.append(pos)
+					break
+	return boundary
 
 func serialize() -> Dictionary:
 	var data: Dictionary = {}
