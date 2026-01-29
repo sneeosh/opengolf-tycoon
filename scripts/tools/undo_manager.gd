@@ -47,6 +47,16 @@ func end_stroke() -> void:
 	_push_action(action)
 	_current_stroke = []
 
+## Record an elevation paint stroke (array of changes from ElevationTool)
+func record_elevation_stroke(changes: Array) -> void:
+	if changes.is_empty():
+		return
+	var action = {
+		"type": "elevation",
+		"changes": changes.duplicate()
+	}
+	_push_action(action)
+
 ## Record an entity placement (tree, building, or rock)
 func record_entity_placement(entity_type: String, grid_pos: Vector2i, subtype: String, cost: int) -> void:
 	var action = {

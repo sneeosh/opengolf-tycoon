@@ -753,6 +753,14 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 		var wind_distance_mod = GameManager.wind_system.get_distance_modifier(shot_direction, club)
 		distance_modifier *= wind_distance_mod
 
+	# Apply elevation effect on distance
+	# Uphill = shorter effective distance, downhill = longer
+	# ~3% change per elevation unit (~10 feet)
+	if terrain_grid:
+		var elevation_diff = terrain_grid.get_elevation_difference(from, target)
+		var elevation_factor = 1.0 - (elevation_diff * 0.03)
+		distance_modifier *= clampf(elevation_factor, 0.75, 1.25)
+
 	# Calculate actual distance
 	var intended_distance = Vector2(from).distance_to(Vector2(target))
 	var actual_distance = intended_distance * distance_modifier

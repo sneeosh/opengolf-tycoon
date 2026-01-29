@@ -33,6 +33,7 @@ var placement_manager: PlacementManager = PlacementManager.new()
 var undo_manager: UndoManager = UndoManager.new()
 var wind_system: WindSystem = null
 var wind_indicator: WindIndicator = null
+var elevation_tool: ElevationTool = ElevationTool.new()
 var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
 var selected_tree_type: String = "oak"
@@ -68,6 +69,9 @@ func _ready() -> void:
 	wind_system.name = "WindSystem"
 	add_child(wind_system)
 	GameManager.wind_system = wind_system
+
+	# Add elevation tool
+	add_child(elevation_tool)
 
 	_connect_signals()
 	_connect_ui_buttons()
@@ -119,7 +123,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("cancel"):
 		_cancel_action()
 	if is_painting and event is InputEventMouseMotion:
-		_paint_at_mouse()
+		if elevation_tool.is_active():
+			_paint_elevation_at_mouse()
+		else:
+			_paint_at_mouse()
 
 func _connect_signals() -> void:
 	EventBus.connect("money_changed", _on_money_changed)
@@ -166,6 +173,21 @@ func _add_placement_buttons() -> void:
 		building_btn.text = "Place Building"
 		building_btn.pressed.connect(_on_building_placement_pressed)
 		tool_panel.add_child(building_btn)
+
+	# Add Elevation buttons
+	if not tool_panel.has_node("RaiseBtn"):
+		var raise_btn = Button.new()
+		raise_btn.name = "RaiseBtn"
+		raise_btn.text = "Raise +"
+		raise_btn.pressed.connect(_on_raise_elevation_pressed)
+		tool_panel.add_child(raise_btn)
+
+	if not tool_panel.has_node("LowerBtn"):
+		var lower_btn = Button.new()
+		lower_btn.name = "LowerBtn"
+		lower_btn.text = "Lower -"
+		lower_btn.pressed.connect(_on_lower_elevation_pressed)
+		tool_panel.add_child(lower_btn)
 
 func _initialize_game() -> void:
 	GameManager.new_game("My Golf Course")
@@ -317,7 +339,12 @@ func _handle_mouse_hover() -> void:
 	var grid_pos = terrain_grid.screen_to_grid(mouse_world)
 	if terrain_grid.is_valid_position(grid_pos):
 		var terrain_name = TerrainTypes.get_type_name(terrain_grid.get_tile(grid_pos))
-		coordinate_label.text = "Tile: (%d, %d) - %s" % [grid_pos.x, grid_pos.y, terrain_name]
+		var elevation = terrain_grid.get_elevation(grid_pos)
+		if elevation != 0:
+			var sign_str = "+" if elevation > 0 else ""
+			coordinate_label.text = "Tile: (%d, %d) - %s [Elev: %s%d]" % [grid_pos.x, grid_pos.y, terrain_name, sign_str, elevation]
+		else:
+			coordinate_label.text = "Tile: (%d, %d) - %s" % [grid_pos.x, grid_pos.y, terrain_name]
 	else:
 		coordinate_label.text = "Out of bounds"
 
@@ -328,12 +355,18 @@ func _start_painting() -> void:
 		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
 		_handle_placement_click(grid_pos)
 		return
-	
+
 	# Check if we're in hole placement mode
 	if hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
 		var mouse_world = camera.get_mouse_world_position()
 		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
 		hole_tool.handle_click(grid_pos)
+		return
+
+	# Check if we're in elevation painting mode
+	if elevation_tool.is_active():
+		is_painting = true
+		_paint_elevation_at_mouse()
 		return
 
 	is_painting = true
@@ -343,7 +376,8 @@ func _start_painting() -> void:
 func _stop_painting() -> void:
 	is_painting = false
 	last_paint_pos = Vector2i(-1, -1)
-	undo_manager.end_stroke()
+	if not elevation_tool.is_active():
+		undo_manager.end_stroke()
 
 func _paint_at_mouse() -> void:
 	var mouse_world = camera.get_mouse_world_position()
@@ -371,22 +405,27 @@ func _paint_at_mouse() -> void:
 func _cancel_action() -> void:
 	is_painting = false
 	last_paint_pos = Vector2i(-1, -1)
+	if elevation_tool.is_active():
+		_cancel_elevation_mode()
+		print("Cancelled elevation mode")
 	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
 		placement_manager.cancel_placement()
 		print("Cancelled placement mode")
 
 func _on_tool_selected(tool_type: int) -> void:
-	# Cancel any hole placement and building/tree placement
+	# Cancel any hole placement, building/tree placement, and elevation mode
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
+	_cancel_elevation_mode()
 	is_painting = false
 
 	current_tool = tool_type
 	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
 
 func _on_create_hole_pressed() -> void:
-	# Cancel any building/tree placement or terrain painting
+	# Cancel any building/tree placement, elevation, or terrain painting
 	placement_manager.cancel_placement()
+	_cancel_elevation_mode()
 	is_painting = false
 	hole_tool.start_tee_placement()
 
@@ -496,6 +535,7 @@ func _rebuild_hole_list() -> void:
 func _on_tree_placement_pressed() -> void:
 	"""Show tree selection menu and start tree placement mode"""
 	hole_tool.cancel_placement()
+	_cancel_elevation_mode()
 	is_painting = false
 
 	# Create tree selection dialog
@@ -529,6 +569,7 @@ func _on_building_placement_pressed() -> void:
 	"""Show building selection menu and start building placement"""
 	print("Building button pressed!")
 	hole_tool.cancel_placement()
+	_cancel_elevation_mode()
 	is_painting = false
 	
 	if building_registry.is_empty():
@@ -591,6 +632,7 @@ func _on_tree_type_selected(tree_type: String, dialog: AcceptDialog) -> void:
 func _on_rock_placement_pressed() -> void:
 	"""Show rock size selection menu and start rock placement mode"""
 	hole_tool.cancel_placement()
+	_cancel_elevation_mode()
 	is_painting = false
 
 	# Create rock selection dialog
@@ -630,6 +672,40 @@ func _on_rock_size_selected(rock_size: String, dialog: AcceptDialog) -> void:
 func _on_flower_bed_placement_pressed() -> void:
 	"""Flower bed placement - to be implemented"""
 	EventBus.notify("Flower beds coming soon!", "info")
+
+func _on_raise_elevation_pressed() -> void:
+	hole_tool.cancel_placement()
+	placement_manager.cancel_placement()
+	is_painting = false
+	elevation_tool.start_raising()
+	terrain_grid.set_elevation_overlay_active(true)
+	print("Elevation mode: RAISING")
+
+func _on_lower_elevation_pressed() -> void:
+	hole_tool.cancel_placement()
+	placement_manager.cancel_placement()
+	is_painting = false
+	elevation_tool.start_lowering()
+	terrain_grid.set_elevation_overlay_active(true)
+	print("Elevation mode: LOWERING")
+
+func _cancel_elevation_mode() -> void:
+	if elevation_tool.is_active():
+		elevation_tool.cancel()
+		terrain_grid.set_elevation_overlay_active(false)
+
+func _paint_elevation_at_mouse() -> void:
+	var mouse_world = camera.get_mouse_world_position()
+	var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+	if grid_pos == last_paint_pos:
+		return
+	last_paint_pos = grid_pos
+	if not terrain_grid.is_valid_position(grid_pos):
+		return
+
+	var changes = elevation_tool.paint_elevation(grid_pos, terrain_grid, brush_size)
+	if not changes.is_empty():
+		undo_manager.record_elevation_stroke(changes)
 
 func _handle_placement_click(grid_pos: Vector2i) -> void:
 	"""Handle clicking during building/tree placement"""
@@ -740,6 +816,12 @@ func _execute_undo_action(action: Dictionary) -> void:
 				refund += TerrainTypes.get_placement_cost(change["new_type"])
 			if refund > 0:
 				GameManager.modify_money(refund)
+		"elevation":
+			# Revert elevation changes in reverse order
+			var changes = action.get("changes", [])
+			for i in range(changes.size() - 1, -1, -1):
+				var change = changes[i]
+				terrain_grid.set_elevation(change["position"], change["old_elevation"])
 		"entity_place":
 			# Remove the entity and refund cost
 			var grid_pos = action.get("grid_pos", Vector2i.ZERO)
@@ -766,6 +848,11 @@ func _execute_redo_action(action: Dictionary) -> void:
 				cost += TerrainTypes.get_placement_cost(change["new_type"])
 			if cost > 0:
 				GameManager.modify_money(-cost)
+		"elevation":
+			# Re-apply elevation changes in order
+			var changes = action.get("changes", [])
+			for change in changes:
+				terrain_grid.set_elevation(change["position"], change["new_elevation"])
 		"entity_place":
 			# Re-place the entity and deduct cost
 			var grid_pos = action.get("grid_pos", Vector2i.ZERO)

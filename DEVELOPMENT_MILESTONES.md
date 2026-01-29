@@ -24,6 +24,11 @@ The game currently supports:
 19. **Hole management** - Open/close holes, delete holes with renumbering, golfers skip closed holes
 20. **Undo/Redo in build mode** - Ctrl+Z/Ctrl+Y for terrain painting and entity placements with cost refund
 21. **Green fee UI controls** - In-game +/- buttons to adjust green fees during play
+22. **Water hazard visual overlays** - Animated shimmer on water tiles, hole difficulty rating system
+23. **Bunker visual effects** - Sand spray particles on landing, stipple overlay on bunker tiles
+24. **OB detection fix & markers** - Ball correctly enters OUT_OF_BOUNDS state, white stake markers at boundaries
+25. **Wind system** - Per-day wind with direction/speed, club-sensitive displacement, AI compensation, HUD indicator
+26. **Terrain elevation system** - Raise/lower tools, elevation shading overlay, uphill/downhill shot effects, slope-influenced ball roll
 
 ---
 
@@ -123,7 +128,7 @@ The game currently supports:
 - ✅ Short game accuracy boost: distance-based floor for wedge shots matches real amateur averages (20yds ~7yd error, 100yds ~20yd error)
 - ✅ Putt accuracy floor: short putts 95% minimum, long putts 75% minimum (prevents wildly missed short putts)
 - ✅ Double par pickup rule: golfers pick up after 2x par strokes to prevent infinite loops
-- ⏳ Wind effects on ball flight (future enhancement)
+- ✅ Wind effects on ball flight (implemented in P3)
 
 ### [X] Golfer AI & Path Finding
 **STATUS: COMPLETE** - Intelligent shot selection and terrain-aware navigation:
@@ -202,20 +207,15 @@ The game currently supports:
 - ✅ Bunker landing detection in ball physics (ball_landed_in_bunker signal)
 
 ### [X] Wind Effects on Ball Flight
-**STATUS: COMPLETE** - Full wind system with HUD indicator:
-- ✅ Wind direction and strength (variable per day with hourly drift)
-- ✅ Wind affects ball trajectory during flight (visual drift)
-- ✅ Headwind reduces distance (up to -15%), tailwind increases it (up to +10%)
-- ✅ Crosswind pushes ball laterally
-- ✅ AI golfers account for wind in shot planning (skill-based compensation)
-- ✅ Wind indicator in HUD (arrow, compass direction, color-coded speed)
-- ✅ Club sensitivity: Driver 1.0x, Iron 0.7x, Wedge 0.4x, Putter 0.0x
-
-### [] Terrain Elevation System
-- Hills and valleys
-- Uphill/downhill shot adjustments (uphill shorter, downhill farther)
-- Elevation affects ball roll direction and speed
-- Visual elevation indicators
+**STATUS: COMPLETE** - Full wind system with visual feedback and AI compensation:
+- ✅ Wind state management (direction in radians, speed 0-30 mph)
+- ✅ Wind changes on day change with hourly drift
+- ✅ Club sensitivity: Driver 1.0x, Iron 0.7x, Wedge 0.4x, Putter 0.0x (putts exempt)
+- ✅ Headwind reduces distance up to -15%, tailwind increases up to +10%
+- ✅ Crosswind pushes ball laterally based on perpendicular component
+- ✅ Visual wind drift during ball flight animation
+- ✅ AI wind compensation: skilled golfers aim upwind more accurately (accuracy * 0.7 factor)
+- ✅ Wind indicator HUD widget with rotating arrow, compass text, color-coded speed
 
 ### [X] Out of Bounds Areas
 **STATUS: COMPLETE** - OB visual markers, detection, and penalty enforcement:
@@ -224,6 +224,19 @@ The game currently supports:
 - ✅ OB landing detection in ball.gd (ball state changes to OUT_OF_BOUNDS)
 - ✅ Stroke and distance penalty enforcement (golfer replays from previous position + 1 penalty stroke)
 - ✅ OB boundary tile detection helper (get_boundary_tiles in terrain_grid)
+
+### [X] Terrain Elevation System
+**STATUS: COMPLETE** - Per-tile elevation with tools, visuals, and gameplay effects:
+- ✅ Per-tile integer elevation (-5 to +5, each unit ~10 feet)
+- ✅ Raise/Lower terrain tools with brush painting (integrates with existing brush system)
+- ✅ Visual elevation shading overlay (lighter = higher, darker = lower)
+- ✅ Elevation numbers displayed when elevation tool is active
+- ✅ Uphill shots shorter, downhill shots longer (~3% per elevation unit, clamped 0.75-1.25)
+- ✅ Ball roll influenced by slope direction (downhill +30% roll, uphill -30% roll)
+- ✅ Putt break from slope (ball breaks toward lower side on greens)
+- ✅ Undo/redo support for elevation changes
+- ✅ Elevation shown in coordinate label when non-zero
+- ✅ Elevation data serialized/deserialized for save/load
 
 ---
 
@@ -453,7 +466,8 @@ _These are ambitious ideas that would each represent significant scope. Deferred
 9. ✅ ~~Hole Open/Close Management~~ - COMPLETE (toggle open/closed, delete holes, golfers skip closed holes)
 10. ✅ ~~Undo/Redo in Build Mode~~ - COMPLETE (Ctrl+Z/Ctrl+Y, terrain strokes, entity placements)
 11. ✅ ~~Green Fee UI~~ - COMPLETE (all P2 items done!)
-12. Start Priority 3: Terrain & Course Design Features (water hazards, bunkers, elevation)
+12. ✅ ~~Priority 3: Terrain & Course Design Features~~ - COMPLETE (water overlays, bunker effects, OB fix + markers, wind system, elevation system)
+13. Start Priority 4: Save/Load & Essential UX
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.
