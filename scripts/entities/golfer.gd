@@ -231,6 +231,9 @@ func take_shot(target: Vector2i) -> void:
 	current_strokes += 1
 	_change_state(State.SWINGING)
 
+	# Play swing animation before the ball leaves
+	await _play_swing_animation()
+
 	# Calculate shot outcome based on skill and terrain
 	var shot_result = _calculate_shot(ball_position, target)
 
@@ -249,11 +252,16 @@ func take_shot(target: Vector2i) -> void:
 	# Update ball position
 	ball_position = shot_result.landing_position
 
-	# Emit events
+	# Emit events (triggers ball flight animation via BallManager)
 	EventBus.emit_signal("shot_taken", golfer_id, current_hole, current_strokes)
 	emit_signal("shot_completed", shot_result.distance, shot_result.accuracy)
 
-	# Move to ball
+	# Watch the ball fly before walking to it
+	_change_state(State.WATCHING)
+	var flight_time = _estimate_flight_duration(shot_result.distance)
+	await get_tree().create_timer(flight_time + 0.5).timeout
+
+	# Now walk to the ball
 	_walk_to_ball()
 
 ## Finish current hole
@@ -600,6 +608,11 @@ func _get_terrain_distance_modifier(terrain_type: int) -> float:
 			return 0.6   # 40% distance loss (punch out)
 		_:
 			return 1.0   # No penalty
+
+## Estimate ball flight duration (mirrors BallManager calculation)
+func _estimate_flight_duration(distance_yards: int) -> float:
+	var duration = 1.0 + (distance_yards / 300.0) * 1.5
+	return clampf(duration, 0.5, 3.0)
 
 ## Walk to ball position
 func _walk_to_ball() -> void:

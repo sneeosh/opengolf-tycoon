@@ -46,6 +46,7 @@ The game currently supports:
 - ✅ Ball state management (AT_REST, IN_FLIGHT, ROLLING, IN_WATER, OUT_OF_BOUNDS)
 - ✅ BallManager handles all ball instances and connects to golfer shot system
 - ✅ Automatic ball visibility management (hidden between holes, visible during play)
+- ✅ Golfers watch ball flight before walking (swing → watch → walk sequence)
 
 ### [X] Golfer Visual Rendering
 **STATUS: COMPLETE** - Golfers fully visible with animations and info display:
