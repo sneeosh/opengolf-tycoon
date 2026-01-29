@@ -4,6 +4,7 @@ extends Node2D
 @onready var terrain_grid: TerrainGrid = $TerrainGrid
 @onready var camera: IsometricCamera = $IsometricCamera
 @onready var ball_manager: BallManager = $BallManager
+@onready var hole_manager: HoleManager = $HoleManager
 @onready var money_label: Label = $UI/HUD/TopBar/MoneyLabel
 @onready var day_label: Label = $UI/HUD/TopBar/DayLabel
 @onready var reputation_label: Label = $UI/HUD/TopBar/ReputationLabel
@@ -37,6 +38,9 @@ func _ready() -> void:
 
 	# Set up ball manager
 	ball_manager.set_terrain_grid(terrain_grid)
+
+	# Set up hole manager
+	hole_manager.set_terrain_grid(terrain_grid)
 
 	# Add hole creation tool
 	add_child(hole_tool)

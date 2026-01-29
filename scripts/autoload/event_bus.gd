@@ -25,6 +25,8 @@ signal terrain_tool_selected(tool_type: String)
 # Course Design Signals
 signal hole_created(hole_number: int, par: int, distance_yards: int)
 signal hole_modified(hole_number: int)
+signal hole_updated(hole_number: int)
+signal hole_selected(hole_number: int)
 signal hole_deleted(hole_number: int)
 signal tee_placed(hole_number: int, position: Vector2i)
 signal green_placed(hole_number: int, position: Vector2i)

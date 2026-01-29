@@ -12,7 +12,8 @@ The game currently supports:
 7. Golfer AI framework with basic shot calculation
 8. **Ball physics and visualization system** - Complete arc trajectory animation with terrain-based rolling
 9. **Golfer visual rendering** - Animated golfers with walking/swinging animations and score tracking
-10. Intuitive camera controls with arrow keys moving in visual direction
+10. **Hole visualization system** - Visual flags, connecting lines, hole info labels with par and yardage
+11. Intuitive camera controls with arrow keys moving in visual direction
 
 ---
 
@@ -51,15 +52,18 @@ The game currently supports:
 - ✅ State-based color changes (idle, walking, preparing, swinging, watching, putting, finished)
 - ✅ Smooth animation transitions using tweens
 
-### [] Hole Tracker & Visual Connection
-After placing a teebox, guide the green placement:
-- Add visual line connecting teebox to green
-- Display hole number label
-- Show projected par based on distance
-- Display yardage calculation
-- Allow multiple green tiles to be placed after teebox
-- Validate hole completion (must have tee + green)
-- Show a flag on the primary green section. Allow for moving the flag around if multiple green tiles are present
+### [X] Hole Tracker & Visual Connection
+**STATUS: COMPLETE** - Full hole visualization system with flags and dynamic information:
+- ✅ Visual line connects tee box to green with semi-transparent white line
+- ✅ Flag entity marks hole position on green with red flag and pole
+- ✅ Hole number displayed on flag
+- ✅ Info label shows hole number, par, and yardage at midpoint between tee and green
+- ✅ Par automatically calculated based on distance (Par 3: <250yds, Par 4: 250-470yds, Par 5: >470yds)
+- ✅ Yardage calculated using 5 yards per tile conversion
+- ✅ Flag can be repositioned on multi-tile greens (validates green terrain)
+- ✅ HoleManager coordinates all hole visualizations
+- ✅ Holes automatically visualized when created through EventBus integration
+- ✅ Hole highlighting system for selection feedback
 
 ---
 
@@ -374,8 +378,8 @@ Smart shot selection and course navigation:
 1. ✅ ~~Fix the three critical bugs~~ - COMPLETE
 2. ✅ ~~Implement ball visualization~~ - COMPLETE
 3. ✅ ~~Make golfers visible and animated~~ - COMPLETE
-4. Complete the hole tracker visual system (Priority 1 - LAST REMAINING!)
-5. Implement play/pause with golfer spawning (Priority 2)
+4. ✅ ~~Complete the hole tracker visual system~~ - COMPLETE (All Priority 1 tasks done!)
+5. Implement play/pause with golfer spawning (Priority 2 - NEXT UP)
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.

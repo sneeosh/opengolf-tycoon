@@ -15,6 +15,9 @@ OpenGolf Tycoon is a spiritual successor to the classic SimGolf (2002). Design a
 ✅ **Course Designer**:
 - Terrain painting (fairway, rough, green, bunker, water, paths)
 - Hole creation with tee boxes and greens
+- Visual hole markers with flags, connecting lines, and info labels
+- Par calculation based on distance (Par 3/4/5)
+- Yardage tracking and display
 - Tree placement (Oak, Pine, Maple, Birch)
 - Decorative rocks (small, medium, large)
 - Building placement system

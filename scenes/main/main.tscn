@@ -6,6 +6,7 @@
 [ext_resource type="TileSet" path="res://assets/tilesets/terrain_tileset.tres" id="4_tileset"]
 [ext_resource type="Script" path="res://scripts/managers/golfer_manager.gd" id="5_golfer_manager"]
 [ext_resource type="Script" path="res://scripts/managers/ball_manager.gd" id="6_ball_manager"]
+[ext_resource type="Script" path="res://scripts/managers/hole_manager.gd" id="7_hole_manager"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -29,6 +30,11 @@ script = ExtResource("5_golfer_manager")
 
 [node name="BallManager" type="Node" parent="."]
 script = ExtResource("6_ball_manager")
+
+[node name="HoleManager" type="Node" parent="."]
+script = ExtResource("7_hole_manager")
+
+[node name="Holes" type="Node2D" parent="."]
 
 [node name="IsometricCamera" type="Camera2D" parent="."]
 position = Vector2(2000, 1000)
