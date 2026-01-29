@@ -66,7 +66,7 @@ func get_brush_tiles(center: Vector2i, radius: int) -> Array:
 	return tiles
 
 func calculate_distance_yards(from: Vector2i, to: Vector2i) -> int:
-	const YARDS_PER_TILE: float = 5.0
+	const YARDS_PER_TILE: float = 15.0
 	var distance_tiles = Vector2(to - from).length()
 	return int(distance_tiles * YARDS_PER_TILE)
 
