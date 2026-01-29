@@ -42,10 +42,17 @@ func get_group_size_weights() -> Array:
 		return [0.05, 0.15, 0.25, 0.55]  # 5% singles, 15% pairs, 25% threesomes, 55% foursomes
 
 func _is_first_tee_clear() -> bool:
-	"""Check if the first tee is clear (no golfer on hole 0 waiting to tee off)"""
+	"""Check if the first tee is clear (no golfer on hole 0 still in tee-off sequence)"""
 	for golfer in active_golfers:
-		if golfer.current_hole == 0 and golfer.current_strokes == 0 and golfer.current_state != Golfer.State.FINISHED:
-			return false
+		if golfer.current_state == Golfer.State.FINISHED:
+			continue
+		if golfer.current_hole == 0:
+			# Block if anyone hasn't teed off yet
+			if golfer.current_strokes == 0:
+				return false
+			# Block if anyone is still mid-shot or walking to their ball
+			if golfer.current_state in [Golfer.State.WALKING, Golfer.State.PREPARING_SHOT, Golfer.State.SWINGING, Golfer.State.WATCHING]:
+				return false
 	return true
 
 func _process(delta: float) -> void:
@@ -245,6 +252,17 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 		if distance_to_hole < 0.25:
 			# Close enough to hole out (gimme putt ~3.75 yards)
+			var score_diff = golfer.current_strokes - hole_data.par
+			var score_name = ""
+			match score_diff:
+				-3: score_name = "Albatross"
+				-2: score_name = "Eagle"
+				-1: score_name = "Birdie"
+				0: score_name = "Par"
+				1: score_name = "Bogey"
+				2: score_name = "Double Bogey"
+				_: score_name = "+%d" % score_diff if score_diff > 0 else "%d" % score_diff
+			print("%s holes out on hole %d: %d strokes (Par %d) - %s" % [golfer.golfer_name, golfer.current_hole + 1, golfer.current_strokes, hole_data.par, score_name])
 			EventBus.emit_signal("ball_in_hole", golfer.golfer_id, hole_data.hole_number)
 			golfer.finish_hole(hole_data.par)
 			golfer.current_hole += 1
