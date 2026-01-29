@@ -180,12 +180,14 @@ The game currently supports:
 
 ## PRIORITY 3: Terrain & Course Design Features
 
-### [] Water Hazard Placement Tools
-_Note: Shot mechanics for water penalties already exist in code._
-- Pond placement tool (brush-based painting)
-- Lake/river creation with connected tiles
-- Visual water animation
-- Water affects hole difficulty rating
+### [X] Water Hazard Placement Tools
+**STATUS: COMPLETE** - Water hazard visual enhancements and difficulty rating:
+- ✅ Pond placement tool (brush-based painting) - already existed
+- ✅ Lake/river creation with connected tiles (flood-fill detection in terrain_grid)
+- ✅ Visual water animation (animated shimmer overlay on water tiles)
+- ✅ Water affects hole difficulty rating (DifficultyCalculator system)
+- ✅ Difficulty rating displayed in hole info labels
+- ✅ Difficulty auto-recalculates when terrain changes near holes
 
 ### [] Sand Trap & Bunker Placement Tools
 _Note: Shot accuracy/distance modifiers for bunkers already exist (wedge 0.6, other clubs 0.4 lie modifier; 25% distance loss)._

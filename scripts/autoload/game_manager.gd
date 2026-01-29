@@ -178,3 +178,4 @@ class HoleData:
 	var hazard_tiles: Array = []
 	var distance_yards: int = 0
 	var is_open: bool = true  # Whether the hole is open for play
+	var difficulty_rating: float = 1.0  # Hole difficulty (1.0-10.0)
