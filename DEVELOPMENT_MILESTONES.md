@@ -7,31 +7,37 @@ The game currently supports:
 2. Creating holes and greens
 3. Tracking those holes in the hole register
 4. Adding buildings
-5. Adding trees (4 types: Oak, Pine, Maple, Birch)
+5. Adding trees (4 types: Oak, Pine, Maple, Birch) and decorative rocks (3 sizes)
 6. Budget tracking - adding objects subtracts from overall budget
 7. Golfer AI framework with basic shot calculation
+8. **Ball physics and visualization system** - Complete arc trajectory animation with terrain-based rolling
+9. Intuitive camera controls with arrow keys moving in visual direction
 
 ---
 
 ## PRIORITY 1: Critical Bugs & Core Playability
 
 ### [X] Allow for planting trees
-**STATUS: COMPLETE** - Tree placement system implemented with 4 tree types.
+**STATUS: COMPLETE** - Tree placement system implemented with 4 tree types (Oak, Pine, Maple, Birch).
 
-### [] Fix Critical Bugs Blocking Gameplay
-1. Fix tree placement crash when clicking "plant tree"
-2. Fix rock placement functionality
-3. Improve arrow key camera movement to match visual direction instead of isometric coordinates
-4. Fix any tee/green placement validation issues
+### [X] Fix Critical Bugs Blocking Gameplay
+**STATUS: COMPLETE** - All critical bugs resolved:
+1. ✅ Fixed tree placement crash (renamed Tree class to TreeEntity to avoid conflict with Godot's built-in Tree UI control)
+2. ✅ Rock placement functionality working (3 sizes: small, medium, large)
+3. ✅ Arrow key camera movement now moves in visual screen direction instead of isometric coordinates
+4. Tee/green placement validation working correctly
 
-### [] Ball Physics & Visualization System
-Implement visual feedback when golfers take shots:
-- Create Ball entity with sprite/shape
-- Implement arc trajectory animation
-- Add collision detection with terrain
-- Show ball position on course after each shot
-- Add ball rolling physics on greens
-- Visual feedback for ball in rough, sand, water
+### [X] Ball Physics & Visualization System
+**STATUS: COMPLETE** - Full ball visualization with realistic physics:
+- ✅ Ball entity with visual representation (white ball with shadow, motion blur)
+- ✅ Parabolic arc trajectory animation (height and duration scale with distance)
+- ✅ Terrain-aware ball physics (greens roll 8 tiles, fairways 5 tiles, rough 2 tiles)
+- ✅ Ball position tracking on course after each shot
+- ✅ Terrain-based rolling physics with different speeds for green/fairway/rough
+- ✅ Visual feedback for hazards (water splash effect, OB grayed out)
+- ✅ Ball state management (AT_REST, IN_FLIGHT, ROLLING, IN_WATER, OUT_OF_BOUNDS)
+- ✅ BallManager handles all ball instances and connects to golfer shot system
+- ✅ Automatic ball visibility management (hidden between holes, visible during play)
 
 ### [] Golfer Visual Rendering
 Make golfers visible on the course:
@@ -347,9 +353,12 @@ Smart shot selection and course navigation:
 ## Known Bugs
 
 ### Critical
-- [ ] Clicking plant tree causes the game to crash
-- [ ] Placing rocks doesn't work
-- [ ] Arrow key camera movement is isometric instead of intuitive (up should be visual up)
+- None currently! All critical bugs have been resolved.
+
+### Fixed (Completed)
+- ✅ Clicking plant tree causes the game to crash - Fixed by renaming Tree class to TreeEntity
+- ✅ Placing rocks doesn't work - Fully implemented with 3 size options
+- ✅ Arrow key camera movement is isometric instead of intuitive - Now moves in visual screen direction
 
 ### Minor
 - (Add bugs as discovered)
@@ -359,11 +368,11 @@ Smart shot selection and course navigation:
 ## Development Notes
 
 **Next Immediate Steps:**
-1. Fix the three critical bugs
-2. Implement ball visualization
-3. Make golfers visible and animated
-4. Complete the hole tracker visual system
-5. Implement play/pause with golfer spawning
+1. ✅ ~~Fix the three critical bugs~~ - COMPLETE
+2. ✅ ~~Implement ball visualization~~ - COMPLETE
+3. Make golfers visible and animated (Priority 1 remaining)
+4. Complete the hole tracker visual system (Priority 1 remaining)
+5. Implement play/pause with golfer spawning (Priority 2)
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.

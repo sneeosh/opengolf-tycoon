@@ -3,6 +3,7 @@ extends Node2D
 
 @onready var terrain_grid: TerrainGrid = $TerrainGrid
 @onready var camera: IsometricCamera = $IsometricCamera
+@onready var ball_manager: BallManager = $BallManager
 @onready var money_label: Label = $UI/HUD/TopBar/MoneyLabel
 @onready var day_label: Label = $UI/HUD/TopBar/DayLabel
 @onready var reputation_label: Label = $UI/HUD/TopBar/ReputationLabel
@@ -28,11 +29,14 @@ func _ready() -> void:
 
 	# Load buildings from JSON
 	_load_buildings_data()
-	
+
 	entity_layer = EntityLayer.new()
 	add_child(entity_layer)
 	entity_layer.set_terrain_grid(terrain_grid)
 	entity_layer.set_building_registry(building_registry)
+
+	# Set up ball manager
+	ball_manager.set_terrain_grid(terrain_grid)
 
 	# Add hole creation tool
 	add_child(hole_tool)

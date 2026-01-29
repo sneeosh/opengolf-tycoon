@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://dj8qvx2f3c5hy"]
+[gd_scene load_steps=7 format=3 uid="uid://dj8qvx2f3c5hy"]
 
 [ext_resource type="Script" path="res://scripts/main/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/utils/isometric_camera.gd" id="2_camera"]
 [ext_resource type="Script" path="res://scripts/terrain/terrain_grid.gd" id="3_terrain"]
 [ext_resource type="TileSet" path="res://assets/tilesets/terrain_tileset.tres" id="4_tileset"]
 [ext_resource type="Script" path="res://scripts/managers/golfer_manager.gd" id="5_golfer_manager"]
+[ext_resource type="Script" path="res://scripts/managers/ball_manager.gd" id="6_ball_manager"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -19,10 +20,15 @@ tile_set = ExtResource("4_tileset")
 
 [node name="Golfers" type="Node2D" parent="Entities"]
 
+[node name="Balls" type="Node2D" parent="Entities"]
+
 [node name="Buildings" type="Node2D" parent="Entities"]
 
 [node name="GolferManager" type="Node" parent="."]
 script = ExtResource("5_golfer_manager")
+
+[node name="BallManager" type="Node" parent="."]
+script = ExtResource("6_ball_manager")
 
 [node name="IsometricCamera" type="Camera2D" parent="."]
 position = Vector2(2000, 1000)
