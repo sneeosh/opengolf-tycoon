@@ -72,6 +72,7 @@ var current_hole: int = 0
 var current_strokes: int = 0
 var total_strokes: int = 0
 var ball_position: Vector2i = Vector2i.ZERO
+var ball_position_precise: Vector2 = Vector2.ZERO  # Sub-tile precision for putting
 var target_position: Vector2i = Vector2i.ZERO
 
 ## Shot preparation
@@ -197,6 +198,7 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	current_hole = hole_number
 	current_strokes = 0
 	ball_position = tee_position
+	ball_position_precise = Vector2(tee_position)
 
 	var screen_pos = GameManager.terrain_grid.grid_to_screen_center(tee_position) if GameManager.terrain_grid else Vector2.ZERO
 	global_position = screen_pos
@@ -234,25 +236,53 @@ func take_shot(target: Vector2i) -> void:
 	# Play swing animation before the ball leaves
 	await _play_swing_animation()
 
-	# Calculate shot outcome based on skill and terrain
-	var shot_result = _calculate_shot(ball_position, target)
+	var terrain_grid = GameManager.terrain_grid
+	var current_terrain = terrain_grid.get_tile(ball_position) if terrain_grid else -1
+	var is_putt = current_terrain == TerrainTypes.Type.GREEN
+
+	var shot_result: Dictionary
+
+	if is_putt:
+		# Use sub-tile precision putting system
+		shot_result = _calculate_putt(ball_position_precise)
+		ball_position_precise = shot_result.landing_precise
+		ball_position = shot_result.landing_position
+
+		# Emit precise putt signal for sub-tile animation
+		if terrain_grid:
+			var from_screen = terrain_grid.grid_to_screen_precise(shot_result.from_precise)
+			var to_screen = terrain_grid.grid_to_screen_precise(shot_result.landing_precise)
+			EventBus.emit_signal("ball_putt_landed_precise", golfer_id, from_screen, to_screen, shot_result.distance)
+	else:
+		# Standard shot calculation
+		var from_pos = ball_position
+		shot_result = _calculate_shot(ball_position, target)
+		ball_position = shot_result.landing_position
+		ball_position_precise = Vector2(ball_position)
+
+		# Emit ball landed signal for flight animation
+		if terrain_grid:
+			EventBus.emit_signal("ball_landed", golfer_id, from_pos, shot_result.landing_position, terrain_grid.get_tile(shot_result.landing_position))
 
 	# Debug output
 	var club_name = CLUB_STATS[shot_result.club]["name"]
-	print("%s (ID:%d) - Hole %d, Stroke %d: %s shot, %d yards, %.1f%% accuracy" % [
+	var putt_detail = ""
+	if is_putt:
+		var hole_data = GameManager.course_data.holes[current_hole]
+		var dist_to_hole = ball_position_precise.distance_to(Vector2(hole_data.hole_position))
+		putt_detail = " (%.1fft to hole)" % (dist_to_hole * 15.0 * 3.0)  # tiles -> yards -> feet
+	print("%s (ID:%d) - Hole %d, Stroke %d: %s shot, %d yards, %.1f%% accuracy%s" % [
 		golfer_name,
 		golfer_id,
 		current_hole + 1,
 		current_strokes,
 		club_name,
 		shot_result.distance,
-		shot_result.accuracy * 100
+		shot_result.accuracy * 100,
+		putt_detail
 	])
 
-	# Update ball position
-	ball_position = shot_result.landing_position
-
-	# Emit events (triggers ball flight animation via BallManager)
+	# Emit events
 	EventBus.emit_signal("shot_taken", golfer_id, current_hole, current_strokes)
 	emit_signal("shot_completed", shot_result.distance, shot_result.accuracy)
 
@@ -449,33 +479,129 @@ func _evaluate_landing_zone(position: Vector2i, hole_position: Vector2i, club: C
 
 	return score
 
-## Decide putt target with green reading
+## Decide putt target - always aim at the hole
+## Actual putt outcome (sub-tile precision, error model) is handled by _calculate_putt
 func _decide_putt_target(hole_position: Vector2i) -> Vector2i:
+	return hole_position
+
+## Calculate putt with sub-tile precision
+## Uses realistic putting model: lateral error (miss left/right of the line),
+## distance control (lag putts for long distance), and guaranteed progress toward hole
+func _calculate_putt(from_precise: Vector2) -> Dictionary:
 	var terrain_grid = GameManager.terrain_grid
-	if not terrain_grid:
-		return hole_position
+	var course_data = GameManager.course_data
+	if not terrain_grid or not course_data or course_data.holes.is_empty() or current_hole >= course_data.holes.size():
+		return {
+			"landing_position": Vector2i(from_precise.round()),
+			"landing_precise": from_precise,
+			"from_precise": from_precise,
+			"distance": 0,
+			"accuracy": 1.0,
+			"club": Club.PUTTER
+		}
 
-	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
+	var hole_data = course_data.holes[current_hole]
+	var hole_pos = Vector2(hole_data.hole_position)
 
-	# For short putts (gimme range), aim directly at the hole
-	if distance_to_hole < 3.0:
-		return hole_position
+	var distance = from_precise.distance_to(hole_pos)
+	var direction = (hole_pos - from_precise).normalized() if distance > 0.001 else Vector2.ZERO
+	var perpendicular = Vector2(-direction.y, direction.x)
 
-	# For longer putts, aim slightly past the hole (never up short!)
-	# "Never up, never in" - golf wisdom
-	var direction = Vector2(hole_position - ball_position).normalized()
+	var landing: Vector2
 
-	# Add 5-10% extra distance based on putting skill (better putters are more precise)
-	var extra_distance = 0.05 + (0.05 * (1.0 - putting_skill))
-	var target_distance = distance_to_hole * (1.0 + extra_distance)
+	# Distances in tiles (1 tile = 15 yards = 45 feet):
+	#   0.07 tiles =  ~3 feet  (tap-in gimme)
+	#   0.15 tiles =  ~7 feet  (short putt)
+	#   0.33 tiles = ~15 feet  (mid-range)
+	#   0.50 tiles = ~22 feet  (challenging)
+	#   1.00 tiles = ~45 feet  (long putt)
+	#   2.00 tiles = ~90 feet  (lag putt territory)
 
-	var putt_target = ball_position + Vector2i(direction * target_distance)
+	if distance < 0.07:
+		# Tap-in gimme — automatic hole-out
+		landing = hole_pos
 
-	# Ensure target is still on green
-	if not terrain_grid.is_valid_position(putt_target) or terrain_grid.get_tile(putt_target) != TerrainTypes.Type.GREEN:
-		return hole_position
+	elif distance < 0.33:
+		# Short putt (3-15 feet): high make chance, very small lateral miss
+		var normalized_dist = (distance - 0.07) / 0.26
+		var skill_factor = 0.6 + putting_skill * 0.4
+		var make_chance = lerpf(0.75, 0.15, normalized_dist) * skill_factor
+		if randf() < make_chance:
+			landing = hole_pos
+		else:
+			# Missed — ball rolls just past the hole with slight lateral deviation
+			var overshoot = randf_range(0.03, 0.15) * (1.2 - putting_skill * 0.4)
+			var lateral = randf_range(-0.1, 0.1) * (1.0 - putting_skill * 0.5)
+			landing = hole_pos + direction * overshoot + perpendicular * lateral
 
-	return putt_target
+	elif distance < 1.0:
+		# Medium putt (15-45 feet): mostly about distance control, some make chance
+		var normalized_dist = (distance - 0.33) / 0.67
+		var skill_factor = 0.85 + putting_skill * 0.15
+		# Aim to roll the ball to the hole distance, with some error
+		var progress_ratio = randf_range(0.80, 1.08) * skill_factor
+		progress_ratio = clampf(progress_ratio, 0.60, 1.15)
+		var lateral = randf_range(-0.2, 0.2) * (1.0 - putting_skill * 0.3)
+		landing = from_precise + direction * distance * progress_ratio + perpendicular * lateral
+
+		# Small chance of holing a medium-length putt
+		var hole_chance = lerpf(0.10, 0.02, normalized_dist) * (0.5 + putting_skill * 0.5)
+		if randf() < hole_chance:
+			landing = hole_pos
+
+	else:
+		# Long putt / lag putt (45+ feet): goal is to get close, not hole it
+		var skill_factor = 0.80 + putting_skill * 0.20
+		var progress_ratio = randf_range(0.60, 0.90) * skill_factor
+		var lateral = randf_range(-0.35, 0.35) * (1.0 - putting_skill * 0.2)
+		landing = from_precise + direction * distance * progress_ratio + perpendicular * lateral
+
+		# Very small chance of holing a long putt
+		var hole_chance = 0.005 * (0.5 + putting_skill * 0.5)
+		if randf() < hole_chance:
+			landing = hole_pos
+
+	# CRITICAL: Guarantee every putt makes meaningful progress toward the hole
+	var new_distance = landing.distance_to(hole_pos)
+	if new_distance >= distance:
+		if distance >= 0.33:
+			# Medium/long putt went sideways or backward — force progress
+			var min_progress = 0.30 + putting_skill * 0.20
+			landing = from_precise + direction * distance * min_progress
+		elif new_distance > 0.25:
+			# Short putt miss that ended up unreasonably far — cap it
+			landing = hole_pos + (landing - hole_pos).normalized() * 0.20
+
+	# Snap to hole if very close (simulates ball dropping in)
+	if landing.distance_to(hole_pos) < 0.07:
+		landing = hole_pos
+
+	# Ensure landing stays on green terrain
+	var landing_tile = Vector2i(landing.round())
+	if not terrain_grid.is_valid_position(landing_tile) or terrain_grid.get_tile(landing_tile) != TerrainTypes.Type.GREEN:
+		# Walk back along the putt path to find the last green tile
+		var steps = max(int(from_precise.distance_to(landing) * 10.0), 1)
+		var last_valid = from_precise
+		for i in range(1, steps + 1):
+			var t = i / float(steps)
+			var check = from_precise.lerp(landing, t)
+			var check_tile = Vector2i(check.round())
+			if terrain_grid.is_valid_position(check_tile) and terrain_grid.get_tile(check_tile) == TerrainTypes.Type.GREEN:
+				last_valid = check
+			else:
+				break
+		landing = last_valid
+
+	var distance_yards = int(from_precise.distance_to(landing) * 15.0)
+
+	return {
+		"landing_position": Vector2i(landing.round()),
+		"landing_precise": landing,
+		"from_precise": from_precise,
+		"distance": distance_yards,
+		"accuracy": clampf(putting_skill, 0.0, 1.0),
+		"club": Club.PUTTER
+	}
 
 ## Calculate shot outcome
 func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
@@ -587,8 +713,6 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 
 	var distance_yards = terrain_grid.calculate_distance_yards(from, landing_position)
 
-	EventBus.emit_signal("ball_landed", golfer_id, from, landing_position, terrain_grid.get_tile(landing_position))
-
 	return {
 		"landing_position": landing_position,
 		"distance": distance_yards,
@@ -641,7 +765,13 @@ func _walk_to_ball() -> void:
 	if not GameManager.terrain_grid:
 		return
 
-	var ball_screen_pos = GameManager.terrain_grid.grid_to_screen_center(ball_position)
+	# Use sub-tile precision on the green for accurate positioning
+	var ball_screen_pos: Vector2
+	var current_terrain = GameManager.terrain_grid.get_tile(ball_position)
+	if current_terrain == TerrainTypes.Type.GREEN:
+		ball_screen_pos = GameManager.terrain_grid.grid_to_screen_precise(ball_position_precise)
+	else:
+		ball_screen_pos = GameManager.terrain_grid.grid_to_screen_center(ball_position)
 	path = _find_path_to(ball_screen_pos)
 	path_index = 0
 	_change_state(State.WALKING)

@@ -153,7 +153,7 @@ func _get_away_golfer_in_group(golfers: Array[Golfer]) -> Golfer:
 
 		var hole_data = course_data.holes[golfer.current_hole]
 		var hole_position = hole_data.hole_position
-		var distance = Vector2(golfer.ball_position).distance_to(Vector2(hole_position))
+		var distance = golfer.ball_position_precise.distance_to(Vector2(hole_position))
 
 		if distance > furthest_distance:
 			furthest_distance = distance
@@ -255,15 +255,16 @@ func _advance_golfer(golfer: Golfer) -> void:
 		golfer.start_hole(next_hole_index, hole_data.tee_position)
 	else:
 		# Already hit at least one shot
-		# Check if close enough to hole it
+		# Check if close enough to hole it (use sub-tile precision for putting accuracy)
 		var hole_position = hole_data.hole_position
-		var distance_to_hole = Vector2(golfer.ball_position).distance_to(Vector2(hole_position))
+		var distance_to_hole = golfer.ball_position_precise.distance_to(Vector2(hole_position))
 
 		# Max stroke limit: double par pickup rule (standard in casual golf)
 		var max_strokes = hole_data.par * 2
 		if golfer.current_strokes >= max_strokes:
 			print("%s picking up on hole %d (max %d strokes)" % [golfer.golfer_name, golfer.current_hole + 1, max_strokes])
 			golfer.ball_position = hole_position
+			golfer.ball_position_precise = Vector2(hole_position)
 			distance_to_hole = 0.0
 
 		if distance_to_hole < 0.25:

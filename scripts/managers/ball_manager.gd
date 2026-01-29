@@ -18,6 +18,8 @@ func _ready() -> void:
 		EventBus.connect("shot_taken", _on_shot_taken)
 	if EventBus.has_signal("ball_landed"):
 		EventBus.connect("ball_landed", _on_ball_landed)
+	if EventBus.has_signal("ball_putt_landed_precise"):
+		EventBus.connect("ball_putt_landed_precise", _on_ball_putt_precise)
 	if EventBus.has_signal("golfer_started_hole"):
 		EventBus.connect("golfer_started_hole", _on_golfer_started_hole)
 	if EventBus.has_signal("golfer_finished_hole"):
@@ -190,6 +192,17 @@ func _on_golfer_started_hole(golfer_id: int, hole_number: int) -> void:
 func _on_golfer_finished_hole(golfer_id: int, hole_number: int, strokes: int, par: int) -> void:
 	# Golfer finished the hole - hide the ball until next hole
 	hide_ball(golfer_id)
+
+func _on_ball_putt_precise(golfer_id: int, from_screen: Vector2, to_screen: Vector2, distance_yards: int) -> void:
+	# Handle precise sub-tile putt animation
+	var ball = get_or_create_ball(golfer_id)
+	if not ball:
+		return
+
+	ball.visible = true
+	var duration = 0.3 + (distance_yards / 100.0) * 0.7
+	duration = clamp(duration, 0.3, 1.5)
+	ball.start_flight_screen(from_screen, to_screen, duration, true)
 
 func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 	# Remove ball when golfer finishes their round

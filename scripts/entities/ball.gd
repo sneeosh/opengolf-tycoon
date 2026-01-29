@@ -66,6 +66,22 @@ func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5,
 	_change_state(BallState.IN_FLIGHT)
 	global_position = flight_start_pos
 
+## Start a flight animation using precise screen coordinates (for sub-tile putting)
+func start_flight_screen(from_screen: Vector2, to_screen: Vector2, duration: float = 1.5, is_putt: bool = false) -> void:
+	flight_start_pos = from_screen
+	flight_end_pos = to_screen
+	flight_progress = 0.0
+	flight_duration = duration
+
+	if is_putt:
+		flight_max_height = 0.0
+	else:
+		var distance = flight_start_pos.distance_to(flight_end_pos)
+		flight_max_height = min(distance * 0.3, 150.0)
+
+	_change_state(BallState.IN_FLIGHT)
+	global_position = flight_start_pos
+
 func _process_flight(delta: float) -> void:
 	flight_progress += delta / flight_duration
 
