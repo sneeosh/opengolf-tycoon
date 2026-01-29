@@ -15,6 +15,11 @@ var reputation: float = 50.0
 var current_day: int = 1
 var current_hour: float = 6.0
 
+# Green fee pricing
+var green_fee: int = 30  # Default $30 per golfer
+const MIN_GREEN_FEE: int = 10
+const MAX_GREEN_FEE: int = 200
+
 # Reference to terrain grid (set by main scene)
 var terrain_grid: TerrainGrid = null
 
@@ -74,12 +79,25 @@ func modify_reputation(amount: float) -> void:
 	reputation = clamp(reputation + amount, 0.0, 100.0)
 	EventBus.emit_signal("reputation_changed", old_rep, reputation)
 
+func set_green_fee(new_fee: int) -> void:
+	var old_fee = green_fee
+	green_fee = clamp(new_fee, MIN_GREEN_FEE, MAX_GREEN_FEE)
+	EventBus.emit_signal("green_fee_changed", old_fee, green_fee)
+
+func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
+	"""Process a golfer's green fee payment and return success"""
+	modify_money(green_fee)
+	EventBus.log_transaction("%s paid green fee" % golfer_name, green_fee)
+	EventBus.emit_signal("green_fee_paid", golfer_id, golfer_name, green_fee)
+	return true
+
 func new_game(course_name_input: String = "New Course") -> void:
 	course_name = course_name_input
 	money = 50000
 	reputation = 50.0
 	current_day = 1
 	current_hour = COURSE_OPEN_HOUR
+	green_fee = 30  # Reset to default
 	current_course = CourseData.new()
 	set_mode(GameMode.BUILDING)
 	EventBus.emit_signal("new_game_started")

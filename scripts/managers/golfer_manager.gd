@@ -5,7 +5,7 @@ class_name GolferManager
 const GOLFER_SCENE = preload("res://scenes/entities/golfer.tscn")
 
 @export var max_concurrent_golfers: int = 8
-@export var spawn_interval_seconds: float = 300.0  # 5 minutes game time
+@export var base_spawn_interval_seconds: float = 300.0  # 5 minutes base interval
 
 var active_golfers: Array[Golfer] = []
 var next_golfer_id: int = 0
@@ -21,14 +21,49 @@ func _ready() -> void:
 	# Connect to EventBus
 	EventBus.connect("golfer_finished_round", _on_golfer_finished_round)
 
+func get_spawn_interval() -> float:
+	"""Calculate spawn interval based on green fee (lower fee = more golfers)"""
+	var fee = GameManager.green_fee
+
+	# Formula: Higher fees = longer intervals (fewer golfers)
+	# $10 fee: ~120 seconds (2 min) - very busy
+	# $30 fee: ~300 seconds (5 min) - normal
+	# $50 fee: ~450 seconds (7.5 min) - quieter
+	# $100 fee: ~750 seconds (12.5 min) - exclusive
+	# $200 fee: ~1200 seconds (20 min) - very exclusive
+
+	var interval_multiplier = fee / 30.0  # 30 is the base fee
+	return base_spawn_interval_seconds * interval_multiplier
+
+func get_group_size_weights() -> Array:
+	"""Get weighted probabilities for group sizes based on green fee"""
+	var fee = GameManager.green_fee
+
+	# Lower fees attract more casual/single golfers
+	# Higher fees attract more serious golfers (foursomes)
+
+	if fee < 25:
+		# Budget course: More singles and pairs
+		return [0.4, 0.3, 0.2, 0.1]  # 40% singles, 30% pairs, 20% threesomes, 10% foursomes
+	elif fee < 50:
+		# Mid-range: Balanced groups
+		return [0.2, 0.3, 0.3, 0.2]  # 20% singles, 30% pairs, 30% threesomes, 20% foursomes
+	elif fee < 100:
+		# Premium: More foursomes
+		return [0.1, 0.2, 0.3, 0.4]  # 10% singles, 20% pairs, 30% threesomes, 40% foursomes
+	else:
+		# Exclusive: Mostly foursomes
+		return [0.05, 0.15, 0.25, 0.55]  # 5% singles, 15% pairs, 25% threesomes, 55% foursomes
+
 func _process(delta: float) -> void:
 	if GameManager.game_mode != GameManager.GameMode.SIMULATING:
 		return
 
-	# Auto-spawn golfers at intervals
+	# Auto-spawn golfers at intervals (dynamically adjusted by green fee)
 	time_since_last_spawn += delta * GameManager.get_game_speed_multiplier()
 
-	if time_since_last_spawn >= spawn_interval_seconds:
+	var current_spawn_interval = get_spawn_interval()
+	if time_since_last_spawn >= current_spawn_interval:
 		if active_golfers.size() < max_concurrent_golfers:
 			# Spawn a new group
 			spawn_initial_group()
@@ -152,6 +187,10 @@ func _is_landing_area_clear(shooting_golfer: Golfer, group_golfers: Array) -> bo
 		if golfer.group_id == shooting_golfer.group_id:
 			continue
 
+		# Skip finished golfers - they're leaving the course and shouldn't block play
+		if golfer.current_state == Golfer.State.FINISHED:
+			continue
+
 		# Only check golfers who are on the same hole
 		if golfer.current_hole != shooting_golfer.current_hole:
 			continue
@@ -173,9 +212,10 @@ func _advance_golfer(golfer: Golfer) -> void:
 		return
 
 	var next_hole_index = golfer.current_hole
+	print("DEBUG: %s current_hole=%d, total_holes=%d" % [golfer.golfer_name, next_hole_index, course_data.holes.size()])
 	if next_hole_index >= course_data.holes.size():
 		# Round completed
-		print("DEBUG: Round completed for %s" % golfer.golfer_name)
+		print("DEBUG: Round completed for %s! Calling finish_round()" % golfer.golfer_name)
 		golfer.finish_round()
 		return
 
@@ -196,10 +236,16 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 		if distance_to_hole < 2.0:
 			# Close enough to hole out
-			print("DEBUG: %s holing out" % golfer.golfer_name)
+			print("DEBUG: %s holing out on hole %d" % [golfer.golfer_name, golfer.current_hole + 1])
 			EventBus.emit_signal("ball_in_hole", golfer.golfer_id, hole_data.hole_number)
 			golfer.finish_hole(hole_data.par)
 			golfer.current_hole += 1
+			print("DEBUG: %s advanced to hole %d (total holes: %d)" % [golfer.golfer_name, golfer.current_hole + 1, course_data.holes.size()])
+
+			# Check if round is complete after advancing to next hole
+			if golfer.current_hole >= course_data.holes.size():
+				print("DEBUG: Round completed for %s! Calling finish_round()" % golfer.golfer_name)
+				golfer.finish_round()
 		else:
 			# Golfer is already at their ball (walked there after last shot)
 			# Just transition to PREPARING_SHOT to start their turn
@@ -235,6 +281,9 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	golfers_container.add_child(golfer)
 	active_golfers.append(golfer)
 
+	# Process green fee payment
+	GameManager.process_green_fee_payment(golfer.golfer_id, golfer_name)
+
 	EventBus.emit_signal("golfer_spawned", golfer.golfer_id, golfer_name)
 	emit_signal("golfer_spawned", golfer)
 
@@ -254,16 +303,29 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 
 ## Spawn initial group of golfers when course opens
 func spawn_initial_group() -> void:
-	var group_size = randi_range(1, 4)  # Groups of 1-4 players
+	var group_size = _select_weighted_group_size()
 	var new_group_id = next_group_id
 	next_group_id += 1
 
-	print("Spawning initial group of %d golfers (Group %d)" % [group_size, new_group_id])
+	print("Spawning group of %d golfers (Group %d, Fee: $%d)" % [group_size, new_group_id, GameManager.green_fee])
 
 	for i in range(group_size):
 		spawn_random_golfer(new_group_id)
 		# Small delay between spawns in the same group
 		await get_tree().create_timer(0.5).timeout
+
+func _select_weighted_group_size() -> int:
+	"""Select group size based on weighted probabilities from green fee"""
+	var weights = get_group_size_weights()
+	var random_value = randf()
+	var cumulative = 0.0
+
+	for i in range(weights.size()):
+		cumulative += weights[i]
+		if random_value <= cumulative:
+			return i + 1  # Return 1-4 (array index 0-3 maps to group size 1-4)
+
+	return 4  # Fallback to foursome
 
 ## Remove a golfer from the course
 func remove_golfer(golfer_id: int) -> void:
@@ -277,15 +339,41 @@ func remove_golfer(golfer_id: int) -> void:
 			return
 
 func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
+	print("=== GOLFER FINISHED ROUND ===")
 	print("Golfer %d finished round with %d strokes" % [golfer_id, total_strokes])
 
 	# Increase reputation based on golfer satisfaction
 	var reputation_gain = randi_range(1, 5)
 	GameManager.reputation += reputation_gain
 
-	# Remove golfer after a delay
-	await get_tree().create_timer(5.0).timeout
-	remove_golfer(golfer_id)
+	# Find the golfer to get their group_id
+	var finished_golfer = get_golfer(golfer_id)
+	if not finished_golfer:
+		print("DEBUG: Could not find golfer %d" % golfer_id)
+		return
+
+	var group_id = finished_golfer.group_id
+	print("DEBUG: Checking if entire group %d is finished..." % group_id)
+
+	# Check if all golfers in this group are finished
+	var all_finished = true
+	var group_golfers: Array[Golfer] = []
+	for golfer in active_golfers:
+		if golfer.group_id == group_id:
+			group_golfers.append(golfer)
+			if golfer.current_state != Golfer.State.FINISHED:
+				all_finished = false
+
+	if all_finished:
+		print("DEBUG: All %d golfers in group %d are finished! Removing group in 1 second..." % [group_golfers.size(), group_id])
+		# Wait a moment so players can see the group finish
+		await get_tree().create_timer(1.0).timeout
+		# Remove all golfers in the group
+		for golfer in group_golfers:
+			print("DEBUG: Removing golfer %d (%s) from group %d" % [golfer.golfer_id, golfer.golfer_name, group_id])
+			remove_golfer(golfer.golfer_id)
+	else:
+		print("DEBUG: Group %d still has golfers playing. Waiting for all to finish." % group_id)
 
 ## Get all active golfers
 func get_active_golfers() -> Array[Golfer]:

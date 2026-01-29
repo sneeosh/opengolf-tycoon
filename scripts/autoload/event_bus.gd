@@ -15,6 +15,8 @@ signal hour_changed(new_hour: float)
 signal money_changed(old_amount: int, new_amount: int)
 signal reputation_changed(old_rep: float, new_rep: float)
 signal transaction_completed(description: String, amount: int)
+signal green_fee_changed(old_fee: int, new_fee: int)
+signal green_fee_paid(golfer_id: int, golfer_name: String, amount: int)
 
 # Terrain/Building Signals
 signal terrain_tile_changed(position: Vector2i, old_type: int, new_type: int)

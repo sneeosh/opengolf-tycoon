@@ -19,6 +19,9 @@ extends Node2D
 
 var game_mode_label: Label = null
 var build_mode_btn: Button = null
+var green_fee_label: Label = null
+var green_fee_decrease_btn: Button = null
+var green_fee_increase_btn: Button = null
 
 var current_tool: int = TerrainTypes.Type.FAIRWAY
 var brush_size: int = 1
@@ -56,6 +59,7 @@ func _ready() -> void:
 	_connect_signals()
 	_connect_ui_buttons()
 	_create_game_mode_label()
+	_create_green_fee_controls()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -93,6 +97,7 @@ func _connect_signals() -> void:
 	EventBus.connect("money_changed", _on_money_changed)
 	EventBus.connect("day_changed", _on_day_changed)
 	EventBus.connect("hole_created", _on_hole_created)
+	EventBus.connect("green_fee_changed", _on_green_fee_changed)
 
 func _connect_ui_buttons() -> void:
 	tool_panel.get_node("FairwayBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.FAIRWAY))
@@ -157,6 +162,53 @@ func _create_game_mode_label() -> void:
 	build_mode_btn.text = "🔨 Build"
 	build_mode_btn.pressed.connect(_on_build_mode_pressed)
 	speed_controls.add_child(build_mode_btn)
+
+func _create_green_fee_controls() -> void:
+	"""Create UI controls for adjusting green fee"""
+	var bottom_bar = $UI/HUD/BottomBar
+
+	# Create container for green fee controls
+	var green_fee_container = HBoxContainer.new()
+	green_fee_container.name = "GreenFeeControls"
+
+	# Create decrease button
+	green_fee_decrease_btn = Button.new()
+	green_fee_decrease_btn.text = "-"
+	green_fee_decrease_btn.custom_minimum_size = Vector2(30, 30)
+	green_fee_decrease_btn.pressed.connect(_on_green_fee_decrease)
+	green_fee_container.add_child(green_fee_decrease_btn)
+
+	# Create label
+	green_fee_label = Label.new()
+	green_fee_label.text = "Fee: $%d" % GameManager.green_fee
+	green_fee_label.custom_minimum_size = Vector2(80, 30)
+	green_fee_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	green_fee_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	green_fee_container.add_child(green_fee_label)
+
+	# Create increase button
+	green_fee_increase_btn = Button.new()
+	green_fee_increase_btn.text = "+"
+	green_fee_increase_btn.custom_minimum_size = Vector2(30, 30)
+	green_fee_increase_btn.pressed.connect(_on_green_fee_increase)
+	green_fee_container.add_child(green_fee_increase_btn)
+
+	# Add to bottom bar (after speed controls)
+	bottom_bar.add_child(green_fee_container)
+	bottom_bar.move_child(green_fee_container, 1)  # Position after SpeedControls
+
+func _on_green_fee_decrease() -> void:
+	"""Decrease green fee by $5"""
+	GameManager.set_green_fee(GameManager.green_fee - 5)
+
+func _on_green_fee_increase() -> void:
+	"""Increase green fee by $5"""
+	GameManager.set_green_fee(GameManager.green_fee + 5)
+
+func _on_green_fee_changed(_old_fee: int, new_fee: int) -> void:
+	"""Update green fee label when fee changes"""
+	if green_fee_label:
+		green_fee_label.text = "Fee: $%d" % new_fee
 
 func _on_build_mode_pressed() -> void:
 	"""Return to building mode from simulation"""

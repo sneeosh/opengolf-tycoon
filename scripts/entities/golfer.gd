@@ -114,6 +114,9 @@ func _ready() -> void:
 	if name_label:
 		name_label.text = golfer_name
 
+	# Connect to green fee payment signal
+	EventBus.connect("green_fee_paid", _on_green_fee_paid)
+
 	_update_visual()
 	_update_score_display()
 
@@ -750,6 +753,36 @@ func _update_score_display() -> void:
 	var hole_text = "Hole %d" % (current_hole + 1)
 
 	score_label.text = "%s, %s" % [score_text, hole_text]
+
+## Handle green fee payment notification
+func _on_green_fee_paid(paid_golfer_id: int, paid_golfer_name: String, amount: int) -> void:
+	# Only show notification for this specific golfer
+	if paid_golfer_id == golfer_id:
+		show_payment_notification(amount)
+
+## Show floating payment notification above golfer
+func show_payment_notification(amount: int) -> void:
+	# Create a temporary label for the notification
+	var notification = Label.new()
+	notification.text = "+$%d" % amount
+	notification.modulate = Color(0.2, 1.0, 0.2, 1.0)  # Green color
+	notification.position = Vector2(0, -40)  # Above the golfer's head
+
+	# Set label properties
+	notification.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notification.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	notification.add_theme_font_size_override("font_size", 14)
+
+	add_child(notification)
+
+	# Animate the notification
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(notification, "position:y", -60, 1.5)  # Float up
+	tween.tween_property(notification, "modulate:a", 0.0, 1.5)  # Fade out
+
+	# Remove the notification when done
+	tween.finished.connect(func(): notification.queue_free())
 
 ## Serialize golfer state
 func serialize() -> Dictionary:
