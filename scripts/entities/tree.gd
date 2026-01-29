@@ -1,18 +1,15 @@
 extends Node2D
-class_name Tree
-## Tree - Represents a tree entity on the course
+class_name TreeEntity
+## TreeEntity - Represents a tree entity on the course
 
-@export var grid_position: Vector2i = Vector2i(0, 0)
-@export var tree_type: String = "oak"  # oak, pine, maple, birch
+var grid_position: Vector2i = Vector2i(0, 0)
+var tree_type: String = "oak"  # oak, pine, maple, birch
 
 var terrain_grid: TerrainGrid
 var tree_data: Dictionary = {}
 
-@onready var sprite: Sprite2D = $Sprite2D if has_node("Sprite2D") else null
-@onready var collision_shape: CollisionShape2D = $Area2D/CollisionShape2D if has_node("Area2D/CollisionShape2D") else null
-
-signal tree_selected(tree: Tree)
-signal tree_destroyed(tree: Tree)
+signal tree_selected(tree: TreeEntity)
+signal tree_destroyed(tree: TreeEntity)
 
 const TREE_PROPERTIES: Dictionary = {
 	"oak": {"name": "Oak Tree", "cost": 20, "height": 3, "width": 2, "color": Color(0.2, 0.5, 0.2)},
@@ -23,15 +20,28 @@ const TREE_PROPERTIES: Dictionary = {
 
 func _ready() -> void:
 	add_to_group("trees")
-	
-	# Load tree data
+
+	# Load tree data (only if not already set by set_tree_type)
+	if tree_data.is_empty():
+		if tree_type in TREE_PROPERTIES:
+			tree_data = TREE_PROPERTIES[tree_type].duplicate(true)
+		else:
+			tree_type = "oak"
+			tree_data = TREE_PROPERTIES["oak"].duplicate(true)
+		_update_visuals()
+
+func set_tree_type(type: String) -> void:
+	"""Set the tree type and load its data"""
+	tree_type = type
 	if tree_type in TREE_PROPERTIES:
 		tree_data = TREE_PROPERTIES[tree_type].duplicate(true)
 	else:
 		tree_type = "oak"
 		tree_data = TREE_PROPERTIES["oak"].duplicate(true)
-	
-	_update_visuals()
+
+	# Update visuals if already in tree (after _ready was called)
+	if is_inside_tree():
+		_update_visuals()
 
 func _input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:

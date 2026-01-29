@@ -2,10 +2,10 @@ extends Node2D
 class_name Building
 ## Building - Represents a building entity on the course
 
-@export var building_type: String = "clubhouse"
-@export var grid_position: Vector2i = Vector2i(0, 0)
-@export var width: int = 4
-@export var height: int = 4
+var building_type: String = "clubhouse"
+var grid_position: Vector2i = Vector2i(0, 0)
+var width: int = 4
+var height: int = 4
 
 var terrain_grid: TerrainGrid
 var building_data: Dictionary = {}

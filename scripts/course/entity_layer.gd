@@ -3,14 +3,14 @@ class_name EntityLayer
 ## EntityLayer - Manages all placed buildings and trees on the course
 
 var buildings: Dictionary = {}  # key: Vector2i (grid_pos), value: Building node
-var trees: Dictionary = {}      # key: Vector2i (grid_pos), value: Tree node
+var trees: Dictionary = {}      # key: Vector2i (grid_pos), value: TreeEntity node
 var rocks: Dictionary = {}      # key: Vector2i (grid_pos), value: Rock node
 
 var terrain_grid: TerrainGrid
 var building_registry: Dictionary = {}  # Can accept either Node or Dictionary
 
 signal building_placed(building: Building, cost: int)
-signal tree_placed(tree: Tree, cost: int)
+signal tree_placed(tree: TreeEntity, cost: int)
 signal rock_placed(rock: Rock, cost: int)
 signal building_removed(grid_pos: Vector2i)
 signal tree_removed(grid_pos: Vector2i)
@@ -68,14 +68,16 @@ func place_building(building_type: String, grid_pos: Vector2i, building_registry
 	building_placed.emit(building, building_data.get("cost", 0))
 	return building
 
-func place_tree(grid_pos: Vector2i, tree_type: String = "oak") -> Tree:
+func place_tree(grid_pos: Vector2i, tree_type: String = "oak") -> TreeEntity:
 	"""Place a tree at the specified grid position"""
-	var tree = Tree.new()
-	tree.tree_type = tree_type
+	var tree = TreeEntity.new()
 	tree.set_terrain_grid(terrain_grid)
 	tree.set_position_in_grid(grid_pos)
-	
+
 	trees_container.add_child(tree)
+
+	# Set tree type after adding to tree so node is fully initialized
+	tree.set_tree_type(tree_type)
 	
 	# Store by grid position
 	trees[grid_pos] = tree
@@ -92,11 +94,13 @@ func place_tree(grid_pos: Vector2i, tree_type: String = "oak") -> Tree:
 func place_rock(grid_pos: Vector2i, rock_size: String = "medium") -> Rock:
 	"""Place a rock at the specified grid position"""
 	var rock = Rock.new()
-	rock.rock_size = rock_size
 	rock.set_terrain_grid(terrain_grid)
 	rock.set_position_in_grid(grid_pos)
 
 	rocks_container.add_child(rock)
+
+	# Set rock size after adding to tree so node is fully initialized
+	rock.set_rock_size(rock_size)
 
 	# Store by grid position
 	rocks[grid_pos] = rock
@@ -113,7 +117,7 @@ func place_rock(grid_pos: Vector2i, rock_size: String = "medium") -> Rock:
 func get_building_at(grid_pos: Vector2i) -> Building:
 	return buildings.get(grid_pos, null)
 
-func get_tree_at(grid_pos: Vector2i) -> Tree:
+func get_tree_at(grid_pos: Vector2i) -> TreeEntity:
 	return trees.get(grid_pos, null)
 
 func get_rock_at(grid_pos: Vector2i) -> Rock:
@@ -200,10 +204,10 @@ func _on_building_selected(building: Building) -> void:
 func _on_building_destroyed(building: Building) -> void:
 	pass  # Clean up if needed
 
-func _on_tree_selected(tree: Tree) -> void:
+func _on_tree_selected(tree: TreeEntity) -> void:
 	pass  # Handle tree selection if needed
 
-func _on_tree_destroyed(tree: Tree) -> void:
+func _on_tree_destroyed(tree: TreeEntity) -> void:
 	pass  # Clean up if needed
 
 func _on_rock_selected(rock: Rock) -> void:

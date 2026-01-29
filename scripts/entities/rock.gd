@@ -2,8 +2,8 @@ extends Node2D
 class_name Rock
 ## Rock - Represents a decorative rock entity on the course
 
-@export var grid_position: Vector2i = Vector2i(0, 0)
-@export var rock_size: String = "medium"  # small, medium, large
+var grid_position: Vector2i = Vector2i(0, 0)
+var rock_size: String = "medium"  # small, medium, large
 
 var terrain_grid: TerrainGrid
 var rock_data: Dictionary = {}
@@ -20,14 +20,27 @@ const ROCK_PROPERTIES: Dictionary = {
 func _ready() -> void:
 	add_to_group("rocks")
 
-	# Load rock data
+	# Load rock data (only if not already set by set_rock_size)
+	if rock_data.is_empty():
+		if rock_size in ROCK_PROPERTIES:
+			rock_data = ROCK_PROPERTIES[rock_size].duplicate(true)
+		else:
+			rock_size = "medium"
+			rock_data = ROCK_PROPERTIES["medium"].duplicate(true)
+		_update_visuals()
+
+func set_rock_size(size: String) -> void:
+	"""Set the rock size and load its data"""
+	rock_size = size
 	if rock_size in ROCK_PROPERTIES:
 		rock_data = ROCK_PROPERTIES[rock_size].duplicate(true)
 	else:
 		rock_size = "medium"
 		rock_data = ROCK_PROPERTIES["medium"].duplicate(true)
 
-	_update_visuals()
+	# Update visuals if already in tree (after _ready was called)
+	if is_inside_tree():
+		_update_visuals()
 
 func _input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
