@@ -57,29 +57,15 @@ func _update_group(group_golfers: Array) -> void:
 	for golfer in group_golfers:
 		if golfer.current_state in [Golfer.State.PREPARING_SHOT, Golfer.State.SWINGING, Golfer.State.WATCHING]:
 			someone_shooting = true
-			print("DEBUG: %s (ID:%d) is shooting, state=%s" % [golfer.golfer_name, golfer.golfer_id, golfer.current_state])
 			break
 
 	# If no one is shooting, determine whose turn it is in this group
 	if not someone_shooting:
-		# Debug: print all golfer states
-		print("DEBUG: No one shooting in group. Golfer states:")
-		for golfer in group_golfers:
-			print("  - %s (ID:%d): state=%s, strokes=%d, hole=%d" % [
-				golfer.golfer_name, golfer.golfer_id, golfer.current_state, golfer.current_strokes, golfer.current_hole
-			])
-
 		var next_golfer = _determine_next_golfer_in_group(group_golfers)
 		if next_golfer:
-			print("DEBUG: Next golfer is %s (ID:%d)" % [next_golfer.golfer_name, next_golfer.golfer_id])
 			# Check if landing area is clear before advancing
 			if _is_landing_area_clear(next_golfer, group_golfers):
-				print("DEBUG: Landing area clear, advancing %s" % next_golfer.golfer_name)
 				_advance_golfer(next_golfer)
-			else:
-				print("DEBUG: Landing area NOT clear for %s" % next_golfer.golfer_name)
-		else:
-			print("DEBUG: No next golfer determined")
 
 func _determine_next_golfer_in_group(group_golfers: Array) -> Golfer:
 	"""Determine which golfer in this group should shoot next"""
@@ -158,7 +144,7 @@ func _is_landing_area_clear(shooting_golfer: Golfer, group_golfers: Array) -> bo
 	var target = shooting_golfer.decide_shot_target(hole_position)
 
 	# Define a landing zone (radius around target)
-	const LANDING_ZONE_RADIUS = 15.0  # tiles
+	const LANDING_ZONE_RADIUS = 5.0  # tiles (reduced from 15.0 for less conservative play)
 
 	# Check if any golfer from OTHER groups is in the landing zone
 	for golfer in active_golfers:
@@ -173,7 +159,6 @@ func _is_landing_area_clear(shooting_golfer: Golfer, group_golfers: Array) -> bo
 		# Check if golfer is in the landing zone
 		var distance_to_target = Vector2(golfer.ball_position).distance_to(Vector2(target))
 		if distance_to_target < LANDING_ZONE_RADIUS:
-			print("DEBUG: Landing area blocked by %s (ID:%d) from group %d" % [golfer.golfer_name, golfer.golfer_id, golfer.group_id])
 			return false  # Landing area is not clear
 
 	return true  # Landing area is clear

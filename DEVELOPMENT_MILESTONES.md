@@ -121,6 +121,10 @@ The game currently supports:
 - ✅ Putting skill affects distance control on greens
 - ✅ Terrain-aware pathfinding: golfers walk around water obstacles
 - ✅ Cannot walk through water or out of bounds
+- ✅ Improved accuracy system: Higher skill levels (0.5-0.9), 60% reduced error spread
+- ✅ Straighter shots: ±3° angle variance (down from ±8.5°) for consistent ball striking
+- ✅ Forward progress enforcement: 500pt penalty for shots that don't advance toward hole
+- ✅ Strong distance preference: 4x penalty multiplier for distance from hole
 - ✅ Debug output shows golfer personality on spawn
 - ⏳ Prefer walking on paths (future enhancement)
 - ⏳ More sophisticated A* pathfinding (future enhancement)
