@@ -66,7 +66,7 @@ The game currently supports:
 - ✅ Hole number displayed on flag
 - ✅ Info label shows hole number, par, and yardage at midpoint between tee and green
 - ✅ Par automatically calculated based on distance (Par 3: <250yds, Par 4: 250-470yds, Par 5: >470yds)
-- ✅ Yardage calculated using 5 yards per tile conversion
+- ✅ Yardage calculated using 15 yards per tile conversion
 - ✅ Flag can be repositioned on multi-tile greens (validates green terrain)
 - ✅ HoleManager coordinates all hole visualizations
 - ✅ Holes automatically visualized when created through EventBus integration
@@ -412,6 +412,7 @@ The game currently supports:
 - ✅ Golfer accuracy too low - increased skill range to 0.5-0.9 and reduced error spread
 - ✅ Round finish bug - golfers now properly clear the final green
 - ✅ Groups deadlocking each other on par 3s - fixed with directional blocking and par 3 holds
+- ✅ Ball flight not visible - BallManager failed to create ball on first shot; fixed by adding from_position to ball_landed signal and using get_or_create_ball
 
 ### Minor
 - (Add bugs as discovered)
