@@ -20,6 +20,7 @@ The game currently supports:
 15. **Green fee system** - Configurable green fees ($10-$200), golfers pay on spawn with floating notification
 16. **Dynamic golfer spawning** - Groups spawn when first tee is clear, with group sizes weighted by green fee
 17. **Turn-based group play** - Groups play holes turn-based with tee order and "away" rules, par 3 safety holds, deadlock prevention
+18. **Calibrated game time** - 1 real minute = 1 game hour at normal speed; FAST (2x) and ULTRA (4x) scale proportionally
 
 ---
 
@@ -86,6 +87,7 @@ The game currently supports:
 - ✅ Active speed button highlighted with visual feedback
 - ✅ Initial golfer spawning (1-4 players) when entering play mode
 - ✅ Notifications for state changes and validation errors
+- ✅ Calibrated game time speed: 1 real minute = 1 game hour at NORMAL, 30s at FAST, 15s at ULTRA
 
 ### [X] Golfer Spawn & Management System
 **STATUS: COMPLETE** - Full group spawning with dynamic tee-time management:

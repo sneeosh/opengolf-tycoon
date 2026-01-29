@@ -49,7 +49,8 @@ func _process(delta: float) -> void:
 		_advance_time(delta)
 
 func _advance_time(delta: float) -> void:
-	var time_multiplier: float = current_speed * 60.0
+	# 1 real minute = 1 game hour at NORMAL speed
+	var time_multiplier: float = float(current_speed)
 	current_hour += (delta * time_multiplier) / 60.0
 	if current_hour >= HOURS_PER_DAY:
 		current_hour -= HOURS_PER_DAY
