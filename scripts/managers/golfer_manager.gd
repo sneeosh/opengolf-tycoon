@@ -97,6 +97,14 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5) -> Golfer:
 	golfer.putting_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
 	golfer.recovery_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
 
+	# Set personality traits (independent of skill)
+	golfer.aggression = randf_range(0.2, 0.9)  # Range from cautious to aggressive
+	golfer.patience = randf_range(0.3, 0.8)    # Range from impatient to patient
+
+	print("Spawned %s: Driving=%.2f, Accuracy=%.2f, Putting=%.2f, Aggression=%.2f" % [
+		golfer_name, golfer.driving_skill, golfer.accuracy_skill, golfer.putting_skill, golfer.aggression
+	])
+
 	golfers_container.add_child(golfer)
 	active_golfers.append(golfer)
 

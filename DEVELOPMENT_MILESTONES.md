@@ -14,7 +14,9 @@ The game currently supports:
 9. **Golfer visual rendering** - Animated golfers with walking/swinging animations and score tracking
 10. **Hole visualization system** - Visual flags, connecting lines, hole info labels with par and yardage
 11. **Play/Pause system with golfer spawning** - Game mode switching with validation and automatic golfer spawning
-12. Intuitive camera controls with arrow keys moving in visual direction
+12. **Complete shot system with club types** - Driver, Iron, Wedge, Putter with terrain modifiers
+13. **Intelligent golfer AI** - Smart target selection, hazard avoidance, personality traits, terrain-aware pathfinding
+14. Intuitive camera controls with arrow keys moving in visual direction
 
 ---
 
@@ -105,14 +107,23 @@ The game currently supports:
 - ✅ Debug output showing club, distance, and accuracy for each shot
 - ⏳ Wind effects on ball flight (future enhancement)
 
-### [] Golfer AI & Path Finding
-Smart shot selection and course navigation:
-- Prefer fairway landing zones
-- Avoid hazards when possible
-- Choose appropriate club for distance
-- Green reading for putts
-- Risk/reward decision making based on golfer personality
-- Navigate between holes efficiently (prefer walking on golf paths if nearby. Can also walk on grass. Cannot walk on water.)
+### [X] Golfer AI & Path Finding
+**STATUS: COMPLETE** - Intelligent shot selection and terrain-aware navigation:
+- ✅ Evaluates multiple potential landing zones and scores each
+- ✅ Strongly prefers fairways (100pts) over rough (30pts) and heavily penalizes hazards
+- ✅ Avoids water (-1000pts) and out of bounds (-1000pts) at all costs
+- ✅ Tree collision detection - will NOT take shots that fly through trees (-2000pts)
+- ✅ Considers nearby hazards when evaluating safety of landing zone
+- ✅ Personality traits: aggression (0.0-1.0) affects risk/reward decisions
+- ✅ Cautious players (low aggression) heavily penalize risky shots near hazards
+- ✅ Aggressive players willing to take riskier shots for better positioning
+- ✅ Green reading for putts: aims 5-15% past hole ("never up, never in")
+- ✅ Putting skill affects distance control on greens
+- ✅ Terrain-aware pathfinding: golfers walk around water obstacles
+- ✅ Cannot walk through water or out of bounds
+- ✅ Debug output shows golfer personality on spawn
+- ⏳ Prefer walking on paths (future enhancement)
+- ⏳ More sophisticated A* pathfinding (future enhancement)
 
 ### [] Hole Open/Close Management
 - UI to mark holes as open or closed
@@ -394,7 +405,8 @@ Smart shot selection and course navigation:
 4. ✅ ~~Complete the hole tracker visual system~~ - COMPLETE (All Priority 1 tasks done!)
 5. ✅ ~~Implement play/pause with golfer spawning~~ - COMPLETE
 6. ✅ ~~Complete Golfer Shot System with club types and shot mechanics~~ - COMPLETE
-7. Implement Golfer AI & Path Finding (Priority 2 - NEXT UP)
+7. ✅ ~~Implement Golfer AI & Path Finding~~ - COMPLETE
+8. Implement Hole Open/Close Management OR Green Fee & Revenue System (Priority 2 - NEXT UP)
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.

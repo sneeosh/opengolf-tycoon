@@ -57,6 +57,10 @@ const CLUB_STATS = {
 @export_range(0.0, 1.0) var putting_skill: float = 0.5
 @export_range(0.0, 1.0) var recovery_skill: float = 0.5
 
+## Personality traits
+@export_range(0.0, 1.0) var aggression: float = 0.5  # 0.0 = cautious, 1.0 = aggressive/risky
+@export_range(0.0, 1.0) var patience: float = 0.5    # 0.0 = impatient, 1.0 = patient
+
 ## Current state
 var current_state: State = State.IDLE
 var current_mood: float = 0.5  # 0.0 = angry, 1.0 = happy
@@ -269,33 +273,163 @@ func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 	if not terrain_grid:
 		return hole_position
 
-	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
 	var current_terrain = terrain_grid.get_tile(ball_position)
 
+	# Special logic for putting
+	if current_terrain == TerrainTypes.Type.GREEN:
+		return _decide_putt_target(hole_position)
+
 	# Select appropriate club
+	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
 	var club = select_club(distance_to_hole, current_terrain)
 	var club_stats = CLUB_STATS[club]
 
-	# Calculate shot distance based on club and skill
+	# Calculate ideal shot distance
 	var skill_factor = driving_skill if club == Club.DRIVER else accuracy_skill
 	var max_shot_distance = club_stats["max_distance"] * skill_factor
 
-	# Aim for hole if within range, otherwise aim for max distance
+	# Find best landing target
+	return _find_best_landing_zone(hole_position, max_shot_distance, club)
+
+## Find best landing zone considering fairways and hazards
+func _find_best_landing_zone(hole_position: Vector2i, max_distance: float, club: Club) -> Vector2i:
+	var terrain_grid = GameManager.terrain_grid
+	if not terrain_grid:
+		return hole_position
+
+	var direction_to_hole = Vector2(hole_position - ball_position).normalized()
+	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
+
+	# Determine target distance (layup vs go for it)
+	var target_distance = min(distance_to_hole, max_distance)
+
+	# Aggressive players go for max distance more often
+	if aggression > 0.7 and distance_to_hole > max_distance * 0.8:
+		target_distance = max_distance
+
+	# Evaluate potential landing zones
+	var best_target = hole_position
+	var best_score = -999.0
+
+	# Sample points along the line to the hole
+	var num_samples = 5
+	for i in range(num_samples):
+		var test_distance = target_distance * (0.7 + (i / float(num_samples)) * 0.6)  # 70% to 130% of target
+		var test_position = ball_position + Vector2i(direction_to_hole * test_distance)
+
+		if not terrain_grid.is_valid_position(test_position):
+			continue
+
+		var score = _evaluate_landing_zone(test_position, hole_position, club)
+		if score > best_score:
+			best_score = score
+			best_target = test_position
+
+	# Also consider slight left/right adjustments to avoid hazards
+	for offset_angle in [-0.15, 0.0, 0.15]:  # -8.5°, 0°, +8.5°
+		var adjusted_direction = direction_to_hole.rotated(offset_angle)
+		var test_position = ball_position + Vector2i(adjusted_direction * target_distance)
+
+		if not terrain_grid.is_valid_position(test_position):
+			continue
+
+		var score = _evaluate_landing_zone(test_position, hole_position, club)
+		if score > best_score:
+			best_score = score
+			best_target = test_position
+
+	return best_target
+
+## Evaluate how good a landing zone is
+func _evaluate_landing_zone(position: Vector2i, hole_position: Vector2i, club: Club) -> float:
+	var terrain_grid = GameManager.terrain_grid
+	if not terrain_grid:
+		return 0.0
+
+	# Check if shot path will hit trees or water mid-flight
+	if _path_crosses_obstacle(ball_position, position, false):
+		return -2000.0  # NEVER hit trees or water mid-flight!
+
+	var terrain_type = terrain_grid.get_tile(position)
+	var score = 0.0
+
+	# Score based on terrain type
+	match terrain_type:
+		TerrainTypes.Type.FAIRWAY:
+			score += 100.0  # Best landing zone
+		TerrainTypes.Type.GREEN:
+			score += 120.0  # Even better if we can reach green
+		TerrainTypes.Type.GRASS:
+			score += 80.0   # Decent
+		TerrainTypes.Type.ROUGH:
+			score += 30.0   # Not ideal
+		TerrainTypes.Type.HEAVY_ROUGH:
+			score += 10.0   # Bad
+		TerrainTypes.Type.BUNKER:
+			score -= 20.0   # Avoid if possible
+		TerrainTypes.Type.WATER:
+			score -= 1000.0 # Avoid at all costs!
+		TerrainTypes.Type.OUT_OF_BOUNDS:
+			score -= 1000.0 # Never go OB
+		TerrainTypes.Type.TREES:
+			score -= 50.0   # Avoid trees
+
+	# Bonus for getting closer to hole
+	var distance_to_hole = Vector2(position).distance_to(Vector2(hole_position))
+	score -= distance_to_hole * 2.0  # Prefer closer to hole
+
+	# Personality adjustments
+	if aggression < 0.3:  # Cautious players heavily penalize hazards
+		if terrain_type == TerrainTypes.Type.BUNKER:
+			score -= 80.0
+		if terrain_type == TerrainTypes.Type.ROUGH or terrain_type == TerrainTypes.Type.HEAVY_ROUGH:
+			score -= 30.0
+
+	# Check surrounding tiles for hazards (risky if near water/OB)
+	var hazard_penalty = 0.0
+	for dx in range(-2, 3):
+		for dy in range(-2, 3):
+			if dx == 0 and dy == 0:
+				continue
+			var check_pos = position + Vector2i(dx, dy)
+			if not terrain_grid.is_valid_position(check_pos):
+				continue
+
+			var nearby_terrain = terrain_grid.get_tile(check_pos)
+			if nearby_terrain == TerrainTypes.Type.WATER or nearby_terrain == TerrainTypes.Type.OUT_OF_BOUNDS:
+				hazard_penalty += 20.0 * (1.0 - aggression)  # Cautious players avoid being near hazards
+
+	score -= hazard_penalty
+
+	return score
+
+## Decide putt target with green reading
+func _decide_putt_target(hole_position: Vector2i) -> Vector2i:
+	var terrain_grid = GameManager.terrain_grid
+	if not terrain_grid:
+		return hole_position
+
+	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
+
+	# For very short putts, just aim for the hole
+	if distance_to_hole < 1.5:
+		return hole_position
+
+	# For longer putts, aim slightly past the hole (never up short!)
+	# "Never up, never in" - golf wisdom
 	var direction = Vector2(hole_position - ball_position).normalized()
-	var shot_distance = min(distance_to_hole, max_shot_distance)
 
-	# Add accuracy variance based on club and skill
-	var base_accuracy = club_stats["accuracy_modifier"]
-	var skill_accuracy = accuracy_skill if club != Club.DRIVER else (accuracy_skill + driving_skill) / 2.0
-	var total_accuracy = base_accuracy * skill_accuracy
+	# Add 5-15% extra distance based on putting skill (better putters are more precise)
+	var extra_distance = 0.05 + (0.10 * (1.0 - putting_skill))
+	var target_distance = distance_to_hole * (1.0 + extra_distance)
 
-	var accuracy_variance = (1.0 - total_accuracy) * 15.0
-	var random_offset = Vector2i(
-		randi_range(-int(accuracy_variance), int(accuracy_variance)),
-		randi_range(-int(accuracy_variance), int(accuracy_variance))
-	)
+	var putt_target = ball_position + Vector2i(direction * target_distance)
 
-	return ball_position + Vector2i(direction * shot_distance) + random_offset
+	# Ensure target is still on green
+	if not terrain_grid.is_valid_position(putt_target) or terrain_grid.get_tile(putt_target) != TerrainTypes.Type.GREEN:
+		return hole_position
+
+	return putt_target
 
 ## Calculate shot outcome
 func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
@@ -421,10 +555,81 @@ func _walk_to_ball() -> void:
 	path_index = 0
 	_change_state(State.WALKING)
 
-## Simple pathfinding (straight line for now)
+## Simple pathfinding with terrain awareness
 func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
+	var terrain_grid = GameManager.terrain_grid
+	if not terrain_grid:
+		var result: Array[Vector2] = []
+		result.append(target_pos)
+		return result
+
+	# Convert to grid positions
+	var start_grid = terrain_grid.screen_to_grid(global_position)
+	var end_grid = terrain_grid.screen_to_grid(target_pos)
+
+	# Check if path crosses water or is short enough to go direct
+	var path_distance = Vector2(start_grid).distance_to(Vector2(end_grid))
+
+	if path_distance < 5.0 or not _path_crosses_obstacle(start_grid, end_grid, true):
+		# Short distance or no obstacles - go direct
+		var result: Array[Vector2] = []
+		result.append(target_pos)
+		return result
+
+	# Need to pathfind around water
+	return _find_path_around_water(start_grid, end_grid)
+
+## Check if path crosses obstacles (water for walking, or trees/water for flight)
+func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bool:
+	var terrain_grid = GameManager.terrain_grid
+	if not terrain_grid:
+		return false
+
+	# Sample points along the line
+	var distance = Vector2(start).distance_to(Vector2(end))
+	var num_samples = int(distance) + 1
+
+	for i in range(num_samples):
+		var t = i / float(num_samples)
+		var sample_pos = Vector2i(Vector2(start).lerp(Vector2(end), t))
+
+		if not terrain_grid.is_valid_position(sample_pos):
+			continue
+
+		var terrain_type = terrain_grid.get_tile(sample_pos)
+
+		if walking:
+			# When walking, only avoid water and OB
+			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS:
+				return true
+		else:
+			# When flying (shot), avoid trees too
+			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS or terrain_type == TerrainTypes.Type.TREES:
+				return true
+
+	return false
+
+## Find path around water (simple waypoint system)
+func _find_path_around_water(start: Vector2i, end: Vector2i) -> Array[Vector2]:
+	var terrain_grid = GameManager.terrain_grid
 	var result: Array[Vector2] = []
-	result.append(target_pos)
+
+	# Try going around left or right
+	var direction = Vector2(end - start).normalized()
+	var perpendicular = Vector2(-direction.y, direction.x)  # 90° rotation
+
+	# Try offset to the left
+	var waypoint_left = start + Vector2i(direction * Vector2(start).distance_to(Vector2(end)) / 2.0 + perpendicular * 10)
+	if terrain_grid.is_valid_position(waypoint_left) and terrain_grid.get_tile(waypoint_left) != TerrainTypes.Type.WATER:
+		result.append(terrain_grid.grid_to_screen(waypoint_left))
+
+	# Add final destination
+	result.append(terrain_grid.grid_to_screen(end))
+
+	# If path is still bad, just go direct and hope for the best
+	if result.is_empty():
+		result.append(terrain_grid.grid_to_screen(end))
+
 	return result
 
 ## Called when golfer reaches destination

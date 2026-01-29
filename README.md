@@ -27,8 +27,12 @@ OpenGolf Tycoon is a spiritual successor to the classic SimGolf (2002). Design a
 - Animated AI golfers with walking and swing animations
 - Ball physics with parabolic arc trajectories
 - Terrain-based ball rolling (different for greens, fairways, rough)
+- Complete club system (Driver, Iron, Wedge, Putter) with realistic characteristics
+- Intelligent AI: prefers fairways, avoids hazards, detects tree collisions
+- Personality traits affect decision-making (aggression, patience)
+- Green reading for putts
+- Terrain-aware pathfinding (avoids water obstacles)
 - Score tracking and display
-- Shot calculation based on golfer skills
 - Visual feedback for ball states (in flight, rolling, in water, OB)
 - Automatic golfer spawning in groups of 1-4 players
 
