@@ -417,6 +417,8 @@ The game currently supports:
 - ✅ Round finish bug - golfers now properly clear the final green
 - ✅ Groups deadlocking each other on par 3s - fixed with directional blocking and par 3 holds
 - ✅ Ball flight not visible - BallManager failed to create ball on first shot; fixed by adding from_position to ball_landed signal and using get_or_create_ball
+- ✅ Golfer/ball tile offset - entities positioned at tile corner instead of center; added grid_to_screen_center helper
+- ✅ Infinite putting loop - putts never converged toward hole, blocking next group's tee shots; fixed with gimme range, short putts aim at hole, off-green putts stop at green edge
 
 ### Minor
 - (Add bugs as discovered)

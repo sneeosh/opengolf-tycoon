@@ -259,8 +259,8 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 		print("DEBUG: %s at ball, distance to hole: %.1f tiles" % [golfer.golfer_name, distance_to_hole])
 
-		if distance_to_hole < 1.0:
-			# Close enough to hole out
+		if distance_to_hole < 0.25:
+			# Close enough to hole out (gimme putt ~3.75 yards)
 			print("DEBUG: %s holing out on hole %d" % [golfer.golfer_name, golfer.current_hole + 1])
 			EventBus.emit_signal("ball_in_hole", golfer.golfer_id, hole_data.hole_number)
 			golfer.finish_hole(hole_data.par)

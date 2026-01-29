@@ -41,7 +41,7 @@ func set_terrain_grid(grid: TerrainGrid) -> void:
 func set_position_in_grid(pos: Vector2i) -> void:
 	grid_position = pos
 	if terrain_grid:
-		var world_pos = terrain_grid.grid_to_screen(pos)
+		var world_pos = terrain_grid.grid_to_screen_center(pos)
 		global_position = world_pos
 	_update_visual()
 
@@ -51,8 +51,8 @@ func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5)
 		return
 
 	grid_position = from_grid
-	flight_start_pos = terrain_grid.grid_to_screen(from_grid)
-	flight_end_pos = terrain_grid.grid_to_screen(to_grid)
+	flight_start_pos = terrain_grid.grid_to_screen_center(from_grid)
+	flight_end_pos = terrain_grid.grid_to_screen_center(to_grid)
 	flight_progress = 0.0
 	flight_duration = duration
 

@@ -198,7 +198,7 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	current_strokes = 0
 	ball_position = tee_position
 
-	var screen_pos = GameManager.terrain_grid.grid_to_screen(tee_position) if GameManager.terrain_grid else Vector2.ZERO
+	var screen_pos = GameManager.terrain_grid.grid_to_screen_center(tee_position) if GameManager.terrain_grid else Vector2.ZERO
 	global_position = screen_pos
 
 	EventBus.emit_signal("golfer_started_hole", golfer_id, hole_number)
@@ -457,16 +457,16 @@ func _decide_putt_target(hole_position: Vector2i) -> Vector2i:
 
 	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
 
-	# For very short putts, just aim for the hole
-	if distance_to_hole < 0.75:
+	# For short putts (gimme range), aim directly at the hole
+	if distance_to_hole < 3.0:
 		return hole_position
 
 	# For longer putts, aim slightly past the hole (never up short!)
 	# "Never up, never in" - golf wisdom
 	var direction = Vector2(hole_position - ball_position).normalized()
 
-	# Add 5-15% extra distance based on putting skill (better putters are more precise)
-	var extra_distance = 0.05 + (0.10 * (1.0 - putting_skill))
+	# Add 5-10% extra distance based on putting skill (better putters are more precise)
+	var extra_distance = 0.05 + (0.05 * (1.0 - putting_skill))
 	var target_distance = distance_to_hole * (1.0 + extra_distance)
 
 	var putt_target = ball_position + Vector2i(direction * target_distance)
@@ -555,21 +555,28 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 
 	# For putts, ensure ball stays on green or goes in hole
 	if club == Club.PUTTER:
-		var landing_terrain = terrain_grid.get_tile(landing_position)
-		if landing_terrain != TerrainTypes.Type.GREEN:
-			# Putt went off green - check if it should go in the hole
-			var course_data = GameManager.course_data
-			if course_data and not course_data.holes.is_empty() and current_hole < course_data.holes.size():
-				var hole_data = course_data.holes[current_hole]
-				var hole_position = hole_data.hole_position
+		var course_data = GameManager.course_data
+		if course_data and not course_data.holes.is_empty() and current_hole < course_data.holes.size():
+			var hole_data = course_data.holes[current_hole]
+			var hole_position = hole_data.hole_position
+			var distance_to_hole = Vector2(landing_position).distance_to(Vector2(hole_position))
 
-				var distance_to_hole = Vector2(landing_position).distance_to(Vector2(hole_position))
-				if distance_to_hole < 1.0:
-					# Close enough - ball goes in hole
-					landing_position = hole_position
-				else:
-					# Too far off green - ball stays at original position (conservatively short)
-					landing_position = from
+			# Check if putt landed on the hole tile
+			if distance_to_hole < 1.0:
+				landing_position = hole_position
+			else:
+				var landing_terrain = terrain_grid.get_tile(landing_position)
+				if landing_terrain != TerrainTypes.Type.GREEN:
+					# Putt went off green - find the last green tile along the path
+					var dir = Vector2(landing_position - from).normalized()
+					var edge_pos = from
+					for i in range(1, int(Vector2(from).distance_to(Vector2(landing_position))) + 1):
+						var check = Vector2i((Vector2(from) + dir * i).round())
+						if terrain_grid.is_valid_position(check) and terrain_grid.get_tile(check) == TerrainTypes.Type.GREEN:
+							edge_pos = check
+						else:
+							break
+					landing_position = edge_pos
 
 	var distance_yards = terrain_grid.calculate_distance_yards(from, landing_position)
 
@@ -627,7 +634,7 @@ func _walk_to_ball() -> void:
 	if not GameManager.terrain_grid:
 		return
 
-	var ball_screen_pos = GameManager.terrain_grid.grid_to_screen(ball_position)
+	var ball_screen_pos = GameManager.terrain_grid.grid_to_screen_center(ball_position)
 	path = _find_path_to(ball_screen_pos)
 	path_index = 0
 	_change_state(State.WALKING)
@@ -698,14 +705,14 @@ func _find_path_around_water(start: Vector2i, end: Vector2i) -> Array[Vector2]:
 	# Try offset to the left
 	var waypoint_left = start + Vector2i(direction * Vector2(start).distance_to(Vector2(end)) / 2.0 + perpendicular * 10)
 	if terrain_grid.is_valid_position(waypoint_left) and terrain_grid.get_tile(waypoint_left) != TerrainTypes.Type.WATER:
-		result.append(terrain_grid.grid_to_screen(waypoint_left))
+		result.append(terrain_grid.grid_to_screen_center(waypoint_left))
 
 	# Add final destination
-	result.append(terrain_grid.grid_to_screen(end))
+	result.append(terrain_grid.grid_to_screen_center(end))
 
 	# If path is still bad, just go direct and hope for the best
 	if result.is_empty():
-		result.append(terrain_grid.grid_to_screen(end))
+		result.append(terrain_grid.grid_to_screen_center(end))
 
 	return result
 
