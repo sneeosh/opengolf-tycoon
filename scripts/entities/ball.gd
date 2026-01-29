@@ -24,6 +24,7 @@ var flight_max_height: float = 100.0
 
 signal ball_landed(landing_pos: Vector2i)
 signal ball_state_changed(old_state: BallState, new_state: BallState)
+signal ball_landed_in_bunker(landing_pos: Vector2i)
 
 func _ready() -> void:
 	z_index = 100  # Render above terrain and entities
@@ -131,6 +132,9 @@ func _land_ball() -> void:
 	match terrain_type:
 		TerrainTypes.Type.WATER:
 			_change_state(BallState.IN_WATER)
+		TerrainTypes.Type.BUNKER:
+			_change_state(BallState.AT_REST)
+			ball_landed_in_bunker.emit(grid_position)
 		_:
 			_change_state(BallState.AT_REST)
 

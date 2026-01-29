@@ -13,8 +13,11 @@ var _grid: Dictionary = {}
 
 signal tile_changed(position: Vector2i, old_type: int, new_type: int)
 
+var _bunker_overlay: BunkerOverlay = null
+
 func _ready() -> void:
 	_initialize_grid()
+	_setup_bunker_overlay()
 
 func _initialize_grid() -> void:
 	for x in range(grid_width):
@@ -94,6 +97,12 @@ func _get_atlas_coords_for_type(terrain_type: int) -> Vector2i:
 	var x = terrain_type % TILES_PER_ROW
 	var y = terrain_type / TILES_PER_ROW
 	return Vector2i(x, y)
+
+func _setup_bunker_overlay() -> void:
+	_bunker_overlay = BunkerOverlay.new()
+	_bunker_overlay.name = "BunkerOverlay"
+	add_child(_bunker_overlay)
+	_bunker_overlay.initialize(self)
 
 func serialize() -> Dictionary:
 	var data: Dictionary = {}

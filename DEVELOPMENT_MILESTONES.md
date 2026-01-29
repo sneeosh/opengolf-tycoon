@@ -187,11 +187,12 @@ _Note: Shot mechanics for water penalties already exist in code._
 - Visual water animation
 - Water affects hole difficulty rating
 
-### [] Sand Trap & Bunker Placement Tools
-_Note: Shot accuracy/distance modifiers for bunkers already exist (wedge 0.6, other clubs 0.4 lie modifier; 25% distance loss)._
-- Sand trap placement tool (brush-based painting)
-- Visual sand spray particle effects
-- Bunkers affect hole difficulty rating
+### [X] Sand Trap & Bunker Placement Tools
+**STATUS: COMPLETE** - Bunker visual enhancements:
+- ✅ Sand trap placement tool (brush-based painting) - already existed
+- ✅ Visual sand spray particle effects (SandSprayEffect on bunker landing)
+- ✅ Visual grain/stipple overlay on bunker tiles (BunkerOverlay)
+- ✅ Bunker landing detection in ball physics (ball_landed_in_bunker signal)
 
 ### [] Wind Effects on Ball Flight
 - Wind direction and strength (variable per day or per hole)

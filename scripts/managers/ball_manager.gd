@@ -47,6 +47,7 @@ func get_or_create_ball(golfer_id: int) -> Ball:
 	# Connect signals
 	ball.ball_landed.connect(_on_ball_landed_at_position.bind(golfer_id))
 	ball.ball_state_changed.connect(_on_ball_state_changed.bind(golfer_id))
+	ball.ball_landed_in_bunker.connect(_on_ball_landed_in_bunker.bind(golfer_id))
 
 	emit_signal("ball_created", golfer_id, ball)
 	return ball
@@ -181,6 +182,11 @@ func _on_ball_state_changed(old_state: Ball.BallState, new_state: Ball.BallState
 		Ball.BallState.OUT_OF_BOUNDS:
 			print("Ball %d went out of bounds!" % golfer_id)
 			# handle_ob_penalty will be called by golfer logic
+
+func _on_ball_landed_in_bunker(landing_pos: Vector2i, golfer_id: int) -> void:
+	var ball = get_ball(golfer_id)
+	if ball:
+		SandSprayEffect.create_at(ball.get_parent(), ball.global_position)
 
 func _on_golfer_started_hole(golfer_id: int, hole_number: int) -> void:
 	# Golfer started a new hole - ball will be placed when they take their first shot
