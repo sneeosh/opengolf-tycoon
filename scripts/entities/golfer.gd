@@ -13,34 +13,41 @@ enum State {
 }
 
 enum Club {
-	DRIVER,   # Long distance, lower accuracy (250-300 yards)
-	IRON,     # Medium distance, medium accuracy (150-200 yards)
-	WEDGE,    # Short distance, high accuracy (50-100 yards)
-	PUTTER    # Green only, distance-based accuracy (10-40 feet)
+	DRIVER,       # Long distance, lower accuracy (300-450 yards)
+	FAIRWAY_WOOD, # Mid-long distance, moderate accuracy (195-300 yards)
+	IRON,         # Medium distance, medium accuracy (150-300 yards)
+	WEDGE,        # Short distance, high accuracy (30-120 yards)
+	PUTTER        # Putting surface, distance-based accuracy (0-90 feet)
 }
 
-## Club characteristics
+## Club characteristics (distances in tiles, 1 tile = 15 yards)
 const CLUB_STATS = {
 	Club.DRIVER: {
-		"max_distance": 30,    # tiles (300 yards at 10 yards/tile)
-		"min_distance": 20,    # tiles (200 yards)
+		"max_distance": 30,    # tiles (450 yards)
+		"min_distance": 20,    # tiles (300 yards)
 		"accuracy_modifier": 0.7,
 		"name": "Driver"
 	},
+	Club.FAIRWAY_WOOD: {
+		"max_distance": 20,    # tiles (300 yards)
+		"min_distance": 13,    # tiles (195 yards)
+		"accuracy_modifier": 0.78,
+		"name": "Fairway Wood"
+	},
 	Club.IRON: {
-		"max_distance": 20,    # tiles (200 yards)
-		"min_distance": 10,    # tiles (100 yards)
+		"max_distance": 13,    # tiles (195 yards)
+		"min_distance": 8,     # tiles (120 yards)
 		"accuracy_modifier": 0.85,
 		"name": "Iron"
 	},
 	Club.WEDGE: {
-		"max_distance": 10,    # tiles (100 yards)
-		"min_distance": 2,     # tiles (20 yards)
+		"max_distance": 8,     # tiles (120 yards)
+		"min_distance": 2,     # tiles (30 yards)
 		"accuracy_modifier": 0.95,
 		"name": "Wedge"
 	},
 	Club.PUTTER: {
-		"max_distance": 4,     # tiles (40 yards, ~120 feet)
+		"max_distance": 2,     # tiles (30 yards, ~90 feet)
 		"min_distance": 0,     # tiles
 		"accuracy_modifier": 0.98,
 		"name": "Putter"
@@ -71,6 +78,7 @@ var fatigue: float = 0.0       # 0.0 = fresh, 1.0 = exhausted
 var current_hole: int = 0
 var current_strokes: int = 0
 var total_strokes: int = 0
+var total_par: int = 0  # Sum of par for all completed holes (for accurate score display)
 var ball_position: Vector2i = Vector2i.ZERO
 var target_position: Vector2i = Vector2i.ZERO
 
@@ -267,6 +275,7 @@ func take_shot(target: Vector2i) -> void:
 ## Finish current hole
 func finish_hole(par: int) -> void:
 	total_strokes += current_strokes
+	total_par += par
 
 	# Update mood based on performance
 	var score_diff = current_strokes - par
@@ -298,16 +307,30 @@ func select_club(distance_to_target: float, current_terrain: int) -> Club:
 	if current_terrain == TerrainTypes.Type.GREEN:
 		return Club.PUTTER
 
-	# Select club based on distance (in tiles) - putter only valid on green
+	# Allow fringe putting: use putter from nearby off-green lies on easy terrain
+	# Real golfers often putt from the fringe or short grass near the green
+	if distance_to_target <= CLUB_STATS[Club.PUTTER]["max_distance"]:
+		var is_puttable_surface = current_terrain in [
+			TerrainTypes.Type.FAIRWAY,
+			TerrainTypes.Type.GRASS,
+			TerrainTypes.Type.TEE_BOX,
+		]
+		if is_puttable_surface:
+			return Club.PUTTER
+
+	# Select club based on distance (in tiles)
 	if distance_to_target >= CLUB_STATS[Club.DRIVER]["min_distance"]:
 		return Club.DRIVER
+	elif distance_to_target >= CLUB_STATS[Club.FAIRWAY_WOOD]["min_distance"]:
+		return Club.FAIRWAY_WOOD
 	elif distance_to_target >= CLUB_STATS[Club.IRON]["min_distance"]:
 		return Club.IRON
 	else:
-		# For short distances off the green, use wedge (never putter off green)
 		return Club.WEDGE
 
 ## AI decision making - decide where to aim shot
+## Evaluates multiple club options and picks the one with the best landing zone,
+## enabling lay-up strategy when hazards make a longer club risky.
 func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
@@ -319,17 +342,42 @@ func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 	if current_terrain == TerrainTypes.Type.GREEN:
 		return _decide_putt_target(hole_position)
 
-	# Select appropriate club
+	# Fringe putting check
 	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
-	var club = select_club(distance_to_hole, current_terrain)
-	var club_stats = CLUB_STATS[club]
+	if distance_to_hole <= CLUB_STATS[Club.PUTTER]["max_distance"]:
+		var is_puttable = current_terrain in [
+			TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.GRASS, TerrainTypes.Type.TEE_BOX,
+		]
+		if is_puttable:
+			return _decide_putt_target(hole_position)
 
-	# Calculate ideal shot distance
-	var skill_factor = driving_skill if club == Club.DRIVER else accuracy_skill
-	var max_shot_distance = club_stats["max_distance"] * skill_factor
+	# Evaluate candidate clubs to find the best overall option (enables lay-up)
+	var candidate_clubs: Array[Club] = []
+	for club_type in [Club.DRIVER, Club.FAIRWAY_WOOD, Club.IRON, Club.WEDGE]:
+		var stats = CLUB_STATS[club_type]
+		# Club is a candidate if the hole is within or beyond its min range
+		if distance_to_hole >= stats["min_distance"] * 0.7:
+			candidate_clubs.append(club_type)
 
-	# Find best landing target
-	return _find_best_landing_zone(hole_position, max_shot_distance, club)
+	if candidate_clubs.is_empty():
+		candidate_clubs.append(Club.WEDGE)
+
+	var best_club: Club = candidate_clubs[0]
+	var best_target: Vector2i = hole_position
+	var best_score: float = -9999.0
+
+	for club in candidate_clubs:
+		var stats = CLUB_STATS[club]
+		var max_dist = stats["max_distance"] * 0.97  # Assume near-full distance
+		var target = _find_best_landing_zone(hole_position, max_dist, club)
+		var score = _evaluate_landing_zone(target, hole_position, club)
+
+		if score > best_score:
+			best_score = score
+			best_target = target
+			best_club = club
+
+	return best_target
 
 ## Find best landing zone considering fairways and hazards
 func _find_best_landing_zone(hole_position: Vector2i, max_distance: float, club: Club) -> Vector2i:
@@ -497,6 +545,8 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	match club:
 		Club.DRIVER:
 			skill_accuracy = (driving_skill * 0.7 + accuracy_skill * 0.3)
+		Club.FAIRWAY_WOOD:
+			skill_accuracy = (driving_skill * 0.5 + accuracy_skill * 0.5)
 		Club.IRON:
 			skill_accuracy = (driving_skill * 0.4 + accuracy_skill * 0.6)
 		Club.WEDGE:
@@ -523,16 +573,32 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 		var putt_floor = lerpf(0.95, 0.75, putt_distance_ratio)
 		total_accuracy = max(total_accuracy, putt_floor)
 
-	# Distance modifier based on club and skill
+	# Distance modifier: base ability + random shot-to-shot variance
+	# Skill primarily affects accuracy (above), not raw distance — even high-handicap
+	# players swing at full speed, they just miss more. Skill gives a small distance
+	# consistency bonus (tighter variance) rather than a large range multiplier.
 	var distance_modifier = 1.0
+	var shot_variance = 0.0  # Random per-shot variation
 	if club == Club.DRIVER:
-		distance_modifier = 0.85 + (driving_skill * 0.3)  # 85%-115% of intended distance
+		var skill_bonus = driving_skill * 0.08         # 0%-8% skill bonus
+		shot_variance = randf_range(-0.08, 0.06)       # ±8%/6% random spread
+		distance_modifier = 0.92 + skill_bonus + shot_variance  # ~0.84-1.06
+	elif club == Club.FAIRWAY_WOOD:
+		var skill_bonus = driving_skill * 0.06
+		shot_variance = randf_range(-0.06, 0.05)
+		distance_modifier = 0.94 + skill_bonus + shot_variance  # ~0.88-1.05
 	elif club == Club.IRON:
-		distance_modifier = 0.9 + (accuracy_skill * 0.2)  # 90%-110%
+		var skill_bonus = accuracy_skill * 0.05
+		shot_variance = randf_range(-0.05, 0.04)
+		distance_modifier = 0.95 + skill_bonus + shot_variance  # ~0.90-1.04
 	elif club == Club.WEDGE:
-		distance_modifier = 0.95 + (accuracy_skill * 0.1)  # 95%-105%
+		var skill_bonus = accuracy_skill * 0.03
+		shot_variance = randf_range(-0.04, 0.03)
+		distance_modifier = 0.97 + skill_bonus + shot_variance  # ~0.93-1.03
 	elif club == Club.PUTTER:
-		distance_modifier = 0.98 + (putting_skill * 0.04)  # 98%-102%
+		var skill_bonus = putting_skill * 0.02
+		shot_variance = randf_range(-0.03, 0.02)
+		distance_modifier = 0.98 + skill_bonus + shot_variance  # ~0.95-1.02
 
 	# Apply terrain distance penalty
 	var terrain_distance_modifier = _get_terrain_distance_modifier(current_terrain)
@@ -542,16 +608,20 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	var intended_distance = Vector2(from).distance_to(Vector2(target))
 	var actual_distance = intended_distance * distance_modifier
 
-	# Add directional error based on accuracy
-	var error_range = int((1.0 - total_accuracy) * 10.0)  # Reduced from 25.0 to 10.0 for better accuracy
+	# Add directional error using elliptical distribution
+	# Real golf dispersion is wider laterally (draw/fade/slice) than long/short
+	var error_range = (1.0 - total_accuracy) * 10.0
 	var direction = Vector2(target - from).normalized()
 	var landing_point = Vector2(from) + (direction * actual_distance)
 
-	# Add random offset
-	var random_offset = Vector2(
-		randf_range(-error_range, error_range),
-		randf_range(-error_range, error_range)
-	)
+	# Polar distribution: random angle + distance, stretched laterally
+	var error_angle = randf_range(0.0, TAU)
+	var error_magnitude = randf_range(0.0, error_range)
+	# Perpendicular axis gets 1.5x the error (side-to-side miss is more common)
+	var perpendicular = Vector2(-direction.y, direction.x)
+	var lateral_error = cos(error_angle) * error_magnitude * 1.5  # Side-to-side
+	var longitudinal_error = sin(error_angle) * error_magnitude    # Long/short
+	var random_offset = perpendicular * lateral_error + direction * longitudinal_error
 	landing_point += random_offset
 
 	var landing_position = Vector2i(landing_point.round())
@@ -671,6 +741,8 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 	return _find_path_around_water(start_grid, end_grid)
 
 ## Check if path crosses obstacles (water for walking, or trees/water for flight)
+## For ball flight, uses parabolic arc: trees only block when the ball is low
+## (near takeoff and landing). The ball clears obstacles at mid-flight.
 func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bool:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
@@ -694,9 +766,14 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS:
 				return true
 		else:
-			# When flying (shot), avoid trees too
-			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS or terrain_type == TerrainTypes.Type.TREES:
+			# When flying, water/OB block at any point along the ground path
+			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS:
 				return true
+			# Trees only block when the ball is low (first/last 20% of flight)
+			# At mid-flight the ball is high enough to clear tree canopy
+			if terrain_type == TerrainTypes.Type.TREES:
+				if t < 0.2 or t > 0.8:
+					return true
 
 	return false
 
@@ -791,11 +868,13 @@ func _update_score_display() -> void:
 	if not score_label:
 		return
 
-	# Calculate score relative to par
-	var score_relative_to_par = total_strokes - (current_hole * 4)  # Assuming par 4 average
+	# Calculate score relative to par using actual accumulated par values
+	var score_relative_to_par = total_strokes - total_par
 	var score_text = ""
 
-	if score_relative_to_par == 0:
+	if total_par == 0:
+		score_text = "E"  # No holes completed yet
+	elif score_relative_to_par == 0:
 		score_text = "E"  # Even
 	elif score_relative_to_par > 0:
 		score_text = "+%d" % score_relative_to_par  # Over par
@@ -844,6 +923,7 @@ func serialize() -> Dictionary:
 		"golfer_name": golfer_name,
 		"current_hole": current_hole,
 		"total_strokes": total_strokes,
+		"total_par": total_par,
 		"current_mood": current_mood,
 		"position": {"x": global_position.x, "y": global_position.y}
 	}
@@ -854,6 +934,7 @@ func deserialize(data: Dictionary) -> void:
 	golfer_name = data.get("golfer_name", "Golfer")
 	current_hole = data.get("current_hole", 0)
 	total_strokes = data.get("total_strokes", 0)
+	total_par = data.get("total_par", 0)
 	current_mood = data.get("current_mood", 0.5)
 
 	var pos_data = data.get("position", {})
