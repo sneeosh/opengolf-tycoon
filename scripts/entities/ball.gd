@@ -105,8 +105,9 @@ func _process_flight(delta: float) -> void:
 	var linear_pos = flight_start_pos.lerp(flight_end_pos, flight_progress)
 	var arc_height = sin(flight_progress * PI) * flight_max_height
 
-	# Apply wind visual drift progressively during flight
-	var wind_drift = wind_visual_offset * flight_progress
+	# Apply wind visual drift as a bell curve: peaks at mid-flight, smoothly
+	# returns to zero at landing so the ball arrives at the correct position
+	var wind_drift = wind_visual_offset * sin(flight_progress * PI)
 
 	global_position = linear_pos - Vector2(0, arc_height) + wind_drift
 
