@@ -139,6 +139,10 @@ text = "Path"
 layout_mode = 2
 text = "Tee Box"
 
+[node name="OBBtn" type="Button" parent="UI/HUD/ToolPanel"]
+layout_mode = 2
+text = "Out of Bounds"
+
 [node name="Separator1" type="HSeparator" parent="UI/HUD/ToolPanel"]
 layout_mode = 2
 

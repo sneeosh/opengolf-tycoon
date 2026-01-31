@@ -19,6 +19,7 @@ func initialize(hole: GameManager.HoleData, grid: TerrainGrid) -> void:
 	hole_data = hole
 	terrain_grid = grid
 	_create_visuals()
+	EventBus.connect("terrain_tile_changed", _on_terrain_tile_changed)
 
 func _create_visuals() -> void:
 	# Create line connecting tee to green
@@ -95,10 +96,11 @@ func _update_info_label() -> void:
 	info_label.position = to_local(midpoint) + Vector2(-40, -20)
 
 	# Update text
-	var info_text = "Hole %d\nPar %d\n%d yards" % [
+	var info_text = "Hole %d\nPar %d\n%d yards\nDiff: %.1f" % [
 		hole_data.hole_number,
 		hole_data.par,
-		hole_data.distance_yards
+		hole_data.distance_yards,
+		hole_data.difficulty_rating
 	]
 	info_label.text = info_text
 
@@ -136,11 +138,23 @@ func _on_flag_moved(old_position: Vector2i, new_position: Vector2i) -> void:
 	)
 	hole_data.par = HoleCreationTool.calculate_par(hole_data.distance_yards)
 
+	# Recalculate difficulty
+	hole_data.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole_data, terrain_grid)
+
 	# Update visuals
 	_update_line()
 	_update_info_label()
 
 	EventBus.emit_signal("hole_updated", hole_data.hole_number)
+
+func _on_terrain_tile_changed(_position: Vector2i, _old_type: int, _new_type: int) -> void:
+	# Recalculate difficulty when terrain changes
+	if hole_data and terrain_grid:
+		var new_difficulty = DifficultyCalculator.calculate_hole_difficulty(hole_data, terrain_grid)
+		if absf(new_difficulty - hole_data.difficulty_rating) > 0.05:
+			hole_data.difficulty_rating = new_difficulty
+			_update_info_label()
+			EventBus.emit_signal("hole_difficulty_changed", hole_data.hole_number, new_difficulty)
 
 func update_visualization() -> void:
 	_update_line()

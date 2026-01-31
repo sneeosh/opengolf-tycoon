@@ -24,6 +24,8 @@ func _ready() -> void:
 		EventBus.connect("golfer_finished_hole", _on_golfer_finished_hole)
 	if EventBus.has_signal("golfer_finished_round"):
 		EventBus.connect("golfer_finished_round", _on_golfer_finished_round)
+	if EventBus.has_signal("hazard_penalty"):
+		EventBus.connect("hazard_penalty", _on_hazard_penalty)
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -167,21 +169,25 @@ func _on_ball_landed_at_position(landing_pos: Vector2i, golfer_id: int) -> void:
 	# Ball has finished landing animation
 	emit_signal("ball_landed", golfer_id, landing_pos)
 
-func _on_ball_state_changed(old_state: Ball.BallState, new_state: Ball.BallState, golfer_id: int) -> void:
-	# Handle special ball states
+func _on_hazard_penalty(golfer_id: int, hazard_type: String, reset_position: Vector2i) -> void:
 	var ball = get_ball(golfer_id)
 	if not ball:
 		return
 
+	# Reset ball to the drop/previous position
+	ball.set_position_in_grid(reset_position)
+	ball.ball_state = Ball.BallState.AT_REST
+	ball.visible = true
+	emit_signal("ball_in_hazard", golfer_id, hazard_type)
+
+func _on_ball_state_changed(old_state: Ball.BallState, new_state: Ball.BallState, golfer_id: int) -> void:
+	# Ball state changes are logged here; penalty handling is triggered by golfer logic
+	# via the hazard_penalty EventBus signal
 	match new_state:
 		Ball.BallState.IN_WATER:
-			# TODO: Get previous shot position from golfer for proper drop zone
-			# For now, just handle the visual
 			print("Ball %d went in water!" % golfer_id)
-			# handle_water_penalty will be called by golfer logic
 		Ball.BallState.OUT_OF_BOUNDS:
 			print("Ball %d went out of bounds!" % golfer_id)
-			# handle_ob_penalty will be called by golfer logic
 
 func _on_ball_landed_in_bunker(landing_pos: Vector2i, golfer_id: int) -> void:
 	var ball = get_ball(golfer_id)

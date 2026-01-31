@@ -34,6 +34,7 @@ signal hole_toggled(hole_number: int, is_open: bool)
 signal tee_placed(hole_number: int, position: Vector2i)
 signal green_placed(hole_number: int, position: Vector2i)
 signal par_calculated(hole_number: int, par: int)
+signal hole_difficulty_changed(hole_number: int, difficulty: float)
 
 # Golfer Signals
 signal golfer_spawned(golfer_id: int, golfer_name: String)
@@ -47,6 +48,7 @@ signal golfer_left_course(golfer_id: int)
 signal shot_taken(golfer_id: int, hole_number: int, strokes: int)
 signal ball_landed(golfer_id: int, from_position: Vector2i, position: Vector2i, terrain_type: int)
 signal ball_in_hole(golfer_id: int, hole_number: int)
+signal hazard_penalty(golfer_id: int, hazard_type: String, reset_position: Vector2i)
 
 # UI Signals
 signal ui_notification(message: String, type: String)

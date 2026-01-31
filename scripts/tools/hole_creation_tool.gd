@@ -132,6 +132,9 @@ func _create_hole() -> void:
 	# Calculate par based on distance
 	hole.par = calculate_par(hole.distance_yards)
 
+	# Calculate difficulty rating based on surrounding terrain
+	hole.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole, GameManager.terrain_grid)
+
 	# Add hole to course
 	if not GameManager.current_course:
 		GameManager.current_course = GameManager.CourseData.new()

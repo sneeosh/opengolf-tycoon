@@ -132,6 +132,8 @@ func _land_ball() -> void:
 	match terrain_type:
 		TerrainTypes.Type.WATER:
 			_change_state(BallState.IN_WATER)
+		TerrainTypes.Type.OUT_OF_BOUNDS:
+			_change_state(BallState.OUT_OF_BOUNDS)
 		TerrainTypes.Type.BUNKER:
 			_change_state(BallState.AT_REST)
 			ball_landed_in_bunker.emit(grid_position)
