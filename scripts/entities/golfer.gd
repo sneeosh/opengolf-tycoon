@@ -811,8 +811,10 @@ func _find_path_around_water(start: Vector2i, end: Vector2i) -> Array[Vector2]:
 
 	# Try offset to the left
 	var waypoint_left = start + Vector2i(direction * Vector2(start).distance_to(Vector2(end)) / 2.0 + perpendicular * 10)
-	if terrain_grid.is_valid_position(waypoint_left) and terrain_grid.get_tile(waypoint_left) != TerrainTypes.Type.WATER:
-		result.append(terrain_grid.grid_to_screen_center(waypoint_left))
+	if terrain_grid.is_valid_position(waypoint_left):
+		var waypoint_terrain = terrain_grid.get_tile(waypoint_left)
+		if waypoint_terrain != TerrainTypes.Type.WATER and waypoint_terrain != TerrainTypes.Type.OUT_OF_BOUNDS:
+			result.append(terrain_grid.grid_to_screen_center(waypoint_left))
 
 	# Add final destination
 	result.append(terrain_grid.grid_to_screen_center(end))

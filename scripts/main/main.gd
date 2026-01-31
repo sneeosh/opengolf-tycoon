@@ -128,6 +128,7 @@ func _connect_ui_buttons() -> void:
 	tool_panel.get_node("WaterBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.WATER))
 	tool_panel.get_node("PathBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.PATH))
 	tool_panel.get_node("TeeBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.TEE_BOX))
+	tool_panel.get_node("OBBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.OUT_OF_BOUNDS))
 	tool_panel.get_node("CreateHoleBtn").pressed.connect(_on_create_hole_pressed)
 	tool_panel.get_node("RocksBtn").pressed.connect(_on_rock_placement_pressed)
 	tool_panel.get_node("FlowerBedBtn").pressed.connect(_on_flower_bed_placement_pressed)
