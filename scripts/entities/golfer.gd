@@ -1007,29 +1007,41 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 
 	return false
 
-## Find path around water (simple waypoint system)
+## Find path around water/OB (waypoint system trying both sides at increasing offsets)
 func _find_path_around_water(start: Vector2i, end: Vector2i) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
-	var result: Array[Vector2] = []
-
-	# Try going around left or right
 	var direction = Vector2(end - start).normalized()
 	var perpendicular = Vector2(-direction.y, direction.x)  # 90° rotation
+	var half_dist = Vector2(start).distance_to(Vector2(end)) / 2.0
 
-	# Try offset to the left
-	var waypoint_left = start + Vector2i(direction * Vector2(start).distance_to(Vector2(end)) / 2.0 + perpendicular * 10)
-	if terrain_grid.is_valid_position(waypoint_left):
-		var waypoint_terrain = terrain_grid.get_tile(waypoint_left)
-		if waypoint_terrain != TerrainTypes.Type.WATER and waypoint_terrain != TerrainTypes.Type.OUT_OF_BOUNDS:
-			result.append(terrain_grid.grid_to_screen_center(waypoint_left))
+	# Try increasing perpendicular offsets on both sides
+	for offset in [3, 5, 8, 12]:
+		for side in [1.0, -1.0]:
+			var mid_offset = direction * half_dist + perpendicular * (offset * side)
+			var waypoint = start + Vector2i(mid_offset)
 
-	# Add final destination
+			if not terrain_grid.is_valid_position(waypoint):
+				continue
+
+			var wp_terrain = terrain_grid.get_tile(waypoint)
+			if wp_terrain == TerrainTypes.Type.WATER or wp_terrain == TerrainTypes.Type.OUT_OF_BOUNDS:
+				continue
+
+			# Verify both legs (start→waypoint and waypoint→end) are clear
+			if _path_crosses_obstacle(start, waypoint, true):
+				continue
+			if _path_crosses_obstacle(waypoint, end, true):
+				continue
+
+			# Found a clear path through this waypoint
+			var result: Array[Vector2] = []
+			result.append(terrain_grid.grid_to_screen_center(waypoint))
+			result.append(terrain_grid.grid_to_screen_center(end))
+			return result
+
+	# No single waypoint works — go direct as fallback
+	var result: Array[Vector2] = []
 	result.append(terrain_grid.grid_to_screen_center(end))
-
-	# If path is still bad, just go direct and hope for the best
-	if result.is_empty():
-		result.append(terrain_grid.grid_to_screen_center(end))
-
 	return result
 
 ## Called when golfer reaches destination

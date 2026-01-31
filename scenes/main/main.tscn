@@ -1,76 +1,81 @@
-[gd_scene load_steps=7 format=3 uid="uid://dj8qvx2f3c5hy"]
+[gd_scene format=3 uid="uid://dj8qvx2f3c5hy"]
 
-[ext_resource type="Script" path="res://scripts/main/main.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/utils/isometric_camera.gd" id="2_camera"]
-[ext_resource type="Script" path="res://scripts/terrain/terrain_grid.gd" id="3_terrain"]
+[ext_resource type="Script" uid="uid://dum1ja7t3drvq" path="res://scripts/main/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://i45x1qoe26ha" path="res://scripts/utils/isometric_camera.gd" id="2_camera"]
+[ext_resource type="Script" uid="uid://cnm8rnhd4kvyr" path="res://scripts/terrain/terrain_grid.gd" id="3_terrain"]
 [ext_resource type="TileSet" path="res://assets/tilesets/terrain_tileset.tres" id="4_tileset"]
-[ext_resource type="Script" path="res://scripts/managers/golfer_manager.gd" id="5_golfer_manager"]
-[ext_resource type="Script" path="res://scripts/managers/ball_manager.gd" id="6_ball_manager"]
-[ext_resource type="Script" path="res://scripts/managers/hole_manager.gd" id="7_hole_manager"]
+[ext_resource type="Script" uid="uid://q8q0lftfutsn" path="res://scripts/managers/golfer_manager.gd" id="5_golfer_manager"]
+[ext_resource type="Script" uid="uid://cya5ceakmh8n2" path="res://scripts/managers/ball_manager.gd" id="6_ball_manager"]
+[ext_resource type="Script" uid="uid://cs6h2r5udole0" path="res://scripts/managers/hole_manager.gd" id="7_hole_manager"]
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Node2D" unique_id=1113796788]
 script = ExtResource("1_main")
 
-[node name="TerrainGrid" type="Node2D" parent="."]
+[node name="TerrainGrid" type="Node2D" parent="." unique_id=1340507277]
 script = ExtResource("3_terrain")
 
-[node name="TileMapLayer" type="TileMapLayer" parent="TerrainGrid"]
+[node name="TileMapLayer" type="TileMapLayer" parent="TerrainGrid" unique_id=298226116]
 tile_set = ExtResource("4_tileset")
 
-[node name="Entities" type="Node2D" parent="."]
+[node name="Entities" type="Node2D" parent="." unique_id=1526930307]
 
-[node name="Golfers" type="Node2D" parent="Entities"]
+[node name="Golfers" type="Node2D" parent="Entities" unique_id=1588679359]
 
-[node name="Balls" type="Node2D" parent="Entities"]
+[node name="Balls" type="Node2D" parent="Entities" unique_id=879523313]
 
-[node name="Buildings" type="Node2D" parent="Entities"]
+[node name="Buildings" type="Node2D" parent="Entities" unique_id=1083729395]
 
-[node name="GolferManager" type="Node" parent="."]
+[node name="GolferManager" type="Node" parent="." unique_id=345454709]
 script = ExtResource("5_golfer_manager")
 
-[node name="BallManager" type="Node" parent="."]
+[node name="BallManager" type="Node" parent="." unique_id=1184613083]
 script = ExtResource("6_ball_manager")
 
-[node name="HoleManager" type="Node" parent="."]
+[node name="HoleManager" type="Node" parent="." unique_id=1695079183]
 script = ExtResource("7_hole_manager")
 
-[node name="Holes" type="Node2D" parent="."]
+[node name="Holes" type="Node2D" parent="." unique_id=1134261089]
 
-[node name="IsometricCamera" type="Camera2D" parent="."]
+[node name="IsometricCamera" type="Camera2D" parent="." unique_id=581873074]
 position = Vector2(2000, 1000)
 script = ExtResource("2_camera")
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="." unique_id=251056778]
 
-[node name="HUD" type="Control" parent="UI"]
+[node name="HUD" type="Control" parent="UI" unique_id=295067700]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = -6.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 
-[node name="TopBar" type="HBoxContainer" parent="UI/HUD"]
+[node name="TopBar" type="HBoxContainer" parent="UI/HUD" unique_id=93667985]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 50.0
+grow_horizontal = 2
 
-[node name="MoneyLabel" type="Label" parent="UI/HUD/TopBar"]
+[node name="MoneyLabel" type="Label" parent="UI/HUD/TopBar" unique_id=1605473265]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "$50,000"
 
-[node name="DayLabel" type="Label" parent="UI/HUD/TopBar"]
+[node name="DayLabel" type="Label" parent="UI/HUD/TopBar" unique_id=1098233395]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Day 1 - 6:00 AM"
 
-[node name="ReputationLabel" type="Label" parent="UI/HUD/TopBar"]
+[node name="ReputationLabel" type="Label" parent="UI/HUD/TopBar" unique_id=1212217159]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Reputation: 50"
 
-[node name="HoleInfoPanel" type="PanelContainer" parent="UI/HUD"]
+[node name="HoleInfoPanel" type="PanelContainer" parent="UI/HUD" unique_id=1099798089]
 layout_mode = 1
 anchors_preset = 4
 anchor_top = 0.5
@@ -79,24 +84,25 @@ offset_left = 10.0
 offset_top = -200.0
 offset_right = 210.0
 offset_bottom = 200.0
+grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="UI/HUD/HoleInfoPanel"]
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/HUD/HoleInfoPanel" unique_id=1699784864]
 layout_mode = 2
 
-[node name="Title" type="Label" parent="UI/HUD/HoleInfoPanel/VBoxContainer"]
+[node name="Title" type="Label" parent="UI/HUD/HoleInfoPanel/VBoxContainer" unique_id=527422391]
 layout_mode = 2
 text = "Course Holes"
 horizontal_alignment = 1
 
-[node name="ScrollContainer" type="ScrollContainer" parent="UI/HUD/HoleInfoPanel/VBoxContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="UI/HUD/HoleInfoPanel/VBoxContainer" unique_id=640073133]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="HoleList" type="VBoxContainer" parent="UI/HUD/HoleInfoPanel/VBoxContainer/ScrollContainer"]
+[node name="HoleList" type="VBoxContainer" parent="UI/HUD/HoleInfoPanel/VBoxContainer/ScrollContainer" unique_id=978674298]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ToolPanel" type="VBoxContainer" parent="UI/HUD"]
+[node name="ToolPanel" type="VBoxContainer" parent="UI/HUD" unique_id=310533751]
 layout_mode = 1
 anchors_preset = 6
 anchor_left = 1.0
@@ -106,100 +112,104 @@ anchor_bottom = 0.5
 offset_left = -200.0
 offset_top = -200.0
 offset_bottom = 200.0
+grow_horizontal = 0
+grow_vertical = 2
 
-[node name="ToolsLabel" type="Label" parent="UI/HUD/ToolPanel"]
+[node name="ToolsLabel" type="Label" parent="UI/HUD/ToolPanel" unique_id=242174181]
 layout_mode = 2
 text = "Terrain Tools"
 
-[node name="FairwayBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="FairwayBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=1710089231]
 layout_mode = 2
 text = "Fairway"
 
-[node name="RoughBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="RoughBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=297979615]
 layout_mode = 2
 text = "Rough"
 
-[node name="GreenBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="GreenBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=693974218]
 layout_mode = 2
 text = "Green"
 
-[node name="BunkerBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="BunkerBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=382251860]
 layout_mode = 2
 text = "Bunker"
 
-[node name="WaterBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="WaterBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=1784609560]
 layout_mode = 2
 text = "Water"
 
-[node name="PathBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="PathBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=153458306]
 layout_mode = 2
 text = "Path"
 
-[node name="TeeBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="TeeBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=16920965]
 layout_mode = 2
 text = "Tee Box"
 
-[node name="OBBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="OBBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=1231109053]
 layout_mode = 2
 text = "Out of Bounds"
 
-[node name="Separator1" type="HSeparator" parent="UI/HUD/ToolPanel"]
+[node name="Separator1" type="HSeparator" parent="UI/HUD/ToolPanel" unique_id=1186925010]
 layout_mode = 2
 
-[node name="ObjectsLabel" type="Label" parent="UI/HUD/ToolPanel"]
+[node name="ObjectsLabel" type="Label" parent="UI/HUD/ToolPanel" unique_id=593254767]
 layout_mode = 2
 text = "Objects"
 
-[node name="TreesBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="TreesBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=1074012873]
 layout_mode = 2
 text = "Trees"
 
-[node name="FlowerBedBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="FlowerBedBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=1956297469]
 layout_mode = 2
 text = "Flower Bed"
 
-[node name="RocksBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="RocksBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=160335807]
 layout_mode = 2
 text = "Rocks"
 
-[node name="Separator2" type="HSeparator" parent="UI/HUD/ToolPanel"]
+[node name="Separator2" type="HSeparator" parent="UI/HUD/ToolPanel" unique_id=1287120308]
 layout_mode = 2
 
-[node name="HoleLabel" type="Label" parent="UI/HUD/ToolPanel"]
+[node name="HoleLabel" type="Label" parent="UI/HUD/ToolPanel" unique_id=561782402]
 layout_mode = 2
 text = "Hole Tools"
 
-[node name="CreateHoleBtn" type="Button" parent="UI/HUD/ToolPanel"]
+[node name="CreateHoleBtn" type="Button" parent="UI/HUD/ToolPanel" unique_id=1182700407]
 layout_mode = 2
 text = "Create Hole"
 
-[node name="BottomBar" type="HBoxContainer" parent="UI/HUD"]
+[node name="BottomBar" type="HBoxContainer" parent="UI/HUD" unique_id=676395160]
 layout_mode = 1
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_top = -60.0
+grow_horizontal = 2
+grow_vertical = 0
 
-[node name="SpeedControls" type="HBoxContainer" parent="UI/HUD/BottomBar"]
+[node name="SpeedControls" type="HBoxContainer" parent="UI/HUD/BottomBar" unique_id=1574521636]
 layout_mode = 2
 
-[node name="PauseBtn" type="Button" parent="UI/HUD/BottomBar/SpeedControls"]
+[node name="PauseBtn" type="Button" parent="UI/HUD/BottomBar/SpeedControls" unique_id=1287478317]
 layout_mode = 2
 text = "||"
 
-[node name="PlayBtn" type="Button" parent="UI/HUD/BottomBar/SpeedControls"]
+[node name="PlayBtn" type="Button" parent="UI/HUD/BottomBar/SpeedControls" unique_id=1738357492]
 layout_mode = 2
 text = ">"
 
-[node name="FastBtn" type="Button" parent="UI/HUD/BottomBar/SpeedControls"]
+[node name="FastBtn" type="Button" parent="UI/HUD/BottomBar/SpeedControls" unique_id=811286996]
 layout_mode = 2
 text = ">>"
 
-[node name="Spacer" type="Control" parent="UI/HUD/BottomBar"]
+[node name="Spacer" type="Control" parent="UI/HUD/BottomBar" unique_id=1837661971]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="CoordinateLabel" type="Label" parent="UI/HUD/BottomBar"]
+[node name="CoordinateLabel" type="Label" parent="UI/HUD/BottomBar" unique_id=82749080]
 layout_mode = 2
 text = "Tile: (0, 0)"
