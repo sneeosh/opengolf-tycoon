@@ -234,6 +234,9 @@ func take_shot(target: Vector2i) -> void:
 	# Play swing animation before the ball leaves
 	await _play_swing_animation()
 
+	# Save position before shot for OB stroke-and-distance penalty
+	var previous_position = ball_position
+
 	# Calculate shot outcome based on skill and terrain
 	var shot_result = _calculate_shot(ball_position, target)
 
@@ -260,6 +263,10 @@ func take_shot(target: Vector2i) -> void:
 	_change_state(State.WATCHING)
 	var flight_time = _estimate_flight_duration(shot_result.distance)
 	await get_tree().create_timer(flight_time + 0.5).timeout
+
+	# Check for hazards at landing position and apply penalties
+	if _handle_hazard_penalty(previous_position):
+		await get_tree().create_timer(1.0).timeout
 
 	# Now walk to the ball
 	_walk_to_ball()
@@ -635,6 +642,99 @@ func _get_terrain_distance_modifier(terrain_type: int) -> float:
 func _estimate_flight_duration(distance_yards: int) -> float:
 	var duration = 1.0 + (distance_yards / 300.0) * 1.5
 	return clampf(duration, 0.5, 3.0)
+
+## Handle hazard penalties (water or OB). Returns true if a penalty was applied.
+func _handle_hazard_penalty(previous_position: Vector2i) -> bool:
+	var terrain_grid = GameManager.terrain_grid
+	if not terrain_grid:
+		return false
+
+	var landing_terrain = terrain_grid.get_tile(ball_position)
+
+	if landing_terrain == TerrainTypes.Type.WATER:
+		# Water: 1 penalty stroke, drop near the hazard no closer to the hole
+		current_strokes += 1
+		var drop_position = _find_water_drop_position(ball_position)
+		print("%s: Ball in water! Penalty stroke. Dropping near hazard. Now on stroke %d" % [golfer_name, current_strokes])
+		EventBus.emit_signal("hazard_penalty", golfer_id, "water", drop_position)
+		ball_position = drop_position
+		return true
+
+	elif landing_terrain == TerrainTypes.Type.OUT_OF_BOUNDS:
+		# OB: 1 penalty stroke, replay from previous position (stroke and distance)
+		current_strokes += 1
+		print("%s: Ball out of bounds! Penalty stroke. Replaying from previous position. Now on stroke %d" % [golfer_name, current_strokes])
+		EventBus.emit_signal("hazard_penalty", golfer_id, "ob", previous_position)
+		ball_position = previous_position
+		return true
+
+	return false
+
+## Find a valid drop position near a water hazard, no closer to the hole
+func _find_water_drop_position(water_position: Vector2i) -> Vector2i:
+	var terrain_grid = GameManager.terrain_grid
+	if not terrain_grid:
+		return water_position
+
+	# Get hole position for "no closer to the hole" rule
+	var course_data = GameManager.course_data
+	var hole_position = water_position
+	if course_data and not course_data.holes.is_empty() and current_hole < course_data.holes.size():
+		hole_position = course_data.holes[current_hole].hole_position
+
+	var water_distance_to_hole = Vector2(water_position).distance_to(Vector2(hole_position))
+
+	# Search expanding rings around the water landing spot
+	var best_position = water_position
+	var best_score = -999.0
+
+	for radius in range(1, 6):
+		for dx in range(-radius, radius + 1):
+			for dy in range(-radius, radius + 1):
+				if abs(dx) != radius and abs(dy) != radius:
+					continue  # Only check the ring edge
+
+				var candidate = water_position + Vector2i(dx, dy)
+				if not terrain_grid.is_valid_position(candidate):
+					continue
+
+				var candidate_terrain = terrain_grid.get_tile(candidate)
+				# Must be playable terrain
+				if candidate_terrain in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS]:
+					continue
+
+				# Must not be closer to the hole than where ball entered water
+				var candidate_distance_to_hole = Vector2(candidate).distance_to(Vector2(hole_position))
+				if candidate_distance_to_hole < water_distance_to_hole - 0.5:
+					continue
+
+				# Score: prefer fairway/grass, penalize rough/trees
+				var score = 0.0
+				match candidate_terrain:
+					TerrainTypes.Type.FAIRWAY:
+						score = 100.0
+					TerrainTypes.Type.GRASS, TerrainTypes.Type.TEE_BOX:
+						score = 80.0
+					TerrainTypes.Type.ROUGH:
+						score = 50.0
+					TerrainTypes.Type.HEAVY_ROUGH:
+						score = 30.0
+					TerrainTypes.Type.BUNKER:
+						score = 20.0
+					TerrainTypes.Type.TREES:
+						score = 10.0
+
+				# Prefer closer to the water (shorter walk)
+				score -= Vector2(candidate).distance_to(Vector2(water_position)) * 5.0
+
+				if score > best_score:
+					best_score = score
+					best_position = candidate
+
+		if best_score > 0:
+			break  # Found a good spot at this radius
+
+	return best_position
 
 ## Walk to ball position
 func _walk_to_ball() -> void:
