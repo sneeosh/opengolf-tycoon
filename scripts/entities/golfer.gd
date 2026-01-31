@@ -485,9 +485,9 @@ func _evaluate_landing_zone(position: Vector2i, hole_position: Vector2i, club: C
 	if not terrain_grid:
 		return 0.0
 
-	# Check if shot path will hit trees or water mid-flight
+	# Check if shot path will hit trees mid-flight (low ball near takeoff/landing)
 	if _path_crosses_obstacle(ball_position, position, false):
-		return -2000.0  # NEVER hit trees or water mid-flight!
+		return -2000.0  # Trees block low-altitude flight!
 
 	var terrain_type = terrain_grid.get_tile(position)
 	var score = 0.0
@@ -1003,9 +1003,10 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 	# Need to pathfind around water
 	return _find_path_around_water(start_grid, end_grid)
 
-## Check if path crosses obstacles (water for walking, or trees/water for flight)
-## For ball flight, uses parabolic arc: trees only block when the ball is low
-## (near takeoff and landing). The ball clears obstacles at mid-flight.
+## Check if path crosses obstacles (water/OB for walking, trees for flight)
+## For ball flight, only trees block — and only when the ball is low
+## (first/last 20% of flight). Water and OB are cleared by the airborne ball;
+## landing penalties are handled separately by _evaluate_landing_zone.
 func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bool:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
@@ -1029,11 +1030,9 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS:
 				return true
 		else:
-			# When flying, water/OB block at any point along the ground path
-			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS:
-				return true
-			# Trees only block when the ball is low (first/last 20% of flight)
-			# At mid-flight the ball is high enough to clear tree canopy
+			# Ball flight: the ball flies through the air and clears water/OB below.
+			# Landing in water/OB is penalized by _evaluate_landing_zone terrain scoring.
+			# Trees block when the ball is low (first/last 20% of flight).
 			if terrain_type == TerrainTypes.Type.TREES:
 				if t < 0.2 or t > 0.8:
 					return true
