@@ -14,20 +14,29 @@ signal ball_in_hazard(golfer_id: int, hazard_type: String)
 
 func _ready() -> void:
 	# Connect to EventBus for golfer shot events
-	if EventBus.has_signal("shot_taken"):
-		EventBus.connect("shot_taken", _on_shot_taken)
-	if EventBus.has_signal("ball_landed"):
-		EventBus.connect("ball_landed", _on_ball_landed)
-	if EventBus.has_signal("ball_putt_landed_precise"):
-		EventBus.connect("ball_putt_landed_precise", _on_ball_putt_precise)
-	if EventBus.has_signal("golfer_started_hole"):
-		EventBus.connect("golfer_started_hole", _on_golfer_started_hole)
-	if EventBus.has_signal("golfer_finished_hole"):
-		EventBus.connect("golfer_finished_hole", _on_golfer_finished_hole)
-	if EventBus.has_signal("golfer_finished_round"):
-		EventBus.connect("golfer_finished_round", _on_golfer_finished_round)
-	if EventBus.has_signal("hazard_penalty"):
-		EventBus.connect("hazard_penalty", _on_hazard_penalty)
+	EventBus.shot_taken.connect(_on_shot_taken)
+	EventBus.ball_landed.connect(_on_ball_landed)
+	EventBus.ball_putt_landed_precise.connect(_on_ball_putt_precise)
+	EventBus.golfer_started_hole.connect(_on_golfer_started_hole)
+	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole)
+	EventBus.golfer_finished_round.connect(_on_golfer_finished_round)
+	EventBus.hazard_penalty.connect(_on_hazard_penalty)
+
+func _exit_tree() -> void:
+	if EventBus.shot_taken.is_connected(_on_shot_taken):
+		EventBus.shot_taken.disconnect(_on_shot_taken)
+	if EventBus.ball_landed.is_connected(_on_ball_landed):
+		EventBus.ball_landed.disconnect(_on_ball_landed)
+	if EventBus.ball_putt_landed_precise.is_connected(_on_ball_putt_precise):
+		EventBus.ball_putt_landed_precise.disconnect(_on_ball_putt_precise)
+	if EventBus.golfer_started_hole.is_connected(_on_golfer_started_hole):
+		EventBus.golfer_started_hole.disconnect(_on_golfer_started_hole)
+	if EventBus.golfer_finished_hole.is_connected(_on_golfer_finished_hole):
+		EventBus.golfer_finished_hole.disconnect(_on_golfer_finished_hole)
+	if EventBus.golfer_finished_round.is_connected(_on_golfer_finished_round):
+		EventBus.golfer_finished_round.disconnect(_on_golfer_finished_round)
+	if EventBus.hazard_penalty.is_connected(_on_hazard_penalty):
+		EventBus.hazard_penalty.disconnect(_on_hazard_penalty)
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -53,7 +62,7 @@ func get_or_create_ball(golfer_id: int) -> Ball:
 	ball.ball_state_changed.connect(_on_ball_state_changed.bind(golfer_id))
 	ball.ball_landed_in_bunker.connect(_on_ball_landed_in_bunker.bind(golfer_id))
 
-	emit_signal("ball_created", golfer_id, ball)
+	ball_created.emit(golfer_id, ball)
 	return ball
 
 ## Remove a ball from the course
@@ -92,7 +101,7 @@ func handle_water_penalty(golfer_id: int, previous_position: Vector2i) -> void:
 	ball.ball_state = Ball.BallState.AT_REST
 	ball.visible = true
 
-	emit_signal("ball_in_hazard", golfer_id, "water")
+	ball_in_hazard.emit(golfer_id, "water")
 
 ## Handle ball going out of bounds - show visual then reset
 func handle_ob_penalty(golfer_id: int, previous_position: Vector2i) -> void:
@@ -109,7 +118,7 @@ func handle_ob_penalty(golfer_id: int, previous_position: Vector2i) -> void:
 	ball.ball_state = Ball.BallState.AT_REST
 	ball.visible = true
 
-	emit_signal("ball_in_hazard", golfer_id, "ob")
+	ball_in_hazard.emit(golfer_id, "ob")
 
 ## Animate ball flight from one position to another
 func animate_shot(golfer_id: int, from_grid: Vector2i, to_grid: Vector2i, distance_yards: int, is_putt: bool = false) -> void:
@@ -146,7 +155,7 @@ func animate_shot(golfer_id: int, from_grid: Vector2i, to_grid: Vector2i, distan
 		duration = clamp(duration, 0.5, 3.0)
 		ball.start_flight(from_grid, to_grid, duration, false, wind_offset)
 
-	emit_signal("ball_flight_started", golfer_id, from_grid, to_grid)
+	ball_flight_started.emit(golfer_id, from_grid, to_grid)
 
 ## Place ball at rest position (for tee shots)
 func place_ball_at_rest(golfer_id: int, grid_pos: Vector2i) -> void:
@@ -183,7 +192,7 @@ func _on_ball_landed(golfer_id: int, from_position: Vector2i, landing_position: 
 
 func _on_ball_landed_at_position(landing_pos: Vector2i, golfer_id: int) -> void:
 	# Ball has finished landing animation
-	emit_signal("ball_landed", golfer_id, landing_pos)
+	ball_landed.emit(golfer_id, landing_pos)
 
 func _on_hazard_penalty(golfer_id: int, hazard_type: String, reset_position: Vector2i) -> void:
 	var ball = get_ball(golfer_id)
@@ -194,7 +203,7 @@ func _on_hazard_penalty(golfer_id: int, hazard_type: String, reset_position: Vec
 	ball.set_position_in_grid(reset_position)
 	ball.ball_state = Ball.BallState.AT_REST
 	ball.visible = true
-	emit_signal("ball_in_hazard", golfer_id, hazard_type)
+	ball_in_hazard.emit(golfer_id, hazard_type)
 
 func _on_ball_state_changed(old_state: Ball.BallState, new_state: Ball.BallState, golfer_id: int) -> void:
 	# Ball state changes are logged here; penalty handling is triggered by golfer logic

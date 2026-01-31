@@ -10,7 +10,11 @@ func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 1  # Render just above terrain tiles
 	_scan_bunker_tiles()
-	EventBus.connect("terrain_tile_changed", _on_terrain_tile_changed)
+	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
+
+func _exit_tree() -> void:
+	if EventBus.terrain_tile_changed.is_connected(_on_terrain_tile_changed):
+		EventBus.terrain_tile_changed.disconnect(_on_terrain_tile_changed)
 
 func _scan_bunker_tiles() -> void:
 	_bunker_positions.clear()

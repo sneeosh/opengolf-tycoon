@@ -64,41 +64,41 @@ func _advance_time(delta: float) -> void:
 	if current_hour >= HOURS_PER_DAY:
 		current_hour -= HOURS_PER_DAY
 		current_day += 1
-		EventBus.emit_signal("day_changed", current_day)
+		EventBus.day_changed.emit(current_day)
 
 func set_mode(new_mode: GameMode) -> void:
 	var old_mode = current_mode
 	current_mode = new_mode
-	EventBus.emit_signal("game_mode_changed", old_mode, new_mode)
+	EventBus.game_mode_changed.emit(old_mode, new_mode)
 
 func set_speed(new_speed: GameSpeed) -> void:
 	current_speed = new_speed
-	EventBus.emit_signal("game_speed_changed", new_speed)
+	EventBus.game_speed_changed.emit(new_speed)
 
 func toggle_pause() -> void:
 	is_paused = not is_paused
-	EventBus.emit_signal("pause_toggled", is_paused)
+	EventBus.pause_toggled.emit(is_paused)
 
 func modify_money(amount: int) -> void:
 	var old_money = money
 	money += amount
-	EventBus.emit_signal("money_changed", old_money, money)
+	EventBus.money_changed.emit(old_money, money)
 
 func modify_reputation(amount: float) -> void:
 	var old_rep = reputation
 	reputation = clamp(reputation + amount, 0.0, 100.0)
-	EventBus.emit_signal("reputation_changed", old_rep, reputation)
+	EventBus.reputation_changed.emit(old_rep, reputation)
 
 func set_green_fee(new_fee: int) -> void:
 	var old_fee = green_fee
 	green_fee = clamp(new_fee, MIN_GREEN_FEE, MAX_GREEN_FEE)
-	EventBus.emit_signal("green_fee_changed", old_fee, green_fee)
+	EventBus.green_fee_changed.emit(old_fee, green_fee)
 
 func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
 	"""Process a golfer's green fee payment and return success"""
 	modify_money(green_fee)
 	EventBus.log_transaction("%s paid green fee" % golfer_name, green_fee)
-	EventBus.emit_signal("green_fee_paid", golfer_id, golfer_name, green_fee)
+	EventBus.green_fee_paid.emit(golfer_id, golfer_name, green_fee)
 	return true
 
 func new_game(course_name_input: String = "New Course") -> void:
@@ -110,7 +110,7 @@ func new_game(course_name_input: String = "New Course") -> void:
 	green_fee = 30  # Reset to default
 	current_course = CourseData.new()
 	set_mode(GameMode.BUILDING)
-	EventBus.emit_signal("new_game_started")
+	EventBus.new_game_started.emit()
 
 func is_course_open() -> bool:
 	return current_hour >= COURSE_OPEN_HOUR and current_hour < COURSE_CLOSE_HOUR
@@ -173,7 +173,7 @@ class CourseData:
 		for hole in holes:
 			if hole.hole_number == hole_number:
 				hole.is_open = not hole.is_open
-				EventBus.emit_signal("hole_toggled", hole_number, hole.is_open)
+				EventBus.hole_toggled.emit(hole_number, hole.is_open)
 				return hole.is_open
 		return false
 

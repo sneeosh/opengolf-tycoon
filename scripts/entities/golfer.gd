@@ -124,10 +124,14 @@ func _ready() -> void:
 		name_label.text = golfer_name
 
 	# Connect to green fee payment signal
-	EventBus.connect("green_fee_paid", _on_green_fee_paid)
+	EventBus.green_fee_paid.connect(_on_green_fee_paid)
 
 	_update_visual()
 	_update_score_display()
+
+func _exit_tree() -> void:
+	if EventBus.green_fee_paid.is_connected(_on_green_fee_paid):
+		EventBus.green_fee_paid.disconnect(_on_green_fee_paid)
 
 func _process(delta: float) -> void:
 	match current_state:
@@ -211,7 +215,7 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	var screen_pos = GameManager.terrain_grid.grid_to_screen_center(tee_position) if GameManager.terrain_grid else Vector2.ZERO
 	global_position = screen_pos
 
-	EventBus.emit_signal("golfer_started_hole", golfer_id, hole_number)
+	EventBus.golfer_started_hole.emit(golfer_id, hole_number)
 	_update_score_display()
 	_change_state(State.PREPARING_SHOT)
 
@@ -263,7 +267,7 @@ func take_shot(target: Vector2i) -> void:
 		if terrain_grid:
 			var from_screen = terrain_grid.grid_to_screen_precise(shot_result.from_precise)
 			var to_screen = terrain_grid.grid_to_screen_precise(shot_result.landing_precise)
-			EventBus.emit_signal("ball_putt_landed_precise", golfer_id, from_screen, to_screen, shot_result.distance)
+			EventBus.ball_putt_landed_precise.emit(golfer_id, from_screen, to_screen, shot_result.distance)
 	else:
 		# Standard shot calculation
 		var from_pos = ball_position
@@ -273,7 +277,7 @@ func take_shot(target: Vector2i) -> void:
 
 		# Emit ball landed signal for flight animation
 		if terrain_grid:
-			EventBus.emit_signal("ball_landed", golfer_id, from_pos, shot_result.landing_position, terrain_grid.get_tile(shot_result.landing_position))
+			EventBus.ball_landed.emit(golfer_id, from_pos, shot_result.landing_position, terrain_grid.get_tile(shot_result.landing_position))
 
 	# Debug output
 	var club_name = CLUB_STATS[shot_result.club]["name"]
@@ -294,8 +298,8 @@ func take_shot(target: Vector2i) -> void:
 	])
 
 	# Emit events
-	EventBus.emit_signal("shot_taken", golfer_id, current_hole, current_strokes)
-	emit_signal("shot_completed", shot_result.distance, shot_result.accuracy)
+	EventBus.shot_taken.emit(golfer_id, current_hole, current_strokes)
+	shot_completed.emit(shot_result.distance, shot_result.accuracy)
 
 	# Watch the ball fly before walking to it
 	_change_state(State.WATCHING)
@@ -327,8 +331,8 @@ func finish_hole(par: int) -> void:
 	else:                     # Double bogey or worse
 		_adjust_mood(-0.2)
 
-	EventBus.emit_signal("golfer_finished_hole", golfer_id, current_hole, current_strokes, par)
-	emit_signal("hole_completed", current_strokes, par)
+	EventBus.golfer_finished_hole.emit(golfer_id, current_hole, current_strokes, par)
+	hole_completed.emit(current_strokes, par)
 
 	_update_score_display()
 	_change_state(State.IDLE)
@@ -336,7 +340,7 @@ func finish_hole(par: int) -> void:
 ## Finish the round
 func finish_round() -> void:
 	_change_state(State.FINISHED)
-	EventBus.emit_signal("golfer_finished_round", golfer_id, total_strokes)
+	EventBus.golfer_finished_round.emit(golfer_id, total_strokes)
 
 ## Select appropriate club based on distance and terrain
 func select_club(distance_to_target: float, current_terrain: int) -> Club:
@@ -879,7 +883,7 @@ func _handle_hazard_penalty(previous_position: Vector2i) -> bool:
 		current_strokes += 1
 		var drop_position = _find_water_drop_position(ball_position)
 		print("%s: Ball in water! Penalty stroke. Dropping near hazard. Now on stroke %d" % [golfer_name, current_strokes])
-		EventBus.emit_signal("hazard_penalty", golfer_id, "water", drop_position)
+		EventBus.hazard_penalty.emit(golfer_id, "water", drop_position)
 		ball_position = drop_position
 		return true
 
@@ -887,7 +891,7 @@ func _handle_hazard_penalty(previous_position: Vector2i) -> bool:
 		# OB: 1 penalty stroke, replay from previous position (stroke and distance)
 		current_strokes += 1
 		print("%s: Ball out of bounds! Penalty stroke. Replaying from previous position. Now on stroke %d" % [golfer_name, current_strokes])
-		EventBus.emit_signal("hazard_penalty", golfer_id, "ob", previous_position)
+		EventBus.hazard_penalty.emit(golfer_id, "ob", previous_position)
 		ball_position = previous_position
 		return true
 
@@ -1086,7 +1090,7 @@ func _change_state(new_state: State) -> void:
 
 	var old_state = current_state
 	current_state = new_state
-	emit_signal("state_changed", old_state, new_state)
+	state_changed.emit(old_state, new_state)
 	_update_visual()
 
 ## Adjust mood
@@ -1095,7 +1099,7 @@ func _adjust_mood(amount: float) -> void:
 	current_mood = clamp(current_mood + amount, 0.0, 1.0)
 
 	if abs(old_mood - current_mood) > 0.05:
-		EventBus.emit_signal("golfer_mood_changed", golfer_id, current_mood)
+		EventBus.golfer_mood_changed.emit(golfer_id, current_mood)
 
 ## Update visual representation
 func _update_visual() -> void:

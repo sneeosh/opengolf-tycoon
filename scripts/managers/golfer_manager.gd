@@ -19,7 +19,11 @@ signal golfer_removed(golfer_id: int)
 
 func _ready() -> void:
 	# Connect to EventBus
-	EventBus.connect("golfer_finished_round", _on_golfer_finished_round)
+	EventBus.golfer_finished_round.connect(_on_golfer_finished_round)
+
+func _exit_tree() -> void:
+	if EventBus.golfer_finished_round.is_connected(_on_golfer_finished_round):
+		EventBus.golfer_finished_round.disconnect(_on_golfer_finished_round)
 
 func get_group_size_weights() -> Array:
 	"""Get weighted probabilities for group sizes based on green fee"""
@@ -280,7 +284,7 @@ func _advance_golfer(golfer: Golfer) -> void:
 				2: score_name = "Double Bogey"
 				_: score_name = "+%d" % score_diff if score_diff > 0 else "%d" % score_diff
 			print("%s holes out on hole %d: %d strokes (Par %d) - %s" % [golfer.golfer_name, golfer.current_hole + 1, golfer.current_strokes, hole_data.par, score_name])
-			EventBus.emit_signal("ball_in_hole", golfer.golfer_id, hole_data.hole_number)
+			EventBus.ball_in_hole.emit(golfer.golfer_id, hole_data.hole_number)
 			golfer.finish_hole(hole_data.par)
 			golfer.current_hole += 1
 			golfer.current_strokes = 0
@@ -302,7 +306,7 @@ func _find_next_open_hole(from_index: int, course_data: GameManager.CourseData) 
 	while index < course_data.holes.size():
 		if course_data.holes[index].is_open:
 			return index
-		print("DEBUG: Skipping closed hole %d" % (index + 1))
+		# Closed hole, skip to next
 		index += 1
 	return index  # Past end = round complete
 
@@ -334,8 +338,8 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	# Process green fee payment
 	GameManager.process_green_fee_payment(golfer.golfer_id, golfer_name)
 
-	EventBus.emit_signal("golfer_spawned", golfer.golfer_id, golfer_name)
-	emit_signal("golfer_spawned", golfer)
+	EventBus.golfer_spawned.emit(golfer.golfer_id, golfer_name)
+	golfer_spawned.emit(golfer)
 
 	return golfer
 
@@ -384,8 +388,8 @@ func remove_golfer(golfer_id: int) -> void:
 			var golfer = active_golfers[i]
 			active_golfers.remove_at(i)
 			golfer.queue_free()
-			EventBus.emit_signal("golfer_left_course", golfer_id)
-			emit_signal("golfer_removed", golfer_id)
+			EventBus.golfer_left_course.emit(golfer_id)
+			golfer_removed.emit(golfer_id)
 			return
 
 func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:

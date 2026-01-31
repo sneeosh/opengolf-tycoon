@@ -33,11 +33,11 @@ func save_game(save_name: String = "") -> bool:
 	if file:
 		file.store_var(save_data)
 		file.close()
-		EventBus.emit_signal("save_completed", true)
+		EventBus.save_completed.emit(true)
 		EventBus.notify("Game saved: " + save_name, "success")
 		return true
 	
-	EventBus.emit_signal("save_completed", false)
+	EventBus.save_completed.emit(false)
 	EventBus.notify("Failed to save game!", "error")
 	return false
 
@@ -45,7 +45,7 @@ func load_game(save_name: String) -> bool:
 	var save_path = SAVE_DIR + save_name + ".save"
 	
 	if not FileAccess.file_exists(save_path):
-		EventBus.emit_signal("load_completed", false)
+		EventBus.load_completed.emit(false)
 		EventBus.notify("Save file not found!", "error")
 		return false
 	
@@ -54,11 +54,11 @@ func load_game(save_name: String) -> bool:
 		var save_data = file.get_var()
 		file.close()
 		_apply_save_data(save_data)
-		EventBus.emit_signal("load_completed", true)
+		EventBus.load_completed.emit(true)
 		EventBus.notify("Game loaded: " + save_name, "success")
 		return true
 	
-	EventBus.emit_signal("load_completed", false)
+	EventBus.load_completed.emit(false)
 	return false
 
 func get_save_list() -> Array:

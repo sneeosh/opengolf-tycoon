@@ -66,8 +66,8 @@ func set_tile(pos: Vector2i, terrain_type: int) -> void:
 		return
 	_grid[pos] = terrain_type
 	_update_tile_visual(pos)
-	emit_signal("tile_changed", pos, old_type, terrain_type)
-	EventBus.emit_signal("terrain_tile_changed", pos, old_type, terrain_type)
+	tile_changed.emit(pos, old_type, terrain_type)
+	EventBus.terrain_tile_changed.emit(pos, old_type, terrain_type)
 
 func paint_tiles(positions: Array, terrain_type: int) -> void:
 	for pos in positions:
@@ -150,7 +150,7 @@ func set_elevation(pos: Vector2i, height: int) -> void:
 		_elevation_grid.erase(pos)  # Don't store default value
 	else:
 		_elevation_grid[pos] = new_elevation
-	emit_signal("elevation_changed", pos, old_elevation, new_elevation)
+	elevation_changed.emit(pos, old_elevation, new_elevation)
 	if _elevation_overlay:
 		_elevation_overlay.queue_redraw()
 
