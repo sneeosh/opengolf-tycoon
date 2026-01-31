@@ -30,8 +30,8 @@ func _draw() -> void:
 		viewport_rect.size / canvas_transform.get_scale()
 	)
 
-	# Base alpha: subtle when not in elevation mode, prominent when active
-	var base_alpha = 0.2 if _elevation_active else 0.06
+	# Base alpha: always visible, more prominent when elevation tool is active
+	var base_alpha = 0.2 if _elevation_active else 0.15
 
 	for x in range(terrain_grid.grid_width):
 		for y in range(terrain_grid.grid_height):
@@ -58,6 +58,27 @@ func _draw() -> void:
 				color = Color(0.0, 0.0, 0.2, base_alpha * intensity)
 
 			draw_rect(tile_rect, color)
+
+			# Draw contour lines at elevation boundaries
+			var contour_color = Color(0.0, 0.0, 0.0, 0.3) if elevation < 0 else Color(1.0, 1.0, 0.8, 0.3)
+			var tw = terrain_grid.tile_width
+			var th = terrain_grid.tile_height
+			# Right neighbor
+			var right_pos = Vector2i(x + 1, y)
+			if terrain_grid.is_valid_position(right_pos) and terrain_grid.get_elevation(right_pos) != elevation:
+				draw_line(local_pos + Vector2(tw, 0), local_pos + Vector2(tw, th), contour_color, 1.5)
+			# Bottom neighbor
+			var bottom_pos = Vector2i(x, y + 1)
+			if terrain_grid.is_valid_position(bottom_pos) and terrain_grid.get_elevation(bottom_pos) != elevation:
+				draw_line(local_pos + Vector2(0, th), local_pos + Vector2(tw, th), contour_color, 1.5)
+			# Left neighbor
+			var left_pos = Vector2i(x - 1, y)
+			if terrain_grid.is_valid_position(left_pos) and terrain_grid.get_elevation(left_pos) != elevation:
+				draw_line(local_pos, local_pos + Vector2(0, th), contour_color, 1.5)
+			# Top neighbor
+			var top_pos = Vector2i(x, y - 1)
+			if terrain_grid.is_valid_position(top_pos) and terrain_grid.get_elevation(top_pos) != elevation:
+				draw_line(local_pos, local_pos + Vector2(tw, 0), contour_color, 1.5)
 
 			# In elevation mode, also draw the elevation number
 			if _elevation_active and abs(elevation) > 0:
