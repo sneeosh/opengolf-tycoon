@@ -24,6 +24,7 @@ var flight_max_height: float = 100.0
 
 signal ball_landed(landing_pos: Vector2i)
 signal ball_state_changed(old_state: BallState, new_state: BallState)
+signal ball_landed_in_bunker(landing_pos: Vector2i)
 
 func _ready() -> void:
 	z_index = 100  # Render above terrain and entities
@@ -57,6 +58,22 @@ func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5,
 	flight_duration = duration
 
 	# Putts roll along the ground; other shots fly in an arc
+	if is_putt:
+		flight_max_height = 0.0
+	else:
+		var distance = flight_start_pos.distance_to(flight_end_pos)
+		flight_max_height = min(distance * 0.3, 150.0)
+
+	_change_state(BallState.IN_FLIGHT)
+	global_position = flight_start_pos
+
+## Start a flight animation using precise screen coordinates (for sub-tile putting)
+func start_flight_screen(from_screen: Vector2, to_screen: Vector2, duration: float = 1.5, is_putt: bool = false) -> void:
+	flight_start_pos = from_screen
+	flight_end_pos = to_screen
+	flight_progress = 0.0
+	flight_duration = duration
+
 	if is_putt:
 		flight_max_height = 0.0
 	else:
@@ -131,6 +148,11 @@ func _land_ball() -> void:
 	match terrain_type:
 		TerrainTypes.Type.WATER:
 			_change_state(BallState.IN_WATER)
+		TerrainTypes.Type.OUT_OF_BOUNDS:
+			_change_state(BallState.OUT_OF_BOUNDS)
+		TerrainTypes.Type.BUNKER:
+			_change_state(BallState.AT_REST)
+			ball_landed_in_bunker.emit(grid_position)
 		_:
 			_change_state(BallState.AT_REST)
 

@@ -18,12 +18,16 @@ func _ready() -> void:
 		EventBus.connect("shot_taken", _on_shot_taken)
 	if EventBus.has_signal("ball_landed"):
 		EventBus.connect("ball_landed", _on_ball_landed)
+	if EventBus.has_signal("ball_putt_landed_precise"):
+		EventBus.connect("ball_putt_landed_precise", _on_ball_putt_precise)
 	if EventBus.has_signal("golfer_started_hole"):
 		EventBus.connect("golfer_started_hole", _on_golfer_started_hole)
 	if EventBus.has_signal("golfer_finished_hole"):
 		EventBus.connect("golfer_finished_hole", _on_golfer_finished_hole)
 	if EventBus.has_signal("golfer_finished_round"):
 		EventBus.connect("golfer_finished_round", _on_golfer_finished_round)
+	if EventBus.has_signal("hazard_penalty"):
+		EventBus.connect("hazard_penalty", _on_hazard_penalty)
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -47,6 +51,7 @@ func get_or_create_ball(golfer_id: int) -> Ball:
 	# Connect signals
 	ball.ball_landed.connect(_on_ball_landed_at_position.bind(golfer_id))
 	ball.ball_state_changed.connect(_on_ball_state_changed.bind(golfer_id))
+	ball.ball_landed_in_bunker.connect(_on_ball_landed_in_bunker.bind(golfer_id))
 
 	emit_signal("ball_created", golfer_id, ball)
 	return ball
@@ -115,6 +120,11 @@ func animate_shot(golfer_id: int, from_grid: Vector2i, to_grid: Vector2i, distan
 	# Make sure ball is visible
 	ball.visible = true
 
+	# Sand spray when hitting out of a bunker
+	if terrain_grid and terrain_grid.get_tile(from_grid) == TerrainTypes.Type.BUNKER:
+		var from_world = terrain_grid.grid_to_screen_center(from_grid)
+		SandSprayEffect.create_at(ball.get_parent(), from_world)
+
 	# Calculate flight duration based on distance (longer shots take longer)
 	if is_putt:
 		# Putts are ground rolls - shorter, consistent duration
@@ -166,21 +176,30 @@ func _on_ball_landed_at_position(landing_pos: Vector2i, golfer_id: int) -> void:
 	# Ball has finished landing animation
 	emit_signal("ball_landed", golfer_id, landing_pos)
 
-func _on_ball_state_changed(old_state: Ball.BallState, new_state: Ball.BallState, golfer_id: int) -> void:
-	# Handle special ball states
+func _on_hazard_penalty(golfer_id: int, hazard_type: String, reset_position: Vector2i) -> void:
 	var ball = get_ball(golfer_id)
 	if not ball:
 		return
 
+	# Reset ball to the drop/previous position
+	ball.set_position_in_grid(reset_position)
+	ball.ball_state = Ball.BallState.AT_REST
+	ball.visible = true
+	emit_signal("ball_in_hazard", golfer_id, hazard_type)
+
+func _on_ball_state_changed(old_state: Ball.BallState, new_state: Ball.BallState, golfer_id: int) -> void:
+	# Ball state changes are logged here; penalty handling is triggered by golfer logic
+	# via the hazard_penalty EventBus signal
 	match new_state:
 		Ball.BallState.IN_WATER:
-			# TODO: Get previous shot position from golfer for proper drop zone
-			# For now, just handle the visual
 			print("Ball %d went in water!" % golfer_id)
-			# handle_water_penalty will be called by golfer logic
 		Ball.BallState.OUT_OF_BOUNDS:
 			print("Ball %d went out of bounds!" % golfer_id)
-			# handle_ob_penalty will be called by golfer logic
+
+func _on_ball_landed_in_bunker(landing_pos: Vector2i, golfer_id: int) -> void:
+	var ball = get_ball(golfer_id)
+	if ball:
+		SandSprayEffect.create_at(ball.get_parent(), ball.global_position)
 
 func _on_golfer_started_hole(golfer_id: int, hole_number: int) -> void:
 	# Golfer started a new hole - ball will be placed when they take their first shot
@@ -190,6 +209,17 @@ func _on_golfer_started_hole(golfer_id: int, hole_number: int) -> void:
 func _on_golfer_finished_hole(golfer_id: int, hole_number: int, strokes: int, par: int) -> void:
 	# Golfer finished the hole - hide the ball until next hole
 	hide_ball(golfer_id)
+
+func _on_ball_putt_precise(golfer_id: int, from_screen: Vector2, to_screen: Vector2, distance_yards: int) -> void:
+	# Handle precise sub-tile putt animation
+	var ball = get_or_create_ball(golfer_id)
+	if not ball:
+		return
+
+	ball.visible = true
+	var duration = 0.3 + (distance_yards / 100.0) * 0.7
+	duration = clamp(duration, 0.3, 1.5)
+	ball.start_flight_screen(from_screen, to_screen, duration, true)
 
 func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 	# Remove ball when golfer finishes their round

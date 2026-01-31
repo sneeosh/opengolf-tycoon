@@ -13,8 +13,15 @@ var _grid: Dictionary = {}
 
 signal tile_changed(position: Vector2i, old_type: int, new_type: int)
 
+var _ob_markers_overlay: OBMarkersOverlay = null
+var _water_overlay: WaterOverlay = null
+var _bunker_overlay: BunkerOverlay = null
+
 func _ready() -> void:
 	_initialize_grid()
+	_setup_ob_markers_overlay()
+	_setup_water_overlay()
+	_setup_bunker_overlay()
 
 func _initialize_grid() -> void:
 	for x in range(grid_width):
@@ -33,6 +40,10 @@ func grid_to_screen(grid_pos: Vector2i) -> Vector2:
 
 func grid_to_screen_center(grid_pos: Vector2i) -> Vector2:
 	# Returns the center of the tile (for entity positioning)
+	return Vector2(grid_pos.x * tile_width + tile_width / 2.0, grid_pos.y * tile_height + tile_height / 2.0)
+
+func grid_to_screen_precise(grid_pos: Vector2) -> Vector2:
+	# Returns screen position for a sub-tile grid coordinate (used for putting precision)
 	return Vector2(grid_pos.x * tile_width + tile_width / 2.0, grid_pos.y * tile_height + tile_height / 2.0)
 
 func is_valid_position(pos: Vector2i) -> bool:
@@ -94,6 +105,96 @@ func _get_atlas_coords_for_type(terrain_type: int) -> Vector2i:
 	var x = terrain_type % TILES_PER_ROW
 	var y = terrain_type / TILES_PER_ROW
 	return Vector2i(x, y)
+
+func _setup_ob_markers_overlay() -> void:
+	_ob_markers_overlay = OBMarkersOverlay.new()
+	_ob_markers_overlay.name = "OBMarkersOverlay"
+	add_child(_ob_markers_overlay)
+	_ob_markers_overlay.initialize(self)
+
+func _setup_water_overlay() -> void:
+	_water_overlay = WaterOverlay.new()
+	_water_overlay.name = "WaterOverlay"
+	add_child(_water_overlay)
+	_water_overlay.initialize(self)
+
+func _setup_bunker_overlay() -> void:
+	_bunker_overlay = BunkerOverlay.new()
+	_bunker_overlay.name = "BunkerOverlay"
+	add_child(_bunker_overlay)
+	_bunker_overlay.initialize(self)
+
+## Get tiles of a given type that are at the boundary (adjacent to a different type)
+func get_boundary_tiles(terrain_type: int) -> Array:
+	var boundary: Array = []
+	for x in range(grid_width):
+		for y in range(grid_height):
+			var pos = Vector2i(x, y)
+			if get_tile(pos) != terrain_type:
+				continue
+			# Check if any neighbor is a different type
+			var neighbors = [
+				pos + Vector2i(1, 0), pos + Vector2i(-1, 0),
+				pos + Vector2i(0, 1), pos + Vector2i(0, -1)
+			]
+			for neighbor in neighbors:
+				if not is_valid_position(neighbor):
+					continue
+				if get_tile(neighbor) != terrain_type:
+					boundary.append(pos)
+					break
+	return boundary
+
+## Flood-fill to find all connected tiles of the same type
+func get_connected_tiles(start_pos: Vector2i, terrain_type: int) -> Array:
+	var connected: Array = []
+	var visited: Dictionary = {}
+	var queue: Array = [start_pos]
+
+	while queue.size() > 0:
+		var pos = queue.pop_front()
+		if visited.has(pos):
+			continue
+		visited[pos] = true
+
+		if not is_valid_position(pos):
+			continue
+		if get_tile(pos) != terrain_type:
+			continue
+
+		connected.append(pos)
+
+		# Check 4 neighbors
+		queue.append(pos + Vector2i(1, 0))
+		queue.append(pos + Vector2i(-1, 0))
+		queue.append(pos + Vector2i(0, 1))
+		queue.append(pos + Vector2i(0, -1))
+
+	return connected
+
+## Get tiles in a corridor between two points (for difficulty calculation)
+func get_tiles_in_corridor(from: Vector2i, to: Vector2i, width: int) -> Array:
+	var tiles: Array = []
+	var direction = Vector2(to - from)
+	var length = direction.length()
+	if length < 1.0:
+		return tiles
+
+	var normalized = direction.normalized()
+	var perp = Vector2(-normalized.y, normalized.x)
+	var half_width = width / 2.0
+
+	var steps = int(length) + 1
+	for i in range(steps):
+		var t = float(i) / float(max(steps - 1, 1))
+		var center = Vector2(from) + direction * t
+
+		for w in range(-int(half_width), int(half_width) + 1):
+			var sample_pos = Vector2i(center + perp * float(w))
+			if is_valid_position(sample_pos) and sample_pos not in tiles:
+				tiles.append(sample_pos)
+
+	return tiles
 
 func serialize() -> Dictionary:
 	var data: Dictionary = {}
