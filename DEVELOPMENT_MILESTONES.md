@@ -139,6 +139,7 @@ The game currently supports:
 - ✅ Putting skill affects distance control on greens
 - ✅ Terrain-aware pathfinding: golfers walk around water obstacles
 - ✅ Cannot walk through water or out of bounds
+- ✅ Hazard penalty handling: water (lateral drop) and OB (stroke and distance) with correct ball reset
 - ✅ Improved accuracy system: Higher skill levels (0.5-0.9), 60% reduced error spread
 - ✅ Straighter shots: ±3° angle variance (down from ±8.5°) for consistent ball striking
 - ✅ Forward progress enforcement: 500pt penalty for shots that don't advance toward hole
@@ -180,12 +181,18 @@ The game currently supports:
 
 ## PRIORITY 3: Terrain & Course Design Features
 
-### [] Water Hazard Placement Tools
-_Note: Shot mechanics for water penalties already exist in code._
-- Pond placement tool (brush-based painting)
-- Lake/river creation with connected tiles
-- Visual water animation
-- Water affects hole difficulty rating
+### [X] Water Hazard Placement Tools
+**STATUS: COMPLETE** - Water hazard visual enhancements, difficulty rating, and penalty enforcement:
+- ✅ Pond placement tool (brush-based painting) - already existed
+- ✅ Lake/river creation with connected tiles (flood-fill detection in terrain_grid)
+- ✅ Visual water animation (animated shimmer overlay on water tiles)
+- ✅ Water affects hole difficulty rating (DifficultyCalculator system)
+- ✅ Difficulty rating displayed in hole info labels
+- ✅ Difficulty auto-recalculates when terrain changes near holes
+- ✅ Water penalty enforcement: 1 penalty stroke, lateral drop near hazard no closer to hole
+- ✅ Drop position finder searches expanding rings for best playable terrain
+- ✅ Ball visual resets to drop position via hazard_penalty EventBus signal
+- ✅ Golfer walks to drop position instead of into water
 
 ### [] Sand Trap & Bunker Placement Tools
 _Note: Shot accuracy/distance modifiers for bunkers already exist (wedge 0.6, other clubs 0.4 lie modifier; 25% distance loss)._
@@ -208,9 +215,11 @@ _Note: Shot accuracy/distance modifiers for bunkers already exist (wedge 0.6, ot
 - Visual elevation indicators
 
 ### [X] Out of Bounds Areas
-**STATUS: COMPLETE** - OB visual markers and detection fix:
+**STATUS: COMPLETE** - OB visual markers, detection, and penalty enforcement:
+- ✅ OB painting tool in terrain toolbar
 - ✅ OB markers and boundary painting (white stakes with red caps at OB edges)
-- ✅ Stroke and distance penalty enforcement (fixed OB detection bug in ball.gd)
+- ✅ OB landing detection in ball.gd (ball state changes to OUT_OF_BOUNDS)
+- ✅ Stroke and distance penalty enforcement (golfer replays from previous position + 1 penalty stroke)
 - ✅ OB boundary tile detection helper (get_boundary_tiles in terrain_grid)
 
 ---
