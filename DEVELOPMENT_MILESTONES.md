@@ -28,7 +28,7 @@ The game currently supports:
 23. **Bunker visual effects** - Sand spray particles on landing, stipple overlay on bunker tiles
 24. **OB detection fix & markers** - Ball correctly enters OUT_OF_BOUNDS state, white stake markers at boundaries
 25. **Wind system** - Per-day wind with direction/speed, club-sensitive displacement, AI compensation, HUD indicator
-26. **Terrain elevation system** - Raise/lower tools, elevation shading overlay, uphill/downhill shot effects, slope-influenced ball roll
+26. **Terrain elevation system** - Raise/lower tools, always-visible elevation shading with contour lines, uphill/downhill shot effects, slope-influenced ball roll
 
 ---
 
@@ -237,6 +237,8 @@ The game currently supports:
 - ✅ Undo/redo support for elevation changes
 - ✅ Elevation shown in coordinate label when non-zero
 - ✅ Elevation data serialized/deserialized for save/load
+- ✅ Always-visible elevation tinting (alpha 0.15 passive, 0.2 when tool active)
+- ✅ Contour lines at elevation boundaries for topographic map effect
 
 ---
 
@@ -446,6 +448,9 @@ _These are ambitious ideas that would each represent significant scope. Deferred
 - ✅ Too many groups spawning at once - tightened first tee clear check to also block when golfers are mid-action (walking, preparing, swinging, watching) on hole 0
 - ✅ Golfers hitting from green instead of walking to next tee - reset current_strokes after hole-out and added walk-to-tee logic for subsequent holes
 - ✅ Walk-to-tee broke first-hole spawning - added first-hole exemption so golfers teleport to tee on hole 1
+- ✅ Golfers walking away from hole before heading to green when water/OB blocks path - rewrote pathfinding to try both sides at increasing offsets (3, 5, 8, 12 tiles) with validation
+- ✅ Flag icon offset from putting target - flag and hole visualizer used grid_to_screen() (top-left) instead of grid_to_screen_center()
+- ✅ Driver max distance unrealistic (450 yards) - reworked to 300 yard max, fairway wood to 255 yard max
 
 ### Minor
 - (Add bugs as discovered)
