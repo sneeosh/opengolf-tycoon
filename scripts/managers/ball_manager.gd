@@ -118,6 +118,11 @@ func animate_shot(golfer_id: int, from_grid: Vector2i, to_grid: Vector2i, distan
 	# Make sure ball is visible
 	ball.visible = true
 
+	# Sand spray when hitting out of a bunker
+	if terrain_grid and terrain_grid.get_tile(from_grid) == TerrainTypes.Type.BUNKER:
+		var from_world = terrain_grid.grid_to_screen_center(from_grid)
+		SandSprayEffect.create_at(ball.get_parent(), from_world)
+
 	# Calculate flight duration based on distance (longer shots take longer)
 	if is_putt:
 		# Putts are ground rolls - shorter, consistent duration
