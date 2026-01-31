@@ -42,6 +42,10 @@ func grid_to_screen_center(grid_pos: Vector2i) -> Vector2:
 	# Returns the center of the tile (for entity positioning)
 	return Vector2(grid_pos.x * tile_width + tile_width / 2.0, grid_pos.y * tile_height + tile_height / 2.0)
 
+func grid_to_screen_precise(grid_pos: Vector2) -> Vector2:
+	# Returns screen position for a sub-tile grid coordinate (used for putting precision)
+	return Vector2(grid_pos.x * tile_width + tile_width / 2.0, grid_pos.y * tile_height + tile_height / 2.0)
+
 func is_valid_position(pos: Vector2i) -> bool:
 	return pos.x >= 0 and pos.x < grid_width and pos.y >= 0 and pos.y < grid_height
 

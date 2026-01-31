@@ -49,6 +49,7 @@ signal shot_taken(golfer_id: int, hole_number: int, strokes: int)
 signal ball_landed(golfer_id: int, from_position: Vector2i, position: Vector2i, terrain_type: int)
 signal ball_in_hole(golfer_id: int, hole_number: int)
 signal hazard_penalty(golfer_id: int, hazard_type: String, reset_position: Vector2i)
+signal ball_putt_landed_precise(golfer_id: int, from_screen: Vector2, to_screen: Vector2, distance_yards: int)
 
 # UI Signals
 signal ui_notification(message: String, type: String)
