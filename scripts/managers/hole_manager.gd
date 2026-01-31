@@ -13,14 +13,20 @@ signal hole_selected(hole_number: int)
 
 func _ready() -> void:
 	# Connect to EventBus for hole events
-	if EventBus.has_signal("hole_created"):
-		EventBus.connect("hole_created", _on_hole_created)
-	if EventBus.has_signal("hole_deleted"):
-		EventBus.connect("hole_deleted", _on_hole_deleted)
-	if EventBus.has_signal("hole_updated"):
-		EventBus.connect("hole_updated", _on_hole_updated)
-	if EventBus.has_signal("hole_toggled"):
-		EventBus.connect("hole_toggled", _on_hole_toggled)
+	EventBus.hole_created.connect(_on_hole_created)
+	EventBus.hole_deleted.connect(_on_hole_deleted)
+	EventBus.hole_updated.connect(_on_hole_updated)
+	EventBus.hole_toggled.connect(_on_hole_toggled)
+
+func _exit_tree() -> void:
+	if EventBus.hole_created.is_connected(_on_hole_created):
+		EventBus.hole_created.disconnect(_on_hole_created)
+	if EventBus.hole_deleted.is_connected(_on_hole_deleted):
+		EventBus.hole_deleted.disconnect(_on_hole_deleted)
+	if EventBus.hole_updated.is_connected(_on_hole_updated):
+		EventBus.hole_updated.disconnect(_on_hole_updated)
+	if EventBus.hole_toggled.is_connected(_on_hole_toggled):
+		EventBus.hole_toggled.disconnect(_on_hole_toggled)
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -57,7 +63,7 @@ func _create_hole_visualization(hole: GameManager.HoleData) -> void:
 	visualizer.hole_selected.connect(_on_hole_visualization_selected)
 
 	hole_visualizers[hole.hole_number] = visualizer
-	emit_signal("hole_visualization_created", hole.hole_number)
+	hole_visualization_created.emit(hole.hole_number)
 
 func remove_hole_visualization(hole_number: int) -> void:
 	if not hole_visualizers.has(hole_number):
@@ -66,7 +72,7 @@ func remove_hole_visualization(hole_number: int) -> void:
 	var visualizer = hole_visualizers[hole_number]
 	visualizer.destroy()
 	hole_visualizers.erase(hole_number)
-	emit_signal("hole_visualization_removed", hole_number)
+	hole_visualization_removed.emit(hole_number)
 
 func get_hole_visualizer(hole_number: int) -> HoleVisualizer:
 	return hole_visualizers.get(hole_number, null)
@@ -120,8 +126,8 @@ func _on_hole_toggled(hole_number: int, is_open: bool) -> void:
 		visualizer.modulate = Color(1, 1, 1, 1) if is_open else Color(0.4, 0.4, 0.4, 0.5)
 
 func _on_hole_visualization_selected(hole_number: int) -> void:
-	emit_signal("hole_selected", hole_number)
-	EventBus.emit_signal("hole_selected", hole_number)
+	hole_selected.emit(hole_number)
+	EventBus.hole_selected.emit(hole_number)
 
 ## Get hole count
 func get_hole_count() -> int:

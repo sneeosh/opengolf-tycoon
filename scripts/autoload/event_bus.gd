@@ -78,9 +78,9 @@ func _ready() -> void:
 	print("EventBus initialized")
 
 func notify(message: String, type: String = "info") -> void:
-	emit_signal("ui_notification", message, type)
+	ui_notification.emit(message, type)
 
 func log_transaction(description: String, amount: int) -> void:
 	var sign_str = "+" if amount >= 0 else ""
 	print("[Transaction] %s: %s$%d" % [description, sign_str, amount])
-	emit_signal("transaction_completed", description, amount)
+	transaction_completed.emit(description, amount)

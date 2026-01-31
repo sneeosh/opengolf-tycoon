@@ -129,12 +129,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			_paint_at_mouse()
 
 func _connect_signals() -> void:
-	EventBus.connect("money_changed", _on_money_changed)
-	EventBus.connect("day_changed", _on_day_changed)
-	EventBus.connect("hole_created", _on_hole_created)
-	EventBus.connect("hole_deleted", _on_hole_deleted)
-	EventBus.connect("hole_toggled", _on_hole_toggled)
-	EventBus.connect("green_fee_changed", _on_green_fee_changed)
+	EventBus.money_changed.connect(_on_money_changed)
+	EventBus.day_changed.connect(_on_day_changed)
+	EventBus.hole_created.connect(_on_hole_created)
+	EventBus.hole_deleted.connect(_on_hole_deleted)
+	EventBus.hole_toggled.connect(_on_hole_toggled)
+	EventBus.green_fee_changed.connect(_on_green_fee_changed)
 
 func _connect_ui_buttons() -> void:
 	tool_panel.get_node("FairwayBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.FAIRWAY))
@@ -767,7 +767,7 @@ var _is_undoing: bool = false  # Prevent re-recording changes triggered by undo/
 
 func _on_terrain_tile_changed_for_undo(position: Vector2i, old_type: int, new_type: int) -> void:
 	if _is_undoing:
-		print("DEBUG UNDO: Tile change ignored (_is_undoing=true)")
+		# Tile change during undo/redo, don't re-record
 		return
 	undo_manager.record_tile_change(position, old_type, new_type)
 
@@ -804,7 +804,6 @@ func _perform_redo() -> void:
 	EventBus.notify("Redo", "info")
 
 func _execute_undo_action(action: Dictionary) -> void:
-	print("DEBUG UNDO: Executing undo for type=%s" % action.get("type", "unknown"))
 	match action.get("type", ""):
 		"terrain":
 			# Revert all tile changes in reverse order

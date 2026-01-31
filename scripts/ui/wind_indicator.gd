@@ -38,8 +38,11 @@ func _ready() -> void:
 	vbox.add_child(_speed_label)
 
 	# Connect to wind signal
-	if EventBus.has_signal("wind_changed"):
-		EventBus.connect("wind_changed", _on_wind_changed)
+	EventBus.wind_changed.connect(_on_wind_changed)
+
+func _exit_tree() -> void:
+	if EventBus.wind_changed.is_connected(_on_wind_changed):
+		EventBus.wind_changed.disconnect(_on_wind_changed)
 
 func _on_wind_changed(direction: float, speed: float) -> void:
 	_wind_direction = direction

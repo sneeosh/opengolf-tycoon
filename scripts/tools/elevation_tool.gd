@@ -16,17 +16,17 @@ signal elevation_mode_changed(mode: ElevationMode)
 
 func start_raising() -> void:
 	elevation_mode = ElevationMode.RAISING
-	emit_signal("elevation_mode_changed", elevation_mode)
+	elevation_mode_changed.emit(elevation_mode)
 
 func start_lowering() -> void:
 	elevation_mode = ElevationMode.LOWERING
-	emit_signal("elevation_mode_changed", elevation_mode)
+	elevation_mode_changed.emit(elevation_mode)
 
 func cancel() -> void:
 	elevation_mode = ElevationMode.NONE
 	is_painting = false
 	last_paint_pos = Vector2i(-1, -1)
-	emit_signal("elevation_mode_changed", elevation_mode)
+	elevation_mode_changed.emit(elevation_mode)
 
 func is_active() -> bool:
 	return elevation_mode != ElevationMode.NONE

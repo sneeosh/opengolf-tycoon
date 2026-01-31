@@ -18,7 +18,6 @@ signal redo_performed()
 
 ## Begin recording a terrain paint stroke (call on mouse down)
 func begin_stroke() -> void:
-	print("DEBUG UNDO: begin_stroke()")
 	_current_stroke = []
 	_is_recording_stroke = true
 
@@ -36,7 +35,6 @@ func record_tile_change(position: Vector2i, old_type: int, new_type: int) -> voi
 
 ## End the current paint stroke and push it as a single undo action
 func end_stroke() -> void:
-	print("DEBUG UNDO: end_stroke() - %d tile changes recorded" % _current_stroke.size())
 	_is_recording_stroke = false
 	if _current_stroke.is_empty():
 		return
@@ -69,7 +67,6 @@ func record_entity_placement(entity_type: String, grid_pos: Vector2i, subtype: S
 	_push_action(action)
 
 func _push_action(action: Dictionary) -> void:
-	print("DEBUG UNDO: Pushed action type=%s, stack size=%d" % [action.get("type", ""), undo_stack.size() + 1])
 	undo_stack.append(action)
 	if undo_stack.size() > MAX_UNDO_STACK:
 		undo_stack.pop_front()
@@ -89,7 +86,7 @@ func undo() -> Dictionary:
 		return {}
 	var action = undo_stack.pop_back()
 	redo_stack.append(action)
-	emit_signal("undo_performed")
+	undo_performed.emit()
 	return action
 
 ## Redo the last undone action. Returns the action dictionary for the caller to execute,
@@ -99,7 +96,7 @@ func redo() -> Dictionary:
 		return {}
 	var action = redo_stack.pop_back()
 	undo_stack.append(action)
-	emit_signal("redo_performed")
+	redo_performed.emit()
 	return action
 
 func clear() -> void:

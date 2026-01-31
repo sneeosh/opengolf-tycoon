@@ -19,7 +19,7 @@ func initialize(hole: GameManager.HoleData, grid: TerrainGrid) -> void:
 	hole_data = hole
 	terrain_grid = grid
 	_create_visuals()
-	EventBus.connect("terrain_tile_changed", _on_terrain_tile_changed)
+	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 
 func _create_visuals() -> void:
 	# Create line connecting tee to green
@@ -145,7 +145,7 @@ func _on_flag_moved(old_position: Vector2i, new_position: Vector2i) -> void:
 	_update_line()
 	_update_info_label()
 
-	EventBus.emit_signal("hole_updated", hole_data.hole_number)
+	EventBus.hole_updated.emit(hole_data.hole_number)
 
 func _on_terrain_tile_changed(_position: Vector2i, _old_type: int, _new_type: int) -> void:
 	# Recalculate difficulty when terrain changes
@@ -154,7 +154,7 @@ func _on_terrain_tile_changed(_position: Vector2i, _old_type: int, _new_type: in
 		if absf(new_difficulty - hole_data.difficulty_rating) > 0.05:
 			hole_data.difficulty_rating = new_difficulty
 			_update_info_label()
-			EventBus.emit_signal("hole_difficulty_changed", hole_data.hole_number, new_difficulty)
+			EventBus.hole_difficulty_changed.emit(hole_data.hole_number, new_difficulty)
 
 func update_visualization() -> void:
 	_update_line()
@@ -162,6 +162,10 @@ func update_visualization() -> void:
 
 func get_hole_number() -> int:
 	return hole_data.hole_number if hole_data else 0
+
+func _exit_tree() -> void:
+	if EventBus.terrain_tile_changed.is_connected(_on_terrain_tile_changed):
+		EventBus.terrain_tile_changed.disconnect(_on_terrain_tile_changed)
 
 func destroy() -> void:
 	if flag:

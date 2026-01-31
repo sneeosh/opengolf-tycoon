@@ -19,9 +19,12 @@ const CLUB_WIND_SENSITIVITY = {
 }
 
 func _ready() -> void:
-	randomize()
 	_generate_new_wind()
-	EventBus.connect("day_changed", _on_day_changed)
+	EventBus.day_changed.connect(_on_day_changed)
+
+func _exit_tree() -> void:
+	if EventBus.day_changed.is_connected(_on_day_changed):
+		EventBus.day_changed.disconnect(_on_day_changed)
 
 ## Generate new wind conditions (called at start and each new day)
 func _generate_new_wind() -> void:
@@ -114,5 +117,4 @@ func _on_day_changed(_new_day: int) -> void:
 	_generate_new_wind()
 
 func _emit_wind_changed() -> void:
-	if EventBus.has_signal("wind_changed"):
-		EventBus.emit_signal("wind_changed", wind_direction, wind_speed)
+	EventBus.wind_changed.emit(wind_direction, wind_speed)

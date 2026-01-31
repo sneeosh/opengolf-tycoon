@@ -21,7 +21,7 @@ func start_tee_placement() -> void:
 	placement_mode = PlacementMode.PLACING_TEE
 	pending_tee_position = Vector2i(-1, -1)
 	pending_green_position = Vector2i(-1, -1)
-	emit_signal("placement_mode_changed", placement_mode)
+	placement_mode_changed.emit(placement_mode)
 	print("Click to place tee box for hole ", current_hole_number)
 
 ## Start placing a green
@@ -31,13 +31,13 @@ func start_green_placement() -> void:
 		return
 
 	placement_mode = PlacementMode.PLACING_GREEN
-	emit_signal("placement_mode_changed", placement_mode)
+	placement_mode_changed.emit(placement_mode)
 	print("Click to place green for hole ", current_hole_number)
 
 ## Cancel current placement
 func cancel_placement() -> void:
 	placement_mode = PlacementMode.NONE
-	emit_signal("placement_mode_changed", placement_mode)
+	placement_mode_changed.emit(placement_mode)
 
 ## Handle click to place tee or green
 func handle_click(grid_position: Vector2i) -> bool:
@@ -143,15 +143,15 @@ func _create_hole() -> void:
 
 	print("Hole ", current_hole_number, " created! Par ", hole.par, " (", hole.distance_yards, " yards)")
 
-	EventBus.emit_signal("hole_created", hole.hole_number, hole.par, hole.distance_yards)
-	emit_signal("hole_created", hole)
+	EventBus.hole_created.emit(hole.hole_number, hole.par, hole.distance_yards)
+	hole_created.emit(hole)
 
 	# Reset for next hole
 	current_hole_number += 1
 	pending_tee_position = Vector2i(-1, -1)
 	pending_green_position = Vector2i(-1, -1)
 	placement_mode = PlacementMode.NONE
-	emit_signal("placement_mode_changed", placement_mode)
+	placement_mode_changed.emit(placement_mode)
 
 ## Calculate par based on hole distance
 static func calculate_par(distance_yards: int) -> int:
@@ -195,7 +195,7 @@ func delete_hole(hole_number: int) -> bool:
 				GameManager.current_course.holes[j].hole_number = j + 1
 
 			current_hole_number = GameManager.current_course.holes.size() + 1
-			EventBus.emit_signal("hole_deleted", hole_number)
+			EventBus.hole_deleted.emit(hole_number)
 			return true
 
 	return false
