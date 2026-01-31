@@ -56,6 +56,9 @@ signal ui_notification(message: String, type: String)
 signal tooltip_requested(text: String, position: Vector2)
 signal tooltip_hidden()
 
+# Wind Signals
+signal wind_changed(direction: float, speed: float)
+
 # Camera Signals
 signal camera_moved(new_position: Vector2)
 signal camera_zoomed(new_zoom: float)

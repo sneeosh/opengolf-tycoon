@@ -31,6 +31,8 @@ var last_paint_pos: Vector2i = Vector2i(-1, -1)
 var hole_tool: HoleCreationTool = HoleCreationTool.new()
 var placement_manager: PlacementManager = PlacementManager.new()
 var undo_manager: UndoManager = UndoManager.new()
+var wind_system: WindSystem = null
+var wind_indicator: WindIndicator = null
 var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
 var selected_tree_type: String = "oak"
@@ -61,10 +63,17 @@ func _ready() -> void:
 	add_child(undo_manager)
 	terrain_grid.tile_changed.connect(_on_terrain_tile_changed_for_undo)
 
+	# Set up wind system
+	wind_system = WindSystem.new()
+	wind_system.name = "WindSystem"
+	add_child(wind_system)
+	GameManager.wind_system = wind_system
+
 	_connect_signals()
 	_connect_ui_buttons()
 	_create_game_mode_label()
 	_create_green_fee_controls()
+	_create_wind_indicator()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -218,6 +227,15 @@ func _create_green_fee_controls() -> void:
 	# Add to bottom bar (after speed controls)
 	bottom_bar.add_child(green_fee_container)
 	bottom_bar.move_child(green_fee_container, 1)  # Position after SpeedControls
+
+func _create_wind_indicator() -> void:
+	wind_indicator = WindIndicator.new()
+	wind_indicator.name = "WindIndicator"
+	var bottom_bar = $UI/HUD/BottomBar
+	bottom_bar.add_child(wind_indicator)
+	# Set initial wind state
+	if wind_system:
+		wind_indicator.set_wind(wind_system.wind_direction, wind_system.wind_speed)
 
 func _on_green_fee_decrease() -> void:
 	"""Decrease green fee by $5"""

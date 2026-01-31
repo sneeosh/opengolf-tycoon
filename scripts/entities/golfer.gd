@@ -458,7 +458,17 @@ func _find_best_landing_zone(hole_position: Vector2i, max_distance: float, club:
 		if not terrain_grid.is_valid_position(test_position):
 			continue
 
-		var score = _evaluate_landing_zone(test_position, hole_position, club)
+		# AI compensates for wind: evaluate where ball will actually land
+		var eval_position = test_position
+		if GameManager.wind_system:
+			var wind_disp = GameManager.wind_system.get_wind_displacement(adjusted_direction, target_distance, club)
+			# Better players compensate more accurately
+			var compensation = wind_disp * accuracy_skill * 0.7
+			eval_position = Vector2i(Vector2(test_position) + wind_disp - compensation)
+			if not terrain_grid.is_valid_position(eval_position):
+				eval_position = test_position
+
+		var score = _evaluate_landing_zone(eval_position, hole_position, club)
 		if score > best_score:
 			best_score = score
 			best_target = test_position
@@ -737,6 +747,12 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	var terrain_distance_modifier = _get_terrain_distance_modifier(current_terrain)
 	distance_modifier *= terrain_distance_modifier
 
+	# Apply wind headwind/tailwind effect on distance
+	if GameManager.wind_system:
+		var shot_direction = Vector2(target - from).normalized()
+		var wind_distance_mod = GameManager.wind_system.get_distance_modifier(shot_direction, club)
+		distance_modifier *= wind_distance_mod
+
 	# Calculate actual distance
 	var intended_distance = Vector2(from).distance_to(Vector2(target))
 	var actual_distance = intended_distance * distance_modifier
@@ -756,6 +772,11 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	var longitudinal_error = sin(error_angle) * error_magnitude    # Long/short
 	var random_offset = perpendicular * lateral_error + direction * longitudinal_error
 	landing_point += random_offset
+
+	# Apply wind displacement
+	if GameManager.wind_system:
+		var wind_displacement = GameManager.wind_system.get_wind_displacement(direction, actual_distance, club)
+		landing_point += wind_displacement
 
 	var landing_position = Vector2i(landing_point.round())
 

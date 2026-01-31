@@ -201,13 +201,15 @@ The game currently supports:
 - ✅ Visual grain/stipple overlay on bunker tiles (BunkerOverlay)
 - ✅ Bunker landing detection in ball physics (ball_landed_in_bunker signal)
 
-### [] Wind Effects on Ball Flight
-- Wind direction and strength (variable per day or per hole)
-- Wind affects ball trajectory during flight
-- Headwind reduces distance, tailwind increases it
-- Crosswind pushes ball laterally
-- AI golfers account for wind in shot planning
-- Wind indicator in HUD
+### [X] Wind Effects on Ball Flight
+**STATUS: COMPLETE** - Full wind system with HUD indicator:
+- ✅ Wind direction and strength (variable per day with hourly drift)
+- ✅ Wind affects ball trajectory during flight (visual drift)
+- ✅ Headwind reduces distance (up to -15%), tailwind increases it (up to +10%)
+- ✅ Crosswind pushes ball laterally
+- ✅ AI golfers account for wind in shot planning (skill-based compensation)
+- ✅ Wind indicator in HUD (arrow, compass direction, color-coded speed)
+- ✅ Club sensitivity: Driver 1.0x, Iron 0.7x, Wedge 0.4x, Putter 0.0x
 
 ### [] Terrain Elevation System
 - Hills and valleys
