@@ -13,9 +13,9 @@ enum State {
 }
 
 enum Club {
-	DRIVER,       # Long distance, lower accuracy (300-450 yards)
-	FAIRWAY_WOOD, # Mid-long distance, moderate accuracy (195-300 yards)
-	IRON,         # Medium distance, medium accuracy (150-300 yards)
+	DRIVER,       # Long distance, lower accuracy (220-300 yards)
+	FAIRWAY_WOOD, # Mid-long distance, moderate accuracy (180-250 yards)
+	IRON,         # Medium distance, medium accuracy (120-195 yards)
 	WEDGE,        # Short distance, high accuracy (30-120 yards)
 	PUTTER        # Putting surface, distance-based accuracy (0-90 feet)
 }
@@ -23,14 +23,14 @@ enum Club {
 ## Club characteristics (distances in tiles, 1 tile = 15 yards)
 const CLUB_STATS = {
 	Club.DRIVER: {
-		"max_distance": 30,    # tiles (450 yards)
-		"min_distance": 20,    # tiles (300 yards)
+		"max_distance": 20,    # tiles (300 yards)
+		"min_distance": 15,    # tiles (225 yards)
 		"accuracy_modifier": 0.7,
 		"name": "Driver"
 	},
 	Club.FAIRWAY_WOOD: {
-		"max_distance": 20,    # tiles (300 yards)
-		"min_distance": 13,    # tiles (195 yards)
+		"max_distance": 17,    # tiles (255 yards)
+		"min_distance": 12,    # tiles (180 yards)
 		"accuracy_modifier": 0.78,
 		"name": "Fairway Wood"
 	},
