@@ -48,8 +48,8 @@ func _update_line() -> void:
 	if not line or not terrain_grid or not hole_data:
 		return
 
-	var tee_screen = terrain_grid.grid_to_screen(hole_data.tee_position)
-	var green_screen = terrain_grid.grid_to_screen(hole_data.green_position)
+	var tee_screen = terrain_grid.grid_to_screen_center(hole_data.tee_position)
+	var green_screen = terrain_grid.grid_to_screen_center(hole_data.green_position)
 
 	# Convert to local coordinates
 	line.clear_points()
@@ -88,8 +88,8 @@ func _update_info_label() -> void:
 		return
 
 	# Position label at midpoint between tee and green
-	var tee_screen = terrain_grid.grid_to_screen(hole_data.tee_position)
-	var green_screen = terrain_grid.grid_to_screen(hole_data.green_position)
+	var tee_screen = terrain_grid.grid_to_screen_center(hole_data.tee_position)
+	var green_screen = terrain_grid.grid_to_screen_center(hole_data.green_position)
 	var midpoint = (tee_screen + green_screen) / 2.0
 
 	info_label.position = to_local(midpoint) + Vector2(-40, -20)

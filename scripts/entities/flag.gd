@@ -19,7 +19,7 @@ func set_terrain_grid(grid: TerrainGrid) -> void:
 func set_position_in_grid(pos: Vector2i) -> void:
 	grid_position = pos
 	if terrain_grid:
-		var world_pos = terrain_grid.grid_to_screen(pos)
+		var world_pos = terrain_grid.grid_to_screen_center(pos)
 		global_position = world_pos
 
 func set_hole_number(number: int) -> void:
