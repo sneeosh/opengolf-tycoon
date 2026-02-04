@@ -68,6 +68,10 @@ signal tile_selected(position: Vector2i)
 signal tile_hovered(position: Vector2i)
 signal selection_cleared()
 
+# Day Cycle Signals
+signal end_of_day(day_number: int)
+signal course_closing()
+
 # Save/Load Signals
 signal save_requested()
 signal save_completed(success: bool)

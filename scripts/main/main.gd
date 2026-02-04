@@ -33,6 +33,7 @@ var placement_manager: PlacementManager = PlacementManager.new()
 var undo_manager: UndoManager = UndoManager.new()
 var wind_system: WindSystem = null
 var wind_indicator: WindIndicator = null
+var day_night_system: DayNightSystem = null
 var elevation_tool: ElevationTool = ElevationTool.new()
 var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
@@ -72,6 +73,11 @@ func _ready() -> void:
 
 	# Add elevation tool
 	add_child(elevation_tool)
+
+	# Set up day/night cycle
+	day_night_system = DayNightSystem.new()
+	day_night_system.name = "DayNightSystem"
+	add_child(day_night_system)
 
 	_connect_signals()
 	_connect_ui_buttons()
@@ -135,6 +141,7 @@ func _connect_signals() -> void:
 	EventBus.connect("hole_deleted", _on_hole_deleted)
 	EventBus.connect("hole_toggled", _on_hole_toggled)
 	EventBus.connect("green_fee_changed", _on_green_fee_changed)
+	EventBus.connect("end_of_day", _on_end_of_day)
 
 func _connect_ui_buttons() -> void:
 	tool_panel.get_node("FairwayBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.FAIRWAY))
@@ -760,6 +767,15 @@ func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 		print("Placed %s rock at %s" % [selected_rock_size, grid_pos])
 	else:
 		EventBus.notify("Failed to place rock!", "error")
+
+# --- Day/Night Cycle ---
+
+func _on_end_of_day(day_number: int) -> void:
+	"""Handle end of day — advance to next morning."""
+	EventBus.notify("Day %d complete!" % day_number, "info")
+	# Advance to next day after a brief pause for the notification to show
+	await get_tree().create_timer(2.0).timeout
+	GameManager.advance_to_next_day()
 
 # --- Undo/Redo System ---
 

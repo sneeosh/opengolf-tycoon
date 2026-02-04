@@ -51,20 +51,36 @@ func _process(delta: float) -> void:
 	if current_mode == GameMode.SIMULATING and not is_paused:
 		_advance_time(delta)
 
+var _closing_announced: bool = false
+var _end_of_day_triggered: bool = false
+
 func _advance_time(delta: float) -> void:
 	# 1 real minute = 1 game hour at NORMAL speed
 	var time_multiplier: float = float(current_speed)
 	var old_hour = current_hour
 	current_hour += (delta * time_multiplier) / 60.0
 
+	# Emit hour_changed for smooth time-dependent effects (day/night visual, etc.)
+	EventBus.emit_signal("hour_changed", current_hour)
+
 	# Update wind drift each game hour
 	if wind_system and int(current_hour) != int(old_hour):
 		wind_system.update_wind_drift(current_hour - COURSE_OPEN_HOUR)
 
+	# Announce course closing 1 hour before close
+	if not _closing_announced and current_hour >= COURSE_CLOSE_HOUR - 1.0:
+		_closing_announced = true
+		EventBus.emit_signal("course_closing")
+		EventBus.notify("Course closing soon!", "info")
+
+	# Trigger end of day when past closing time (golfer cleanup handled by GolferManager)
+	if not _end_of_day_triggered and current_hour >= COURSE_CLOSE_HOUR:
+		_end_of_day_triggered = true
+
+	# Don't wrap day automatically — wait for advance_to_next_day() call
+	# This allows the end-of-day summary to display before the new day starts
 	if current_hour >= HOURS_PER_DAY:
-		current_hour -= HOURS_PER_DAY
-		current_day += 1
-		EventBus.emit_signal("day_changed", current_day)
+		current_hour = HOURS_PER_DAY  # Clamp to prevent runaway
 
 func set_mode(new_mode: GameMode) -> void:
 	var old_mode = current_mode
@@ -108,12 +124,34 @@ func new_game(course_name_input: String = "New Course") -> void:
 	current_day = 1
 	current_hour = COURSE_OPEN_HOUR
 	green_fee = 30  # Reset to default
+	_closing_announced = false
+	_end_of_day_triggered = false
 	current_course = CourseData.new()
 	set_mode(GameMode.BUILDING)
 	EventBus.emit_signal("new_game_started")
 
 func is_course_open() -> bool:
 	return current_hour >= COURSE_OPEN_HOUR and current_hour < COURSE_CLOSE_HOUR
+
+func is_end_of_day_pending() -> bool:
+	return _end_of_day_triggered
+
+func request_end_of_day() -> void:
+	"""Called when all golfers have left after closing. Emits end_of_day signal."""
+	if not _end_of_day_triggered:
+		return
+	EventBus.emit_signal("end_of_day", current_day)
+
+func advance_to_next_day() -> void:
+	"""Advance to the next morning. Called after end-of-day processing is complete."""
+	current_day += 1
+	current_hour = COURSE_OPEN_HOUR
+	_closing_announced = false
+	_end_of_day_triggered = false
+	EventBus.emit_signal("day_changed", current_day)
+	if wind_system:
+		wind_system.generate_daily_wind()
+	EventBus.notify("Day %d — Course is open!" % current_day, "info")
 
 func can_start_playing() -> bool:
 	"""Check if the course is ready to start playing (has at least one open hole)"""
