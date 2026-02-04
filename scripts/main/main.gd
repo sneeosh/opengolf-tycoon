@@ -73,11 +73,15 @@ func _ready() -> void:
 	# Add elevation tool
 	add_child(elevation_tool)
 
+	# Set up save manager references
+	SaveManager.set_references(terrain_grid, entity_layer)
+
 	_connect_signals()
 	_connect_ui_buttons()
 	_create_game_mode_label()
 	_create_green_fee_controls()
 	_create_wind_indicator()
+	_create_save_load_button()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -102,10 +106,13 @@ func _process(_delta: float) -> void:
 	_handle_mouse_hover()
 
 func _input(event: InputEvent) -> void:
-	# Undo/Redo keyboard shortcuts - handled in _input so UI controls don't swallow them
+	# Keyboard shortcuts - handled in _input so UI controls don't swallow them
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.is_command_or_control_pressed():
-			if event.keycode == KEY_Z and not event.shift_pressed:
+			if event.keycode == KEY_S:
+				SaveManager.save_game("quicksave")
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_Z and not event.shift_pressed:
 				_perform_undo()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_Z and event.shift_pressed:
@@ -135,6 +142,7 @@ func _connect_signals() -> void:
 	EventBus.connect("hole_deleted", _on_hole_deleted)
 	EventBus.connect("hole_toggled", _on_hole_toggled)
 	EventBus.connect("green_fee_changed", _on_green_fee_changed)
+	EventBus.connect("load_completed", _on_load_completed)
 
 func _connect_ui_buttons() -> void:
 	tool_panel.get_node("FairwayBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.FAIRWAY))
@@ -760,6 +768,36 @@ func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 		print("Placed %s rock at %s" % [selected_rock_size, grid_pos])
 	else:
 		EventBus.notify("Failed to place rock!", "error")
+
+# --- Save/Load ---
+
+func _create_save_load_button() -> void:
+	var bottom_bar = $UI/HUD/BottomBar
+	var menu_btn = Button.new()
+	menu_btn.name = "MenuBtn"
+	menu_btn.text = "Menu"
+	menu_btn.custom_minimum_size = Vector2(60, 30)
+	menu_btn.pressed.connect(_on_menu_pressed)
+	bottom_bar.add_child(menu_btn)
+
+func _on_menu_pressed() -> void:
+	# Toggle save/load panel
+	var existing = get_tree().root.get_node_or_null("SaveLoadPanel")
+	if existing:
+		existing.queue_free()
+		return
+	var panel = SaveLoadPanel.new()
+	panel.name = "SaveLoadPanel"
+	panel.anchors_preset = Control.PRESET_CENTER
+	panel.position = Vector2(
+		get_viewport().get_visible_rect().size.x / 2 - 200,
+		get_viewport().get_visible_rect().size.y / 2 - 175
+	)
+	get_tree().root.add_child(panel)
+
+func _on_load_completed(_success: bool) -> void:
+	if _success:
+		_rebuild_hole_list()
 
 # --- Undo/Redo System ---
 
