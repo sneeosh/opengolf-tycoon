@@ -198,6 +198,50 @@ func serialize() -> Dictionary:
 
 	return data
 
+func clear_all() -> void:
+	"""Remove all entities from the layer."""
+	for pos in buildings.keys():
+		buildings[pos].destroy()
+	buildings.clear()
+	for pos in trees.keys():
+		trees[pos].destroy()
+	trees.clear()
+	for pos in rocks.keys():
+		rocks[pos].destroy()
+	rocks.clear()
+
+func deserialize(data: Dictionary) -> void:
+	"""Reconstruct entities from saved data."""
+	clear_all()
+
+	if data.has("trees"):
+		for key in data["trees"]:
+			var parts = key.split(",")
+			if parts.size() == 2:
+				var pos = Vector2i(int(parts[0]), int(parts[1]))
+				var tree_data = data["trees"][key]
+				var tree_type = tree_data.get("tree_type", "oak") if tree_data is Dictionary else "oak"
+				place_tree(pos, tree_type)
+
+	if data.has("buildings"):
+		for key in data["buildings"]:
+			var parts = key.split(",")
+			if parts.size() == 2:
+				var pos = Vector2i(int(parts[0]), int(parts[1]))
+				var building_data = data["buildings"][key]
+				var building_type = building_data.get("building_type", "") if building_data is Dictionary else ""
+				if not building_type.is_empty():
+					place_building(building_type, pos, building_registry)
+
+	if data.has("rocks"):
+		for key in data["rocks"]:
+			var parts = key.split(",")
+			if parts.size() == 2:
+				var pos = Vector2i(int(parts[0]), int(parts[1]))
+				var rock_data = data["rocks"][key]
+				var rock_size = rock_data.get("rock_size", "medium") if rock_data is Dictionary else "medium"
+				place_rock(pos, rock_size)
+
 func _on_building_selected(building: Building) -> void:
 	pass  # Handle building selection if needed
 
