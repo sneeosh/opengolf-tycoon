@@ -33,6 +33,7 @@ var placement_manager: PlacementManager = PlacementManager.new()
 var undo_manager: UndoManager = UndoManager.new()
 var wind_system: WindSystem = null
 var wind_indicator: WindIndicator = null
+var feedback_log: FeedbackLog = null
 var elevation_tool: ElevationTool = ElevationTool.new()
 var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
@@ -78,6 +79,7 @@ func _ready() -> void:
 	_create_game_mode_label()
 	_create_green_fee_controls()
 	_create_wind_indicator()
+	_create_feedback_log()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -258,6 +260,28 @@ func _create_wind_indicator() -> void:
 	# Set initial wind state
 	if wind_system:
 		wind_indicator.set_wind(wind_system.wind_direction, wind_system.wind_speed)
+
+func _create_feedback_log() -> void:
+	feedback_log = FeedbackLog.new()
+	feedback_log.name = "FeedbackLog"
+	# Position in bottom-right area
+	feedback_log.anchor_left = 1.0
+	feedback_log.anchor_top = 1.0
+	feedback_log.anchor_right = 1.0
+	feedback_log.anchor_bottom = 1.0
+	feedback_log.offset_left = -290
+	feedback_log.offset_top = -210
+	feedback_log.offset_right = -10
+	feedback_log.offset_bottom = -10
+	$UI/HUD.add_child(feedback_log)
+
+	# Add toggle button to bottom bar
+	var toggle_btn = Button.new()
+	toggle_btn.name = "FeedbackBtn"
+	toggle_btn.text = "Feedback"
+	toggle_btn.custom_minimum_size = Vector2(75, 30)
+	toggle_btn.pressed.connect(func(): feedback_log.toggle())
+	$UI/HUD/BottomBar.add_child(toggle_btn)
 
 func _on_green_fee_decrease() -> void:
 	"""Decrease green fee by $5"""

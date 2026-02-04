@@ -74,6 +74,13 @@ var current_state: State = State.IDLE
 var current_mood: float = 0.5  # 0.0 = angry, 1.0 = happy
 var fatigue: float = 0.0       # 0.0 = fresh, 1.0 = exhausted
 
+## Feedback system
+static var _feedback_data: Dictionary = {}
+static var _feedback_loaded: bool = false
+var _last_feedback_time: float = 0.0
+var _wait_time_accumulated: float = 0.0
+const FEEDBACK_COOLDOWN: float = 30.0  # Minimum game-seconds between bubbles
+
 ## Course progress
 var current_hole: int = 0
 var current_strokes: int = 0
@@ -109,6 +116,10 @@ func _ready() -> void:
 	collision_layer = 4  # Layer 3 (golfers)
 	collision_mask = 1   # Layer 1 (terrain/obstacles)
 
+	# Load feedback data once (static)
+	if not _feedback_loaded:
+		_load_feedback_data()
+
 	# Set up head as a circle
 	if head:
 		var head_points = PackedVector2Array()
@@ -137,6 +148,8 @@ func _process(delta: float) -> void:
 			_process_preparing_shot(delta)
 		State.SWINGING:
 			_process_swinging(delta)
+		State.IDLE:
+			_process_idle_wait(delta)
 
 func _process_walking(delta: float) -> void:
 	if path.is_empty() or path_index >= path.size():
@@ -239,6 +252,7 @@ func _take_ai_shot() -> void:
 ## Take a shot
 func take_shot(target: Vector2i) -> void:
 	current_strokes += 1
+	_wait_time_accumulated = 0.0  # Reset wait timer on shot
 	_change_state(State.SWINGING)
 
 	# Play swing animation before the ball leaves
@@ -329,6 +343,9 @@ func finish_hole(par: int) -> void:
 
 	EventBus.emit_signal("golfer_finished_hole", golfer_id, current_hole, current_strokes, par)
 	emit_signal("hole_completed", current_strokes, par)
+
+	# Show score reaction feedback
+	_show_score_feedback(score_diff)
 
 	_update_score_display()
 	_change_state(State.IDLE)
@@ -1164,6 +1181,8 @@ func _on_green_fee_paid(paid_golfer_id: int, paid_golfer_name: String, amount: i
 	# Only show notification for this specific golfer
 	if paid_golfer_id == golfer_id:
 		show_payment_notification(amount)
+		# Show value perception feedback after a short delay
+		_show_value_feedback(amount)
 
 ## Show floating payment notification above golfer
 func show_payment_notification(amount: int) -> void:
@@ -1188,6 +1207,134 @@ func show_payment_notification(amount: int) -> void:
 
 	# Remove the notification when done
 	tween.finished.connect(func(): notification.queue_free())
+
+## --- Feedback System ---
+
+static func _load_feedback_data() -> void:
+	var file = FileAccess.open("res://data/golfer_feedback.json", FileAccess.READ)
+	if file:
+		var json_string = file.get_as_text()
+		file.close()
+		var data = JSON.parse_string(json_string)
+		if data is Dictionary:
+			_feedback_data = data
+	_feedback_loaded = true
+
+func _can_show_feedback() -> bool:
+	var game_time = GameManager.current_hour * 3600.0  # Convert hours to seconds
+	return (game_time - _last_feedback_time) >= FEEDBACK_COOLDOWN
+
+func _pick_random(arr: Array) -> String:
+	if arr.is_empty():
+		return ""
+	return arr[randi() % arr.size()]
+
+func _show_score_feedback(score_diff: int) -> void:
+	if not _can_show_feedback() or _feedback_data.is_empty():
+		return
+	var reactions = _feedback_data.get("score_reactions", {})
+	var category := ""
+	if score_diff <= -2:
+		category = "eagle_or_better"
+	elif score_diff == -1:
+		category = "birdie"
+	elif score_diff == 0:
+		category = "par"
+	elif score_diff == 1:
+		category = "bogey"
+	else:
+		category = "double_plus"
+
+	var messages: Array = reactions.get(category, [])
+	if messages.is_empty():
+		return
+
+	var msg = _pick_random(messages)
+	var fb_type = "positive" if score_diff <= 0 else "negative"
+	_emit_feedback(msg, fb_type)
+
+func _show_value_feedback(fee: int) -> void:
+	if _feedback_data.is_empty():
+		return
+	# Simple value perception: compare fee to reputation-based perceived value
+	var open_holes = 0
+	if GameManager.current_course:
+		open_holes = GameManager.current_course.get_open_holes().size()
+	var perceived_value = (GameManager.reputation * 0.3 + open_holes * 5.0)
+	var ratio = perceived_value / max(fee, 1)
+
+	var value_data: Dictionary = _feedback_data.get("value", {})
+	var category := ""
+	if ratio < 0.7:
+		category = "overpriced"
+	elif ratio > 1.3:
+		category = "good_value"
+	else:
+		category = "fair"
+
+	var messages: Array = value_data.get(category, [])
+	if messages.is_empty():
+		return
+
+	# Only show value feedback sometimes — not every golfer comments
+	if randf() > 0.4:
+		return
+
+	var msg = _pick_random(messages)
+	var fb_type = "negative" if category == "overpriced" else ("positive" if category == "good_value" else "neutral")
+	_emit_feedback(msg, fb_type)
+
+func _process_idle_wait(delta: float) -> void:
+	"""Track wait time while idle (waiting for turn). Triggers slow-play feedback."""
+	if current_state != State.IDLE or current_strokes == 0:
+		return
+	_wait_time_accumulated += delta * GameManager.get_game_speed_multiplier()
+	var threshold = 60.0 / max(patience, 0.1)  # Impatient golfers complain sooner
+	if _wait_time_accumulated >= threshold:
+		_wait_time_accumulated = 0.0
+		_show_pace_feedback()
+		_adjust_mood(-0.05)
+
+func _show_pace_feedback() -> void:
+	if not _can_show_feedback() or _feedback_data.is_empty():
+		return
+	var pace_data: Dictionary = _feedback_data.get("pace_of_play", {})
+	var messages: Array = pace_data.get("slow", [])
+	if messages.is_empty():
+		return
+	var msg = _pick_random(messages)
+	_emit_feedback(msg, "negative")
+
+func _emit_feedback(message: String, fb_type: String) -> void:
+	_last_feedback_time = GameManager.current_hour * 3600.0
+	show_thought_bubble(message, fb_type)
+	EventBus.emit_signal("golfer_feedback", golfer_id, golfer_name, message, fb_type)
+
+func show_thought_bubble(text: String, fb_type: String = "neutral") -> void:
+	"""Display a thought bubble above the golfer. Reuses the payment notification pattern."""
+	var bubble = PanelContainer.new()
+	bubble.position = Vector2(-30, -50)
+
+	var label = Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", 11)
+
+	match fb_type:
+		"positive":
+			label.add_theme_color_override("font_color", Color(0.2, 0.85, 0.2))
+		"negative":
+			label.add_theme_color_override("font_color", Color(0.9, 0.25, 0.25))
+		_:
+			label.add_theme_color_override("font_color", Color.WHITE)
+
+	bubble.add_child(label)
+	add_child(bubble)
+
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(bubble, "position:y", -75, 2.5)
+	tween.tween_property(bubble, "modulate:a", 0.0, 2.5).set_delay(1.0)
+	tween.finished.connect(func(): bubble.queue_free())
 
 ## Serialize golfer state
 func serialize() -> Dictionary:

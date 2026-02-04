@@ -1,0 +1,22 @@
+{
+  "score_reactions": {
+    "eagle_or_better": ["Incredible!", "What a shot!", "Unbelievable!"],
+    "birdie": ["Nice birdie!", "Great hole!", "Feeling good!"],
+    "par": ["Solid par.", "Good hole.", "Steady round."],
+    "bogey": ["Tough hole...", "Could be better.", "Shake it off."],
+    "double_plus": ["Rough hole.", "Forget that one.", "Not my day."]
+  },
+  "pace_of_play": {
+    "slow": ["So slow!", "This pace is brutal.", "Move it along!", "We'll be here all day."],
+    "good": ["Nice pace today.", "Smooth round.", "Playing through nicely."]
+  },
+  "value": {
+    "overpriced": ["Overpriced!", "Not worth the fee.", "Too expensive for this."],
+    "good_value": ["Great value!", "Worth every penny.", "Good course for the price."],
+    "fair": ["Fair price.", "Reasonable.", "About right."]
+  },
+  "course_quality": {
+    "positive": ["Beautiful course!", "Love the layout!", "Well maintained!", "Nice greens!"],
+    "negative": ["Course needs work.", "Rough conditions.", "Seen better courses.", "Needs some TLC."]
+  }
+}
