@@ -34,6 +34,7 @@ var undo_manager: UndoManager = UndoManager.new()
 var wind_system: WindSystem = null
 var wind_indicator: WindIndicator = null
 var day_night_system: DayNightSystem = null
+var daily_stats_tracker: DailyStatsTracker = null
 var elevation_tool: ElevationTool = ElevationTool.new()
 var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
@@ -78,6 +79,11 @@ func _ready() -> void:
 	day_night_system = DayNightSystem.new()
 	day_night_system.name = "DayNightSystem"
 	add_child(day_night_system)
+
+	# Set up daily stats tracker
+	daily_stats_tracker = DailyStatsTracker.new()
+	daily_stats_tracker.name = "DailyStatsTracker"
+	add_child(daily_stats_tracker)
 
 	_connect_signals()
 	_connect_ui_buttons()
@@ -771,11 +777,20 @@ func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 # --- Day/Night Cycle ---
 
 func _on_end_of_day(day_number: int) -> void:
-	"""Handle end of day — advance to next morning."""
-	EventBus.notify("Day %d complete!" % day_number, "info")
-	# Advance to next day after a brief pause for the notification to show
-	await get_tree().create_timer(2.0).timeout
+	"""Handle end of day — show summary panel, then advance to next morning."""
+	# Pause simulation while summary is showing
+	GameManager.set_speed(GameManager.GameSpeed.PAUSED)
+
+	var summary = daily_stats_tracker.get_daily_summary()
+	var panel = EndOfDaySummaryPanel.new()
+	panel.setup(day_number, summary)
+	panel.continue_pressed.connect(_on_summary_continue)
+	$UI.add_child(panel)
+
+func _on_summary_continue() -> void:
+	"""Player dismissed the end-of-day summary. Advance to next day."""
 	GameManager.advance_to_next_day()
+	GameManager.set_speed(GameManager.GameSpeed.NORMAL)
 
 # --- Undo/Redo System ---
 
