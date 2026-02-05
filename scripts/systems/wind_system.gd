@@ -26,6 +26,10 @@ func _exit_tree() -> void:
 	if EventBus.day_changed.is_connected(_on_day_changed):
 		EventBus.day_changed.disconnect(_on_day_changed)
 
+## Public method to generate new daily wind (called by GameManager on day advance)
+func generate_daily_wind() -> void:
+	_generate_new_wind()
+
 ## Generate new wind conditions (called at start and each new day)
 func _generate_new_wind() -> void:
 	_base_direction = randf() * TAU

@@ -64,12 +64,17 @@ func _process(delta: float) -> void:
 		return
 
 	# Dynamic spawning: spawn when first tee is clear (with minimum cooldown)
+	# Only spawn during open hours
 	time_since_last_spawn += delta * GameManager.get_game_speed_multiplier()
 
-	if time_since_last_spawn >= min_spawn_cooldown_seconds:
-		if active_golfers.size() < max_concurrent_golfers and _is_first_tee_clear():
-			spawn_initial_group()
-			time_since_last_spawn = 0.0
+	if GameManager.is_course_open():
+		if time_since_last_spawn >= min_spawn_cooldown_seconds:
+			if active_golfers.size() < max_concurrent_golfers and _is_first_tee_clear():
+				spawn_initial_group()
+				time_since_last_spawn = 0.0
+
+	# Check if all golfers have left after closing
+	_check_end_of_day()
 
 	# Update active golfers
 	_update_golfers(delta)
@@ -223,6 +228,13 @@ func _is_landing_area_clear(shooting_golfer: Golfer, group_golfers: Array) -> bo
 
 	return true  # Landing area is clear
 
+func _check_end_of_day() -> void:
+	"""Check if all golfers have left after course closing, then trigger end of day."""
+	if not GameManager.is_end_of_day_pending():
+		return
+	if active_golfers.is_empty():
+		GameManager.request_end_of_day()
+
 func _advance_golfer(golfer: Golfer) -> void:
 	"""Advance a specific golfer to their next shot"""
 	var course_data = GameManager.course_data
@@ -238,6 +250,11 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 	if next_hole_index >= course_data.holes.size():
 		# Round completed
+		golfer.finish_round()
+		return
+
+	# Course closing: finish current hole but don't start new ones
+	if not GameManager.is_course_open() and golfer.current_strokes == 0:
 		golfer.finish_round()
 		return
 
