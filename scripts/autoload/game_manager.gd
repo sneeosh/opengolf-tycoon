@@ -126,6 +126,7 @@ func new_game(course_name_input: String = "New Course") -> void:
 	green_fee = 30  # Reset to default
 	_closing_announced = false
 	_end_of_day_triggered = false
+	_end_of_day_emitted = false
 	current_course = CourseData.new()
 	set_mode(GameMode.BUILDING)
 	EventBus.emit_signal("new_game_started")
@@ -136,10 +137,15 @@ func is_course_open() -> bool:
 func is_end_of_day_pending() -> bool:
 	return _end_of_day_triggered
 
+var _end_of_day_emitted: bool = false
+
 func request_end_of_day() -> void:
 	"""Called when all golfers have left after closing. Emits end_of_day signal."""
 	if not _end_of_day_triggered:
 		return
+	if _end_of_day_emitted:
+		return  # Already emitted, waiting for advance_to_next_day()
+	_end_of_day_emitted = true
 	EventBus.emit_signal("end_of_day", current_day)
 
 func advance_to_next_day() -> void:
@@ -148,6 +154,7 @@ func advance_to_next_day() -> void:
 	current_hour = COURSE_OPEN_HOUR
 	_closing_announced = false
 	_end_of_day_triggered = false
+	_end_of_day_emitted = false
 	EventBus.emit_signal("day_changed", current_day)
 	if wind_system:
 		wind_system.generate_daily_wind()
