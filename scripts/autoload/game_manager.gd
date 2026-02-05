@@ -26,6 +26,9 @@ var terrain_grid: TerrainGrid = null
 # Reference to wind system (set by main scene)
 var wind_system: WindSystem = null
 
+# Daily statistics tracking
+var daily_stats: DailyStatistics = DailyStatistics.new()
+
 # Expose properties for backward compatibility
 var course_data: CourseData:
 	get:
@@ -46,6 +49,24 @@ const COURSE_CLOSE_HOUR: float = 20.0
 
 func _ready() -> void:
 	print("GameManager initialized")
+	# Connect signals for daily statistics tracking
+	EventBus.green_fee_paid.connect(_on_green_fee_paid_for_stats)
+	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole_for_stats)
+	EventBus.golfer_finished_round.connect(_on_golfer_finished_round_for_stats)
+
+func _on_green_fee_paid_for_stats(_golfer_id: int, _golfer_name: String, amount: int) -> void:
+	daily_stats.record_green_fee(amount)
+
+func _on_golfer_finished_hole_for_stats(_golfer_id: int, _hole_number: int, strokes: int, par: int) -> void:
+	daily_stats.record_hole_score(strokes, par)
+
+func _on_golfer_finished_round_for_stats(_golfer_id: int, total_strokes: int) -> void:
+	# Get total par from course
+	var total_par = 0
+	if current_course:
+		for hole in current_course.get_open_holes():
+			total_par += hole.par
+	daily_stats.record_round_finished(total_strokes, total_par)
 
 func _process(delta: float) -> void:
 	if current_mode == GameMode.SIMULATING and not is_paused:
@@ -150,6 +171,9 @@ func request_end_of_day() -> void:
 
 func advance_to_next_day() -> void:
 	"""Advance to the next morning. Called after end-of-day processing is complete."""
+	# Reset daily statistics for the new day
+	daily_stats.reset()
+
 	current_day += 1
 	current_hour = COURSE_OPEN_HOUR
 	_closing_announced = false
@@ -233,3 +257,53 @@ class HoleData:
 	var distance_yards: int = 0
 	var is_open: bool = true  # Whether the hole is open for play
 	var difficulty_rating: float = 1.0  # Hole difficulty (1.0-10.0)
+
+## DailyStatistics - Tracks statistics for the current day
+class DailyStatistics:
+	var revenue: int = 0  # Green fees collected today
+	var golfers_served: int = 0  # Number of golfers who finished their round
+	var holes_in_one: int = 0
+	var eagles: int = 0  # Par - 2 (or better on par 5s)
+	var birdies: int = 0  # Par - 1
+	var bogeys_or_worse: int = 0  # Par + 1 or worse (for pace indicator)
+	var total_strokes_today: int = 0  # For calculating average score
+	var total_par_today: int = 0  # For calculating average score
+	var operating_costs: int = 0  # Maintenance etc.
+
+	func reset() -> void:
+		revenue = 0
+		golfers_served = 0
+		holes_in_one = 0
+		eagles = 0
+		birdies = 0
+		bogeys_or_worse = 0
+		total_strokes_today = 0
+		total_par_today = 0
+		operating_costs = 0
+
+	func get_profit() -> int:
+		return revenue - operating_costs
+
+	func get_average_score_to_par() -> float:
+		if total_par_today == 0:
+			return 0.0
+		return float(total_strokes_today - total_par_today) / float(golfers_served) if golfers_served > 0 else 0.0
+
+	func record_hole_score(strokes: int, par: int) -> void:
+		var score_to_par = strokes - par
+		if strokes == 1:
+			holes_in_one += 1
+		elif score_to_par <= -2:
+			eagles += 1
+		elif score_to_par == -1:
+			birdies += 1
+		elif score_to_par >= 1:
+			bogeys_or_worse += 1
+
+	func record_round_finished(total_strokes: int, total_par: int) -> void:
+		golfers_served += 1
+		total_strokes_today += total_strokes
+		total_par_today += total_par
+
+	func record_green_fee(amount: int) -> void:
+		revenue += amount

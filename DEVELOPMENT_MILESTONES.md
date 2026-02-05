@@ -267,18 +267,21 @@ _Deferred until core gameplay loop is complete. Currently, golfers are cleared o
 - Validate golfer state against course state on load (handle deleted holes, terrain changes)
 - This is complex because golfers can be in various mid-action states (walking, preparing shot, swinging, watching ball flight)
 
-### [] Day/Night Cycle & Course Closing
-- Visual dimming as evening approaches
-- Golfers finish current hole and leave at closing time (8 PM)
-- New day begins at course open (6 AM)
-- Day transition screen or notification
+### [X] Day/Night Cycle & Course Closing
+**STATUS: COMPLETE** - Full day/night visual system with course hours:
+- ✅ Visual dimming as evening approaches (DayNightSystem with CanvasModulate)
+- ✅ Golfers finish current hole and leave at closing time (8 PM)
+- ✅ New day begins at course open (6 AM)
+- ✅ Day transition via end-of-day summary screen
 
-### [] End-of-Day Summary
-- Revenue earned today
-- Number of golfers served
-- Notable scores (eagles, hole-in-ones)
-- Average pace of play
-- Daily profit/loss
+### [X] End-of-Day Summary
+**STATUS: COMPLETE** - Daily statistics panel shown at end of each day:
+- ✅ Revenue earned today (green fees collected)
+- ✅ Number of golfers served
+- ✅ Notable scores (hole-in-ones, eagles, birdies)
+- ✅ Average score to par
+- ✅ Daily profit/loss (revenue - operating costs)
+- ✅ "Continue to Day X" button advances to next morning
 
 ### [] Golfer Feedback System
 - Thought bubbles above golfers showing reactions ("Great hole!", "Too slow!", "Overpriced!")

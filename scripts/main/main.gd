@@ -779,10 +779,26 @@ func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 # --- Day/Night Cycle ---
 
 func _on_end_of_day(day_number: int) -> void:
-	"""Handle end of day — advance to next morning."""
-	EventBus.notify("Day %d complete!" % day_number, "info")
-	# Advance to next day after a brief pause for the notification to show
-	await get_tree().create_timer(2.0).timeout
+	"""Handle end of day — show summary panel."""
+	# Pause the game while showing the summary
+	GameManager.is_paused = true
+
+	# Create and show the end of day summary panel
+	var summary = EndOfDaySummaryPanel.new(day_number)
+	summary.name = "EndOfDaySummary"
+
+	# Center the panel on screen
+	var hud = $UI/HUD
+	hud.add_child(summary)
+	summary.anchors_preset = Control.PRESET_CENTER
+	summary.position = (get_viewport().get_visible_rect().size - summary.custom_minimum_size) / 2
+
+	# Connect the continue signal to advance to next day
+	summary.continue_pressed.connect(_on_summary_continue)
+
+func _on_summary_continue() -> void:
+	"""Called when player clicks Continue on the end of day summary."""
+	GameManager.is_paused = false
 	GameManager.advance_to_next_day()
 
 # --- Save/Load ---
