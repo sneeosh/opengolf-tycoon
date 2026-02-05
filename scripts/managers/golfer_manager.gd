@@ -89,15 +89,15 @@ func _update_golfers(delta: float) -> void:
 
 func _update_group(group_golfers: Array) -> void:
 	"""Update a single group of golfers - handle turn-based play within the group"""
-	# Check if anyone in the group is currently taking a shot
-	var someone_shooting = false
+	# Check if anyone in the group is currently busy (shooting or walking)
+	var someone_busy = false
 	for golfer in group_golfers:
-		if golfer.current_state in [Golfer.State.PREPARING_SHOT, Golfer.State.SWINGING, Golfer.State.WATCHING]:
-			someone_shooting = true
+		if golfer.current_state in [Golfer.State.PREPARING_SHOT, Golfer.State.SWINGING, Golfer.State.WATCHING, Golfer.State.WALKING]:
+			someone_busy = true
 			break
 
-	# If no one is shooting, determine whose turn it is in this group
-	if not someone_shooting:
+	# If no one is busy, determine whose turn it is in this group
+	if not someone_busy:
 		var next_golfer = _determine_next_golfer_in_group(group_golfers)
 		if next_golfer:
 			# Check if landing area is clear before advancing
