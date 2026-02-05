@@ -274,6 +274,7 @@ func deserialize(data: Dictionary) -> void:
 			var pos = Vector2i(int(parts[0]), int(parts[1]))
 			if is_valid_position(pos):
 				_grid[pos] = data[key]
+				_update_tile_visual(pos)
 
 func deserialize_elevation(data: Dictionary) -> void:
 	_elevation_grid.clear()

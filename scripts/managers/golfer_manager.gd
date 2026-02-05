@@ -447,3 +447,46 @@ func get_golfer(golfer_id: int) -> Golfer:
 		if golfer.golfer_id == golfer_id:
 			return golfer
 	return null
+
+## Clear all golfers from the course (used when loading saves)
+func clear_all_golfers() -> void:
+	for golfer in active_golfers:
+		golfer.queue_free()
+	active_golfers.clear()
+	next_golfer_id = 0
+	next_group_id = 0
+	time_since_last_spawn = 0.0
+
+## Serialize all active golfers
+func serialize_golfers() -> Array:
+	var data: Array = []
+	for golfer in active_golfers:
+		data.append(golfer.serialize())
+	return data
+
+## Restore golfers from save data
+func deserialize_golfers(golfers_data: Array) -> void:
+	clear_all_golfers()
+
+	if not golfers_container:
+		push_error("No golfers container found")
+		return
+
+	var max_id = 0
+	var max_group = 0
+
+	for golfer_data in golfers_data:
+		# Use the scene to ensure all child nodes are properly created
+		var golfer = GOLFER_SCENE.instantiate() as Golfer
+		golfers_container.add_child(golfer)
+		golfer.deserialize(golfer_data)
+		active_golfers.append(golfer)
+
+		# Track max IDs to prevent collisions with new golfers
+		if golfer.golfer_id > max_id:
+			max_id = golfer.golfer_id
+		if golfer.group_id > max_group:
+			max_group = golfer.group_id
+
+	next_golfer_id = max_id + 1
+	next_group_id = max_group + 1

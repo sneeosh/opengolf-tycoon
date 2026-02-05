@@ -80,7 +80,7 @@ func _ready() -> void:
 	add_child(day_night_system)
 
 	# Set up save manager references
-	SaveManager.set_references(terrain_grid, entity_layer)
+	SaveManager.set_references(terrain_grid, entity_layer, golfer_manager, ball_manager)
 
 	_connect_signals()
 	_connect_ui_buttons()
@@ -798,18 +798,16 @@ func _create_save_load_button() -> void:
 
 func _on_menu_pressed() -> void:
 	# Toggle save/load panel
-	var existing = get_tree().root.get_node_or_null("SaveLoadPanel")
+	var hud = $UI/HUD
+	var existing = hud.get_node_or_null("SaveLoadPanel")
 	if existing:
 		existing.queue_free()
 		return
 	var panel = SaveLoadPanel.new()
 	panel.name = "SaveLoadPanel"
 	panel.anchors_preset = Control.PRESET_CENTER
-	panel.position = Vector2(
-		get_viewport().get_visible_rect().size.x / 2 - 200,
-		get_viewport().get_visible_rect().size.y / 2 - 175
-	)
-	get_tree().root.add_child(panel)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	hud.add_child(panel)
 
 func _on_load_completed(_success: bool) -> void:
 	if _success:

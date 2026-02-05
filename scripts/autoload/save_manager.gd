@@ -1,5 +1,21 @@
 extends Node
 ## SaveManager - Handles saving and loading game data
+##
+## SAVE STATE CHECKLIST - Update when adding new saveable content:
+## - [x] Game state (money, reputation, day, hour, green_fee)
+## - [x] Terrain tiles and elevation
+## - [x] Entities (trees, buildings, rocks) via EntityLayer
+## - [x] Holes (positions, par, open/closed state)
+## - [x] Wind (direction, speed)
+## - [ ] Golfers - NOT persisted; cleared on load, respawn naturally when simulation resumes
+##       (See DEVELOPMENT_MILESTONES.md for future full mid-action state persistence)
+## - [ ] TODO: Add new entity types here as they're implemented
+##
+## When adding a new saveable entity:
+## 1. Add serialize/deserialize methods to the entity class
+## 2. Add serialization call in _build_save_data()
+## 3. Add deserialization call in _apply_save_data()
+## 4. Update this checklist
 
 const SAVE_DIR: String = "user://saves/"
 const SETTINGS_PATH: String = "user://settings.cfg"
@@ -8,6 +24,8 @@ const SAVE_VERSION: int = 2
 ## Scene-tree references (set by Main in _ready())
 var terrain_grid: TerrainGrid = null
 var entity_layer: EntityLayer = null
+var golfer_manager: Node = null
+var ball_manager: Node = null
 
 func _ready() -> void:
 	_ensure_save_directory()
@@ -19,9 +37,11 @@ func _ensure_save_directory() -> void:
 	if dir and not dir.dir_exists("saves"):
 		dir.make_dir("saves")
 
-func set_references(grid: TerrainGrid, entities: EntityLayer) -> void:
+func set_references(grid: TerrainGrid, entities: EntityLayer, golfers: Node = null, balls: Node = null) -> void:
 	terrain_grid = grid
 	entity_layer = entities
+	golfer_manager = golfers
+	ball_manager = balls
 
 func save_game(save_name: String = "") -> bool:
 	if save_name.is_empty():
@@ -134,6 +154,9 @@ func _build_save_data() -> Dictionary:
 			"speed": GameManager.wind_system.wind_speed,
 		}
 
+	# Golfers: NOT saved - they are cleared on load and respawn naturally when
+	# simulation resumes. Full mid-action state persistence is a future milestone.
+
 	return data
 
 ## Serialize hole data to plain dictionaries
@@ -154,6 +177,10 @@ func _serialize_holes(holes: Array) -> Array:
 
 ## Apply loaded save data
 func _apply_save_data(data: Dictionary) -> void:
+	# IMPORTANT: Set to BUILDING mode FIRST to prevent golfer_manager from
+	# processing golfers while we're still loading
+	GameManager.set_mode(GameManager.GameMode.BUILDING)
+
 	var version = data.get("version", 1)
 
 	# Game state (with fallbacks for older save versions)
@@ -187,7 +214,15 @@ func _apply_save_data(data: Dictionary) -> void:
 		GameManager.wind_system.wind_direction = float(wind_data.get("direction", 0.0))
 		GameManager.wind_system.wind_speed = float(wind_data.get("speed", 5.0))
 
-	GameManager.set_mode(GameManager.GameMode.BUILDING)
+	# Golfers: Always clear on load - they will respawn naturally when the user
+	# switches to simulation mode. This avoids complex mid-action state restoration.
+	if golfer_manager and golfer_manager.has_method("clear_all_golfers"):
+		golfer_manager.clear_all_golfers()
+
+	# Clear all balls as well - they'll be created fresh when golfers spawn
+	if ball_manager and ball_manager.has_method("clear_all_balls"):
+		ball_manager.clear_all_balls()
+
 	EventBus.emit_signal("load_completed", true)
 
 ## Deserialize holes into GameManager.current_course

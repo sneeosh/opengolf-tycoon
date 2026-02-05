@@ -244,11 +244,28 @@ The game currently supports:
 
 ## PRIORITY 4: Save/Load & Essential UX
 
-### [] Save/Load System
-- Save course layout, economy state, and day progress
-- Auto-save at end of each day
-- At least one save slot (multiple slots later)
-- Load from main menu
+### [~] Save/Load System
+**STATUS: PARTIAL** - Core save/load working, golfer persistence deferred:
+- ✅ Save course layout (terrain tiles, elevation data)
+- ✅ Save entities (trees, buildings, rocks)
+- ✅ Save hole configurations (tee/green/flag positions, par, open/closed state)
+- ✅ Save economy state (money, reputation, green fee)
+- ✅ Save day progress (current day, current hour)
+- ✅ Save wind state (direction, speed)
+- ✅ Auto-save at end of each day
+- ✅ Manual save with named slots
+- ✅ Load from save menu
+- ⏳ Golfers NOT persisted - cleared on load, respawn when simulation resumes
+- ⏳ Full mid-action golfer state persistence (see Future Enhancements below)
+
+### [] Full Mid-Action Golfer State Persistence (Future Enhancement)
+_Deferred until core gameplay loop is complete. Currently, golfers are cleared on load and respawn naturally._
+- Persist golfer position, state machine state, current hole, stroke count
+- Persist ball position for each golfer
+- Handle mid-flight ball state (either complete flight before save, or persist trajectory)
+- Restore golfer-to-ball associations correctly
+- Validate golfer state against course state on load (handle deleted holes, terrain changes)
+- This is complex because golfers can be in various mid-action states (walking, preparing shot, swinging, watching ball flight)
 
 ### [] Day/Night Cycle & Course Closing
 - Visual dimming as evening approaches

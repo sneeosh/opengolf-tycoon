@@ -4,6 +4,7 @@ class_name BallManager
 
 var active_balls: Dictionary = {}  # key: golfer_id, value: Ball instance
 var terrain_grid: TerrainGrid
+var _last_shot_frame: Dictionary = {}  # key: golfer_id, value: frame number (debounce)
 
 @onready var balls_container: Node2D = get_parent().get_node("Entities/Balls") if get_parent().has_node("Entities/Balls") else null
 
@@ -74,6 +75,13 @@ func remove_ball(golfer_id: int) -> void:
 	ball.destroy()
 	active_balls.erase(golfer_id)
 
+## Clear all balls (used when loading saves)
+func clear_all_balls() -> void:
+	for ball in active_balls.values():
+		ball.destroy()
+	active_balls.clear()
+	_last_shot_frame.clear()
+
 ## Hide ball (when golfer finishes hole)
 func hide_ball(golfer_id: int) -> void:
 	var ball = get_ball(golfer_id)
@@ -122,8 +130,18 @@ func handle_ob_penalty(golfer_id: int, previous_position: Vector2i) -> void:
 
 ## Animate ball flight from one position to another
 func animate_shot(golfer_id: int, from_grid: Vector2i, to_grid: Vector2i, distance_yards: int, is_putt: bool = false) -> void:
+	# Debounce: prevent multiple shots for same golfer on same frame
+	var current_frame = Engine.get_process_frames()
+	if _last_shot_frame.get(golfer_id, -1) == current_frame:
+		return
+	_last_shot_frame[golfer_id] = current_frame
+
 	var ball = get_or_create_ball(golfer_id)
 	if not ball:
+		return
+
+	# Prevent duplicate animations - if ball is already in flight, ignore
+	if ball.ball_state == Ball.BallState.IN_FLIGHT:
 		return
 
 	# Make sure ball is visible
@@ -185,6 +203,11 @@ func _on_shot_taken(golfer_id: int, hole_number: int, stroke_count: int) -> void
 func _on_ball_landed(golfer_id: int, from_position: Vector2i, landing_position: Vector2i, terrain_type: int) -> void:
 	# This is called from golfer._calculate_shot()
 	# We need to animate the ball from the shot origin to landing position
+
+	# Ignore invalid golfer IDs (can happen during deserialization before golfer_id is set)
+	if golfer_id < 0:
+		return
+
 	if terrain_grid:
 		var distance = terrain_grid.calculate_distance_yards(from_position, landing_position)
 		var is_putt = terrain_grid.get_tile(from_position) == TerrainTypes.Type.GREEN

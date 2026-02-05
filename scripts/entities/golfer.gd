@@ -1197,10 +1197,21 @@ func serialize() -> Dictionary:
 	return {
 		"golfer_id": golfer_id,
 		"golfer_name": golfer_name,
+		"group_id": group_id,
+		"driving_skill": driving_skill,
+		"accuracy_skill": accuracy_skill,
+		"putting_skill": putting_skill,
+		"recovery_skill": recovery_skill,
+		"aggression": aggression,
+		"patience": patience,
 		"current_hole": current_hole,
+		"current_strokes": current_strokes,
 		"total_strokes": total_strokes,
 		"total_par": total_par,
 		"current_mood": current_mood,
+		"current_state": current_state,
+		"ball_position": {"x": ball_position.x, "y": ball_position.y},
+		"ball_position_precise": {"x": ball_position_precise.x, "y": ball_position_precise.y},
 		"position": {"x": global_position.x, "y": global_position.y}
 	}
 
@@ -1208,11 +1219,33 @@ func serialize() -> Dictionary:
 func deserialize(data: Dictionary) -> void:
 	golfer_id = data.get("golfer_id", -1)
 	golfer_name = data.get("golfer_name", "Golfer")
+	group_id = data.get("group_id", -1)
+	driving_skill = data.get("driving_skill", 0.5)
+	accuracy_skill = data.get("accuracy_skill", 0.5)
+	putting_skill = data.get("putting_skill", 0.5)
+	recovery_skill = data.get("recovery_skill", 0.5)
+	aggression = data.get("aggression", 0.5)
+	patience = data.get("patience", 0.5)
 	current_hole = data.get("current_hole", 0)
+	current_strokes = data.get("current_strokes", 0)
 	total_strokes = data.get("total_strokes", 0)
 	total_par = data.get("total_par", 0)
 	current_mood = data.get("current_mood", 0.5)
+	# Always restore to IDLE state so golfer can resume cleanly
+	# The current_strokes and ball_position tell us where they are in the hole
+	current_state = State.IDLE
+
+	var ball_pos = data.get("ball_position", {})
+	if ball_pos:
+		ball_position = Vector2i(int(ball_pos.get("x", 0)), int(ball_pos.get("y", 0)))
+
+	var ball_precise = data.get("ball_position_precise", {})
+	if ball_precise:
+		ball_position_precise = Vector2(ball_precise.get("x", 0), ball_precise.get("y", 0))
 
 	var pos_data = data.get("position", {})
 	if pos_data:
 		global_position = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
+
+	_update_visual()
+	_update_score_display()
