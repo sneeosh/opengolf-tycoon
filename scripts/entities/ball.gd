@@ -79,6 +79,7 @@ func start_flight_screen(from_screen: Vector2, to_screen: Vector2, duration: flo
 
 	if is_putt:
 		flight_max_height = 0.0
+		wind_visual_offset = Vector2.ZERO  # No wind drift on putts
 	else:
 		var distance = flight_start_pos.distance_to(flight_end_pos)
 		flight_max_height = min(distance * 0.3, 150.0)
