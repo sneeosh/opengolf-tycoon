@@ -29,6 +29,7 @@ The game currently supports:
 24. **OB detection fix & markers** - Ball correctly enters OUT_OF_BOUNDS state, white stake markers at boundaries
 25. **Wind system** - Per-day wind with direction/speed, club-sensitive displacement, AI compensation, HUD indicator
 26. **Terrain elevation system** - Raise/lower tools, always-visible elevation shading with contour lines, uphill/downhill shot effects, slope-influenced ball roll
+27. **Golfer feedback system** - Thought bubbles for reactions (score, hazards, pricing), FeedbackManager for aggregate tracking, satisfaction in end-of-day summary
 
 ---
 
@@ -283,11 +284,16 @@ _Deferred until core gameplay loop is complete. Currently, golfers are cleared o
 - ✅ Daily profit/loss (revenue - operating costs)
 - ✅ "Continue to Day X" button advances to next morning
 
-### [] Golfer Feedback System
-- Thought bubbles above golfers showing reactions ("Great hole!", "Too slow!", "Overpriced!")
-- Feedback tied to actual game state (pace of play, green fee vs course quality, hole design)
-- Gives the player actionable information about what to improve
-- Aggregate feedback visible in a simple log or summary
+### [X] Golfer Feedback System
+**STATUS: COMPLETE** - Thought bubble reactions and satisfaction tracking:
+- ✅ ThoughtBubble UI component with sentiment colors (positive/negative/neutral)
+- ✅ FeedbackTriggers system with 12 trigger types and probability-based firing
+- ✅ Score-based reactions (hole-in-one, birdie, bogey, etc.)
+- ✅ Hazard reactions (water, bunker)
+- ✅ Price sensitivity reactions (overpriced, good value)
+- ✅ Course satisfaction at end of round
+- ✅ FeedbackManager autoload tracks aggregate daily feedback
+- ✅ End-of-day summary shows satisfaction percentage and top feedback
 
 ---
 
@@ -492,7 +498,8 @@ _These are ambitious ideas that would each represent significant scope. Deferred
 10. ✅ ~~Undo/Redo in Build Mode~~ - COMPLETE (Ctrl+Z/Ctrl+Y, terrain strokes, entity placements)
 11. ✅ ~~Green Fee UI~~ - COMPLETE (all P2 items done!)
 12. ✅ ~~Priority 3: Terrain & Course Design Features~~ - COMPLETE (water overlays, bunker effects, OB fix + markers, wind system, elevation system)
-13. Start Priority 4: Save/Load & Essential UX
+13. ✅ ~~Priority 4: Save/Load & Essential UX~~ - COMPLETE (save/load, day/night, end-of-day summary, golfer feedback)
+14. Start Priority 5: Economy & Satisfaction Loop
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.
