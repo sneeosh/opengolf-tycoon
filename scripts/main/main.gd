@@ -792,15 +792,15 @@ func _on_end_of_day(day_number: int) -> void:
 	# Create and show the end of day summary panel
 	var summary = EndOfDaySummaryPanel.new(day_number)
 	summary.name = "EndOfDaySummary"
+
+	# Connect the signal BEFORE add_child (ready signal fires during add_child)
+	summary.continue_pressed.connect(_on_summary_continue)
+
 	hud.add_child(summary)
 
-	# Center the panel on screen after it's added
-	await summary.ready
+	# Center the panel on screen (use custom_minimum_size since layout happens next frame)
 	var viewport_size = get_viewport().get_visible_rect().size
-	summary.position = (viewport_size - summary.size) / 2
-
-	# Connect the continue signal to advance to next day
-	summary.continue_pressed.connect(_on_summary_continue)
+	summary.position = (viewport_size - summary.custom_minimum_size) / 2
 
 func _on_summary_continue() -> void:
 	"""Called when player clicks Continue on the end of day summary."""
