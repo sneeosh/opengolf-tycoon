@@ -818,6 +818,17 @@ func _create_save_load_button() -> void:
 	menu_btn.pressed.connect(_on_menu_pressed)
 	bottom_bar.add_child(menu_btn)
 
+	# End Day button (for testing/convenience)
+	var end_day_btn = Button.new()
+	end_day_btn.name = "EndDayBtn"
+	end_day_btn.text = "End Day"
+	end_day_btn.custom_minimum_size = Vector2(70, 30)
+	end_day_btn.pressed.connect(_on_end_day_pressed)
+	bottom_bar.add_child(end_day_btn)
+
+func _on_end_day_pressed() -> void:
+	GameManager.force_end_day()
+
 func _on_menu_pressed() -> void:
 	# Toggle save/load panel
 	var hud = $UI/HUD

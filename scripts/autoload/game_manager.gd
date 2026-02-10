@@ -155,6 +155,28 @@ func new_game(course_name_input: String = "New Course") -> void:
 func is_course_open() -> bool:
 	return current_hour >= COURSE_OPEN_HOUR and current_hour < COURSE_CLOSE_HOUR
 
+func force_end_day() -> void:
+	"""Force advance to closing time - useful for testing."""
+	if current_mode != GameMode.SIMULATING:
+		EventBus.notify("Must be in simulation mode to end day", "error")
+		return
+
+	if _end_of_day_triggered:
+		EventBus.notify("Day already ending", "info")
+		return
+
+	# Jump to closing time
+	current_hour = COURSE_CLOSE_HOUR
+
+	# Trigger course closing announcement if not already done
+	if not _closing_announced:
+		_closing_announced = true
+		EventBus.course_closing.emit()
+
+	# Trigger end of day
+	_end_of_day_triggered = true
+	EventBus.notify("Course closed early - golfers finishing up", "info")
+
 func is_end_of_day_pending() -> bool:
 	return _end_of_day_triggered
 
