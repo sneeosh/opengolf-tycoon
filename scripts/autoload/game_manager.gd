@@ -292,6 +292,14 @@ class DailyStatistics:
 	var total_par_today: int = 0  # For calculating average score
 	var operating_costs: int = 0  # Maintenance etc.
 
+	# Golfer tier counts
+	var tier_counts: Dictionary = {
+		GolferTier.Tier.BEGINNER: 0,
+		GolferTier.Tier.CASUAL: 0,
+		GolferTier.Tier.SERIOUS: 0,
+		GolferTier.Tier.PRO: 0,
+	}
+
 	func reset() -> void:
 		revenue = 0
 		golfers_served = 0
@@ -302,6 +310,12 @@ class DailyStatistics:
 		total_strokes_today = 0
 		total_par_today = 0
 		operating_costs = 0
+		tier_counts = {
+			GolferTier.Tier.BEGINNER: 0,
+			GolferTier.Tier.CASUAL: 0,
+			GolferTier.Tier.SERIOUS: 0,
+			GolferTier.Tier.PRO: 0,
+		}
 
 	func get_profit() -> int:
 		return revenue - operating_costs
@@ -329,3 +343,7 @@ class DailyStatistics:
 
 	func record_green_fee(amount: int) -> void:
 		revenue += amount
+
+	func record_golfer_tier(tier: int) -> void:
+		if tier in tier_counts:
+			tier_counts[tier] += 1

@@ -13,7 +13,7 @@ func _ready() -> void:
 	_build_ui()
 
 func _build_ui() -> void:
-	custom_minimum_size = Vector2(380, 420)
+	custom_minimum_size = Vector2(380, 500)
 
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 16)
@@ -58,6 +58,27 @@ func _build_ui() -> void:
 	# Golfers served
 	var golfers_row = _create_stat_row("Golfers Served:", "%d" % stats.golfers_served)
 	vbox.add_child(golfers_row)
+
+	# Golfer tier breakdown
+	if stats.golfers_served > 0:
+		var dim_color = Color(0.7, 0.7, 0.7)
+		var beginners = stats.tier_counts.get(GolferTier.Tier.BEGINNER, 0)
+		var casuals = stats.tier_counts.get(GolferTier.Tier.CASUAL, 0)
+		var serious = stats.tier_counts.get(GolferTier.Tier.SERIOUS, 0)
+		var pros = stats.tier_counts.get(GolferTier.Tier.PRO, 0)
+
+		if beginners > 0:
+			var row = _create_stat_row("  Beginners:", "%d" % beginners, dim_color)
+			vbox.add_child(row)
+		if casuals > 0:
+			var row = _create_stat_row("  Casual:", "%d" % casuals, dim_color)
+			vbox.add_child(row)
+		if serious > 0:
+			var row = _create_stat_row("  Serious:", "%d" % serious, Color(0.4, 0.7, 1.0))
+			vbox.add_child(row)
+		if pros > 0:
+			var row = _create_stat_row("  Pro:", "%d" % pros, Color(1.0, 0.85, 0.0))
+			vbox.add_child(row)
 
 	# Average score (if any golfers played)
 	if stats.golfers_served > 0:

@@ -433,17 +433,29 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 
 	return golfer
 
-## Spawn a random golfer
+## Spawn a random golfer with tier-based skills
 func spawn_random_golfer(group_id: int = -1) -> Golfer:
 	var names = [
 		"Tiger", "Jack", "Arnold", "Phil", "Rory", "Jordan", "Brooks",
 		"Dustin", "Justin", "Bryson", "Jon", "Collin", "Scottie", "Xander"
 	]
 
-	var random_name = names[randi() % names.size()]
-	var random_skill = randf_range(0.5, 0.9)  # Increased from 0.3-0.8 to 0.5-0.9
+	# Select tier based on course quality
+	var rating = GameManager.course_rating.get("overall", 3.0)
+	var tier = GolferTier.select_tier(rating, GameManager.green_fee, GameManager.reputation)
 
-	return spawn_golfer(random_name, random_skill, group_id)
+	# Build name with tier-appropriate prefix
+	var base_name = names[randi() % names.size()]
+	var prefix = GolferTier.get_name_prefix(tier)
+	var full_name = prefix + " " + base_name if prefix != "" else base_name
+
+	# Spawn with default skill (will be overridden by initialize_from_tier)
+	var golfer = spawn_golfer(full_name, 0.5, group_id)
+	if golfer:
+		golfer.initialize_from_tier(tier)
+		print("Spawned %s (%s tier)" % [full_name, GolferTier.get_tier_name(tier)])
+
+	return golfer
 
 ## Spawn initial group of golfers when course opens
 func spawn_initial_group() -> void:
@@ -483,14 +495,24 @@ func remove_golfer(golfer_id: int) -> void:
 			return
 
 func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
-	# Increase reputation based on golfer satisfaction
-	var reputation_gain = randi_range(1, 5)
-	GameManager.reputation += reputation_gain
-
-	# Find the golfer to get their group_id
+	# Find the golfer to get their tier and group_id
 	var finished_golfer = get_golfer(golfer_id)
 	if not finished_golfer:
 		return
+
+	# Record tier for daily statistics
+	GameManager.daily_stats.record_golfer_tier(finished_golfer.golfer_tier)
+
+	# Tier-based reputation gain
+	var reputation_gain = GolferTier.get_reputation_gain(finished_golfer.golfer_tier)
+
+	# Pro golfers give bonus reputation if they had a good round
+	if finished_golfer.golfer_tier == GolferTier.Tier.PRO:
+		var score_to_par = total_strokes - finished_golfer.total_par
+		if score_to_par <= 0:
+			reputation_gain *= 2  # Double rep for pro under par
+
+	GameManager.modify_reputation(reputation_gain)
 
 	var group_id = finished_golfer.group_id
 
