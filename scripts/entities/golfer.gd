@@ -100,6 +100,10 @@ var path_index: int = 0
 @onready var body: Polygon2D = $Visual/Body if has_node("Visual/Body") else null
 @onready var arms: Polygon2D = $Visual/Arms if has_node("Visual/Arms") else null
 
+## Thought bubble feedback system
+var _last_thought_time: float = 0.0
+const THOUGHT_COOLDOWN: float = 3.0  # Seconds between thoughts (in real time)
+
 signal state_changed(old_state: State, new_state: State)
 signal shot_completed(distance: int, accuracy: float)
 signal hole_completed(strokes: int, par: int)
@@ -332,6 +336,11 @@ func finish_hole(par: int) -> void:
 	else:                     # Double bogey or worse
 		_adjust_mood(-0.2)
 
+	# Show thought bubble for notable scores
+	var score_trigger = FeedbackTriggers.get_score_trigger(current_strokes, par)
+	if score_trigger != -1:
+		show_thought(score_trigger)
+
 	EventBus.golfer_finished_hole.emit(golfer_id, current_hole, current_strokes, par)
 	hole_completed.emit(current_strokes, par)
 
@@ -341,6 +350,12 @@ func finish_hole(par: int) -> void:
 ## Finish the round
 func finish_round() -> void:
 	_change_state(State.FINISHED)
+
+	# Show course satisfaction feedback
+	var course_trigger = FeedbackTriggers.get_course_trigger(total_strokes, total_par)
+	if course_trigger != -1:
+		show_thought(course_trigger)
+
 	EventBus.golfer_finished_round.emit(golfer_id, total_strokes)
 
 ## Select appropriate club based on distance and terrain
@@ -885,6 +900,7 @@ func _handle_hazard_penalty(previous_position: Vector2i) -> bool:
 		var drop_position = _find_water_drop_position(ball_position)
 		print("%s: Ball in water! Penalty stroke. Dropping near hazard. Now on stroke %d" % [golfer_name, current_strokes])
 		EventBus.hazard_penalty.emit(golfer_id, "water", drop_position)
+		show_thought(FeedbackTriggers.TriggerType.HAZARD_WATER)
 		ball_position = drop_position
 		return true
 
@@ -1161,10 +1177,17 @@ func _update_score_display() -> void:
 	score_label.text = "%s, %s" % [score_text, hole_text]
 
 ## Handle green fee payment notification
-func _on_green_fee_paid(paid_golfer_id: int, paid_golfer_name: String, amount: int) -> void:
+func _on_green_fee_paid(paid_golfer_id: int, _paid_golfer_name: String, amount: int) -> void:
 	# Only show notification for this specific golfer
 	if paid_golfer_id == golfer_id:
 		show_payment_notification(amount)
+
+		# Check price sensitivity and show thought
+		var price_trigger = FeedbackTriggers.get_price_trigger(amount, GameManager.reputation)
+		if price_trigger != -1:
+			# Delay price feedback slightly so it doesn't overlap with payment notification
+			await get_tree().create_timer(1.0).timeout
+			show_thought(price_trigger)
 
 ## Show floating payment notification above golfer
 func show_payment_notification(amount: int) -> void:
@@ -1189,6 +1212,35 @@ func show_payment_notification(amount: int) -> void:
 
 	# Remove the notification when done
 	tween.finished.connect(func(): notification.queue_free())
+
+## Show a thought bubble with golfer feedback
+## Respects cooldown to prevent spam
+func show_thought(trigger_type: int) -> void:
+	# Enforce cooldown
+	var current_time = Time.get_ticks_msec() / 1000.0
+	if current_time - _last_thought_time < THOUGHT_COOLDOWN:
+		return
+
+	# Check probability
+	if not FeedbackTriggers.should_trigger(trigger_type):
+		return
+
+	_last_thought_time = current_time
+
+	var message = FeedbackTriggers.get_random_message(trigger_type)
+	var sentiment_str = FeedbackTriggers.get_sentiment(trigger_type)
+
+	var sentiment: int = ThoughtBubble.Sentiment.NEUTRAL
+	if sentiment_str == "positive":
+		sentiment = ThoughtBubble.Sentiment.POSITIVE
+	elif sentiment_str == "negative":
+		sentiment = ThoughtBubble.Sentiment.NEGATIVE
+
+	var bubble = ThoughtBubble.create(message, sentiment)
+	add_child(bubble)
+
+	# Notify FeedbackManager for aggregate tracking
+	EventBus.golfer_thought.emit(golfer_id, trigger_type, sentiment_str)
 
 ## Serialize golfer state
 func serialize() -> Dictionary:
