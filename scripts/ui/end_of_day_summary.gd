@@ -13,7 +13,7 @@ func _ready() -> void:
 	_build_ui()
 
 func _build_ui() -> void:
-	custom_minimum_size = Vector2(380, 320)
+	custom_minimum_size = Vector2(380, 420)
 
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 16)
@@ -107,6 +107,49 @@ func _build_ui() -> void:
 		none_label.text = "None today"
 		none_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 		notable_container.add_child(none_label)
+
+	vbox.add_child(HSeparator.new())
+
+	# Golfer Satisfaction section
+	var satisfaction_label = Label.new()
+	satisfaction_label.text = "Golfer Satisfaction"
+	satisfaction_label.add_theme_font_size_override("font_size", 16)
+	satisfaction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(satisfaction_label)
+
+	var feedback_summary = FeedbackManager.get_daily_summary()
+	var satisfaction_pct = int(feedback_summary["satisfaction"] * 100)
+
+	# Determine satisfaction color
+	var sat_color: Color
+	if satisfaction_pct >= 70:
+		sat_color = Color(0.4, 0.9, 0.4)  # Green
+	elif satisfaction_pct >= 40:
+		sat_color = Color(0.9, 0.9, 0.4)  # Yellow
+	else:
+		sat_color = Color(0.9, 0.4, 0.4)  # Red
+
+	var sat_row = _create_stat_row("Satisfaction:", "%d%%" % satisfaction_pct, sat_color)
+	vbox.add_child(sat_row)
+
+	# Show top feedback if available
+	var top_compliment = feedback_summary["top_compliment"]
+	var top_complaint = feedback_summary["top_complaint"]
+
+	if top_compliment != "":
+		var compliment_row = _create_stat_row("Top praise:", "\"%s\"" % top_compliment, Color(0.6, 0.8, 0.6))
+		vbox.add_child(compliment_row)
+
+	if top_complaint != "":
+		var complaint_row = _create_stat_row("Top concern:", "\"%s\"" % top_complaint, Color(0.8, 0.6, 0.6))
+		vbox.add_child(complaint_row)
+
+	if top_compliment == "" and top_complaint == "" and feedback_summary["total_count"] == 0:
+		var no_feedback = Label.new()
+		no_feedback.text = "No feedback recorded"
+		no_feedback.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		no_feedback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(no_feedback)
 
 	# Spacer
 	var spacer = Control.new()
