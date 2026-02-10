@@ -79,135 +79,150 @@ func _process(delta: float) -> void:
 	# Update active golfers
 	_update_golfers(delta)
 
-func _update_golfers(delta: float) -> void:
-	# Get all unique groups currently on the course
+func _update_golfers(_delta: float) -> void:
+	# Build groups dictionary
 	var groups: Dictionary = {}  # group_id -> Array[Golfer]
 	for golfer in active_golfers:
 		if golfer.group_id not in groups:
 			groups[golfer.group_id] = []
 		groups[golfer.group_id].append(golfer)
 
-	# Process each group independently
-	for group_id in groups.keys():
-		var group_golfers = groups[group_id]
-		_update_group(group_golfers)
+	# Process groups in deterministic order (sorted by group_id)
+	# This ensures consistent behavior across frames
+	var sorted_group_ids = groups.keys()
+	sorted_group_ids.sort()
+	for group_id in sorted_group_ids:
+		_update_group(groups[group_id])
 
-func _update_group(group_golfers: Array) -> void:
-	"""Update a single group of golfers - handle turn-based play within the group"""
-	# Check if anyone in the group is currently taking a shot
-	var someone_shooting = false
-	var someone_walking = false
-	for golfer in group_golfers:
+func _update_group(group: Array) -> void:
+	"""Update a single group - determine and advance the next golfer to play."""
+	# Block if anyone is mid-shot (preparing, swinging, or watching ball)
+	for golfer in group:
 		if golfer.current_state in [Golfer.State.PREPARING_SHOT, Golfer.State.SWINGING, Golfer.State.WATCHING]:
-			someone_shooting = true
-			break
-		if golfer.current_state == Golfer.State.WALKING:
-			someone_walking = true
+			return
 
-	# If someone is mid-shot, wait for them to finish
-	if someone_shooting:
-		return
-
-	# Determine who should go next
-	var next_golfer = _determine_next_golfer_in_group(group_golfers)
+	# Get the next golfer to play based on golf rules
+	var next_golfer = _determine_next_golfer_in_group(group)
 	if not next_golfer:
 		return
 
-	# TEE SHOT RULE: On the tee, golfers hit in order without waiting for walking.
-	# All golfers hit their tee shots first, then everyone walks together.
-	# AWAY RULE: After tee shots, wait for walking to complete before next shot.
 	var is_tee_shot = next_golfer.current_strokes == 0
 
-	if is_tee_shot:
-		# Tee shots can proceed even if others are walking to their balls
-		if _is_landing_area_clear(next_golfer, group_golfers):
+	# Check if anyone is walking
+	var someone_walking = false
+	for golfer in group:
+		if golfer.current_state == Golfer.State.WALKING:
+			someone_walking = true
+			break
+
+	# TEE SHOTS: Can proceed while others walk to their balls (all tee off first)
+	# FAIRWAY SHOTS: Wait for everyone to finish walking (then apply away rule)
+	if is_tee_shot or not someone_walking:
+		if _is_landing_area_clear(next_golfer, group):
 			_advance_golfer(next_golfer)
-	else:
-		# For non-tee shots, wait for everyone to finish walking
-		if not someone_walking:
-			if _is_landing_area_clear(next_golfer, group_golfers):
-				_advance_golfer(next_golfer)
+
+## ============================================================================
+## GOLF TURN ORDER RULES (based on USGA etiquette)
+## ============================================================================
+## 1. HOLE PROGRESSION: Groups play together - all must finish hole N before
+##    anyone starts hole N+1.
+## 2. TEE ORDER (Honor System):
+##    - Hole 1: Golfers tee off in golfer_id order (deterministic)
+##    - Later holes: Golfer with best (lowest) score on previous hole has "honor"
+##      and tees off first. Ties retain previous order.
+## 3. FAIRWAY/GREEN (Away Rule): Golfer furthest from the hole plays first.
+## ============================================================================
+
+func _get_group_min_hole(group: Array) -> int:
+	"""Find the minimum hole being played by any non-finished golfer in the group."""
+	var min_hole: int = 999
+	for golfer in group:
+		if golfer.current_state != Golfer.State.FINISHED:
+			if golfer.current_hole < min_hole:
+				min_hole = golfer.current_hole
+	return min_hole if min_hole < 999 else -1
+
+func _get_honor_golfer(golfers: Array[Golfer], current_hole: int) -> Golfer:
+	"""Get the golfer with honor (best score on previous hole) for tee shots."""
+	if golfers.is_empty():
+		return null
+
+	if current_hole == 0:
+		# First hole: tee off in golfer_id order (deterministic)
+		golfers.sort_custom(func(a, b): return a.golfer_id < b.golfer_id)
+		return golfers[0]
+
+	# Honor system: lowest previous_hole_strokes goes first
+	# Ties: retain order by golfer_id (earlier spawned = earlier in order)
+	golfers.sort_custom(func(a, b):
+		if a.previous_hole_strokes != b.previous_hole_strokes:
+			return a.previous_hole_strokes < b.previous_hole_strokes
+		return a.golfer_id < b.golfer_id
+	)
+	return golfers[0]
+
+func _get_away_golfer(golfers: Array[Golfer], hole_index: int) -> Golfer:
+	"""Get the golfer furthest from the hole (away rule)."""
+	if golfers.is_empty():
+		return null
+
+	var course_data = GameManager.course_data
+	if not course_data or hole_index >= course_data.holes.size():
+		return golfers[0]
+
+	var hole_pos = Vector2(course_data.holes[hole_index].hole_position)
+	var furthest: Golfer = null
+	var max_dist: float = -1.0
+
+	for golfer in golfers:
+		var dist = golfer.ball_position_precise.distance_to(hole_pos)
+		if dist > max_dist:
+			max_dist = dist
+			furthest = golfer
+
+	return furthest if furthest else golfers[0]
 
 func _determine_next_golfer_in_group(group_golfers: Array) -> Golfer:
-	"""Determine which golfer in this group should shoot next"""
+	"""Determine which golfer in this group should shoot next using golf rules."""
 	var course_data = GameManager.course_data
 	if not course_data or course_data.holes.is_empty():
 		return null
 
-	# Get golfers who are ready to play (IDLE state and not finished)
-	var ready_golfers: Array[Golfer] = []
-	for golfer in group_golfers:
-		if golfer.current_state == Golfer.State.IDLE and golfer.current_state != Golfer.State.FINISHED:
-			# Check if golfer has holes left to play
-			if golfer.current_hole < course_data.holes.size():
-				ready_golfers.append(golfer)
+	# 1. Find the minimum hole (group stays together)
+	var min_hole = _get_group_min_hole(group_golfers)
+	if min_hole == -1:
+		return null  # Everyone is finished
 
-	if ready_golfers.is_empty():
+	# 2. Get golfers who are IDLE and on the minimum hole
+	var eligible: Array[Golfer] = []
+	for golfer in group_golfers:
+		if golfer.current_state == Golfer.State.IDLE:
+			if golfer.current_hole == min_hole:
+				if golfer.current_hole < course_data.holes.size():
+					eligible.append(golfer)
+
+	if eligible.is_empty():
 		return null
 
-	# Separate golfers on tee vs off tee
+	# 3. Separate tee shots from fairway/green shots
 	var on_tee: Array[Golfer] = []
-	var off_tee: Array[Golfer] = []
+	var on_fairway: Array[Golfer] = []
 
-	for golfer in ready_golfers:
+	for golfer in eligible:
 		if golfer.current_strokes == 0:
 			on_tee.append(golfer)
 		else:
-			off_tee.append(golfer)
+			on_fairway.append(golfer)
 
-	# HOLE TRANSITION RULE: Before anyone can tee off on hole N, ALL golfers in the
-	# group must have finished hole N-1. A golfer waiting on tee should not proceed
-	# if any other golfer is still playing a previous hole.
+	# 4. Tee shots: Honor system (best score on previous hole)
 	if not on_tee.is_empty():
-		# Find the minimum hole that anyone on tee is waiting for
-		var min_tee_hole = on_tee[0].current_hole
-		for golfer in on_tee:
-			if golfer.current_hole < min_tee_hole:
-				min_tee_hole = golfer.current_hole
+		return _get_honor_golfer(on_tee, min_hole)
 
-		# Check if anyone in the group is still playing a previous hole
-		for golfer in group_golfers:
-			if golfer.current_state == Golfer.State.FINISHED:
-				continue
-			# If someone is still on a hole before the tee group's hole, wait
-			if golfer.current_hole < min_tee_hole:
-				return null  # Wait for everyone to finish the previous hole
-			# If someone is still playing their current hole (not on tee yet)
-			if golfer.current_hole == min_tee_hole and golfer.current_strokes > 0:
-				return null  # Wait for them to hole out
-
-		# All clear - golfers tee off in order (by golfer_id)
-		on_tee.sort_custom(func(a, b): return a.golfer_id < b.golfer_id)
-		return on_tee[0]
-
-	# After tee shots, use "away" logic (furthest from hole shoots first)
-	if not off_tee.is_empty():
-		return _get_away_golfer_in_group(off_tee)
+	# 5. Fairway/green: Away rule (furthest from hole)
+	if not on_fairway.is_empty():
+		return _get_away_golfer(on_fairway, min_hole)
 
 	return null
-
-func _get_away_golfer_in_group(golfers: Array[Golfer]) -> Golfer:
-	"""Get the golfer in this group who is furthest from the hole"""
-	var course_data = GameManager.course_data
-	if not course_data or course_data.holes.is_empty():
-		return golfers[0]
-
-	var furthest_golfer: Golfer = null
-	var furthest_distance: float = -1.0
-
-	for golfer in golfers:
-		if golfer.current_hole >= course_data.holes.size():
-			continue
-
-		var hole_data = course_data.holes[golfer.current_hole]
-		var hole_position = hole_data.hole_position
-		var distance = golfer.ball_position_precise.distance_to(Vector2(hole_position))
-
-		if distance > furthest_distance:
-			furthest_distance = distance
-			furthest_golfer = golfer
-
-	return furthest_golfer if furthest_golfer else golfers[0]
 
 func _is_landing_area_clear(shooting_golfer: Golfer, group_golfers: Array) -> bool:
 	"""Check if the landing area is clear of golfers from groups ahead"""
@@ -351,6 +366,21 @@ func _advance_golfer(golfer: Golfer) -> void:
 			# Check if round is complete after advancing to next hole
 			if golfer.current_hole >= course_data.holes.size():
 				golfer.finish_round()
+				return
+
+			# If course is closed, don't start a new hole - finish the round
+			if not GameManager.is_course_open():
+				golfer.finish_round()
+				return
+
+			# Immediately walk to the next tee to clear the green
+			# Don't wait for turn - golfers should move off the green right away
+			if GameManager.terrain_grid:
+				var next_hole_data = course_data.holes[golfer.current_hole]
+				var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(next_hole_data.tee_position)
+				golfer.path = golfer._find_path_to(tee_screen_pos)
+				golfer.path_index = 0
+				golfer._change_state(Golfer.State.WALKING)
 		else:
 			# Golfer is already at their ball (walked there after last shot)
 			# Just transition to PREPARING_SHOT to start their turn

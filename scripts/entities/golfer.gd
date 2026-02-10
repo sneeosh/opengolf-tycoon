@@ -3,12 +3,11 @@ class_name Golfer
 ## Golfer - Base class for AI golfers playing the course
 
 enum State {
-	IDLE,           # Waiting to start
+	IDLE,           # Waiting to start or for turn
 	WALKING,        # Moving to next position
 	PREPARING_SHOT, # Lining up shot
 	SWINGING,       # Taking a shot
 	WATCHING,       # Watching ball flight
-	PUTTING,        # On the green
 	FINISHED        # Completed round
 }
 
@@ -79,6 +78,7 @@ var current_hole: int = 0
 var current_strokes: int = 0
 var total_strokes: int = 0
 var total_par: int = 0  # Sum of par for all completed holes (for accurate score display)
+var previous_hole_strokes: int = 0  # Strokes on last completed hole (for honor system)
 var ball_position: Vector2i = Vector2i.ZERO
 var ball_position_precise: Vector2 = Vector2.ZERO  # Sub-tile precision for putting
 var target_position: Vector2i = Vector2i.ZERO
@@ -317,6 +317,7 @@ func take_shot(target: Vector2i) -> void:
 func finish_hole(par: int) -> void:
 	total_strokes += current_strokes
 	total_par += par
+	previous_hole_strokes = current_strokes  # Store for honor system on next tee
 
 	# Update mood based on performance
 	var score_diff = current_strokes - par
@@ -1132,9 +1133,6 @@ func _update_visual() -> void:
 		State.WATCHING:
 			if body:
 				body.modulate = Color(0.8, 0.8, 1.0, 1)
-		State.PUTTING:
-			if body:
-				body.modulate = Color(0.5, 1.0, 0.5, 1)
 		State.FINISHED:
 			if body:
 				body.modulate = Color(0.5, 0.5, 0.5, 1)
@@ -1208,6 +1206,7 @@ func serialize() -> Dictionary:
 		"current_strokes": current_strokes,
 		"total_strokes": total_strokes,
 		"total_par": total_par,
+		"previous_hole_strokes": previous_hole_strokes,
 		"current_mood": current_mood,
 		"current_state": current_state,
 		"ball_position": {"x": ball_position.x, "y": ball_position.y},
@@ -1230,6 +1229,7 @@ func deserialize(data: Dictionary) -> void:
 	current_strokes = data.get("current_strokes", 0)
 	total_strokes = data.get("total_strokes", 0)
 	total_par = data.get("total_par", 0)
+	previous_hole_strokes = data.get("previous_hole_strokes", 0)
 	current_mood = data.get("current_mood", 0.5)
 	# Always restore to IDLE state so golfer can resume cleanly
 	# The current_strokes and ball_position tell us where they are in the hole
