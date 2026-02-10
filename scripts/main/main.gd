@@ -470,10 +470,16 @@ func _on_money_changed(_old: int, _new: int) -> void:
 	pass
 
 func _on_day_changed(new_day: int) -> void:
-	var maintenance = terrain_grid.get_total_maintenance_cost()
-	if maintenance > 0:
-		GameManager.modify_money(-maintenance)
-		EventBus.log_transaction("Daily maintenance", -maintenance)
+	# Calculate operating costs for the day
+	var terrain_cost = terrain_grid.get_total_maintenance_cost()
+	var hole_count = GameManager.current_course.holes.size() if GameManager.current_course else 0
+	GameManager.daily_stats.calculate_operating_costs(terrain_cost, hole_count)
+
+	# Deduct total operating costs from money
+	var total_cost = GameManager.daily_stats.operating_costs
+	if total_cost > 0:
+		GameManager.modify_money(-total_cost)
+		EventBus.log_transaction("Daily operating costs", -total_cost)
 
 func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	var row = HBoxContainer.new()
