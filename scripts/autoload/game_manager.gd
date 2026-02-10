@@ -29,6 +29,9 @@ var wind_system: WindSystem = null
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
 
+# Course records tracking
+var course_records: Dictionary = CourseRecords.create_empty_records()
+
 # Expose properties for backward compatibility
 var course_data: CourseData:
 	get:
@@ -138,6 +141,47 @@ func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
 	EventBus.green_fee_paid.emit(golfer_id, golfer_name, green_fee)
 	return true
 
+## Check and update hole records (call when golfer finishes a hole)
+## Returns array of record types broken
+func check_hole_records(golfer_name: String, hole_number: int, strokes: int) -> Array:
+	var records_broken: Array = []
+
+	# Check hole-in-one
+	if strokes == 1:
+		course_records.total_hole_in_ones += 1
+		var entry = CourseRecords.RecordEntry.new(golfer_name, 1, current_day, hole_number)
+		course_records.hole_in_ones.append(entry)
+		records_broken.append({"type": "hole_in_one", "hole": hole_number})
+		EventBus.record_broken.emit("hole_in_one", golfer_name, 1, hole_number)
+
+	# Check best score for this hole
+	var current_best = course_records.best_per_hole.get(hole_number)
+	if current_best == null or strokes < current_best.value:
+		var entry = CourseRecords.RecordEntry.new(golfer_name, strokes, current_day, hole_number)
+		course_records.best_per_hole[hole_number] = entry
+		if current_best != null:  # Only announce if breaking existing record
+			records_broken.append({"type": "hole_record", "hole": hole_number, "strokes": strokes})
+			EventBus.record_broken.emit("hole_record", golfer_name, strokes, hole_number)
+
+	return records_broken
+
+## Check if golfer set the course record (call when round finishes)
+## Returns true if new course record was set
+func check_round_record(golfer_name: String, total_strokes: int) -> bool:
+	var current = course_records.lowest_round
+	if current == null or total_strokes < current.value:
+		course_records.lowest_round = CourseRecords.RecordEntry.new(
+			golfer_name, total_strokes, current_day, -1
+		)
+		EventBus.record_broken.emit("course_record", golfer_name, total_strokes, -1)
+		EventBus.notify("%s set a new course record: %d strokes!" % [golfer_name, total_strokes], "success")
+		return true
+	return false
+
+## Reset course records (for new game)
+func reset_course_records() -> void:
+	course_records = CourseRecords.create_empty_records()
+
 func new_game(course_name_input: String = "New Course") -> void:
 	course_name = course_name_input
 	money = 50000
@@ -149,6 +193,7 @@ func new_game(course_name_input: String = "New Course") -> void:
 	_end_of_day_triggered = false
 	_end_of_day_emitted = false
 	current_course = CourseData.new()
+	reset_course_records()  # Clear records for new game
 	set_mode(GameMode.BUILDING)
 	EventBus.new_game_started.emit()
 

@@ -341,6 +341,13 @@ func finish_hole(par: int) -> void:
 	if score_trigger != -1:
 		show_thought(score_trigger)
 
+	# Check for records
+	var records = GameManager.check_hole_records(golfer_name, current_hole, current_strokes)
+	for record in records:
+		if record.type == "hole_in_one":
+			# Spawn celebration effect
+			HoleInOneCelebration.create_at(get_parent(), global_position)
+
 	EventBus.golfer_finished_hole.emit(golfer_id, current_hole, current_strokes, par)
 	hole_completed.emit(current_strokes, par)
 
@@ -350,6 +357,9 @@ func finish_hole(par: int) -> void:
 ## Finish the round
 func finish_round() -> void:
 	_change_state(State.FINISHED)
+
+	# Check for course record
+	GameManager.check_round_record(golfer_name, total_strokes)
 
 	# Show course satisfaction feedback
 	var course_trigger = FeedbackTriggers.get_course_trigger(total_strokes, total_par)

@@ -157,6 +157,9 @@ func _build_save_data() -> Dictionary:
 	# Golfers: NOT saved - they are cleared on load and respawn naturally when
 	# simulation resumes. Full mid-action state persistence is a future milestone.
 
+	# Course Records
+	data["course_records"] = CourseRecords.serialize_records(GameManager.course_records)
+
 	return data
 
 ## Serialize hole data to plain dictionaries
@@ -213,6 +216,12 @@ func _apply_save_data(data: Dictionary) -> void:
 		var wind_data = data["wind"]
 		GameManager.wind_system.wind_direction = float(wind_data.get("direction", 0.0))
 		GameManager.wind_system.wind_speed = float(wind_data.get("speed", 5.0))
+
+	# Course Records
+	if data.has("course_records"):
+		GameManager.course_records = CourseRecords.deserialize_records(data["course_records"])
+	else:
+		GameManager.course_records = CourseRecords.create_empty_records()
 
 	# Golfers: Always clear on load - they will respawn naturally when the user
 	# switches to simulation mode. This avoids complex mid-action state restoration.
