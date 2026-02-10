@@ -377,6 +377,10 @@ func _advance_golfer(golfer: Golfer) -> void:
 			# Don't wait for turn - golfers should move off the green right away
 			if GameManager.terrain_grid:
 				var next_hole_data = course_data.holes[golfer.current_hole]
+				# Update ball position to next tee immediately to prevent visual glitch
+				# where ball briefly appears at old hole position while walking
+				golfer.ball_position = next_hole_data.tee_position
+				golfer.ball_position_precise = Vector2(next_hole_data.tee_position)
 				var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(next_hole_data.tee_position)
 				golfer.path = golfer._find_path_to(tee_screen_pos)
 				golfer.path_index = 0
