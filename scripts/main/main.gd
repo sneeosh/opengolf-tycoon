@@ -783,6 +783,9 @@ func _on_end_of_day(day_number: int) -> void:
 	# Pause the game while showing the summary
 	GameManager.is_paused = true
 
+	# Update course rating before showing summary
+	GameManager.update_course_rating()
+
 	# Prevent duplicate panels
 	var hud = $UI/HUD
 	var existing = hud.get_node_or_null("EndOfDaySummary")

@@ -45,6 +45,19 @@ func get_group_size_weights() -> Array:
 		# Exclusive: Mostly foursomes
 		return [0.05, 0.15, 0.25, 0.55]  # 5% singles, 15% pairs, 25% threesomes, 55% foursomes
 
+func get_spawn_rate_modifier() -> float:
+	"""Get spawn rate modifier based on course rating.
+	1 star = 0.5x (fewer golfers), 3 stars = 1x, 5 stars = 1.5x (more golfers)"""
+	var rating = GameManager.course_rating.get("overall", 3.0)
+	return 0.5 + (rating - 1.0) * 0.25
+
+func get_effective_spawn_cooldown() -> float:
+	"""Get spawn cooldown adjusted by course rating.
+	Higher rating = shorter cooldown = more golfers."""
+	var modifier = get_spawn_rate_modifier()
+	# Invert modifier for cooldown (higher rate = shorter cooldown)
+	return min_spawn_cooldown_seconds / modifier
+
 func _is_first_tee_clear() -> bool:
 	"""Check if the first tee is clear (no golfer on hole 0 still in tee-off sequence)"""
 	for golfer in active_golfers:
@@ -68,7 +81,8 @@ func _process(delta: float) -> void:
 	time_since_last_spawn += delta * GameManager.get_game_speed_multiplier()
 
 	if GameManager.is_course_open():
-		if time_since_last_spawn >= min_spawn_cooldown_seconds:
+		var effective_cooldown = get_effective_spawn_cooldown()
+		if time_since_last_spawn >= effective_cooldown:
 			if active_golfers.size() < max_concurrent_golfers and _is_first_tee_clear():
 				spawn_initial_group()
 				time_since_last_spawn = 0.0

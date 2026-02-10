@@ -13,7 +13,7 @@ func _ready() -> void:
 	_build_ui()
 
 func _build_ui() -> void:
-	custom_minimum_size = Vector2(380, 420)
+	custom_minimum_size = Vector2(380, 580)
 
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 16)
@@ -52,6 +52,46 @@ func _build_ui() -> void:
 	var profit_text = "+$%d" % profit if profit >= 0 else "-$%d" % abs(profit)
 	var profit_row = _create_stat_row("Daily Profit:", profit_text, profit_color)
 	vbox.add_child(profit_row)
+
+	vbox.add_child(HSeparator.new())
+
+	# Course Rating section
+	var rating = GameManager.course_rating
+	var rating_label = Label.new()
+	rating_label.text = "Course Rating"
+	rating_label.add_theme_font_size_override("font_size", 16)
+	rating_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(rating_label)
+
+	# Star display
+	var stars = rating.get("stars", 3)
+	var overall = rating.get("overall", 3.0)
+	var star_text = ""
+	for i in range(stars):
+		star_text += "*"
+	for i in range(5 - stars):
+		star_text += "-"
+	star_text += " (%.1f)" % overall
+
+	var star_color = Color(0.9, 0.9, 0.4)  # Yellow/gold for stars
+	if stars >= 4:
+		star_color = Color(0.4, 0.9, 0.4)  # Green for good rating
+	elif stars <= 2:
+		star_color = Color(0.9, 0.4, 0.4)  # Red for poor rating
+
+	var star_row = _create_stat_row("Overall:", star_text, star_color)
+	vbox.add_child(star_row)
+
+	# Show individual ratings in smaller text
+	var dim_color = Color(0.7, 0.7, 0.7)
+	var cond_row = _create_stat_row("  Condition:", "%.1f" % rating.get("condition", 3.0), dim_color)
+	var design_row = _create_stat_row("  Design:", "%.1f" % rating.get("design", 3.0), dim_color)
+	var value_row = _create_stat_row("  Value:", "%.1f" % rating.get("value", 3.0), dim_color)
+	var pace_row = _create_stat_row("  Pace:", "%.1f" % rating.get("pace", 3.0), dim_color)
+	vbox.add_child(cond_row)
+	vbox.add_child(design_row)
+	vbox.add_child(value_row)
+	vbox.add_child(pace_row)
 
 	vbox.add_child(HSeparator.new())
 

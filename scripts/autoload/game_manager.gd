@@ -29,6 +29,16 @@ var wind_system: WindSystem = null
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
 
+# Course rating (1-5 stars)
+var course_rating: Dictionary = {
+	"condition": 3.0,
+	"design": 3.0,
+	"value": 3.0,
+	"pace": 3.0,
+	"overall": 3.0,
+	"stars": 3
+}
+
 # Expose properties for backward compatibility
 var course_data: CourseData:
 	get:
@@ -130,6 +140,15 @@ func set_green_fee(new_fee: int) -> void:
 	var old_fee = green_fee
 	green_fee = clamp(new_fee, MIN_GREEN_FEE, MAX_GREEN_FEE)
 	EventBus.green_fee_changed.emit(old_fee, green_fee)
+
+func update_course_rating() -> void:
+	"""Recalculate course rating based on current state"""
+	if not current_course or not terrain_grid:
+		return
+	course_rating = CourseRatingSystem.calculate_rating(
+		terrain_grid, current_course, daily_stats, green_fee, reputation
+	)
+	EventBus.course_rating_changed.emit(course_rating)
 
 func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
 	"""Process a golfer's green fee payment and return success"""
