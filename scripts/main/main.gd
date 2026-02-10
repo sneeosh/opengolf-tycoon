@@ -469,17 +469,9 @@ func _on_speed_selected(speed: int) -> void:
 func _on_money_changed(_old: int, _new: int) -> void:
 	pass
 
-func _on_day_changed(new_day: int) -> void:
-	# Calculate operating costs for the day
-	var terrain_cost = terrain_grid.get_total_maintenance_cost()
-	var hole_count = GameManager.current_course.holes.size() if GameManager.current_course else 0
-	GameManager.daily_stats.calculate_operating_costs(terrain_cost, hole_count)
-
-	# Deduct total operating costs from money
-	var total_cost = GameManager.daily_stats.operating_costs
-	if total_cost > 0:
-		GameManager.modify_money(-total_cost)
-		EventBus.log_transaction("Daily operating costs", -total_cost)
+func _on_day_changed(_new_day: int) -> void:
+	# Operating costs are now calculated at end of day before summary
+	pass
 
 func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	var row = HBoxContainer.new()
@@ -788,6 +780,16 @@ func _on_end_of_day(day_number: int) -> void:
 	"""Handle end of day — show summary panel."""
 	# Pause the game while showing the summary
 	GameManager.is_paused = true
+
+	# Calculate and deduct operating costs BEFORE showing summary
+	var terrain_cost = terrain_grid.get_total_maintenance_cost()
+	var hole_count = GameManager.current_course.holes.size() if GameManager.current_course else 0
+	GameManager.daily_stats.calculate_operating_costs(terrain_cost, hole_count)
+
+	var total_cost = GameManager.daily_stats.operating_costs
+	if total_cost > 0:
+		GameManager.modify_money(-total_cost)
+		EventBus.log_transaction("Daily operating costs", -total_cost)
 
 	# Prevent duplicate panels
 	var hud = $UI/HUD
