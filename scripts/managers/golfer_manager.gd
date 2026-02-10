@@ -94,18 +94,37 @@ func _update_golfers(delta: float) -> void:
 
 func _update_group(group_golfers: Array) -> void:
 	"""Update a single group of golfers - handle turn-based play within the group"""
-	# Check if anyone in the group is currently busy (shooting or walking)
-	var someone_busy = false
+	# Check if anyone in the group is currently taking a shot
+	var someone_shooting = false
+	var someone_walking = false
 	for golfer in group_golfers:
-		if golfer.current_state in [Golfer.State.PREPARING_SHOT, Golfer.State.SWINGING, Golfer.State.WATCHING, Golfer.State.WALKING]:
-			someone_busy = true
+		if golfer.current_state in [Golfer.State.PREPARING_SHOT, Golfer.State.SWINGING, Golfer.State.WATCHING]:
+			someone_shooting = true
 			break
+		if golfer.current_state == Golfer.State.WALKING:
+			someone_walking = true
 
-	# If no one is busy, determine whose turn it is in this group
-	if not someone_busy:
-		var next_golfer = _determine_next_golfer_in_group(group_golfers)
-		if next_golfer:
-			# Check if landing area is clear before advancing
+	# If someone is mid-shot, wait for them to finish
+	if someone_shooting:
+		return
+
+	# Determine who should go next
+	var next_golfer = _determine_next_golfer_in_group(group_golfers)
+	if not next_golfer:
+		return
+
+	# TEE SHOT RULE: On the tee, golfers hit in order without waiting for walking.
+	# All golfers hit their tee shots first, then everyone walks together.
+	# AWAY RULE: After tee shots, wait for walking to complete before next shot.
+	var is_tee_shot = next_golfer.current_strokes == 0
+
+	if is_tee_shot:
+		# Tee shots can proceed even if others are walking to their balls
+		if _is_landing_area_clear(next_golfer, group_golfers):
+			_advance_golfer(next_golfer)
+	else:
+		# For non-tee shots, wait for everyone to finish walking
+		if not someone_walking:
 			if _is_landing_area_clear(next_golfer, group_golfers):
 				_advance_golfer(next_golfer)
 
