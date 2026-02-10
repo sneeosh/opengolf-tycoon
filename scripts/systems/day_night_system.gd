@@ -9,7 +9,11 @@ func _ready() -> void:
 	_canvas_modulate.name = "DayNightModulate"
 	_canvas_modulate.color = Color.WHITE
 	add_child(_canvas_modulate)
-	EventBus.connect("hour_changed", _on_hour_changed)
+	EventBus.hour_changed.connect(_on_hour_changed)
+
+func _exit_tree() -> void:
+	if EventBus.hour_changed.is_connected(_on_hour_changed):
+		EventBus.hour_changed.disconnect(_on_hour_changed)
 
 func _on_hour_changed(hour: float) -> void:
 	_canvas_modulate.color = _get_tint_for_hour(hour)

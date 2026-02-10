@@ -29,7 +29,7 @@ var ball_manager: Node = null
 
 func _ready() -> void:
 	_ensure_save_directory()
-	EventBus.connect("day_changed", _on_day_changed)
+	EventBus.day_changed.connect(_on_day_changed)
 	print("SaveManager initialized")
 
 func _ensure_save_directory() -> void:
@@ -223,7 +223,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	if ball_manager and ball_manager.has_method("clear_all_balls"):
 		ball_manager.clear_all_balls()
 
-	EventBus.emit_signal("load_completed", true)
+	EventBus.load_completed.emit(true)
 
 ## Deserialize holes into GameManager.current_course
 func _deserialize_holes(holes_data: Array) -> void:
@@ -250,7 +250,7 @@ func _deserialize_holes(holes_data: Array) -> void:
 
 	# Emit hole_created signals so HoleManager rebuilds visualizations
 	for hole in GameManager.current_course.holes:
-		EventBus.emit_signal("hole_created", hole.hole_number, hole.par, hole.distance_yards)
+		EventBus.hole_created.emit(hole.hole_number, hole.par, hole.distance_yards)
 
 ## Read only the metadata from a save file (for listing)
 func _read_save_metadata(path: String) -> Dictionary:

@@ -82,7 +82,7 @@ func _advance_time(delta: float) -> void:
 	current_hour += (delta * time_multiplier) / 60.0
 
 	# Emit hour_changed for smooth time-dependent effects (day/night visual, etc.)
-	EventBus.emit_signal("hour_changed", current_hour)
+	EventBus.hour_changed.emit(current_hour)
 
 	# Update wind drift each game hour
 	if wind_system and int(current_hour) != int(old_hour):
@@ -91,7 +91,7 @@ func _advance_time(delta: float) -> void:
 	# Announce course closing 1 hour before close
 	if not _closing_announced and current_hour >= COURSE_CLOSE_HOUR - 1.0:
 		_closing_announced = true
-		EventBus.emit_signal("course_closing")
+		EventBus.course_closing.emit()
 		EventBus.notify("Course closing soon!", "info")
 
 	# Trigger end of day when past closing time (golfer cleanup handled by GolferManager)
@@ -167,7 +167,7 @@ func request_end_of_day() -> void:
 	if _end_of_day_emitted:
 		return  # Already emitted, waiting for advance_to_next_day()
 	_end_of_day_emitted = true
-	EventBus.emit_signal("end_of_day", current_day)
+	EventBus.end_of_day.emit(current_day)
 
 func advance_to_next_day() -> void:
 	"""Advance to the next morning. Called after end-of-day processing is complete."""
@@ -179,7 +179,7 @@ func advance_to_next_day() -> void:
 	_closing_announced = false
 	_end_of_day_triggered = false
 	_end_of_day_emitted = false
-	EventBus.emit_signal("day_changed", current_day)
+	EventBus.day_changed.emit(current_day)
 	if wind_system:
 		wind_system.generate_daily_wind()
 	EventBus.notify("Day %d — Course is open!" % current_day, "info")

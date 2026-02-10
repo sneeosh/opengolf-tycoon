@@ -783,15 +783,21 @@ func _on_end_of_day(day_number: int) -> void:
 	# Pause the game while showing the summary
 	GameManager.is_paused = true
 
+	# Prevent duplicate panels
+	var hud = $UI/HUD
+	var existing = hud.get_node_or_null("EndOfDaySummary")
+	if existing:
+		return
+
 	# Create and show the end of day summary panel
 	var summary = EndOfDaySummaryPanel.new(day_number)
 	summary.name = "EndOfDaySummary"
-
-	# Center the panel on screen
-	var hud = $UI/HUD
 	hud.add_child(summary)
-	summary.anchors_preset = Control.PRESET_CENTER
-	summary.position = (get_viewport().get_visible_rect().size - summary.custom_minimum_size) / 2
+
+	# Center the panel on screen after it's added
+	await summary.ready
+	var viewport_size = get_viewport().get_visible_rect().size
+	summary.position = (viewport_size - summary.size) / 2
 
 	# Connect the continue signal to advance to next day
 	summary.continue_pressed.connect(_on_summary_continue)
