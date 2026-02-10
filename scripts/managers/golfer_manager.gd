@@ -155,8 +155,28 @@ func _determine_next_golfer_in_group(group_golfers: Array) -> Golfer:
 		else:
 			off_tee.append(golfer)
 
-	# If golfers are on the tee, they go in order (by golfer_id)
+	# HOLE TRANSITION RULE: Before anyone can tee off on hole N, ALL golfers in the
+	# group must have finished hole N-1. A golfer waiting on tee should not proceed
+	# if any other golfer is still playing a previous hole.
 	if not on_tee.is_empty():
+		# Find the minimum hole that anyone on tee is waiting for
+		var min_tee_hole = on_tee[0].current_hole
+		for golfer in on_tee:
+			if golfer.current_hole < min_tee_hole:
+				min_tee_hole = golfer.current_hole
+
+		# Check if anyone in the group is still playing a previous hole
+		for golfer in group_golfers:
+			if golfer.current_state == Golfer.State.FINISHED:
+				continue
+			# If someone is still on a hole before the tee group's hole, wait
+			if golfer.current_hole < min_tee_hole:
+				return null  # Wait for everyone to finish the previous hole
+			# If someone is still playing their current hole (not on tee yet)
+			if golfer.current_hole == min_tee_hole and golfer.current_strokes > 0:
+				return null  # Wait for them to hole out
+
+		# All clear - golfers tee off in order (by golfer_id)
 		on_tee.sort_custom(func(a, b): return a.golfer_id < b.golfer_id)
 		return on_tee[0]
 
