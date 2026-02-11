@@ -316,6 +316,14 @@ class DailyStatistics:
 	var base_operating_cost: int = 0  # Fixed daily cost based on course size
 	var staff_wages: int = 0  # Staff costs based on number of holes
 
+	# Golfer tier counts
+	var tier_counts: Dictionary = {
+		GolferTier.Tier.BEGINNER: 0,
+		GolferTier.Tier.CASUAL: 0,
+		GolferTier.Tier.SERIOUS: 0,
+		GolferTier.Tier.PRO: 0,
+	}
+
 	func reset() -> void:
 		revenue = 0
 		golfers_served = 0
@@ -329,6 +337,12 @@ class DailyStatistics:
 		terrain_maintenance = 0
 		base_operating_cost = 0
 		staff_wages = 0
+		tier_counts = {
+			GolferTier.Tier.BEGINNER: 0,
+			GolferTier.Tier.CASUAL: 0,
+			GolferTier.Tier.SERIOUS: 0,
+			GolferTier.Tier.PRO: 0,
+		}
 
 	## Calculate operating costs based on terrain and course size
 	## terrain_cost: total maintenance cost from terrain grid
@@ -372,3 +386,7 @@ class DailyStatistics:
 
 	func record_green_fee(amount: int) -> void:
 		revenue += amount
+
+	func record_golfer_tier(tier: int) -> void:
+		if tier in tier_counts:
+			tier_counts[tier] += 1

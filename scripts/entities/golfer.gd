@@ -58,6 +58,9 @@ const CLUB_STATS = {
 @export var golfer_id: int = -1
 @export var group_id: int = -1  # Which group this golfer belongs to
 
+## Golfer tier (Beginner, Casual, Serious, Pro)
+var golfer_tier: int = GolferTier.Tier.CASUAL
+
 ## Skill stats (0.0 to 1.0, where 1.0 is best)
 @export_range(0.0, 1.0) var driving_skill: float = 0.5
 @export_range(0.0, 1.0) var accuracy_skill: float = 0.5
@@ -136,6 +139,22 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if EventBus.green_fee_paid.is_connected(_on_green_fee_paid):
 		EventBus.green_fee_paid.disconnect(_on_green_fee_paid)
+
+## Initialize golfer from a tier (sets skills and personality)
+func initialize_from_tier(tier: int) -> void:
+	golfer_tier = tier
+
+	# Generate skills based on tier
+	var skills = GolferTier.generate_skills(tier)
+	driving_skill = skills.driving
+	accuracy_skill = skills.accuracy
+	putting_skill = skills.putting
+	recovery_skill = skills.recovery
+
+	# Set personality based on tier
+	var personality = GolferTier.get_personality(tier)
+	aggression = personality.aggression
+	patience = personality.patience
 
 func _process(delta: float) -> void:
 	match current_state:
@@ -1248,6 +1267,7 @@ func serialize() -> Dictionary:
 		"golfer_id": golfer_id,
 		"golfer_name": golfer_name,
 		"group_id": group_id,
+		"golfer_tier": golfer_tier,
 		"driving_skill": driving_skill,
 		"accuracy_skill": accuracy_skill,
 		"putting_skill": putting_skill,
@@ -1271,6 +1291,7 @@ func deserialize(data: Dictionary) -> void:
 	golfer_id = data.get("golfer_id", -1)
 	golfer_name = data.get("golfer_name", "Golfer")
 	group_id = data.get("group_id", -1)
+	golfer_tier = data.get("golfer_tier", GolferTier.Tier.CASUAL)
 	driving_skill = data.get("driving_skill", 0.5)
 	accuracy_skill = data.get("accuracy_skill", 0.5)
 	putting_skill = data.get("putting_skill", 0.5)
