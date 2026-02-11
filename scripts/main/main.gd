@@ -10,7 +10,8 @@ extends Node2D
 @onready var day_label: Label = $UI/HUD/TopBar/DayLabel
 @onready var reputation_label: Label = $UI/HUD/TopBar/ReputationLabel
 @onready var coordinate_label: Label = $UI/HUD/BottomBar/CoordinateLabel
-@onready var tool_panel: VBoxContainer = $UI/HUD/ToolPanel
+@onready var tool_panel_container: Control = $UI/HUD/ToolPanel
+var terrain_toolbar: TerrainToolbar = null
 @onready var hole_list: VBoxContainer = $UI/HUD/HoleInfoPanel/VBoxContainer/ScrollContainer/HoleList
 @onready var pause_btn: Button = $UI/HUD/BottomBar/SpeedControls/PauseBtn
 @onready var play_btn: Button = $UI/HUD/BottomBar/SpeedControls/PlayBtn
@@ -162,57 +163,33 @@ func _connect_signals() -> void:
 	EventBus.load_completed.connect(_on_load_completed)
 
 func _connect_ui_buttons() -> void:
-	tool_panel.get_node("FairwayBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.FAIRWAY))
-	tool_panel.get_node("RoughBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.ROUGH))
-	tool_panel.get_node("GreenBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.GREEN))
-	tool_panel.get_node("BunkerBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.BUNKER))
-	tool_panel.get_node("WaterBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.WATER))
-	tool_panel.get_node("PathBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.PATH))
-	tool_panel.get_node("TeeBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.TEE_BOX))
-	tool_panel.get_node("OBBtn").pressed.connect(_on_tool_selected.bind(TerrainTypes.Type.OUT_OF_BOUNDS))
-	tool_panel.get_node("CreateHoleBtn").pressed.connect(_on_create_hole_pressed)
-	tool_panel.get_node("RocksBtn").pressed.connect(_on_rock_placement_pressed)
-	tool_panel.get_node("FlowerBedBtn").pressed.connect(_on_flower_bed_placement_pressed)
+	# Replace old tool panel with new terrain toolbar
+	_setup_terrain_toolbar()
 
 	$UI/HUD/BottomBar/SpeedControls/PauseBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.PAUSED))
 	$UI/HUD/BottomBar/SpeedControls/PlayBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.NORMAL))
 	$UI/HUD/BottomBar/SpeedControls/FastBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.FAST))
-	
-	# Create and add building and tree placement buttons if they don't exist
-	_add_placement_buttons()
 
-func _add_placement_buttons() -> void:
-	"""Programmatically add Tree and Building buttons to the tool panel"""
-	# Add Tree button
-	if not tool_panel.has_node("TreeBtn"):
-		var tree_btn = Button.new()
-		tree_btn.name = "TreeBtn"
-		tree_btn.text = "Plant Tree"
-		tree_btn.pressed.connect(_on_tree_placement_pressed)
-		tool_panel.add_child(tree_btn)
-	
-	# Add Building button
-	if not tool_panel.has_node("BuildingBtn"):
-		var building_btn = Button.new()
-		building_btn.name = "BuildingBtn"
-		building_btn.text = "Place Building"
-		building_btn.pressed.connect(_on_building_placement_pressed)
-		tool_panel.add_child(building_btn)
+func _setup_terrain_toolbar() -> void:
+	"""Replace old tool panel with organized terrain toolbar"""
+	# Hide old tool panel children (keep container for positioning)
+	for child in tool_panel_container.get_children():
+		child.queue_free()
 
-	# Add Elevation buttons
-	if not tool_panel.has_node("RaiseBtn"):
-		var raise_btn = Button.new()
-		raise_btn.name = "RaiseBtn"
-		raise_btn.text = "Raise +"
-		raise_btn.pressed.connect(_on_raise_elevation_pressed)
-		tool_panel.add_child(raise_btn)
+	# Create and add new toolbar
+	terrain_toolbar = TerrainToolbar.new()
+	terrain_toolbar.name = "TerrainToolbar"
+	tool_panel_container.add_child(terrain_toolbar)
 
-	if not tool_panel.has_node("LowerBtn"):
-		var lower_btn = Button.new()
-		lower_btn.name = "LowerBtn"
-		lower_btn.text = "Lower -"
-		lower_btn.pressed.connect(_on_lower_elevation_pressed)
-		tool_panel.add_child(lower_btn)
+	# Connect toolbar signals
+	terrain_toolbar.tool_selected.connect(_on_tool_selected)
+	terrain_toolbar.create_hole_pressed.connect(_on_create_hole_pressed)
+	terrain_toolbar.tree_placement_pressed.connect(_on_tree_placement_pressed)
+	terrain_toolbar.rock_placement_pressed.connect(_on_rock_placement_pressed)
+	terrain_toolbar.flower_bed_pressed.connect(_on_flower_bed_placement_pressed)
+	terrain_toolbar.building_placement_pressed.connect(_on_building_placement_pressed)
+	terrain_toolbar.raise_elevation_pressed.connect(_on_raise_elevation_pressed)
+	terrain_toolbar.lower_elevation_pressed.connect(_on_lower_elevation_pressed)
 
 func _initialize_game() -> void:
 	GameManager.new_game("My Golf Course")
@@ -454,6 +431,9 @@ func _on_tool_selected(tool_type: int) -> void:
 	is_painting = false
 
 	current_tool = tool_type
+	# Update toolbar highlight
+	if terrain_toolbar:
+		terrain_toolbar.set_current_tool(tool_type)
 	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
 
 func _on_create_hole_pressed() -> void:
