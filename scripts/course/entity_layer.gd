@@ -40,18 +40,32 @@ func place_building(building_type: String, grid_pos: Vector2i, building_registry
 	if building_registry == null or (building_registry is Dictionary and building_registry.is_empty()):
 		push_error("Building registry not set")
 		return null
-	
+
 	var building_data
 	if building_registry is Dictionary:
 		building_data = building_registry.get(building_type, {})
 	else:
 		# Support legacy Node-based registry
 		building_data = building_registry.get_building(building_type) if building_registry.has_method("get_building") else {}
-	
+
 	if building_data.is_empty():
 		push_error("Unknown building type: %s" % building_type)
 		return null
-	
+
+	# Check if this is a unique building that already exists
+	if building_data.get("required", false):
+		for existing in buildings.values():
+			if existing.building_type == building_type:
+				push_error("Cannot place duplicate unique building: %s" % building_type)
+				return null
+
+	# Check for overlap with existing buildings
+	var new_width = building_data.get("size", [1, 1])[0]
+	var new_height = building_data.get("size", [1, 1])[1]
+	if _would_overlap_building(grid_pos, new_width, new_height):
+		push_error("Cannot place building: overlaps with existing building")
+		return null
+
 	var building = Building.new()
 	building.building_type = building_type
 	building.set_terrain_grid(terrain_grid)
@@ -174,6 +188,31 @@ func remove_rock(grid_pos: Vector2i) -> void:
 
 func get_all_buildings() -> Array:
 	return buildings.values()
+
+func _would_overlap_building(new_pos: Vector2i, new_width: int, new_height: int) -> bool:
+	"""Check if a new building would overlap with any existing building"""
+	for existing in buildings.values():
+		var ex_pos = existing.grid_position
+		var ex_width = existing.width
+		var ex_height = existing.height
+
+		# Check if rectangles overlap
+		var new_right = new_pos.x + new_width
+		var new_bottom = new_pos.y + new_height
+		var ex_right = ex_pos.x + ex_width
+		var ex_bottom = ex_pos.y + ex_height
+
+		if new_pos.x < ex_right and new_right > ex_pos.x and new_pos.y < ex_bottom and new_bottom > ex_pos.y:
+			return true
+
+	return false
+
+func has_building_of_type(building_type: String) -> bool:
+	"""Check if a building of the specified type already exists"""
+	for existing in buildings.values():
+		if existing.building_type == building_type:
+			return true
+	return false
 
 func get_all_trees() -> Array:
 	return trees.values()

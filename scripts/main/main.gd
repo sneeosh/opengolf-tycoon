@@ -760,16 +760,25 @@ func _place_tree(grid_pos: Vector2i, cost: int) -> void:
 func _place_building(grid_pos: Vector2i, cost: int) -> void:
 	"""Place a building at the grid position"""
 	var building_type = placement_manager.selected_building_type
+	var building_data = building_registry.get(building_type, {})
+	var building_name = building_data.get("name", building_type)
+
+	# Check if this is a unique building that already exists
+	if building_data.get("required", false) and entity_layer.has_building_of_type(building_type):
+		EventBus.notify("Only one %s allowed!" % building_name, "error")
+		return
+
 	var building = entity_layer.place_building(building_type, grid_pos, building_registry)
 
 	if building:
 		GameManager.modify_money(-cost)
-		var building_name = building_registry[building_type].get("name", building_type) if building_type in building_registry else building_type
 		EventBus.log_transaction("Building: %s" % building_name, -cost)
 		undo_manager.record_entity_placement("building", grid_pos, building_type, cost)
 		print("Placed %s at %s" % [building_type, grid_pos])
+		# Clear the building selector after successful placement
+		placement_manager.cancel_placement()
 	else:
-		EventBus.notify("Failed to place building!", "error")
+		EventBus.notify("Cannot place here - overlaps with existing building!", "error")
 
 func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 	"""Place a rock at the grid position"""
