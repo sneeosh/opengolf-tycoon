@@ -999,6 +999,12 @@ func _setup_building_info_panel() -> void:
 
 func _on_building_clicked(building: Building) -> void:
 	"""Show building info panel when a building is clicked."""
+	# If in any placement mode, don't open the panel
+	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
+		if placement_manager.placement_mode == PlacementManager.PlacementMode.BUILDING:
+			EventBus.notify("Cannot place here - overlaps with existing building!", "error")
+		return
+
 	# Only show for upgradeable buildings or buildings with stats
 	if building.building_data.get("upgradeable", false) or building.get_income_per_golfer() > 0:
 		building_info_panel.show_for_building(building)
