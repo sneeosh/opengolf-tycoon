@@ -53,6 +53,7 @@ func _ready() -> void:
 	entity_layer.set_terrain_grid(terrain_grid)
 	entity_layer.set_building_registry(building_registry)
 	entity_layer.building_selected.connect(_on_building_clicked)
+	GameManager.entity_layer = entity_layer
 
 	# Create building info panel (added to UI layer later)
 	building_info_panel = BuildingInfoPanel.new()
