@@ -105,6 +105,21 @@ var _visited_buildings: Dictionary = {}  # instance_id -> true
 @onready var head: Polygon2D = $Visual/Head if has_node("Visual/Head") else null
 @onready var body: Polygon2D = $Visual/Body if has_node("Visual/Body") else null
 @onready var arms: Polygon2D = $Visual/Arms if has_node("Visual/Arms") else null
+@onready var legs: Polygon2D = $Visual/Legs if has_node("Visual/Legs") else null
+@onready var shoes: Polygon2D = $Visual/Shoes if has_node("Visual/Shoes") else null
+@onready var collar: Polygon2D = $Visual/Collar if has_node("Visual/Collar") else null
+@onready var hands: Polygon2D = $Visual/Hands if has_node("Visual/Hands") else null
+@onready var hair: Polygon2D = $Visual/Hair if has_node("Visual/Hair") else null
+@onready var cap: Polygon2D = $Visual/Cap if has_node("Visual/Cap") else null
+@onready var cap_brim: Polygon2D = $Visual/CapBrim if has_node("Visual/CapBrim") else null
+@onready var golf_club: Node2D = $Visual/GolfClub if has_node("Visual/GolfClub") else null
+
+## Golfer appearance colors (randomized on spawn)
+var shirt_color: Color = Color(0.9, 0.35, 0.35)
+var pants_color: Color = Color(0.25, 0.25, 0.35)
+var cap_color: Color = Color(0.2, 0.4, 0.7)
+var hair_color: Color = Color(0.3, 0.2, 0.1)
+var skin_tone: Color = Color(0.95, 0.8, 0.65)
 
 ## Thought bubble feedback system
 var _last_thought_time: float = 0.0
@@ -119,15 +134,22 @@ func _ready() -> void:
 	collision_layer = 4  # Layer 3 (golfers)
 	collision_mask = 1   # Layer 1 (terrain/obstacles)
 
+	# Randomize golfer appearance
+	_randomize_appearance()
+
 	# Set up head as a circle
 	if head:
 		var head_points = PackedVector2Array()
 		for i in range(12):
 			var angle = (i / 12.0) * TAU
-			var x = cos(angle) * 4
-			var y = sin(angle) * 4 - 8  # Offset up to sit on body
+			var x = cos(angle) * 5
+			var y = sin(angle) * 5 - 9  # Offset up to sit on body
 			head_points.append(Vector2(x, y))
 		head.polygon = head_points
+		head.color = skin_tone
+
+	# Apply randomized colors to visual components
+	_apply_appearance()
 
 	# Set up labels
 	if name_label:
@@ -138,6 +160,85 @@ func _ready() -> void:
 
 	_update_visual()
 	_update_score_display()
+
+## Randomize golfer appearance with variety
+func _randomize_appearance() -> void:
+	# Shirt colors - bright polo shirt colors
+	var shirt_colors = [
+		Color(0.9, 0.35, 0.35),   # Red
+		Color(0.35, 0.6, 0.9),    # Blue
+		Color(0.35, 0.8, 0.45),   # Green
+		Color(0.9, 0.75, 0.3),    # Yellow/Gold
+		Color(0.8, 0.45, 0.7),    # Pink
+		Color(0.95, 0.55, 0.3),   # Orange
+		Color(0.5, 0.35, 0.7),    # Purple
+		Color(0.3, 0.7, 0.7),     # Teal
+		Color(0.95, 0.95, 0.95),  # White
+		Color(0.15, 0.15, 0.2),   # Navy
+	]
+	shirt_color = shirt_colors[randi() % shirt_colors.size()]
+
+	# Pants colors - khakis, navy, white, gray
+	var pants_colors = [
+		Color(0.7, 0.6, 0.45),    # Khaki
+		Color(0.25, 0.25, 0.35),  # Navy
+		Color(0.9, 0.9, 0.88),    # White/cream
+		Color(0.4, 0.4, 0.4),     # Gray
+		Color(0.2, 0.2, 0.2),     # Black
+	]
+	pants_color = pants_colors[randi() % pants_colors.size()]
+
+	# Cap colors - match or complement shirt
+	var cap_colors = [
+		Color(0.95, 0.95, 0.95),  # White
+		Color(0.15, 0.15, 0.2),   # Navy
+		Color(0.2, 0.2, 0.2),     # Black
+		Color(0.9, 0.35, 0.35),   # Red
+		Color(0.35, 0.6, 0.9),    # Blue
+		Color(0.35, 0.7, 0.4),    # Green
+	]
+	cap_color = cap_colors[randi() % cap_colors.size()]
+
+	# Hair colors
+	var hair_colors = [
+		Color(0.3, 0.2, 0.1),     # Brown
+		Color(0.15, 0.1, 0.05),   # Dark brown
+		Color(0.9, 0.8, 0.5),     # Blonde
+		Color(0.1, 0.1, 0.1),     # Black
+		Color(0.5, 0.3, 0.2),     # Auburn
+		Color(0.7, 0.7, 0.7),     # Gray/white
+	]
+	hair_color = hair_colors[randi() % hair_colors.size()]
+
+	# Skin tones
+	var skin_tones = [
+		Color(0.95, 0.82, 0.68),  # Light
+		Color(0.87, 0.72, 0.55),  # Medium light
+		Color(0.75, 0.58, 0.42),  # Medium
+		Color(0.6, 0.45, 0.32),   # Medium dark
+		Color(0.45, 0.32, 0.22),  # Dark
+	]
+	skin_tone = skin_tones[randi() % skin_tones.size()]
+
+## Apply appearance colors to visual components
+func _apply_appearance() -> void:
+	if body:
+		body.color = shirt_color
+	if legs:
+		legs.color = pants_color
+	if cap:
+		cap.color = cap_color
+	if cap_brim:
+		# Slightly darker than cap
+		cap_brim.color = cap_color.darkened(0.2)
+	if hair:
+		hair.color = hair_color
+	if head:
+		head.color = skin_tone
+	if arms:
+		arms.color = skin_tone
+	if hands:
+		hands.color = skin_tone
 
 func _exit_tree() -> void:
 	if EventBus.green_fee_paid.is_connected(_on_green_fee_paid):
@@ -200,13 +301,15 @@ func _process_walking(delta: float) -> void:
 
 	# Simple walking animation - bob up and down
 	if visual:
-		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * 2.0
+		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * 1.5
 		visual.position.y = bob_amount
 
 	# Swing arms while walking
+	var swing_amount = sin(Time.get_ticks_msec() / 200.0) * 0.15
 	if arms:
-		var swing_amount = sin(Time.get_ticks_msec() / 200.0) * 0.2
 		arms.rotation = swing_amount
+	if hands:
+		hands.rotation = swing_amount
 
 func _process_preparing_shot(delta: float) -> void:
 	# AI thinks about the shot
@@ -229,15 +332,38 @@ func _play_swing_animation() -> void:
 	if not arms:
 		return
 
+	# Show the golf club during swing
+	if golf_club:
+		golf_club.visible = true
+
 	var tween = create_tween()
 	tween.set_ease(Tween.EASE_IN_OUT)
+	tween.set_parallel(true)
 
-	# Backswing
-	tween.tween_property(arms, "rotation", 1.2, 0.3)
-	# Downswing
-	tween.tween_property(arms, "rotation", -0.8, 0.15)
+	# Backswing - arms and club rotate back
+	tween.tween_property(arms, "rotation", 1.0, 0.3)
+	if hands:
+		tween.tween_property(hands, "rotation", 1.0, 0.3)
+	if golf_club:
+		tween.tween_property(golf_club, "rotation", -1.5, 0.3)
+
+	tween.chain().set_parallel(true)
+
+	# Downswing - fast forward swing
+	tween.tween_property(arms, "rotation", -0.6, 0.12)
+	if hands:
+		tween.tween_property(hands, "rotation", -0.6, 0.12)
+	if golf_club:
+		tween.tween_property(golf_club, "rotation", 0.8, 0.12)
+
+	tween.chain().set_parallel(true)
+
 	# Follow through
-	tween.tween_property(arms, "rotation", 0.0, 0.2)
+	tween.tween_property(arms, "rotation", 0.0, 0.25)
+	if hands:
+		tween.tween_property(hands, "rotation", 0.0, 0.25)
+	if golf_club:
+		tween.tween_property(golf_club, "rotation", 0.3, 0.25)
 
 	await tween.finished
 	swing_animation_playing = false
@@ -1257,32 +1383,47 @@ func _update_visual() -> void:
 	visual.position = Vector2.ZERO
 	if arms:
 		arms.rotation = 0
+	if hands:
+		hands.rotation = 0
+
+	# Hide golf club by default
+	if golf_club:
+		golf_club.visible = false
+		golf_club.rotation = 0
+
+	# Reset body modulate to show true shirt color
+	if body:
+		body.modulate = Color.WHITE
 
 	# Update visual based on state
 	match current_state:
 		State.IDLE:
-			if body:
-				body.modulate = Color(0.3, 0.6, 0.9, 1)
+			pass  # Default appearance
 		State.WALKING:
-			if body:
-				body.modulate = Color(0.4, 0.7, 1.0, 1)
-			# Walk animation handled in _process_walking
+			pass  # Walk animation handled in _process_walking
 		State.PREPARING_SHOT:
-			if body:
-				body.modulate = Color(1.0, 0.9, 0.3, 1)
-			# Golfer is thinking/preparing
+			# Show golf club while preparing
+			if golf_club:
+				golf_club.visible = true
+				golf_club.rotation = -0.3
 		State.SWINGING:
+			# Show golf club during swing
+			if golf_club:
+				golf_club.visible = true
+				golf_club.rotation = -1.2  # Club rotated back
 			if arms:
-				# Rotate arms to simulate swing
-				arms.rotation = -0.5
-			if body:
-				body.modulate = Color(1.0, 0.6, 0.2, 1)
+				arms.rotation = -0.3
+			if hands:
+				hands.rotation = -0.3
 		State.WATCHING:
-			if body:
-				body.modulate = Color(0.8, 0.8, 1.0, 1)
+			# Show club while watching ball
+			if golf_club:
+				golf_club.visible = true
+				golf_club.rotation = 0.2  # Follow through position
 		State.FINISHED:
+			# Dim the golfer slightly when finished
 			if body:
-				body.modulate = Color(0.5, 0.5, 0.5, 1)
+				body.modulate = Color(0.85, 0.85, 0.85, 1)
 
 ## Update score display
 func _update_score_display() -> void:
