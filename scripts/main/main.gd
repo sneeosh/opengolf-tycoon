@@ -618,11 +618,19 @@ func _on_building_placement_pressed() -> void:
 		var building_data = building_registry[building_type]
 		var name_text = building_data.get("name", building_type)
 		var cost = building_data.get("cost", 0)
-		
+
 		var btn = Button.new()
 		btn.text = "%s ($%d)" % [name_text, cost]
 		btn.custom_minimum_size = Vector2(350, 30)
-		btn.pressed.connect(_on_building_type_selected.bind(building_type, dialog))
+
+		# Disable button for unique buildings that are already placed
+		var is_unique = building_data.get("required", false)
+		if is_unique and entity_layer.has_building_of_type(building_type):
+			btn.disabled = true
+			btn.text = "%s (Already placed)" % name_text
+		else:
+			btn.pressed.connect(_on_building_type_selected.bind(building_type, dialog))
+
 		vbox.add_child(btn)
 	
 	scroll.add_child(vbox)
