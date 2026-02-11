@@ -455,7 +455,7 @@ _Moved to Future Ideas - low priority until core features complete_
 
 ---
 
-## PRIORITY 8: Advanced Features
+## PRIORITY 8: Advanced Features ✅ COMPLETE
 
 ### [X] Weather System
 **STATUS: COMPLETE** - Dynamic weather with gameplay effects:
@@ -468,18 +468,25 @@ _Moved to Future Ideas - low priority until core features complete_
 - ✅ Weather state saved/loaded
 - ✅ Course stays open regardless of weather
 
-### [] Tournament Mode
-- Host tournaments on your course
-- Add different tiers of tournament with course rating, yardage, and hole # requirements. more prestigious tournaments have more stringient requirements.
-- Prize money system (course pays out, earns prestige)
-- Attracts pro golfers and media attention
-- Reputation boost for hosting
+### [X] Tournament Mode
+**STATUS: COMPLETE** - Host tournaments with tiered requirements:
+- ✅ Four tournament tiers: Local, Regional, National, Championship
+- ✅ Each tier has requirements (holes, rating, difficulty, yardage)
+- ✅ Prize money system (course pays entry, earns prestige)
+- ✅ 3-day scheduling lead time with 7-day cooldown
+- ✅ Generated tournament results with winner names/scores
+- ✅ Tournament panel UI with qualification status
+- ✅ Toggle with T key or button
+- ✅ Tournament state saved/loaded
 
-### [] Course Difficulty Rating
-- Automatic slope/difficulty rating based on hole design
-- Rating displayed to player
-- Affects which golfer tiers are attracted
-- Higher difficulty with good design = more prestige
+### [X] Course Difficulty Rating
+**STATUS: COMPLETE** - Automatic difficulty calculation:
+- ✅ Course difficulty (1-10 scale) from hole ratings
+- ✅ Slope rating (55-155) based on difficulty
+- ✅ Course rating (expected score for scratch golfer)
+- ✅ Displayed in end-of-day summary with color coding
+- ✅ Prestige multiplier for reputation on challenging courses
+- ✅ Difficulty affects golfer tier attraction (hard courses attract pros)
 
 ---
 
