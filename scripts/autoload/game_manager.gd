@@ -309,7 +309,12 @@ class DailyStatistics:
 	var bogeys_or_worse: int = 0  # Par + 1 or worse (for pace indicator)
 	var total_strokes_today: int = 0  # For calculating average score
 	var total_par_today: int = 0  # For calculating average score
-	var operating_costs: int = 0  # Maintenance etc.
+	var operating_costs: int = 0  # Total operating costs (sum of below)
+
+	# Operating cost breakdown
+	var terrain_maintenance: int = 0  # Cost from terrain upkeep
+	var base_operating_cost: int = 0  # Fixed daily cost based on course size
+	var staff_wages: int = 0  # Staff costs based on number of holes
 
 	func reset() -> void:
 		revenue = 0
@@ -321,6 +326,25 @@ class DailyStatistics:
 		total_strokes_today = 0
 		total_par_today = 0
 		operating_costs = 0
+		terrain_maintenance = 0
+		base_operating_cost = 0
+		staff_wages = 0
+
+	## Calculate operating costs based on terrain and course size
+	## terrain_cost: total maintenance cost from terrain grid
+	## hole_count: number of holes on the course
+	func calculate_operating_costs(terrain_cost: int, hole_count: int) -> void:
+		# Terrain maintenance from actual tiles
+		terrain_maintenance = terrain_cost
+
+		# Base operating cost: $50 + $25 per hole
+		base_operating_cost = 50 + (hole_count * 25)
+
+		# Staff wages: $10 per hole
+		staff_wages = hole_count * 10
+
+		# Total
+		operating_costs = terrain_maintenance + base_operating_cost + staff_wages
 
 	func get_profit() -> int:
 		return revenue - operating_costs

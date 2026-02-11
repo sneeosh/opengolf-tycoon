@@ -360,14 +360,17 @@ func _advance_golfer(golfer: Golfer) -> void:
 			# Close enough to hole out (gimme putt ~3.75 yards)
 			var score_diff = golfer.current_strokes - hole_data.par
 			var score_name = ""
-			match score_diff:
-				-3: score_name = "Albatross"
-				-2: score_name = "Eagle"
-				-1: score_name = "Birdie"
-				0: score_name = "Par"
-				1: score_name = "Bogey"
-				2: score_name = "Double Bogey"
-				_: score_name = "+%d" % score_diff if score_diff > 0 else "%d" % score_diff
+			if golfer.current_strokes == 1:
+				score_name = "Hole-in-One"
+			else:
+				match score_diff:
+					-3: score_name = "Albatross"
+					-2: score_name = "Eagle"
+					-1: score_name = "Birdie"
+					0: score_name = "Par"
+					1: score_name = "Bogey"
+					2: score_name = "Double Bogey"
+					_: score_name = "+%d" % score_diff if score_diff > 0 else "%d" % score_diff
 			print("%s holes out on hole %d: %d strokes (Par %d) - %s" % [golfer.golfer_name, golfer.current_hole + 1, golfer.current_strokes, hole_data.par, score_name])
 			EventBus.ball_in_hole.emit(golfer.golfer_id, hole_data.hole_number)
 			golfer.finish_hole(hole_data.par)

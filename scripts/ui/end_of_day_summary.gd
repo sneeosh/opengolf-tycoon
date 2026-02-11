@@ -42,9 +42,26 @@ func _build_ui() -> void:
 	var revenue_row = _create_stat_row("Revenue:", "$%d" % stats.revenue, Color(0.4, 0.9, 0.4))
 	vbox.add_child(revenue_row)
 
-	# Operating costs (placeholder for now)
-	var costs_row = _create_stat_row("Operating Costs:", "-$%d" % stats.operating_costs, Color(0.9, 0.5, 0.5))
-	vbox.add_child(costs_row)
+	# Operating costs breakdown
+	var costs_label = Label.new()
+	costs_label.text = "Operating Costs:"
+	costs_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(costs_label)
+
+	# Show breakdown with indentation
+	var dim_color = Color(0.7, 0.7, 0.7)
+	if stats.terrain_maintenance > 0:
+		var terrain_row = _create_stat_row("  Terrain:", "-$%d" % stats.terrain_maintenance, dim_color)
+		vbox.add_child(terrain_row)
+	if stats.base_operating_cost > 0:
+		var base_row = _create_stat_row("  Base:", "-$%d" % stats.base_operating_cost, dim_color)
+		vbox.add_child(base_row)
+	if stats.staff_wages > 0:
+		var staff_row = _create_stat_row("  Staff:", "-$%d" % stats.staff_wages, dim_color)
+		vbox.add_child(staff_row)
+
+	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % stats.operating_costs, Color(0.9, 0.5, 0.5))
+	vbox.add_child(total_costs_row)
 
 	# Profit/Loss
 	var profit = stats.get_profit()
