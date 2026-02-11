@@ -26,6 +26,9 @@ var terrain_grid: TerrainGrid = null
 # Reference to wind system (set by main scene)
 var wind_system: WindSystem = null
 
+# Reference to entity layer for building queries (set by main scene)
+var entity_layer = null
+
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
 
@@ -361,6 +364,9 @@ class DailyStatistics:
 	var base_operating_cost: int = 0  # Fixed daily cost based on course size
 	var staff_wages: int = 0  # Staff costs based on number of holes
 
+	# Building revenue from amenities
+	var building_revenue: int = 0
+
 	# Golfer tier counts
 	var tier_counts: Dictionary = {
 		GolferTier.Tier.BEGINNER: 0,
@@ -376,6 +382,7 @@ class DailyStatistics:
 		eagles = 0
 		birdies = 0
 		bogeys_or_worse = 0
+		building_revenue = 0
 		total_strokes_today = 0
 		total_par_today = 0
 		operating_costs = 0
@@ -406,7 +413,10 @@ class DailyStatistics:
 		operating_costs = terrain_maintenance + base_operating_cost + staff_wages
 
 	func get_profit() -> int:
-		return revenue - operating_costs
+		return revenue + building_revenue - operating_costs
+
+	func get_total_revenue() -> int:
+		return revenue + building_revenue
 
 	func get_average_score_to_par() -> float:
 		if total_par_today == 0:

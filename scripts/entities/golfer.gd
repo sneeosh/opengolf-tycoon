@@ -95,6 +95,9 @@ const PREPARATION_DURATION: float = 1.0  # 1 second to prepare shot
 var path: Array[Vector2] = []
 var path_index: int = 0
 
+## Building interaction tracking (for proximity-based revenue)
+var _visited_buildings: Dictionary = {}  # instance_id -> true
+
 ## Visual components
 @onready var visual: Node2D = $Visual if has_node("Visual") else null
 @onready var name_label: Label = $InfoContainer/NameLabel if has_node("InfoContainer/NameLabel") else null
@@ -184,6 +187,9 @@ func _process_walking(delta: float) -> void:
 	velocity = direction * walk_speed
 	move_and_slide()
 
+	# Check for building proximity (revenue/satisfaction effects)
+	_check_building_proximity()
+
 	# Simple walking animation - bob up and down
 	if visual:
 		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * 2.0
@@ -234,6 +240,10 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	current_strokes = 0
 	ball_position = tee_position
 	ball_position_precise = Vector2(tee_position)
+
+	# Clear visited buildings at start of round
+	if hole_number == 0:
+		_visited_buildings.clear()
 
 	var screen_pos = GameManager.terrain_grid.grid_to_screen_center(tee_position) if GameManager.terrain_grid else Vector2.ZERO
 	global_position = screen_pos
@@ -1240,6 +1250,71 @@ func show_payment_notification(amount: int) -> void:
 	tween.tween_property(notification, "modulate:a", 0.0, 1.5)  # Fade out
 
 	# Remove the notification when done
+	tween.finished.connect(func(): notification.queue_free())
+
+## Check proximity to buildings and generate revenue/satisfaction effects
+func _check_building_proximity() -> void:
+	var entity_layer = GameManager.entity_layer
+	if not entity_layer:
+		return
+
+	var terrain_grid = GameManager.terrain_grid
+	if not terrain_grid:
+		return
+
+	var current_grid_pos = terrain_grid.screen_to_grid(global_position)
+	var buildings = entity_layer.get_all_buildings()
+
+	for building in buildings:
+		# Skip if already visited this building
+		var building_id = building.get_instance_id()
+		if _visited_buildings.has(building_id):
+			continue
+
+		# Check if building has effect properties
+		var building_data = building.building_data
+		var effect_type = building_data.get("effect_type", "")
+		if effect_type.is_empty():
+			continue
+
+		# Check proximity
+		var effect_radius = building_data.get("effect_radius", 5)
+		var distance = Vector2(current_grid_pos).distance_to(Vector2(building.grid_position))
+
+		if distance <= effect_radius:
+			_visited_buildings[building_id] = true
+
+			# Apply effect based on type
+			if effect_type == "revenue":
+				var income = building_data.get("income_per_golfer", 0)
+				if income > 0:
+					GameManager.modify_money(income)
+					GameManager.daily_stats.building_revenue += income
+					EventBus.log_transaction("%s at %s" % [golfer_name, building.building_type], income)
+					_show_building_revenue_notification(income, building.building_type)
+
+			elif effect_type == "satisfaction":
+				var bonus = building_data.get("satisfaction_bonus", 0.0)
+				if bonus > 0:
+					# Boost mood slightly when passing amenities
+					current_mood = clampf(current_mood + bonus, 0.0, 1.0)
+
+## Show floating notification for building revenue
+func _show_building_revenue_notification(amount: int, _building_type: String) -> void:
+	var notification = Label.new()
+	notification.text = "+$%d" % amount
+	notification.modulate = Color(0.4, 0.8, 1.0, 1.0)  # Blue for building revenue
+	notification.position = Vector2(15, -30)
+
+	notification.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notification.add_theme_font_size_override("font_size", 12)
+
+	add_child(notification)
+
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(notification, "position:y", -50, 1.2)
+	tween.tween_property(notification, "modulate:a", 0.0, 1.2)
 	tween.finished.connect(func(): notification.queue_free())
 
 ## Show a thought bubble with golfer feedback
