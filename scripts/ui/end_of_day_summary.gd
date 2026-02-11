@@ -100,7 +100,6 @@ func _build_ui() -> void:
 	vbox.add_child(star_row)
 
 	# Show individual ratings in smaller text
-	var dim_color = Color(0.7, 0.7, 0.7)
 	var cond_row = _create_stat_row("  Condition:", "%.1f" % rating.get("condition", 3.0), dim_color)
 	var design_row = _create_stat_row("  Design:", "%.1f" % rating.get("design", 3.0), dim_color)
 	var value_row = _create_stat_row("  Value:", "%.1f" % rating.get("value", 3.0), dim_color)
@@ -118,7 +117,6 @@ func _build_ui() -> void:
 
 	# Golfer tier breakdown
 	if stats.golfers_served > 0:
-		var dim_color = Color(0.7, 0.7, 0.7)
 		var beginners = stats.tier_counts.get(GolferTier.Tier.BEGINNER, 0)
 		var casuals = stats.tier_counts.get(GolferTier.Tier.CASUAL, 0)
 		var serious = stats.tier_counts.get(GolferTier.Tier.SERIOUS, 0)
