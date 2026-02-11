@@ -1283,10 +1283,9 @@ func _setup_tournament_panel() -> void:
 
 	tournament_panel = TournamentPanel.new()
 	tournament_panel.name = "TournamentPanel"
-	tournament_panel._build_ui()
-	tournament_panel.setup(tournament_manager)
+	tournament_panel.close_requested.connect(_on_tournament_panel_closed)
 	hud.add_child(tournament_panel)
-	tournament_panel.hide()
+	tournament_panel.setup(tournament_manager)
 
 	# Add tournament button to bottom bar
 	var bottom_bar = $UI/HUD/BottomBar
@@ -1296,6 +1295,10 @@ func _setup_tournament_panel() -> void:
 	tournament_btn.tooltip_text = "Host tournaments (T)"
 	tournament_btn.pressed.connect(_toggle_tournament_panel)
 	bottom_bar.add_child(tournament_btn)
+
+func _on_tournament_panel_closed() -> void:
+	"""Hide the tournament panel."""
+	tournament_panel.hide()
 
 func _toggle_tournament_panel() -> void:
 	"""Toggle the tournament panel visibility."""

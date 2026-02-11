@@ -2,211 +2,236 @@ extends PanelContainer
 class_name TournamentPanel
 ## TournamentPanel - UI for viewing and hosting tournaments
 
-var _tournament_manager: TournamentManager = null
+signal close_requested
 
-@onready var title_label: Label = $VBoxContainer/TitleLabel
-@onready var status_label: Label = $VBoxContainer/StatusLabel
-@onready var tournament_list: VBoxContainer = $VBoxContainer/ScrollContainer/TournamentList
-@onready var results_container: VBoxContainer = $VBoxContainer/ResultsContainer
-@onready var results_label: Label = $VBoxContainer/ResultsContainer/ResultsLabel
-@onready var close_button: Button = $VBoxContainer/CloseButton
+var _tournament_manager: TournamentManager = null
+var _content_vbox: VBoxContainer = null
+var _status_label: Label = null
+var _title_label: Label = null
 
 func _ready() -> void:
-	visible = false
-	close_button.pressed.connect(_on_close_pressed)
+	_build_ui()
+	hide()
 
 	# Connect to tournament events
 	EventBus.tournament_scheduled.connect(_on_tournament_scheduled)
 	EventBus.tournament_started.connect(_on_tournament_started)
 	EventBus.tournament_completed.connect(_on_tournament_completed)
 
+func _build_ui() -> void:
+	custom_minimum_size = Vector2(340, 480)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", 12)
+	margin.add_theme_constant_override("margin_bottom", 12)
+	add_child(margin)
+
+	var main_vbox = VBoxContainer.new()
+	main_vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(main_vbox)
+
+	# Title row with close button
+	var title_row = HBoxContainer.new()
+	main_vbox.add_child(title_row)
+
+	_title_label = Label.new()
+	_title_label.text = "Tournaments"
+	_title_label.add_theme_font_size_override("font_size", 18)
+	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_row.add_child(_title_label)
+
+	var close_btn = Button.new()
+	close_btn.text = "X"
+	close_btn.custom_minimum_size = Vector2(30, 30)
+	close_btn.pressed.connect(_on_close_pressed)
+	title_row.add_child(close_btn)
+
+	main_vbox.add_child(HSeparator.new())
+
+	# Status label
+	_status_label = Label.new()
+	_status_label.text = "Select a tournament to host:"
+	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	main_vbox.add_child(_status_label)
+
+	main_vbox.add_child(HSeparator.new())
+
+	# Scrollable content area
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(0, 350)
+	main_vbox.add_child(scroll)
+
+	_content_vbox = VBoxContainer.new()
+	_content_vbox.add_theme_constant_override("separation", 6)
+	_content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_content_vbox)
+
 func setup(tournament_manager: TournamentManager) -> void:
 	_tournament_manager = tournament_manager
-	_refresh_display()
 
 func toggle() -> void:
-	visible = not visible
 	if visible:
+		hide()
+	else:
 		_refresh_display()
+		show()
 
 func _refresh_display() -> void:
 	if not _tournament_manager:
 		return
 
-	# Clear tournament list
-	for child in tournament_list.get_children():
+	# Clear content
+	for child in _content_vbox.get_children():
 		child.queue_free()
 
 	# Check current tournament status
 	var info = _tournament_manager.get_tournament_info()
 	if info.is_empty():
 		_show_available_tournaments()
-		results_container.visible = false
 	else:
 		_show_current_tournament(info)
 
 func _show_available_tournaments() -> void:
 	var cooldown = _tournament_manager.get_cooldown_remaining()
 	if cooldown > 0:
-		status_label.text = "Cooldown: %d days until next tournament" % cooldown
+		_status_label.text = "Cooldown: %d days until next tournament" % cooldown
+		_status_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.5))
 	else:
-		status_label.text = "Select a tournament to host:"
+		_status_label.text = "Select a tournament to host:"
+		_status_label.remove_theme_color_override("font_color")
 
-	# Show all tournament tiers with qualification status
+	# Show all tournament tiers
 	for tier in TournamentSystem.TournamentTier.values():
 		var tier_data = TournamentSystem.get_tier_data(tier)
-		var qualification = TournamentSystem.check_qualification(
-			tier,
-			GameManager.current_course,
-			GameManager.course_rating
-		)
 		var can_schedule = _tournament_manager.can_schedule_tournament(tier)
 
-		var container = HBoxContainer.new()
-		tournament_list.add_child(container)
-
-		var info_vbox = VBoxContainer.new()
-		info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		container.add_child(info_vbox)
-
+		# Tournament name
 		var name_label = Label.new()
 		name_label.text = tier_data.name
 		name_label.add_theme_font_size_override("font_size", 14)
-		info_vbox.add_child(name_label)
+		_content_vbox.add_child(name_label)
 
-		var details_label = Label.new()
-		details_label.text = "Req: %d holes, %.1f★ | Entry: $%d | Prize: $%d" % [
-			tier_data.min_holes,
-			tier_data.min_rating,
-			tier_data.entry_cost,
-			tier_data.prize_pool
-		]
-		details_label.add_theme_font_size_override("font_size", 11)
-		details_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-		info_vbox.add_child(details_label)
+		# Requirements row
+		var req_row = _create_stat_row(
+			"Requirements:",
+			"%d holes, %.1f stars" % [tier_data.min_holes, tier_data.min_rating],
+			Color(0.7, 0.7, 0.7)
+		)
+		_content_vbox.add_child(req_row)
 
-		var reward_label = Label.new()
-		reward_label.text = "Reputation: +%d | Duration: %d days" % [
-			tier_data.reputation_reward,
-			tier_data.duration_days
-		]
-		reward_label.add_theme_font_size_override("font_size", 11)
-		reward_label.add_theme_color_override("font_color", Color(0.6, 0.8, 0.6))
-		info_vbox.add_child(reward_label)
+		# Cost/Prize row
+		var cost_row = _create_stat_row(
+			"Entry / Prize:",
+			"$%d / $%d" % [tier_data.entry_cost, tier_data.prize_pool],
+			Color(0.7, 0.9, 0.7)
+		)
+		_content_vbox.add_child(cost_row)
 
-		var host_button = Button.new()
-		host_button.text = "Host"
-		host_button.custom_minimum_size.x = 60
-		host_button.disabled = not can_schedule.can_schedule
+		# Reward row
+		var reward_row = _create_stat_row(
+			"Reputation:",
+			"+%d (%d days)" % [tier_data.reputation_reward, tier_data.duration_days],
+			Color(0.7, 0.8, 0.9)
+		)
+		_content_vbox.add_child(reward_row)
+
+		# Host button
+		var btn_container = HBoxContainer.new()
+		btn_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_content_vbox.add_child(btn_container)
+
+		var spacer = Control.new()
+		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn_container.add_child(spacer)
+
+		var host_btn = Button.new()
+		host_btn.text = "Host Tournament"
+		host_btn.custom_minimum_size = Vector2(140, 32)
+		host_btn.disabled = not can_schedule.can_schedule
 		if can_schedule.can_schedule:
-			host_button.pressed.connect(_on_host_pressed.bind(tier))
+			host_btn.pressed.connect(_on_host_pressed.bind(tier))
 		else:
-			host_button.tooltip_text = can_schedule.reason
-		container.add_child(host_button)
+			host_btn.tooltip_text = can_schedule.reason
+		btn_container.add_child(host_btn)
 
-		# Add separator
-		var sep = HSeparator.new()
-		tournament_list.add_child(sep)
+		_content_vbox.add_child(HSeparator.new())
 
 func _show_current_tournament(info: Dictionary) -> void:
 	var state_text = ""
 	match info.state:
 		TournamentSystem.TournamentState.SCHEDULED:
-			state_text = "Scheduled - starts in %d days" % info.days_remaining
-			status_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.3))
+			state_text = "Starts in %d days" % info.days_remaining
+			_status_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.3))
 		TournamentSystem.TournamentState.IN_PROGRESS:
 			state_text = "In Progress - %d day(s) remaining" % info.days_remaining
-			status_label.add_theme_color_override("font_color", Color(0.3, 0.8, 0.3))
+			_status_label.add_theme_color_override("font_color", Color(0.3, 0.9, 0.3))
 
-	status_label.text = "%s\n%s" % [info.name, state_text]
+	_status_label.text = "%s\n%s" % [info.name, state_text]
 
-	# Show tournament details
-	var details = Label.new()
-	details.text = "Tournament in progress. Course is hosting professional golfers."
-	tournament_list.add_child(details)
+	# Show tournament info
+	var info_label = Label.new()
+	info_label.text = "Tournament in progress. Professional golfers are competing on your course."
+	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	_content_vbox.add_child(info_label)
+
+	# Show last results if available
+	if not _tournament_manager.tournament_results.is_empty():
+		_content_vbox.add_child(HSeparator.new())
+
+		var results_title = Label.new()
+		results_title.text = "Previous Tournament Results"
+		results_title.add_theme_font_size_override("font_size", 14)
+		_content_vbox.add_child(results_title)
+
+		var results = _tournament_manager.tournament_results
+		var winner_row = _create_stat_row("Winner:", results.get("winner_name", "Unknown"), Color(1.0, 0.85, 0.0))
+		_content_vbox.add_child(winner_row)
+
+		var score_row = _create_stat_row("Score:", "%d (Par %d)" % [results.get("winning_score", 0), results.get("par", 72)], Color.WHITE)
+		_content_vbox.add_child(score_row)
+
+func _create_stat_row(label_text: String, value_text: String, value_color: Color) -> HBoxContainer:
+	var row = HBoxContainer.new()
+
+	var label = Label.new()
+	label.text = label_text
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+
+	var value = Label.new()
+	value.text = value_text
+	value.add_theme_color_override("font_color", value_color)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(value)
+
+	return row
 
 func _on_host_pressed(tier: int) -> void:
 	if _tournament_manager.schedule_tournament(tier):
 		_refresh_display()
 
 func _on_close_pressed() -> void:
-	visible = false
+	close_requested.emit()
+	hide()
 
 func _on_tournament_scheduled(_tier: int, start_day: int) -> void:
 	EventBus.notify("Tournament scheduled for Day %d!" % start_day, "success")
-	_refresh_display()
+	if visible:
+		_refresh_display()
 
 func _on_tournament_started(tier: int) -> void:
 	var name = TournamentSystem.get_tier_name(tier)
 	EventBus.notify("%s has begun!" % name, "success")
-	_refresh_display()
+	if visible:
+		_refresh_display()
 
 func _on_tournament_completed(tier: int, results: Dictionary) -> void:
 	var name = TournamentSystem.get_tier_name(tier)
 	EventBus.notify("%s completed! Winner: %s (%d)" % [name, results.winner_name, results.winning_score], "success")
-
-	# Show results
-	results_container.visible = true
-	results_label.text = "Tournament Results:\nWinner: %s\nScore: %d (Par %d)\nPrize Pool: $%d" % [
-		results.winner_name,
-		results.winning_score,
-		results.par,
-		results.prize_pool
-	]
-
-	_refresh_display()
-
-func _build_ui() -> void:
-	# Build UI structure programmatically
-	custom_minimum_size = Vector2(320, 400)
-
-	var main_vbox = VBoxContainer.new()
-	main_vbox.name = "VBoxContainer"
-	add_child(main_vbox)
-
-	title_label = Label.new()
-	title_label.name = "TitleLabel"
-	title_label.text = "Tournaments"
-	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", 18)
-	main_vbox.add_child(title_label)
-
-	var sep1 = HSeparator.new()
-	main_vbox.add_child(sep1)
-
-	status_label = Label.new()
-	status_label.name = "StatusLabel"
-	status_label.text = "Select a tournament to host:"
-	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	main_vbox.add_child(status_label)
-
-	var scroll = ScrollContainer.new()
-	scroll.name = "ScrollContainer"
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size.y = 200
-	main_vbox.add_child(scroll)
-
-	tournament_list = VBoxContainer.new()
-	tournament_list.name = "TournamentList"
-	tournament_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(tournament_list)
-
-	results_container = VBoxContainer.new()
-	results_container.name = "ResultsContainer"
-	results_container.visible = false
-	main_vbox.add_child(results_container)
-
-	var results_title = Label.new()
-	results_title.text = "Last Tournament Results"
-	results_title.add_theme_font_size_override("font_size", 14)
-	results_container.add_child(results_title)
-
-	results_label = Label.new()
-	results_label.name = "ResultsLabel"
-	results_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	results_container.add_child(results_label)
-
-	close_button = Button.new()
-	close_button.name = "CloseButton"
-	close_button.text = "Close"
-	main_vbox.add_child(close_button)
+	if visible:
+		_refresh_display()
