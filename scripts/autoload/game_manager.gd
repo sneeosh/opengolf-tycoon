@@ -31,6 +31,7 @@ var entity_layer = null
 
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
+var yesterday_stats: DailyStatistics = null  # Previous day's stats for comparison
 
 # Course rating (1-5 stars)
 var course_rating: Dictionary = {
@@ -215,6 +216,8 @@ func new_game(course_name_input: String = "New Course") -> void:
 	_end_of_day_triggered = false
 	_end_of_day_emitted = false
 	current_course = CourseData.new()
+	daily_stats.reset()
+	yesterday_stats = null  # No yesterday on day 1
 	reset_course_records()  # Clear records for new game
 	set_mode(GameMode.BUILDING)
 	EventBus.new_game_started.emit()
@@ -260,6 +263,16 @@ func request_end_of_day() -> void:
 
 func advance_to_next_day() -> void:
 	"""Advance to the next morning. Called after end-of-day processing is complete."""
+	# Save yesterday's stats before resetting
+	yesterday_stats = DailyStatistics.new()
+	yesterday_stats.revenue = daily_stats.revenue
+	yesterday_stats.building_revenue = daily_stats.building_revenue
+	yesterday_stats.operating_costs = daily_stats.operating_costs
+	yesterday_stats.terrain_maintenance = daily_stats.terrain_maintenance
+	yesterday_stats.base_operating_cost = daily_stats.base_operating_cost
+	yesterday_stats.staff_wages = daily_stats.staff_wages
+	yesterday_stats.golfers_served = daily_stats.golfers_served
+
 	# Reset daily statistics for the new day
 	daily_stats.reset()
 

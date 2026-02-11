@@ -38,6 +38,7 @@ var elevation_tool: ElevationTool = ElevationTool.new()
 var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
 var building_info_panel: BuildingInfoPanel = null
+var financial_panel: FinancialPanel = null
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 
@@ -96,6 +97,7 @@ func _ready() -> void:
 	_create_wind_indicator()
 	_create_save_load_button()
 	_setup_building_info_panel()
+	_setup_financial_panel()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -302,7 +304,16 @@ func _on_build_mode_pressed() -> void:
 		print("Returned to building mode")
 
 func _update_ui() -> void:
-	money_label.text = "$%d" % GameManager.money
+	# Update money with trend indicator
+	var trend_indicator = ""
+	if GameManager.yesterday_stats != null:
+		var today_profit = GameManager.daily_stats.get_profit()
+		var yesterday_profit = GameManager.yesterday_stats.get_profit()
+		if today_profit > yesterday_profit:
+			trend_indicator = " ^"  # Up arrow
+		elif today_profit < yesterday_profit:
+			trend_indicator = " v"  # Down arrow
+	money_label.text = "$%d%s" % [GameManager.money, trend_indicator]
 	day_label.text = "Day %d - %s" % [GameManager.current_day, GameManager.get_time_string()]
 	reputation_label.text = "Rep: %.0f" % GameManager.reputation
 
@@ -1016,3 +1027,48 @@ func _on_building_clicked(building: Building) -> void:
 func _on_building_panel_closed() -> void:
 	"""Hide the building info panel."""
 	building_info_panel.hide()
+
+# --- Financial Panel ---
+
+func _setup_financial_panel() -> void:
+	"""Add financial panel to the HUD and make money label clickable."""
+	var hud = $UI/HUD
+
+	# Create financial panel
+	financial_panel = FinancialPanel.new()
+	financial_panel.name = "FinancialPanel"
+	financial_panel.close_requested.connect(_on_financial_panel_closed)
+	hud.add_child(financial_panel)
+	financial_panel.hide()
+
+	# Make money label clickable by wrapping it in a button-like container
+	var money_btn = Button.new()
+	money_btn.name = "MoneyButton"
+	money_btn.flat = true
+	money_btn.pressed.connect(_on_money_clicked)
+	money_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+
+	# Get the parent and index of the money label
+	var top_bar = money_label.get_parent()
+	var label_index = money_label.get_index()
+
+	# Remove the label, add it to button, then add button to top bar
+	top_bar.remove_child(money_label)
+	money_btn.add_child(money_label)
+	top_bar.add_child(money_btn)
+	top_bar.move_child(money_btn, label_index)
+
+	# Update reference to still point to the label
+	money_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+func _on_money_clicked() -> void:
+	"""Toggle the financial panel when money is clicked."""
+	financial_panel.toggle()
+	if financial_panel.visible:
+		# Center the panel on screen
+		var viewport_size = get_viewport().get_visible_rect().size
+		financial_panel.position = (viewport_size - financial_panel.custom_minimum_size) / 2
+
+func _on_financial_panel_closed() -> void:
+	"""Hide the financial panel."""
+	financial_panel.hide()
