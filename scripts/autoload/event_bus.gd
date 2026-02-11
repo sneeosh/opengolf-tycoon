@@ -23,6 +23,7 @@ signal course_rating_changed(rating: Dictionary)
 signal terrain_tile_changed(position: Vector2i, old_type: int, new_type: int)
 signal building_placed(building_type: String, position: Vector2i)
 signal building_removed(position: Vector2i)
+signal building_upgraded(building, new_level: int)
 signal terrain_tool_selected(tool_type: String)
 
 # Course Design Signals

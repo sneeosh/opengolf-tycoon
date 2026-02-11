@@ -354,6 +354,13 @@ _Deferred until core gameplay loop is complete. Currently, golfers are cleared o
 - Restrooms along course - satisfaction boost
 - Benches and shelters - satisfaction boost
 
+### [] Golfer Needs System (Future Enhancement)
+- Add thirst, hunger, fatigue stats to golfers
+- Needs increase over time during round
+- Buildings satisfy specific needs (snack bar = hunger, restroom = bladder)
+- Golfers with unmet needs have lower satisfaction
+- Encourages strategic building placement along course
+
 ---
 
 ## PRIORITY 7: UI/UX Improvements

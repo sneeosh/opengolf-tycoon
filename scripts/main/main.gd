@@ -37,6 +37,7 @@ var day_night_system: DayNightSystem = null
 var elevation_tool: ElevationTool = ElevationTool.new()
 var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
+var building_info_panel: BuildingInfoPanel = null
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 
@@ -51,6 +52,11 @@ func _ready() -> void:
 	add_child(entity_layer)
 	entity_layer.set_terrain_grid(terrain_grid)
 	entity_layer.set_building_registry(building_registry)
+	entity_layer.building_selected.connect(_on_building_clicked)
+
+	# Create building info panel (added to UI layer later)
+	building_info_panel = BuildingInfoPanel.new()
+	building_info_panel.close_requested.connect(_on_building_panel_closed)
 
 	# Set up ball manager
 	ball_manager.set_terrain_grid(terrain_grid)
@@ -88,6 +94,7 @@ func _ready() -> void:
 	_create_green_fee_controls()
 	_create_wind_indicator()
 	_create_save_load_button()
+	_setup_building_info_panel()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -963,3 +970,25 @@ func _execute_redo_action(action: Dictionary) -> void:
 					entity_layer.place_rock(grid_pos, subtype)
 			if cost > 0:
 				GameManager.modify_money(-cost)
+
+# --- Building Info Panel ---
+
+func _setup_building_info_panel() -> void:
+	"""Add building info panel to the HUD."""
+	var hud = $UI/HUD
+	hud.add_child(building_info_panel)
+	building_info_panel.hide()
+
+func _on_building_clicked(building: Building) -> void:
+	"""Show building info panel when a building is clicked."""
+	# Only show for upgradeable buildings or buildings with stats
+	if building.building_data.get("upgradeable", false) or building.get_income_per_golfer() > 0:
+		building_info_panel.show_for_building(building)
+
+		# Center the panel on screen
+		var viewport_size = get_viewport().get_visible_rect().size
+		building_info_panel.position = (viewport_size - building_info_panel.custom_minimum_size) / 2
+
+func _on_building_panel_closed() -> void:
+	"""Hide the building info panel."""
+	building_info_panel.hide()

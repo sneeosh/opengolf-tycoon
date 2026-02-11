@@ -15,6 +15,7 @@ signal rock_placed(rock: Rock, cost: int)
 signal building_removed(grid_pos: Vector2i)
 signal tree_removed(grid_pos: Vector2i)
 signal rock_removed(grid_pos: Vector2i)
+signal building_selected(building: Building)
 
 @onready var buildings_container = Node2D.new()
 @onready var trees_container = Node2D.new()
@@ -228,10 +229,14 @@ func deserialize(data: Dictionary) -> void:
 			var parts = key.split(",")
 			if parts.size() == 2:
 				var pos = Vector2i(int(parts[0]), int(parts[1]))
-				var building_data = data["buildings"][key]
-				var building_type = building_data.get("building_type", "") if building_data is Dictionary else ""
+				var building_info = data["buildings"][key]
+				var building_type = building_info.get("building_type", "") if building_info is Dictionary else ""
+				if building_type.is_empty():
+					building_type = building_info.get("type", "") if building_info is Dictionary else ""
 				if not building_type.is_empty():
-					place_building(building_type, pos, building_registry)
+					var building = place_building(building_type, pos, building_registry)
+					if building and building_info is Dictionary:
+						building.restore_from_info(building_info)
 
 	if data.has("rocks"):
 		for key in data["rocks"]:
@@ -243,7 +248,7 @@ func deserialize(data: Dictionary) -> void:
 				place_rock(pos, rock_size)
 
 func _on_building_selected(building: Building) -> void:
-	pass  # Handle building selection if needed
+	building_selected.emit(building)
 
 func _on_building_destroyed(building: Building) -> void:
 	pass  # Clean up if needed

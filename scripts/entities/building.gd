@@ -6,6 +6,7 @@ var building_type: String = "clubhouse"
 var grid_position: Vector2i = Vector2i(0, 0)
 var width: int = 4
 var height: int = 4
+var upgrade_level: int = 1  # Current upgrade level (1-3 for clubhouse)
 
 var terrain_grid: TerrainGrid
 var building_data: Dictionary = {}
@@ -57,6 +58,80 @@ func get_footprint() -> Array:
 			footprint.append(grid_position + Vector2i(x, y))
 	return footprint
 
+## Check if this building can be upgraded
+func can_upgrade() -> bool:
+	if not building_data.get("upgradeable", false):
+		return false
+	var upgrades = building_data.get("upgrades", [])
+	return upgrade_level < upgrades.size()
+
+## Get cost of next upgrade (returns 0 if can't upgrade)
+func get_upgrade_cost() -> int:
+	if not can_upgrade():
+		return 0
+	var upgrades = building_data.get("upgrades", [])
+	if upgrade_level < upgrades.size():
+		return upgrades[upgrade_level].get("upgrade_cost", 0)
+	return 0
+
+## Get current upgrade data
+func get_current_upgrade_data() -> Dictionary:
+	var upgrades = building_data.get("upgrades", [])
+	if upgrade_level > 0 and upgrade_level <= upgrades.size():
+		return upgrades[upgrade_level - 1]
+	return {}
+
+## Get next upgrade data (for preview)
+func get_next_upgrade_data() -> Dictionary:
+	var upgrades = building_data.get("upgrades", [])
+	if upgrade_level < upgrades.size():
+		return upgrades[upgrade_level]
+	return {}
+
+## Upgrade to next level
+func upgrade() -> bool:
+	if not can_upgrade():
+		return false
+
+	var cost = get_upgrade_cost()
+	if GameManager.money < cost:
+		return false
+
+	GameManager.modify_money(-cost)
+	EventBus.log_transaction("Upgraded %s" % building_type, -cost)
+
+	upgrade_level += 1
+
+	# Refresh visuals
+	for child in get_children():
+		if child.name == "Visual":
+			child.queue_free()
+	_update_visuals()
+
+	EventBus.building_upgraded.emit(self, upgrade_level)
+	return true
+
+## Get display name based on upgrade level
+func get_display_name() -> String:
+	var upgrade_data = get_current_upgrade_data()
+	if upgrade_data.has("name"):
+		return upgrade_data["name"]
+	return building_data.get("name", building_type.capitalize())
+
+## Get income per golfer based on upgrade level
+func get_income_per_golfer() -> int:
+	var upgrade_data = get_current_upgrade_data()
+	if upgrade_data.has("income_per_golfer"):
+		return upgrade_data["income_per_golfer"]
+	return building_data.get("income_per_golfer", 0)
+
+## Get satisfaction bonus based on upgrade level
+func get_satisfaction_bonus() -> float:
+	var upgrade_data = get_current_upgrade_data()
+	if upgrade_data.has("satisfaction_bonus"):
+		return upgrade_data["satisfaction_bonus"]
+	return 0.0
+
 func destroy() -> void:
 	building_destroyed.emit(self)
 	queue_free()
@@ -97,9 +172,18 @@ func _update_visuals() -> void:
 			_draw_generic(visual, size_x, size_y)
 
 func _draw_clubhouse(visual: Node2D, width_px: int, height_px: int) -> void:
-	"""Draw clubhouse - large main building"""
+	"""Draw clubhouse - appearance varies by upgrade level"""
+	# Base building color improves with level
+	var base_colors = [
+		Color(0.75, 0.55, 0.2),   # Level 1: Simple tan
+		Color(0.8, 0.6, 0.25),    # Level 2: Warmer tan
+		Color(0.85, 0.65, 0.3),   # Level 3: Rich tan
+	]
+	var base_color = base_colors[min(upgrade_level - 1, 2)]
+
+	# Main building
 	var polygon = Polygon2D.new()
-	polygon.color = Color(0.8, 0.6, 0.2)  # Tan/beige
+	polygon.color = base_color
 	polygon.polygon = PackedVector2Array([
 		Vector2(0, 0),
 		Vector2(width_px, 0),
@@ -107,16 +191,73 @@ func _draw_clubhouse(visual: Node2D, width_px: int, height_px: int) -> void:
 		Vector2(0, height_px)
 	])
 	visual.add_child(polygon)
-	
-	# Add a roof
+
+	# Roof (gets fancier with upgrades)
 	var roof = Polygon2D.new()
-	roof.color = Color(0.6, 0.2, 0.2)  # Red roof
+	var roof_colors = [
+		Color(0.5, 0.2, 0.2),    # Level 1: Simple red
+		Color(0.55, 0.15, 0.15), # Level 2: Deeper red
+		Color(0.6, 0.1, 0.1),    # Level 3: Rich burgundy
+	]
+	roof.color = roof_colors[min(upgrade_level - 1, 2)]
 	roof.polygon = PackedVector2Array([
 		Vector2(width_px * 0.1, 0),
 		Vector2(width_px * 0.9, 0),
 		Vector2(width_px / 2, height_px * 0.3)
 	])
 	visual.add_child(roof)
+
+	# Level 2+: Add shop window
+	if upgrade_level >= 2:
+		var window = Polygon2D.new()
+		window.color = Color(0.4, 0.6, 0.9, 0.8)  # Blue window
+		window.polygon = PackedVector2Array([
+			Vector2(width_px * 0.15, height_px * 0.4),
+			Vector2(width_px * 0.35, height_px * 0.4),
+			Vector2(width_px * 0.35, height_px * 0.7),
+			Vector2(width_px * 0.15, height_px * 0.7)
+		])
+		visual.add_child(window)
+
+		# "PRO SHOP" sign
+		var sign_label = Label.new()
+		sign_label.text = "PRO SHOP"
+		sign_label.add_theme_font_size_override("font_size", 8)
+		sign_label.add_theme_color_override("font_color", Color(0.2, 0.2, 0.2))
+		sign_label.position = Vector2(width_px * 0.12, height_px * 0.75)
+		visual.add_child(sign_label)
+
+	# Level 3: Add outdoor seating area and restaurant window
+	if upgrade_level >= 3:
+		# Restaurant window
+		var rest_window = Polygon2D.new()
+		rest_window.color = Color(0.9, 0.8, 0.5, 0.8)  # Warm window
+		rest_window.polygon = PackedVector2Array([
+			Vector2(width_px * 0.55, height_px * 0.4),
+			Vector2(width_px * 0.75, height_px * 0.4),
+			Vector2(width_px * 0.75, height_px * 0.7),
+			Vector2(width_px * 0.55, height_px * 0.7)
+		])
+		visual.add_child(rest_window)
+
+		# Outdoor seating (patio)
+		var patio = Polygon2D.new()
+		patio.color = Color(0.6, 0.5, 0.4, 0.7)  # Stone patio
+		patio.polygon = PackedVector2Array([
+			Vector2(width_px * 0.8, height_px * 0.5),
+			Vector2(width_px + 20, height_px * 0.5),
+			Vector2(width_px + 20, height_px),
+			Vector2(width_px * 0.8, height_px)
+		])
+		visual.add_child(patio)
+
+		# "RESTAURANT" sign
+		var rest_sign = Label.new()
+		rest_sign.text = "RESTAURANT"
+		rest_sign.add_theme_font_size_override("font_size", 7)
+		rest_sign.add_theme_color_override("font_color", Color(0.3, 0.2, 0.1))
+		rest_sign.position = Vector2(width_px * 0.52, height_px * 0.75)
+		visual.add_child(rest_sign)
 
 func _draw_pro_shop(visual: Node2D, width_px: int, height_px: int) -> void:
 	"""Draw pro shop - shop building"""
@@ -306,5 +447,10 @@ func get_building_info() -> Dictionary:
 		"width": width,
 		"height": height,
 		"cost": building_data.get("cost", 0),
+		"upgrade_level": upgrade_level,
 		"data": building_data
 	}
+
+## Restore building from saved data
+func restore_from_info(info: Dictionary) -> void:
+	upgrade_level = info.get("upgrade_level", 1)

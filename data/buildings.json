@@ -1,6 +1,40 @@
 {
   "buildings": {
-    "clubhouse": {"id": "clubhouse", "name": "Clubhouse", "size": [4, 4], "cost": 10000, "required": true},
+    "clubhouse": {
+      "id": "clubhouse",
+      "name": "Clubhouse",
+      "size": [4, 4],
+      "cost": 10000,
+      "required": true,
+      "upgradeable": true,
+      "upgrades": [
+        {
+          "level": 1,
+          "name": "Basic Clubhouse",
+          "unlocks": [],
+          "satisfaction_bonus": 0.0,
+          "visual": "basic"
+        },
+        {
+          "level": 2,
+          "name": "Clubhouse with Pro Shop",
+          "upgrade_cost": 8000,
+          "unlocks": ["pro_shop"],
+          "income_per_golfer": 15,
+          "satisfaction_bonus": 0.05,
+          "visual": "with_shop"
+        },
+        {
+          "level": 3,
+          "name": "Full Service Clubhouse",
+          "upgrade_cost": 15000,
+          "unlocks": ["pro_shop", "restaurant"],
+          "income_per_golfer": 40,
+          "satisfaction_bonus": 0.10,
+          "visual": "full_service"
+        }
+      ]
+    },
     "pro_shop": {"id": "pro_shop", "name": "Pro Shop", "size": [2, 2], "cost": 5000, "income_per_golfer": 15},
     "restaurant": {"id": "restaurant", "name": "Restaurant", "size": [3, 3], "cost": 15000, "income_per_golfer": 25},
     "snack_bar": {"id": "snack_bar", "name": "Snack Bar", "size": [1, 1], "cost": 2000, "placeable_on_course": true},
