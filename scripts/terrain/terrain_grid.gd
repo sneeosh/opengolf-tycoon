@@ -20,6 +20,11 @@ var _ob_markers_overlay: OBMarkersOverlay = null
 var _water_overlay: WaterOverlay = null
 var _bunker_overlay: BunkerOverlay = null
 var _grass_overlay: GrassOverlay = null
+var _fairway_overlay: FairwayOverlay = null
+var _tree_overlay: TreeOverlay = null
+var _rock_overlay: RockOverlay = null
+var _flower_overlay: FlowerOverlay = null
+var _path_overlay: PathOverlay = null
 
 func _ready() -> void:
 	_initialize_grid()
@@ -27,6 +32,11 @@ func _ready() -> void:
 	_setup_water_overlay()
 	_setup_bunker_overlay()
 	_setup_grass_overlay()
+	_setup_fairway_overlay()
+	_setup_tree_overlay()
+	_setup_rock_overlay()
+	_setup_flower_overlay()
+	_setup_path_overlay()
 	_setup_elevation_overlay()
 
 func _initialize_grid() -> void:
@@ -135,6 +145,36 @@ func _setup_grass_overlay() -> void:
 	_grass_overlay.name = "GrassOverlay"
 	add_child(_grass_overlay)
 	_grass_overlay.setup(self)
+
+func _setup_fairway_overlay() -> void:
+	_fairway_overlay = FairwayOverlay.new()
+	_fairway_overlay.name = "FairwayOverlay"
+	add_child(_fairway_overlay)
+	_fairway_overlay.initialize(self)
+
+func _setup_tree_overlay() -> void:
+	_tree_overlay = TreeOverlay.new()
+	_tree_overlay.name = "TreeOverlay"
+	add_child(_tree_overlay)
+	_tree_overlay.initialize(self)
+
+func _setup_rock_overlay() -> void:
+	_rock_overlay = RockOverlay.new()
+	_rock_overlay.name = "RockOverlay"
+	add_child(_rock_overlay)
+	_rock_overlay.initialize(self)
+
+func _setup_flower_overlay() -> void:
+	_flower_overlay = FlowerOverlay.new()
+	_flower_overlay.name = "FlowerOverlay"
+	add_child(_flower_overlay)
+	_flower_overlay.initialize(self)
+
+func _setup_path_overlay() -> void:
+	_path_overlay = PathOverlay.new()
+	_path_overlay.name = "PathOverlay"
+	add_child(_path_overlay)
+	_path_overlay.initialize(self)
 
 func _setup_elevation_overlay() -> void:
 	_elevation_overlay = ElevationOverlay.new()
