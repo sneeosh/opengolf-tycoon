@@ -40,6 +40,7 @@ var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
 var building_info_panel: BuildingInfoPanel = null
 var financial_panel: FinancialPanel = null
+var mini_map: MiniMap = null
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 
@@ -99,6 +100,7 @@ func _ready() -> void:
 	_create_save_load_button()
 	_setup_building_info_panel()
 	_setup_financial_panel()
+	_setup_mini_map()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -121,6 +123,7 @@ func _load_buildings_data() -> void:
 func _process(_delta: float) -> void:
 	_update_ui()
 	_handle_mouse_hover()
+	_update_mini_map_camera()
 
 func _input(event: InputEvent) -> void:
 	# Keyboard shortcuts - handled in _input so UI controls don't swallow them
@@ -1052,3 +1055,47 @@ func _on_money_clicked() -> void:
 func _on_financial_panel_closed() -> void:
 	"""Hide the financial panel."""
 	financial_panel.hide()
+
+# --- Mini Map ---
+
+func _setup_mini_map() -> void:
+	"""Add mini-map to the HUD in bottom-left corner."""
+	var hud = $UI/HUD
+
+	mini_map = MiniMap.new()
+	mini_map.name = "MiniMap"
+	mini_map.setup(terrain_grid, entity_layer, golfer_manager)
+	mini_map.camera_move_requested.connect(_on_mini_map_camera_move)
+
+	# Position in bottom-left corner
+	mini_map.anchor_left = 0
+	mini_map.anchor_top = 1
+	mini_map.anchor_right = 0
+	mini_map.anchor_bottom = 1
+	mini_map.offset_left = 10
+	mini_map.offset_top = -200  # Approximate height + margin
+	mini_map.offset_right = 200  # Approximate width
+	mini_map.offset_bottom = -10
+
+	hud.add_child(mini_map)
+
+func _on_mini_map_camera_move(world_position: Vector2) -> void:
+	"""Move camera to the position clicked on mini-map."""
+	camera.focus_on(world_position, false)
+
+func _update_mini_map_camera() -> void:
+	"""Update the mini-map camera viewport indicator."""
+	if not mini_map or not mini_map.visible:
+		return
+
+	# Get current camera viewport in world coordinates
+	var viewport_size = get_viewport().get_visible_rect().size
+	var camera_pos = camera.global_position
+	var zoom = camera.zoom
+
+	# Calculate visible world rect
+	var visible_size = viewport_size / zoom
+	var top_left = camera_pos - visible_size / 2
+	var viewport_rect = Rect2(top_left, visible_size)
+
+	mini_map.set_camera_rect(viewport_rect, terrain_grid.grid_width, terrain_grid.grid_height)
