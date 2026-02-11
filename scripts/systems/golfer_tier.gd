@@ -130,7 +130,8 @@ static func get_name_prefix(tier: Tier) -> String:
 			var prefixes = ["Newbie", "Rookie", "First-timer"]
 			return prefixes[randi() % prefixes.size()]
 		Tier.CASUAL:
-			return ""  # No prefix for casual
+			var prefixes = ["Weekend", "Casual"]
+			return prefixes[randi() % prefixes.size()]
 		Tier.SERIOUS:
 			var prefixes = ["Avid", "Regular", "Dedicated"]
 			return prefixes[randi() % prefixes.size()]
