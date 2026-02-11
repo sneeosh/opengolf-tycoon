@@ -181,7 +181,15 @@ func _process_walking(delta: float) -> void:
 			_on_reached_destination()
 		return
 
-	velocity = direction * walk_speed
+	# Apply terrain speed modifier (cart paths are faster)
+	var effective_speed = walk_speed
+	var terrain_grid = GameManager.terrain_grid
+	if terrain_grid:
+		var current_grid_pos = terrain_grid.screen_to_grid(global_position)
+		var terrain_type = terrain_grid.get_tile(current_grid_pos)
+		effective_speed *= TerrainTypes.get_speed_modifier(terrain_type)
+
+	velocity = direction * effective_speed
 	move_and_slide()
 
 	# Simple walking animation - bob up and down
