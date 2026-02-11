@@ -299,17 +299,22 @@ _Deferred until core gameplay loop is complete. Currently, golfers are cleared o
 
 ## PRIORITY 5: Economy & Satisfaction Loop
 
-### [] Operating Costs
-- Daily maintenance costs per hole (based on terrain quality)
-- Baseline daily operating cost for the course
-- Player sees income vs expenses each day
+### [X] Operating Costs
+**STATUS: COMPLETE** - Daily operating costs with itemized breakdown:
+- ✅ Terrain maintenance costs based on tile types
+- ✅ Base operating cost ($50 + $25 per hole)
+- ✅ Staff wages ($10 per hole)
+- ✅ Itemized breakdown shown in end-of-day summary
+- ✅ Costs deducted at end of each day before summary
 
-### [] Golfer Satisfaction & Course Rating
-- Course condition rating (based on maintenance)
-- Pace of play tracking (slow play reduces satisfaction)
-- Price/value perception (green fee vs course quality)
-- Overall course rating (1-5 stars) affects golfer traffic
-- Higher ratings attract more golfers and justify higher green fees
+### [X] Golfer Satisfaction & Course Rating
+**STATUS: COMPLETE** - 1-5 star course rating system:
+- ✅ Condition rating based on premium terrain in play corridors
+- ✅ Design rating based on par variety and hole count
+- ✅ Value rating based on green fee vs reputation
+- ✅ Pace rating based on bogey ratio (proxy for slow play)
+- ✅ Overall rating displayed in end-of-day summary with breakdown
+- ✅ Higher ratings increase golfer spawn rate
 
 ### [] Golfer Types & Skill Tiers
 - Beginner, casual, serious, and pro skill tiers
