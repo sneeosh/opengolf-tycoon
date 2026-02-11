@@ -189,21 +189,44 @@ func _update_visuals() -> void:
 
 func _draw_clubhouse(visual: Node2D, width_px: int, height_px: int) -> void:
 	"""Draw clubhouse - appearance varies by upgrade level"""
+	# Shadow
+	var shadow = Polygon2D.new()
+	shadow.color = Color(0, 0, 0, 0.2)
+	shadow.polygon = PackedVector2Array([
+		Vector2(4, height_px * 0.6),
+		Vector2(width_px + 6, height_px * 0.6),
+		Vector2(width_px + 8, height_px + 4),
+		Vector2(6, height_px + 4)
+	])
+	visual.add_child(shadow)
+
 	# Base building color improves with level
 	var base_colors = [
-		Color(0.75, 0.55, 0.2),   # Level 1: Simple tan
-		Color(0.8, 0.6, 0.25),    # Level 2: Warmer tan
-		Color(0.85, 0.65, 0.3),   # Level 3: Rich tan
+		Color(0.92, 0.88, 0.82),  # Level 1: Cream white
+		Color(0.88, 0.82, 0.72),  # Level 2: Warm beige
+		Color(0.85, 0.78, 0.68),  # Level 3: Rich tan
 	]
 	var base_color = base_colors[min(upgrade_level - 1, 2)]
 
-	# Main building
+	# Main building with slight 3D effect
+	var building_back = Polygon2D.new()
+	building_back.color = base_color.darkened(0.15)
+	building_back.polygon = PackedVector2Array([
+		Vector2(width_px * 0.05, height_px * 0.1),
+		Vector2(width_px * 0.95, height_px * 0.1),
+		Vector2(width_px, height_px * 0.15),
+		Vector2(width_px, height_px),
+		Vector2(0, height_px),
+		Vector2(0, height_px * 0.15)
+	])
+	visual.add_child(building_back)
+
 	var polygon = Polygon2D.new()
 	polygon.color = base_color
 	polygon.polygon = PackedVector2Array([
-		Vector2(0, 0),
-		Vector2(width_px, 0),
-		Vector2(width_px, height_px),
+		Vector2(0, height_px * 0.15),
+		Vector2(width_px * 0.95, height_px * 0.15),
+		Vector2(width_px * 0.95, height_px),
 		Vector2(0, height_px)
 	])
 	visual.add_child(polygon)
@@ -211,250 +234,664 @@ func _draw_clubhouse(visual: Node2D, width_px: int, height_px: int) -> void:
 	# Roof (gets fancier with upgrades)
 	var roof = Polygon2D.new()
 	var roof_colors = [
-		Color(0.5, 0.2, 0.2),    # Level 1: Simple red
-		Color(0.55, 0.15, 0.15), # Level 2: Deeper red
-		Color(0.6, 0.1, 0.1),    # Level 3: Rich burgundy
+		Color(0.55, 0.35, 0.3),   # Level 1: Brown shingle
+		Color(0.45, 0.25, 0.22),  # Level 2: Deeper brown
+		Color(0.35, 0.2, 0.18),   # Level 3: Rich dark brown
 	]
 	roof.color = roof_colors[min(upgrade_level - 1, 2)]
 	roof.polygon = PackedVector2Array([
-		Vector2(width_px * 0.1, 0),
-		Vector2(width_px * 0.9, 0),
-		Vector2(width_px / 2, height_px * 0.3)
+		Vector2(-4, height_px * 0.15),
+		Vector2(width_px * 0.5, -height_px * 0.2),
+		Vector2(width_px + 4, height_px * 0.15)
 	])
 	visual.add_child(roof)
 
-	# Level 2+: Add shop window
-	if upgrade_level >= 2:
+	# Roof highlight
+	var roof_highlight = Polygon2D.new()
+	roof_highlight.color = roof_colors[min(upgrade_level - 1, 2)].lightened(0.15)
+	roof_highlight.polygon = PackedVector2Array([
+		Vector2(-4, height_px * 0.15),
+		Vector2(width_px * 0.5, -height_px * 0.2),
+		Vector2(width_px * 0.5, -height_px * 0.12),
+		Vector2(2, height_px * 0.15)
+	])
+	visual.add_child(roof_highlight)
+
+	# Windows
+	var window_color = Color(0.7, 0.85, 0.95)
+	var frame_color = Color(0.95, 0.95, 0.95)
+	for i in range(2 + upgrade_level):
+		var x_pos = width_px * (0.15 + i * 0.22)
+		# Window frame
+		var frame = Polygon2D.new()
+		frame.color = frame_color
+		frame.polygon = PackedVector2Array([
+			Vector2(x_pos - 14, height_px * 0.35),
+			Vector2(x_pos + 14, height_px * 0.35),
+			Vector2(x_pos + 14, height_px * 0.7),
+			Vector2(x_pos - 14, height_px * 0.7)
+		])
+		visual.add_child(frame)
+		# Window glass
 		var window = Polygon2D.new()
-		window.color = Color(0.4, 0.6, 0.9, 0.8)  # Blue window
+		window.color = window_color
 		window.polygon = PackedVector2Array([
-			Vector2(width_px * 0.15, height_px * 0.4),
-			Vector2(width_px * 0.35, height_px * 0.4),
-			Vector2(width_px * 0.35, height_px * 0.7),
-			Vector2(width_px * 0.15, height_px * 0.7)
+			Vector2(x_pos - 11, height_px * 0.38),
+			Vector2(x_pos + 11, height_px * 0.38),
+			Vector2(x_pos + 11, height_px * 0.67),
+			Vector2(x_pos - 11, height_px * 0.67)
 		])
 		visual.add_child(window)
 
-		# "PRO SHOP" sign
-		var sign_label = Label.new()
-		sign_label.text = "PRO SHOP"
-		sign_label.add_theme_font_size_override("font_size", 8)
-		sign_label.add_theme_color_override("font_color", Color(0.2, 0.2, 0.2))
-		sign_label.position = Vector2(width_px * 0.12, height_px * 0.75)
-		visual.add_child(sign_label)
-
-	# Level 3: Add outdoor seating area and restaurant window
-	if upgrade_level >= 3:
-		# Restaurant window
-		var rest_window = Polygon2D.new()
-		rest_window.color = Color(0.9, 0.8, 0.5, 0.8)  # Warm window
-		rest_window.polygon = PackedVector2Array([
-			Vector2(width_px * 0.55, height_px * 0.4),
-			Vector2(width_px * 0.75, height_px * 0.4),
-			Vector2(width_px * 0.75, height_px * 0.7),
-			Vector2(width_px * 0.55, height_px * 0.7)
-		])
-		visual.add_child(rest_window)
-
-		# Outdoor seating (patio)
-		var patio = Polygon2D.new()
-		patio.color = Color(0.6, 0.5, 0.4, 0.7)  # Stone patio
-		patio.polygon = PackedVector2Array([
-			Vector2(width_px * 0.8, height_px * 0.5),
-			Vector2(width_px + 20, height_px * 0.5),
-			Vector2(width_px + 20, height_px),
-			Vector2(width_px * 0.8, height_px)
-		])
-		visual.add_child(patio)
-
-		# "RESTAURANT" sign
-		var rest_sign = Label.new()
-		rest_sign.text = "RESTAURANT"
-		rest_sign.add_theme_font_size_override("font_size", 7)
-		rest_sign.add_theme_color_override("font_color", Color(0.3, 0.2, 0.1))
-		rest_sign.position = Vector2(width_px * 0.52, height_px * 0.75)
-		visual.add_child(rest_sign)
-
-func _draw_pro_shop(visual: Node2D, width_px: int, height_px: int) -> void:
-	"""Draw pro shop - shop building"""
-	var shop = Polygon2D.new()
-	shop.color = Color(0.2, 0.5, 0.8)  # Blue shop
-	shop.polygon = PackedVector2Array([
-		Vector2(0, 0),
-		Vector2(width_px, 0),
-		Vector2(width_px, height_px),
-		Vector2(0, height_px)
-	])
-	visual.add_child(shop)
-	
-	# Add door
-	var door = Polygon2D.new()
-	door.color = Color(0.5, 0.3, 0.1)
-	door.polygon = PackedVector2Array([
+	# Door
+	var door_frame = Polygon2D.new()
+	door_frame.color = Color(0.4, 0.25, 0.15)
+	door_frame.polygon = PackedVector2Array([
 		Vector2(width_px * 0.4, height_px * 0.5),
 		Vector2(width_px * 0.6, height_px * 0.5),
 		Vector2(width_px * 0.6, height_px),
 		Vector2(width_px * 0.4, height_px)
 	])
+	visual.add_child(door_frame)
+
+	var door = Polygon2D.new()
+	door.color = Color(0.55, 0.35, 0.2)
+	door.polygon = PackedVector2Array([
+		Vector2(width_px * 0.42, height_px * 0.52),
+		Vector2(width_px * 0.58, height_px * 0.52),
+		Vector2(width_px * 0.58, height_px - 2),
+		Vector2(width_px * 0.42, height_px - 2)
+	])
 	visual.add_child(door)
 
+	# Door handle
+	var handle = Polygon2D.new()
+	handle.color = Color(0.85, 0.75, 0.4)
+	handle.polygon = PackedVector2Array([
+		Vector2(width_px * 0.54, height_px * 0.72),
+		Vector2(width_px * 0.56, height_px * 0.72),
+		Vector2(width_px * 0.56, height_px * 0.78),
+		Vector2(width_px * 0.54, height_px * 0.78)
+	])
+	visual.add_child(handle)
+
+	# Awning for upgraded clubhouse
+	if upgrade_level >= 2:
+		var awning = Polygon2D.new()
+		awning.color = Color(0.7, 0.15, 0.15)
+		awning.polygon = PackedVector2Array([
+			Vector2(width_px * 0.35, height_px * 0.48),
+			Vector2(width_px * 0.65, height_px * 0.48),
+			Vector2(width_px * 0.68, height_px * 0.55),
+			Vector2(width_px * 0.32, height_px * 0.55)
+		])
+		visual.add_child(awning)
+
+	# Level 3: Add flag
+	if upgrade_level >= 3:
+		var flagpole = Polygon2D.new()
+		flagpole.color = Color(0.7, 0.7, 0.7)
+		flagpole.polygon = PackedVector2Array([
+			Vector2(width_px * 0.85, -height_px * 0.4),
+			Vector2(width_px * 0.86, -height_px * 0.4),
+			Vector2(width_px * 0.86, height_px * 0.15),
+			Vector2(width_px * 0.85, height_px * 0.15)
+		])
+		visual.add_child(flagpole)
+
+		var flag = Polygon2D.new()
+		flag.color = Color(0.2, 0.5, 0.2)
+		flag.polygon = PackedVector2Array([
+			Vector2(width_px * 0.86, -height_px * 0.4),
+			Vector2(width_px * 0.98, -height_px * 0.32),
+			Vector2(width_px * 0.86, -height_px * 0.24)
+		])
+		visual.add_child(flag)
+
+func _draw_pro_shop(visual: Node2D, width_px: int, height_px: int) -> void:
+	"""Draw pro shop - golf equipment store"""
+	# Shadow
+	var shadow = Polygon2D.new()
+	shadow.color = Color(0, 0, 0, 0.2)
+	shadow.polygon = PackedVector2Array([
+		Vector2(3, height_px * 0.5), Vector2(width_px + 5, height_px * 0.5),
+		Vector2(width_px + 7, height_px + 3), Vector2(5, height_px + 3)
+	])
+	visual.add_child(shadow)
+
+	# Main building - white/cream with green accents
+	var shop = Polygon2D.new()
+	shop.color = Color(0.95, 0.95, 0.92)
+	shop.polygon = PackedVector2Array([
+		Vector2(0, height_px * 0.15), Vector2(width_px, height_px * 0.15),
+		Vector2(width_px, height_px), Vector2(0, height_px)
+	])
+	visual.add_child(shop)
+
+	# Roof - green awning style
+	var roof = Polygon2D.new()
+	roof.color = Color(0.2, 0.5, 0.3)
+	roof.polygon = PackedVector2Array([
+		Vector2(-3, height_px * 0.12), Vector2(width_px + 3, height_px * 0.12),
+		Vector2(width_px + 5, height_px * 0.2), Vector2(-5, height_px * 0.2)
+	])
+	visual.add_child(roof)
+
+	# Large storefront window
+	var window_frame = Polygon2D.new()
+	window_frame.color = Color(0.25, 0.45, 0.35)
+	window_frame.polygon = PackedVector2Array([
+		Vector2(width_px * 0.1, height_px * 0.3), Vector2(width_px * 0.65, height_px * 0.3),
+		Vector2(width_px * 0.65, height_px * 0.85), Vector2(width_px * 0.1, height_px * 0.85)
+	])
+	visual.add_child(window_frame)
+
+	var window = Polygon2D.new()
+	window.color = Color(0.75, 0.88, 0.95)
+	window.polygon = PackedVector2Array([
+		Vector2(width_px * 0.12, height_px * 0.33), Vector2(width_px * 0.63, height_px * 0.33),
+		Vector2(width_px * 0.63, height_px * 0.82), Vector2(width_px * 0.12, height_px * 0.82)
+	])
+	visual.add_child(window)
+
+	# Door
+	var door = Polygon2D.new()
+	door.color = Color(0.55, 0.4, 0.25)
+	door.polygon = PackedVector2Array([
+		Vector2(width_px * 0.72, height_px * 0.45), Vector2(width_px * 0.92, height_px * 0.45),
+		Vector2(width_px * 0.92, height_px), Vector2(width_px * 0.72, height_px)
+	])
+	visual.add_child(door)
+
+	# Golf ball logo on window
+	var logo = Polygon2D.new()
+	logo.color = Color(1, 1, 1, 0.6)
+	var logo_points = PackedVector2Array()
+	var logo_center = Vector2(width_px * 0.37, height_px * 0.55)
+	for i in range(8):
+		var angle = i * TAU / 8
+		logo_points.append(logo_center + Vector2(cos(angle) * 8, sin(angle) * 8))
+	logo.polygon = logo_points
+	visual.add_child(logo)
+
 func _draw_restaurant(visual: Node2D, width_px: int, height_px: int) -> void:
-	"""Draw restaurant - dining building"""
+	"""Draw restaurant - dining building with warm aesthetic"""
+	# Shadow
+	var shadow = Polygon2D.new()
+	shadow.color = Color(0, 0, 0, 0.2)
+	shadow.polygon = PackedVector2Array([
+		Vector2(3, height_px * 0.5), Vector2(width_px + 5, height_px * 0.5),
+		Vector2(width_px + 7, height_px + 3), Vector2(5, height_px + 3)
+	])
+	visual.add_child(shadow)
+
+	# Main building - warm brick color
 	var main = Polygon2D.new()
-	main.color = Color(0.8, 0.7, 0.5)  # Light brown
+	main.color = Color(0.75, 0.55, 0.45)
 	main.polygon = PackedVector2Array([
-		Vector2(0, 0),
-		Vector2(width_px, 0),
-		Vector2(width_px, height_px),
-		Vector2(0, height_px)
+		Vector2(0, height_px * 0.15), Vector2(width_px, height_px * 0.15),
+		Vector2(width_px, height_px), Vector2(0, height_px)
 	])
 	visual.add_child(main)
-	
-	# Add windows
+
+	# Roof
+	var roof = Polygon2D.new()
+	roof.color = Color(0.45, 0.3, 0.25)
+	roof.polygon = PackedVector2Array([
+		Vector2(-3, height_px * 0.15), Vector2(width_px * 0.5, -height_px * 0.15),
+		Vector2(width_px + 3, height_px * 0.15)
+	])
+	visual.add_child(roof)
+
+	# Warm glowing windows
 	for i in range(3):
+		var x_offset = width_px * (0.18 + i * 0.28)
+		var window_frame = Polygon2D.new()
+		window_frame.color = Color(0.35, 0.25, 0.2)
+		window_frame.polygon = PackedVector2Array([
+			Vector2(x_offset - 14, height_px * 0.35), Vector2(x_offset + 14, height_px * 0.35),
+			Vector2(x_offset + 14, height_px * 0.7), Vector2(x_offset - 14, height_px * 0.7)
+		])
+		visual.add_child(window_frame)
+
 		var window = Polygon2D.new()
-		window.color = Color(0.3, 0.7, 0.9)
-		var x_offset = (i + 1) * width_px / 4
+		window.color = Color(1.0, 0.9, 0.6, 0.9)  # Warm glow
 		window.polygon = PackedVector2Array([
-			Vector2(x_offset - 15, 10),
-			Vector2(x_offset + 15, 10),
-			Vector2(x_offset + 15, 25),
-			Vector2(x_offset - 15, 25)
+			Vector2(x_offset - 11, height_px * 0.38), Vector2(x_offset + 11, height_px * 0.38),
+			Vector2(x_offset + 11, height_px * 0.67), Vector2(x_offset - 11, height_px * 0.67)
 		])
 		visual.add_child(window)
 
-func _draw_snack_bar(visual: Node2D, width_px: int, height_px: int) -> void:
-	"""Draw snack bar - small kiosk"""
-	var kiosk = Polygon2D.new()
-	kiosk.color = Color(0.9, 0.6, 0.2)  # Orange
-	kiosk.polygon = PackedVector2Array([
-		Vector2(0, 0),
-		Vector2(width_px, 0),
-		Vector2(width_px, height_px),
-		Vector2(0, height_px)
+	# Door with awning
+	var awning = Polygon2D.new()
+	awning.color = Color(0.7, 0.2, 0.2)
+	awning.polygon = PackedVector2Array([
+		Vector2(width_px * 0.38, height_px * 0.72), Vector2(width_px * 0.62, height_px * 0.72),
+		Vector2(width_px * 0.65, height_px * 0.78), Vector2(width_px * 0.35, height_px * 0.78)
 	])
-	visual.add_child(kiosk)
-	
-	# Add counter window
-	var counter = Polygon2D.new()
-	counter.color = Color(0.2, 0.2, 0.2)
-	counter.polygon = PackedVector2Array([
-		Vector2(width_px * 0.15, height_px * 0.3),
-		Vector2(width_px * 0.85, height_px * 0.3),
-		Vector2(width_px * 0.85, height_px * 0.7),
-		Vector2(width_px * 0.15, height_px * 0.7)
-	])
-	visual.add_child(counter)
+	visual.add_child(awning)
 
-func _draw_driving_range(visual: Node2D, width_px: int, height_px: int) -> void:
-	"""Draw driving range - practice area"""
-	var range_area = Polygon2D.new()
-	range_area.color = Color(0.3, 0.6, 0.3)  # Green grass
-	range_area.polygon = PackedVector2Array([
-		Vector2(0, 0),
-		Vector2(width_px, 0),
-		Vector2(width_px, height_px),
-		Vector2(0, height_px)
-	])
-	visual.add_child(range_area)
-	
-	# Add practice bays
-	for i in range(3):
-		var bay = Polygon2D.new()
-		bay.color = Color(0.7, 0.7, 0.5)
-		var y_offset = (i + 1) * height_px / 4
-		bay.polygon = PackedVector2Array([
-			Vector2(10, y_offset - 8),
-			Vector2(width_px - 10, y_offset - 8),
-			Vector2(width_px - 10, y_offset + 8),
-			Vector2(10, y_offset + 8)
-		])
-		visual.add_child(bay)
-
-func _draw_cart_shed(visual: Node2D, width_px: int, height_px: int) -> void:
-	"""Draw cart shed - equipment storage"""
-	var shed = Polygon2D.new()
-	shed.color = Color(0.6, 0.5, 0.4)  # Brown shed
-	shed.polygon = PackedVector2Array([
-		Vector2(0, 0),
-		Vector2(width_px, 0),
-		Vector2(width_px, height_px),
-		Vector2(0, height_px)
-	])
-	visual.add_child(shed)
-	
-	# Add garage doors
-	for i in range(2):
-		var door = Polygon2D.new()
-		door.color = Color(0.4, 0.3, 0.2)
-		var x_offset = (i + 1) * width_px / 3
-		door.polygon = PackedVector2Array([
-			Vector2(x_offset - 30, 10),
-			Vector2(x_offset + 30, 10),
-			Vector2(x_offset + 30, height_px - 10),
-			Vector2(x_offset - 30, height_px - 10)
-		])
-		visual.add_child(door)
-
-func _draw_restroom(visual: Node2D, width_px: int, height_px: int) -> void:
-	"""Draw restroom - facility building"""
-	var facility = Polygon2D.new()
-	facility.color = Color(0.7, 0.7, 0.7)  # Gray
-	facility.polygon = PackedVector2Array([
-		Vector2(0, 0),
-		Vector2(width_px, 0),
-		Vector2(width_px, height_px),
-		Vector2(0, height_px)
-	])
-	visual.add_child(facility)
-	
-	# Add door
 	var door = Polygon2D.new()
-	door.color = Color(0.4, 0.2, 0.1)
+	door.color = Color(0.45, 0.3, 0.2)
 	door.polygon = PackedVector2Array([
-		Vector2(width_px * 0.35, height_px * 0.4),
-		Vector2(width_px * 0.65, height_px * 0.4),
-		Vector2(width_px * 0.65, height_px),
-		Vector2(width_px * 0.35, height_px)
+		Vector2(width_px * 0.42, height_px * 0.78), Vector2(width_px * 0.58, height_px * 0.78),
+		Vector2(width_px * 0.58, height_px), Vector2(width_px * 0.42, height_px)
 	])
 	visual.add_child(door)
 
-func _draw_bench(visual: Node2D, width_px: int, height_px: int) -> void:
-	"""Draw bench - seating"""
-	# Bench seat
-	var seat = Polygon2D.new()
-	seat.color = Color(0.6, 0.4, 0.2)  # Brown wood
-	seat.polygon = PackedVector2Array([
-		Vector2(width_px * 0.1, height_px * 0.4),
-		Vector2(width_px * 0.9, height_px * 0.4),
-		Vector2(width_px * 0.9, height_px * 0.7),
-		Vector2(width_px * 0.1, height_px * 0.7)
+func _draw_snack_bar(visual: Node2D, width_px: int, height_px: int) -> void:
+	"""Draw snack bar - cheerful food kiosk"""
+	# Shadow
+	var shadow = Polygon2D.new()
+	shadow.color = Color(0, 0, 0, 0.2)
+	shadow.polygon = PackedVector2Array([
+		Vector2(2, height_px * 0.4), Vector2(width_px + 4, height_px * 0.4),
+		Vector2(width_px + 5, height_px + 2), Vector2(3, height_px + 2)
 	])
-	visual.add_child(seat)
-	
-	# Legs
-	for x_pos in [width_px * 0.2, width_px * 0.8]:
+	visual.add_child(shadow)
+
+	# Main kiosk - cheerful yellow/orange
+	var kiosk = Polygon2D.new()
+	kiosk.color = Color(0.95, 0.8, 0.3)
+	kiosk.polygon = PackedVector2Array([
+		Vector2(0, height_px * 0.2), Vector2(width_px, height_px * 0.2),
+		Vector2(width_px, height_px), Vector2(0, height_px)
+	])
+	visual.add_child(kiosk)
+
+	# Striped awning
+	var awning_base = Polygon2D.new()
+	awning_base.color = Color(0.9, 0.3, 0.2)
+	awning_base.polygon = PackedVector2Array([
+		Vector2(-4, height_px * 0.15), Vector2(width_px + 4, height_px * 0.15),
+		Vector2(width_px + 6, height_px * 0.28), Vector2(-6, height_px * 0.28)
+	])
+	visual.add_child(awning_base)
+
+	# Awning stripes
+	for i in range(5):
+		var stripe = Polygon2D.new()
+		stripe.color = Color(0.95, 0.95, 0.95)
+		var x1 = i * width_px / 4.5
+		var x2 = x1 + width_px / 9
+		stripe.polygon = PackedVector2Array([
+			Vector2(x1, height_px * 0.16), Vector2(x2, height_px * 0.16),
+			Vector2(x2 + 2, height_px * 0.27), Vector2(x1 + 2, height_px * 0.27)
+		])
+		visual.add_child(stripe)
+
+	# Counter window
+	var counter_frame = Polygon2D.new()
+	counter_frame.color = Color(0.5, 0.35, 0.2)
+	counter_frame.polygon = PackedVector2Array([
+		Vector2(width_px * 0.1, height_px * 0.35), Vector2(width_px * 0.9, height_px * 0.35),
+		Vector2(width_px * 0.9, height_px * 0.75), Vector2(width_px * 0.1, height_px * 0.75)
+	])
+	visual.add_child(counter_frame)
+
+	var counter_interior = Polygon2D.new()
+	counter_interior.color = Color(0.25, 0.2, 0.18)
+	counter_interior.polygon = PackedVector2Array([
+		Vector2(width_px * 0.12, height_px * 0.38), Vector2(width_px * 0.88, height_px * 0.38),
+		Vector2(width_px * 0.88, height_px * 0.72), Vector2(width_px * 0.12, height_px * 0.72)
+	])
+	visual.add_child(counter_interior)
+
+	# Counter shelf
+	var shelf = Polygon2D.new()
+	shelf.color = Color(0.65, 0.5, 0.35)
+	shelf.polygon = PackedVector2Array([
+		Vector2(width_px * 0.08, height_px * 0.73), Vector2(width_px * 0.92, height_px * 0.73),
+		Vector2(width_px * 0.92, height_px * 0.78), Vector2(width_px * 0.08, height_px * 0.78)
+	])
+	visual.add_child(shelf)
+
+	# Menu board
+	var menu = Polygon2D.new()
+	menu.color = Color(0.15, 0.15, 0.12)
+	menu.polygon = PackedVector2Array([
+		Vector2(width_px * 0.2, height_px * 0.42), Vector2(width_px * 0.55, height_px * 0.42),
+		Vector2(width_px * 0.55, height_px * 0.58), Vector2(width_px * 0.2, height_px * 0.58)
+	])
+	visual.add_child(menu)
+
+	# Menu text lines (decorative)
+	for i in range(3):
+		var menu_line = Polygon2D.new()
+		menu_line.color = Color(1, 1, 1, 0.6)
+		var y = height_px * (0.45 + i * 0.04)
+		menu_line.polygon = PackedVector2Array([
+			Vector2(width_px * 0.22, y), Vector2(width_px * 0.5, y),
+			Vector2(width_px * 0.5, y + 2), Vector2(width_px * 0.22, y + 2)
+		])
+		visual.add_child(menu_line)
+
+func _draw_driving_range(visual: Node2D, width_px: int, height_px: int) -> void:
+	"""Draw driving range - practice area with covered bays"""
+	# Shadow
+	var shadow = Polygon2D.new()
+	shadow.color = Color(0, 0, 0, 0.2)
+	shadow.polygon = PackedVector2Array([
+		Vector2(3, height_px * 0.4), Vector2(width_px + 5, height_px * 0.4),
+		Vector2(width_px + 7, height_px + 3), Vector2(5, height_px + 3)
+	])
+	visual.add_child(shadow)
+
+	# Green turf area (outfield)
+	var turf = Polygon2D.new()
+	turf.color = Color(0.35, 0.65, 0.35)
+	turf.polygon = PackedVector2Array([
+		Vector2(0, 0), Vector2(width_px, 0),
+		Vector2(width_px, height_px * 0.35), Vector2(0, height_px * 0.35)
+	])
+	visual.add_child(turf)
+
+	# Target distance markers
+	for i in range(3):
+		var marker = Polygon2D.new()
+		marker.color = Color(1, 1, 1, 0.4)
+		var x = width_px * (0.3 + i * 0.25)
+		marker.polygon = PackedVector2Array([
+			Vector2(x - 8, height_px * 0.1), Vector2(x + 8, height_px * 0.1),
+			Vector2(x + 8, height_px * 0.15), Vector2(x - 8, height_px * 0.15)
+		])
+		visual.add_child(marker)
+
+	# Hitting bay structure - concrete pad
+	var pad = Polygon2D.new()
+	pad.color = Color(0.75, 0.72, 0.68)
+	pad.polygon = PackedVector2Array([
+		Vector2(0, height_px * 0.35), Vector2(width_px, height_px * 0.35),
+		Vector2(width_px, height_px), Vector2(0, height_px)
+	])
+	visual.add_child(pad)
+
+	# Roof/canopy structure
+	var roof = Polygon2D.new()
+	roof.color = Color(0.4, 0.35, 0.3)
+	roof.polygon = PackedVector2Array([
+		Vector2(-3, height_px * 0.32), Vector2(width_px + 3, height_px * 0.32),
+		Vector2(width_px + 5, height_px * 0.42), Vector2(-5, height_px * 0.42)
+	])
+	visual.add_child(roof)
+
+	# Support posts
+	for i in range(4):
+		var post = Polygon2D.new()
+		post.color = Color(0.5, 0.45, 0.4)
+		var x = width_px * (0.15 + i * 0.25)
+		post.polygon = PackedVector2Array([
+			Vector2(x - 3, height_px * 0.42), Vector2(x + 3, height_px * 0.42),
+			Vector2(x + 3, height_px), Vector2(x - 3, height_px)
+		])
+		visual.add_child(post)
+
+	# Individual hitting mats
+	for i in range(3):
+		var mat = Polygon2D.new()
+		mat.color = Color(0.25, 0.55, 0.3)
+		var x = width_px * (0.2 + i * 0.28)
+		mat.polygon = PackedVector2Array([
+			Vector2(x - 18, height_px * 0.55), Vector2(x + 18, height_px * 0.55),
+			Vector2(x + 18, height_px * 0.9), Vector2(x - 18, height_px * 0.9)
+		])
+		visual.add_child(mat)
+
+	# Ball buckets (decorative)
+	for i in range(3):
+		var bucket = Polygon2D.new()
+		bucket.color = Color(0.85, 0.75, 0.3)
+		var x = width_px * (0.28 + i * 0.28)
+		bucket.polygon = PackedVector2Array([
+			Vector2(x - 5, height_px * 0.7), Vector2(x + 5, height_px * 0.7),
+			Vector2(x + 6, height_px * 0.82), Vector2(x - 6, height_px * 0.82)
+		])
+		visual.add_child(bucket)
+
+func _draw_cart_shed(visual: Node2D, width_px: int, height_px: int) -> void:
+	"""Draw cart shed - covered parking for golf carts"""
+	# Shadow
+	var shadow = Polygon2D.new()
+	shadow.color = Color(0, 0, 0, 0.2)
+	shadow.polygon = PackedVector2Array([
+		Vector2(4, height_px * 0.5), Vector2(width_px + 6, height_px * 0.5),
+		Vector2(width_px + 8, height_px + 4), Vector2(6, height_px + 4)
+	])
+	visual.add_child(shadow)
+
+	# Concrete floor
+	var floor_pad = Polygon2D.new()
+	floor_pad.color = Color(0.7, 0.68, 0.65)
+	floor_pad.polygon = PackedVector2Array([
+		Vector2(0, height_px * 0.6), Vector2(width_px, height_px * 0.6),
+		Vector2(width_px, height_px), Vector2(0, height_px)
+	])
+	visual.add_child(floor_pad)
+
+	# Back wall
+	var back_wall = Polygon2D.new()
+	back_wall.color = Color(0.55, 0.48, 0.42)
+	back_wall.polygon = PackedVector2Array([
+		Vector2(0, height_px * 0.15), Vector2(width_px, height_px * 0.15),
+		Vector2(width_px, height_px * 0.6), Vector2(0, height_px * 0.6)
+	])
+	visual.add_child(back_wall)
+
+	# Roof
+	var roof = Polygon2D.new()
+	roof.color = Color(0.35, 0.32, 0.28)
+	roof.polygon = PackedVector2Array([
+		Vector2(-4, height_px * 0.1), Vector2(width_px + 4, height_px * 0.1),
+		Vector2(width_px + 6, height_px * 0.22), Vector2(-6, height_px * 0.22)
+	])
+	visual.add_child(roof)
+
+	# Support posts
+	for i in range(4):
+		var post = Polygon2D.new()
+		post.color = Color(0.45, 0.4, 0.35)
+		var x = width_px * (0.08 + i * 0.3)
+		post.polygon = PackedVector2Array([
+			Vector2(x - 4, height_px * 0.22), Vector2(x + 4, height_px * 0.22),
+			Vector2(x + 4, height_px), Vector2(x - 4, height_px)
+		])
+		visual.add_child(post)
+
+	# Golf carts (simplified)
+	for i in range(2):
+		var x = width_px * (0.25 + i * 0.45)
+		# Cart body
+		var cart_body = Polygon2D.new()
+		cart_body.color = Color(0.95, 0.95, 0.9)
+		cart_body.polygon = PackedVector2Array([
+			Vector2(x - 20, height_px * 0.45), Vector2(x + 20, height_px * 0.45),
+			Vector2(x + 22, height_px * 0.85), Vector2(x - 22, height_px * 0.85)
+		])
+		visual.add_child(cart_body)
+		# Cart roof
+		var cart_roof = Polygon2D.new()
+		cart_roof.color = Color(0.3, 0.5, 0.35)
+		cart_roof.polygon = PackedVector2Array([
+			Vector2(x - 18, height_px * 0.35), Vector2(x + 18, height_px * 0.35),
+			Vector2(x + 20, height_px * 0.48), Vector2(x - 20, height_px * 0.48)
+		])
+		visual.add_child(cart_roof)
+		# Wheels
+		for wx in [x - 14, x + 14]:
+			var wheel = Polygon2D.new()
+			wheel.color = Color(0.2, 0.2, 0.2)
+			wheel.polygon = PackedVector2Array([
+				Vector2(wx - 5, height_px * 0.82), Vector2(wx + 5, height_px * 0.82),
+				Vector2(wx + 5, height_px * 0.92), Vector2(wx - 5, height_px * 0.92)
+			])
+			visual.add_child(wheel)
+
+func _draw_restroom(visual: Node2D, width_px: int, height_px: int) -> void:
+	"""Draw restroom - small utility building"""
+	# Shadow
+	var shadow = Polygon2D.new()
+	shadow.color = Color(0, 0, 0, 0.2)
+	shadow.polygon = PackedVector2Array([
+		Vector2(2, height_px * 0.5), Vector2(width_px + 4, height_px * 0.5),
+		Vector2(width_px + 5, height_px + 2), Vector2(3, height_px + 2)
+	])
+	visual.add_child(shadow)
+
+	# Main building - clean light color
+	var building = Polygon2D.new()
+	building.color = Color(0.88, 0.88, 0.85)
+	building.polygon = PackedVector2Array([
+		Vector2(0, height_px * 0.2), Vector2(width_px, height_px * 0.2),
+		Vector2(width_px, height_px), Vector2(0, height_px)
+	])
+	visual.add_child(building)
+
+	# Roof
+	var roof = Polygon2D.new()
+	roof.color = Color(0.45, 0.42, 0.38)
+	roof.polygon = PackedVector2Array([
+		Vector2(-2, height_px * 0.15), Vector2(width_px + 2, height_px * 0.15),
+		Vector2(width_px + 3, height_px * 0.25), Vector2(-3, height_px * 0.25)
+	])
+	visual.add_child(roof)
+
+	# Two doors (mens/womens)
+	for i in range(2):
+		var x = width_px * (0.2 + i * 0.45)
+		var door_frame = Polygon2D.new()
+		door_frame.color = Color(0.35, 0.3, 0.25)
+		door_frame.polygon = PackedVector2Array([
+			Vector2(x - 12, height_px * 0.35), Vector2(x + 12, height_px * 0.35),
+			Vector2(x + 12, height_px), Vector2(x - 12, height_px)
+		])
+		visual.add_child(door_frame)
+
+		var door_inner = Polygon2D.new()
+		door_inner.color = Color(0.5, 0.45, 0.4)
+		door_inner.polygon = PackedVector2Array([
+			Vector2(x - 10, height_px * 0.38), Vector2(x + 10, height_px * 0.38),
+			Vector2(x + 10, height_px - 2), Vector2(x - 10, height_px - 2)
+		])
+		visual.add_child(door_inner)
+
+	# Gender signs (simplified rectangles)
+	var sign1 = Polygon2D.new()
+	sign1.color = Color(0.3, 0.5, 0.7)  # Blue
+	sign1.polygon = PackedVector2Array([
+		Vector2(width_px * 0.15, height_px * 0.45), Vector2(width_px * 0.25, height_px * 0.45),
+		Vector2(width_px * 0.25, height_px * 0.58), Vector2(width_px * 0.15, height_px * 0.58)
+	])
+	visual.add_child(sign1)
+
+	var sign2 = Polygon2D.new()
+	sign2.color = Color(0.7, 0.4, 0.5)  # Pink
+	sign2.polygon = PackedVector2Array([
+		Vector2(width_px * 0.6, height_px * 0.45), Vector2(width_px * 0.7, height_px * 0.45),
+		Vector2(width_px * 0.7, height_px * 0.58), Vector2(width_px * 0.6, height_px * 0.58)
+	])
+	visual.add_child(sign2)
+
+func _draw_bench(visual: Node2D, width_px: int, height_px: int) -> void:
+	"""Draw bench - park-style seating with backrest"""
+	# Shadow
+	var shadow = Polygon2D.new()
+	shadow.color = Color(0, 0, 0, 0.15)
+	shadow.polygon = PackedVector2Array([
+		Vector2(width_px * 0.12, height_px * 0.75), Vector2(width_px * 0.88, height_px * 0.75),
+		Vector2(width_px * 0.9, height_px + 2), Vector2(width_px * 0.1, height_px + 2)
+	])
+	visual.add_child(shadow)
+
+	# Metal frame/legs (wrought iron style)
+	var frame_color = Color(0.25, 0.25, 0.28)
+	for x_pos in [width_px * 0.18, width_px * 0.82]:
+		# Vertical support
 		var leg = Polygon2D.new()
-		leg.color = Color(0.4, 0.3, 0.1)
+		leg.color = frame_color
 		leg.polygon = PackedVector2Array([
-			Vector2(x_pos - 5, height_px * 0.7),
-			Vector2(x_pos + 5, height_px * 0.7),
-			Vector2(x_pos + 5, height_px),
-			Vector2(x_pos - 5, height_px)
+			Vector2(x_pos - 4, height_px * 0.25), Vector2(x_pos + 4, height_px * 0.25),
+			Vector2(x_pos + 4, height_px * 0.95), Vector2(x_pos - 4, height_px * 0.95)
 		])
 		visual.add_child(leg)
+		# Decorative curved armrest
+		var arm = Polygon2D.new()
+		arm.color = frame_color
+		arm.polygon = PackedVector2Array([
+			Vector2(x_pos - 6, height_px * 0.35), Vector2(x_pos + 6, height_px * 0.35),
+			Vector2(x_pos + 8, height_px * 0.42), Vector2(x_pos - 8, height_px * 0.42)
+		])
+		visual.add_child(arm)
+
+	# Wooden backrest slats
+	var wood_color = Color(0.55, 0.38, 0.22)
+	var wood_highlight = Color(0.65, 0.48, 0.3)
+	for i in range(3):
+		var y = height_px * (0.28 + i * 0.08)
+		var slat = Polygon2D.new()
+		slat.color = wood_color if i % 2 == 0 else wood_highlight
+		slat.polygon = PackedVector2Array([
+			Vector2(width_px * 0.15, y), Vector2(width_px * 0.85, y),
+			Vector2(width_px * 0.85, y + 5), Vector2(width_px * 0.15, y + 5)
+		])
+		visual.add_child(slat)
+
+	# Wooden seat slats
+	for i in range(3):
+		var y = height_px * (0.52 + i * 0.1)
+		var slat = Polygon2D.new()
+		slat.color = wood_color if i % 2 == 0 else wood_highlight
+		slat.polygon = PackedVector2Array([
+			Vector2(width_px * 0.12, y), Vector2(width_px * 0.88, y),
+			Vector2(width_px * 0.88, y + 6), Vector2(width_px * 0.12, y + 6)
+		])
+		visual.add_child(slat)
 
 func _draw_generic(visual: Node2D, width_px: int, height_px: int) -> void:
-	"""Draw generic building"""
-	var rect = Polygon2D.new()
-	rect.color = Color(0.5, 0.5, 0.5)  # Gray
-	rect.polygon = PackedVector2Array([
-		Vector2(0, 0),
-		Vector2(width_px, 0),
-		Vector2(width_px, height_px),
-		Vector2(0, height_px)
+	"""Draw generic building - simple but presentable"""
+	# Shadow
+	var shadow = Polygon2D.new()
+	shadow.color = Color(0, 0, 0, 0.2)
+	shadow.polygon = PackedVector2Array([
+		Vector2(3, height_px * 0.5), Vector2(width_px + 4, height_px * 0.5),
+		Vector2(width_px + 5, height_px + 2), Vector2(4, height_px + 2)
 	])
-	visual.add_child(rect)
+	visual.add_child(shadow)
+
+	# Main structure
+	var building = Polygon2D.new()
+	building.color = Color(0.72, 0.7, 0.68)
+	building.polygon = PackedVector2Array([
+		Vector2(0, height_px * 0.2), Vector2(width_px, height_px * 0.2),
+		Vector2(width_px, height_px), Vector2(0, height_px)
+	])
+	visual.add_child(building)
+
+	# Roof
+	var roof = Polygon2D.new()
+	roof.color = Color(0.5, 0.45, 0.4)
+	roof.polygon = PackedVector2Array([
+		Vector2(-2, height_px * 0.15), Vector2(width_px + 2, height_px * 0.15),
+		Vector2(width_px + 3, height_px * 0.25), Vector2(-3, height_px * 0.25)
+	])
+	visual.add_child(roof)
+
+	# Simple window
+	var window = Polygon2D.new()
+	window.color = Color(0.7, 0.82, 0.9)
+	window.polygon = PackedVector2Array([
+		Vector2(width_px * 0.3, height_px * 0.35), Vector2(width_px * 0.7, height_px * 0.35),
+		Vector2(width_px * 0.7, height_px * 0.6), Vector2(width_px * 0.3, height_px * 0.6)
+	])
+	visual.add_child(window)
+
+	# Door
+	var door = Polygon2D.new()
+	door.color = Color(0.45, 0.35, 0.28)
+	door.polygon = PackedVector2Array([
+		Vector2(width_px * 0.4, height_px * 0.65), Vector2(width_px * 0.6, height_px * 0.65),
+		Vector2(width_px * 0.6, height_px), Vector2(width_px * 0.4, height_px)
+	])
+	visual.add_child(door)
 
 func get_building_info() -> Dictionary:
 	return {
