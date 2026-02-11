@@ -39,8 +39,25 @@ func _build_ui() -> void:
 	var stats = GameManager.daily_stats
 
 	# Revenue section
-	var revenue_row = _create_stat_row("Revenue:", "$%d" % stats.revenue, Color(0.4, 0.9, 0.4))
-	vbox.add_child(revenue_row)
+	var revenue_label = Label.new()
+	revenue_label.text = "Revenue:"
+	revenue_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(revenue_label)
+
+	# Show green fees
+	var dim_green = Color(0.5, 0.8, 0.5)
+	var greenfee_row = _create_stat_row("  Green Fees:", "$%d" % stats.revenue, dim_green)
+	vbox.add_child(greenfee_row)
+
+	# Show building revenue if any
+	if stats.building_revenue > 0:
+		var building_row = _create_stat_row("  Amenities:", "$%d" % stats.building_revenue, dim_green)
+		vbox.add_child(building_row)
+
+	# Total revenue
+	var total_rev = stats.get_total_revenue()
+	var total_rev_row = _create_stat_row("Total Revenue:", "$%d" % total_rev, Color(0.4, 0.9, 0.4))
+	vbox.add_child(total_rev_row)
 
 	# Operating costs breakdown
 	var costs_label = Label.new()
