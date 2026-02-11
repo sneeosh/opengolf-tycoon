@@ -154,6 +154,13 @@ func _build_save_data() -> Dictionary:
 			"speed": GameManager.wind_system.wind_speed,
 		}
 
+	# Weather
+	if GameManager.weather_system:
+		data["weather"] = {
+			"type": GameManager.weather_system.weather_type,
+			"intensity": GameManager.weather_system.intensity,
+		}
+
 	# Golfers: NOT saved - they are cleared on load and respawn naturally when
 	# simulation resumes. Full mid-action state persistence is a future milestone.
 
@@ -216,6 +223,14 @@ func _apply_save_data(data: Dictionary) -> void:
 		var wind_data = data["wind"]
 		GameManager.wind_system.wind_direction = float(wind_data.get("direction", 0.0))
 		GameManager.wind_system.wind_speed = float(wind_data.get("speed", 5.0))
+
+	# Weather
+	if GameManager.weather_system and data.has("weather"):
+		var weather_data = data["weather"]
+		GameManager.weather_system.weather_type = int(weather_data.get("type", 0))
+		GameManager.weather_system.intensity = float(weather_data.get("intensity", 0.0))
+		# Emit signal to update UI and visuals
+		EventBus.weather_changed.emit(GameManager.weather_system.weather_type, GameManager.weather_system.intensity)
 
 	# Course Records
 	if data.has("course_records"):

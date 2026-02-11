@@ -46,10 +46,18 @@ func get_group_size_weights() -> Array:
 		return [0.05, 0.15, 0.25, 0.55]  # 5% singles, 15% pairs, 25% threesomes, 55% foursomes
 
 func get_spawn_rate_modifier() -> float:
-	"""Get spawn rate modifier based on course rating.
-	1 star = 0.5x (fewer golfers), 3 stars = 1x, 5 stars = 1.5x (more golfers)"""
+	"""Get spawn rate modifier based on course rating and weather.
+	1 star = 0.5x (fewer golfers), 3 stars = 1x, 5 stars = 1.5x (more golfers)
+	Bad weather further reduces spawn rate."""
 	var rating = GameManager.course_rating.get("overall", 3.0)
-	return 0.5 + (rating - 1.0) * 0.25
+	var base_modifier = 0.5 + (rating - 1.0) * 0.25
+
+	# Apply weather penalty (rain discourages golfers)
+	if GameManager.weather_system:
+		var weather_modifier = GameManager.weather_system.get_spawn_rate_modifier()
+		base_modifier *= weather_modifier
+
+	return base_modifier
 
 func get_effective_spawn_cooldown() -> float:
 	"""Get spawn cooldown adjusted by course rating.

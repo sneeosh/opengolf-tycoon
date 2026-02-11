@@ -3,6 +3,8 @@ class_name DayNightSystem
 ## DayNightSystem - Visual time-of-day tinting using CanvasModulate
 
 var _canvas_modulate: CanvasModulate = null
+var _current_hour: float = 6.0
+var _weather_tint: Color = Color.WHITE
 
 func _ready() -> void:
 	_canvas_modulate = CanvasModulate.new()
@@ -10,13 +12,37 @@ func _ready() -> void:
 	_canvas_modulate.color = Color.WHITE
 	add_child(_canvas_modulate)
 	EventBus.hour_changed.connect(_on_hour_changed)
+	EventBus.weather_changed.connect(_on_weather_changed)
 
 func _exit_tree() -> void:
 	if EventBus.hour_changed.is_connected(_on_hour_changed):
 		EventBus.hour_changed.disconnect(_on_hour_changed)
+	if EventBus.weather_changed.is_connected(_on_weather_changed):
+		EventBus.weather_changed.disconnect(_on_weather_changed)
 
 func _on_hour_changed(hour: float) -> void:
-	_canvas_modulate.color = _get_tint_for_hour(hour)
+	_current_hour = hour
+	_update_tint()
+
+func _on_weather_changed(_weather_type: int, _intensity: float) -> void:
+	# Get weather tint from weather system
+	if GameManager.weather_system:
+		_weather_tint = GameManager.weather_system.get_sky_tint()
+	else:
+		_weather_tint = Color.WHITE
+	_update_tint()
+
+func _update_tint() -> void:
+	var time_tint = _get_tint_for_hour(_current_hour)
+
+	# Blend time-of-day tint with weather tint
+	# Weather tint has alpha indicating strength of effect
+	var weather_strength = _weather_tint.a
+	var weather_color = Color(_weather_tint.r, _weather_tint.g, _weather_tint.b, 1.0)
+
+	# Darken/tint based on weather
+	var final_tint = time_tint.lerp(time_tint * weather_color, weather_strength)
+	_canvas_modulate.color = final_tint
 
 func _get_tint_for_hour(hour: float) -> Color:
 	# Sunrise: 5 AM - 7 AM  (warm orange → white)

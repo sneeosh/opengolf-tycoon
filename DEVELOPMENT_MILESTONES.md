@@ -37,6 +37,7 @@ The game currently supports:
 32. **Financial dashboard** - Detailed income/expense breakdown toggled by clicking money display
 33. **Hole statistics panel** - Per-hole stats including average score, best score, score distribution
 34. **Selection indicator** - Bottom bar shows currently selected tool with color coding
+35. **Weather system** - Dynamic weather (sunny to heavy rain) with rain overlay, affects golfer spawn rates, sky tinting, HUD indicator
 
 ---
 
@@ -456,14 +457,20 @@ _Moved to Future Ideas - low priority until core features complete_
 
 ## PRIORITY 8: Advanced Features
 
-### [] Weather System
-- Weather conditions (sunny, cloudy, rain)
-- Rain reduces golfer spawn rate
-- Visual weather effects (rain particles, darker sky)
-- Course never closes due to weather
+### [X] Weather System
+**STATUS: COMPLETE** - Dynamic weather with gameplay effects:
+- ✅ Weather conditions (sunny, partly cloudy, cloudy, light rain, rain, heavy rain)
+- ✅ Rain reduces golfer spawn rate (30-100% based on severity)
+- ✅ Visual rain overlay with animated drops and splashes
+- ✅ Weather-based sky tinting (darker/grayer during bad weather)
+- ✅ Weather indicator in HUD showing current conditions
+- ✅ Weather changes hourly with realistic patterns
+- ✅ Weather state saved/loaded
+- ✅ Course stays open regardless of weather
 
 ### [] Tournament Mode
 - Host tournaments on your course
+- Add different tiers of tournament with course rating, yardage, and hole # requirements. more prestigious tournaments have more stringient requirements.
 - Prize money system (course pays out, earns prestige)
 - Attracts pro golfers and media attention
 - Reputation boost for hosting

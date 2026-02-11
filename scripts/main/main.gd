@@ -35,6 +35,9 @@ var placement_manager: PlacementManager = PlacementManager.new()
 var undo_manager: UndoManager = UndoManager.new()
 var wind_system: WindSystem = null
 var wind_indicator: WindIndicator = null
+var weather_system: WeatherSystem = null
+var weather_indicator: WeatherIndicator = null
+var rain_overlay: RainOverlay = null
 var day_night_system: DayNightSystem = null
 var elevation_tool: ElevationTool = ElevationTool.new()
 var building_registry: Dictionary = {}
@@ -83,6 +86,12 @@ func _ready() -> void:
 	add_child(wind_system)
 	GameManager.wind_system = wind_system
 
+	# Set up weather system
+	weather_system = WeatherSystem.new()
+	weather_system.name = "WeatherSystem"
+	add_child(weather_system)
+	GameManager.weather_system = weather_system
+
 	# Add elevation tool
 	add_child(elevation_tool)
 
@@ -99,6 +108,8 @@ func _ready() -> void:
 	_create_game_mode_label()
 	_create_green_fee_controls()
 	_create_wind_indicator()
+	_create_weather_indicator()
+	_setup_rain_overlay()
 	_create_selection_indicator()
 	_create_save_load_button()
 	_setup_building_info_panel()
@@ -268,6 +279,23 @@ func _create_wind_indicator() -> void:
 	# Set initial wind state
 	if wind_system:
 		wind_indicator.set_wind(wind_system.wind_direction, wind_system.wind_speed)
+
+func _create_weather_indicator() -> void:
+	weather_indicator = WeatherIndicator.new()
+	weather_indicator.name = "WeatherIndicator"
+	var bottom_bar = $UI/HUD/BottomBar
+	bottom_bar.add_child(weather_indicator)
+	# Set initial weather state
+	if weather_system:
+		weather_indicator.set_weather(weather_system.weather_type, weather_system.intensity)
+
+func _setup_rain_overlay() -> void:
+	rain_overlay = RainOverlay.new()
+	rain_overlay.name = "RainOverlay"
+	# Add to the main scene so it renders over everything
+	add_child(rain_overlay)
+	if weather_system:
+		rain_overlay.setup(weather_system)
 
 func _create_selection_indicator() -> void:
 	"""Create a label showing the currently selected tool/placement mode."""

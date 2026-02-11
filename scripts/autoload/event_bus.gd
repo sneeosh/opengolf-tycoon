@@ -62,6 +62,9 @@ signal tooltip_hidden()
 # Wind Signals
 signal wind_changed(direction: float, speed: float)
 
+# Weather Signals
+signal weather_changed(weather_type: int, intensity: float)
+
 # Camera Signals
 signal camera_moved(new_position: Vector2)
 signal camera_zoomed(new_zoom: float)

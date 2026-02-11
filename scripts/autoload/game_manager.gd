@@ -26,6 +26,9 @@ var terrain_grid: TerrainGrid = null
 # Reference to wind system (set by main scene)
 var wind_system: WindSystem = null
 
+# Reference to weather system (set by main scene)
+var weather_system: WeatherSystem = null
+
 # Reference to entity layer for building queries (set by main scene)
 var entity_layer = null
 
@@ -111,9 +114,12 @@ func _advance_time(delta: float) -> void:
 	# Emit hour_changed for smooth time-dependent effects (day/night visual, etc.)
 	EventBus.hour_changed.emit(current_hour)
 
-	# Update wind drift each game hour
-	if wind_system and int(current_hour) != int(old_hour):
-		wind_system.update_wind_drift(current_hour - COURSE_OPEN_HOUR)
+	# Update wind and weather drift each game hour
+	if int(current_hour) != int(old_hour):
+		if wind_system:
+			wind_system.update_wind_drift(current_hour - COURSE_OPEN_HOUR)
+		if weather_system:
+			weather_system.update_weather(1.0)  # 1 hour elapsed
 
 	# Announce course closing 1 hour before close
 	if not _closing_announced and current_hour >= COURSE_CLOSE_HOUR - 1.0:
