@@ -41,6 +41,7 @@ var entity_layer: EntityLayer = null
 var building_info_panel: BuildingInfoPanel = null
 var financial_panel: FinancialPanel = null
 var mini_map: MiniMap = null
+var hole_stats_panel: HoleStatsPanel = null
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 
@@ -101,6 +102,7 @@ func _ready() -> void:
 	_setup_building_info_panel()
 	_setup_financial_panel()
 	_setup_mini_map()
+	_setup_hole_stats_panel()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -479,11 +481,17 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	var row = HBoxContainer.new()
 	row.name = "HoleRow%d" % hole_number
 
-	var hole_label = Label.new()
-	hole_label.name = "HoleLabel"
-	hole_label.text = "Hole %d: Par %d (%d yds)" % [hole_number, par, distance_yards]
-	hole_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(hole_label)
+	# Make hole label a clickable button
+	var hole_btn = Button.new()
+	hole_btn.name = "HoleBtn"
+	hole_btn.text = "Hole %d: Par %d (%d yds)" % [hole_number, par, distance_yards]
+	hole_btn.flat = true
+	hole_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hole_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hole_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	hole_btn.tooltip_text = "Click to view statistics"
+	hole_btn.pressed.connect(_show_hole_stats.bind(hole_number))
+	row.add_child(hole_btn)
 
 	var toggle_btn = Button.new()
 	toggle_btn.name = "ToggleBtn"
@@ -528,12 +536,12 @@ func _on_hole_toggled(hole_number: int, is_open: bool) -> void:
 	if hole_list.has_node(row_name):
 		var row = hole_list.get_node(row_name)
 		var toggle_btn = row.get_node("ToggleBtn") as Button
-		var hole_label = row.get_node("HoleLabel") as Label
+		var hole_btn = row.get_node("HoleBtn") as Button
 		if toggle_btn:
 			toggle_btn.text = "Open" if is_open else "Closed"
 			toggle_btn.modulate = Color(1, 1, 1) if is_open else Color(0.6, 0.6, 0.6)
-		if hole_label:
-			hole_label.modulate = Color(1, 1, 1) if is_open else Color(0.5, 0.5, 0.5)
+		if hole_btn:
+			hole_btn.modulate = Color(1, 1, 1) if is_open else Color(0.5, 0.5, 0.5)
 
 func _rebuild_hole_list() -> void:
 	# Clear existing hole rows
@@ -1067,15 +1075,15 @@ func _setup_mini_map() -> void:
 	mini_map.setup(terrain_grid, entity_layer, golfer_manager)
 	mini_map.camera_move_requested.connect(_on_mini_map_camera_move)
 
-	# Position in bottom-left corner
+	# Position in bottom-left corner, above the bottom bar
 	mini_map.anchor_left = 0
 	mini_map.anchor_top = 1
 	mini_map.anchor_right = 0
 	mini_map.anchor_bottom = 1
 	mini_map.offset_left = 10
-	mini_map.offset_top = -200  # Approximate height + margin
+	mini_map.offset_top = -240  # Height + margin + space for bottom bar
 	mini_map.offset_right = 200  # Approximate width
-	mini_map.offset_bottom = -10
+	mini_map.offset_bottom = -50  # Stay above bottom bar
 
 	hud.add_child(mini_map)
 
@@ -1099,3 +1107,47 @@ func _update_mini_map_camera() -> void:
 	var viewport_rect = Rect2(top_left, visible_size)
 
 	mini_map.set_camera_rect(viewport_rect, terrain_grid.grid_width, terrain_grid.grid_height)
+
+# --- Hole Stats Panel ---
+
+func _setup_hole_stats_panel() -> void:
+	"""Add hole stats panel to the HUD."""
+	var hud = $UI/HUD
+
+	hole_stats_panel = HoleStatsPanel.new()
+	hole_stats_panel.name = "HoleStatsPanel"
+	hole_stats_panel.close_requested.connect(_on_hole_stats_panel_closed)
+	hole_stats_panel.hole_selected.connect(_on_hole_stats_selected)
+	hud.add_child(hole_stats_panel)
+	hole_stats_panel.hide()
+
+func _on_hole_stats_panel_closed() -> void:
+	"""Hide the hole stats panel."""
+	hole_stats_panel.hide()
+
+func _on_hole_stats_selected(hole_number: int) -> void:
+	"""Highlight hole on course and move camera to it."""
+	if not GameManager.current_course:
+		return
+
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number == hole_number:
+			# Move camera to center between tee and green
+			var tee_world = terrain_grid.grid_to_screen_center(hole.tee_position)
+			var green_world = terrain_grid.grid_to_screen_center(hole.green_position)
+			var center = (tee_world + green_world) / 2
+			camera.focus_on(center, false)
+			break
+
+func _show_hole_stats(hole_number: int) -> void:
+	"""Show hole stats panel for the given hole number."""
+	if not GameManager.current_course:
+		return
+
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number == hole_number:
+			hole_stats_panel.show_for_hole(hole)
+			# Center the panel on screen
+			var viewport_size = get_viewport().get_visible_rect().size
+			hole_stats_panel.position = (viewport_size - hole_stats_panel.custom_minimum_size) / 2
+			break

@@ -33,6 +33,9 @@ var entity_layer = null
 var daily_stats: DailyStatistics = DailyStatistics.new()
 var yesterday_stats: DailyStatistics = null  # Previous day's stats for comparison
 
+# Per-hole cumulative statistics (persists across days)
+var hole_statistics: Dictionary = {}  # hole_number -> HoleStatistics
+
 # Course rating (1-5 stars)
 var course_rating: Dictionary = {
 	"condition": 3.0,
@@ -74,8 +77,13 @@ func _ready() -> void:
 func _on_green_fee_paid_for_stats(_golfer_id: int, _golfer_name: String, amount: int) -> void:
 	daily_stats.record_green_fee(amount)
 
-func _on_golfer_finished_hole_for_stats(_golfer_id: int, _hole_number: int, strokes: int, par: int) -> void:
+func _on_golfer_finished_hole_for_stats(_golfer_id: int, hole_number: int, strokes: int, par: int) -> void:
 	daily_stats.record_hole_score(strokes, par)
+
+	# Record per-hole cumulative stats
+	if not hole_statistics.has(hole_number):
+		hole_statistics[hole_number] = HoleStatistics.new(hole_number)
+	hole_statistics[hole_number].record_score(strokes, par)
 
 func _on_golfer_finished_round_for_stats(_golfer_id: int, total_strokes: int) -> void:
 	# Get total par from course
@@ -148,6 +156,12 @@ func set_green_fee(new_fee: int) -> void:
 	green_fee = clamp(new_fee, MIN_GREEN_FEE, MAX_GREEN_FEE)
 	EventBus.green_fee_changed.emit(old_fee, green_fee)
 
+func get_hole_statistics(hole_number: int) -> HoleStatistics:
+	"""Get cumulative statistics for a specific hole"""
+	if hole_statistics.has(hole_number):
+		return hole_statistics[hole_number]
+	return null
+
 func update_course_rating() -> void:
 	"""Recalculate course rating based on current state"""
 	if not current_course or not terrain_grid:
@@ -218,6 +232,7 @@ func new_game(course_name_input: String = "New Course") -> void:
 	current_course = CourseData.new()
 	daily_stats.reset()
 	yesterday_stats = null  # No yesterday on day 1
+	hole_statistics.clear()  # Clear per-hole stats for new game
 	reset_course_records()  # Clear records for new game
 	set_mode(GameMode.BUILDING)
 	EventBus.new_game_started.emit()
@@ -458,3 +473,54 @@ class DailyStatistics:
 	func record_golfer_tier(tier: int) -> void:
 		if tier in tier_counts:
 			tier_counts[tier] += 1
+
+## HoleStatistics - Tracks cumulative statistics for a single hole
+class HoleStatistics:
+	var hole_number: int = 0
+	var total_rounds: int = 0
+	var total_strokes: int = 0
+	var eagles: int = 0
+	var birdies: int = 0
+	var pars: int = 0
+	var bogeys: int = 0
+	var double_bogeys_plus: int = 0
+	var holes_in_one: int = 0
+	var best_score: int = -1
+	var best_scorer_name: String = ""
+
+	func _init(hole_num: int = 0) -> void:
+		hole_number = hole_num
+
+	func record_score(strokes: int, par: int, golfer_name: String = "") -> void:
+		total_rounds += 1
+		total_strokes += strokes
+		var diff = strokes - par
+
+		if strokes == 1:
+			holes_in_one += 1
+			eagles += 1  # Hole in one counts as eagle or better
+		elif diff <= -2:
+			eagles += 1
+		elif diff == -1:
+			birdies += 1
+		elif diff == 0:
+			pars += 1
+		elif diff == 1:
+			bogeys += 1
+		else:
+			double_bogeys_plus += 1
+
+		# Track best score
+		if best_score < 0 or strokes < best_score:
+			best_score = strokes
+			best_scorer_name = golfer_name
+
+	func get_average_score() -> float:
+		if total_rounds == 0:
+			return 0.0
+		return float(total_strokes) / float(total_rounds)
+
+	func get_average_to_par(par: int) -> float:
+		if total_rounds == 0:
+			return 0.0
+		return get_average_score() - float(par)
