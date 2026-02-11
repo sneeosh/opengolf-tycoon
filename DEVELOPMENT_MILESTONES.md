@@ -324,11 +324,14 @@ _Deferred until core gameplay loop is complete. Currently, golfers are cleared o
 - ✅ Tier-based reputation gain (Beginner: +1, Pro: +10, doubled if under par)
 - ✅ End-of-day summary shows tier breakdown with color coding
 
-### [] Course Records & Notable Events
-- Track course records (lowest round, hole-in-ones)
-- Hole-in-one celebration animation
-- Low round recognition notification
-- Records displayed somewhere accessible
+### [X] Course Records & Notable Events
+**STATUS: COMPLETE** - Course records tracking with celebrations:
+- ✅ Track lowest round (course record)
+- ✅ Track total hole-in-ones with golfer names
+- ✅ Track best score per hole
+- ✅ Gold particle burst celebration for hole-in-ones
+- ✅ Records persist through save/load
+- ✅ record_broken signal for notifications
 
 ---
 
