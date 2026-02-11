@@ -27,6 +27,7 @@ var _flower_overlay: FlowerOverlay = null
 var _path_overlay: PathOverlay = null
 
 func _ready() -> void:
+	_generate_tileset()
 	_initialize_grid()
 	_setup_ob_markers_overlay()
 	_setup_water_overlay()
@@ -38,6 +39,26 @@ func _ready() -> void:
 	_setup_flower_overlay()
 	_setup_path_overlay()
 	_setup_elevation_overlay()
+
+func _generate_tileset() -> void:
+	if not tile_map:
+		return
+	# Generate textured tileset at runtime
+	var texture = TilesetGenerator.generate_tileset()
+	var tileset = TileSet.new()
+	tileset.tile_size = Vector2i(tile_width, tile_height)
+
+	var source = TileSetAtlasSource.new()
+	source.texture = texture
+	source.texture_region_size = Vector2i(tile_width, tile_height)
+
+	# Create tiles for each terrain type (7 columns, 2 rows)
+	for row in range(2):
+		for col in range(7):
+			source.create_tile(Vector2i(col, row))
+
+	tileset.add_source(source)
+	tile_map.tile_set = tileset
 
 func _initialize_grid() -> void:
 	for x in range(grid_width):

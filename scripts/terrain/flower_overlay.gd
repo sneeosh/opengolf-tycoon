@@ -17,7 +17,7 @@ const FLOWER_COLORS = [
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
-	z_index = 2
+	z_index = 10  # Render well above terrain tiles
 	_scan_flower_tiles()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 
