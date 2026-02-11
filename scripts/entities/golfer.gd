@@ -390,6 +390,9 @@ func finish_round() -> void:
 	# Check for course record
 	GameManager.check_round_record(golfer_name, total_strokes)
 
+	# Apply clubhouse effects (golfer visits clubhouse after round)
+	_apply_clubhouse_effects()
+
 	# Show course satisfaction feedback
 	var course_trigger = FeedbackTriggers.get_course_trigger(total_strokes, total_par)
 	if course_trigger != -1:
@@ -1285,8 +1288,9 @@ func _check_building_proximity() -> void:
 			_visited_buildings[building_id] = true
 
 			# Apply effect based on type
+			# Use building methods to get upgrade-aware values
 			if effect_type == "revenue":
-				var income = building_data.get("income_per_golfer", 0)
+				var income = building.get_income_per_golfer()
 				if income > 0:
 					GameManager.modify_money(income)
 					GameManager.daily_stats.building_revenue += income
@@ -1294,7 +1298,7 @@ func _check_building_proximity() -> void:
 					_show_building_revenue_notification(income, building.building_type)
 
 			elif effect_type == "satisfaction":
-				var bonus = building_data.get("satisfaction_bonus", 0.0)
+				var bonus = building.get_satisfaction_bonus()
 				if bonus > 0:
 					# Boost mood slightly when passing amenities
 					current_mood = clampf(current_mood + bonus, 0.0, 1.0)
@@ -1316,6 +1320,33 @@ func _show_building_revenue_notification(amount: int, _building_type: String) ->
 	tween.tween_property(notification, "position:y", -50, 1.2)
 	tween.tween_property(notification, "modulate:a", 0.0, 1.2)
 	tween.finished.connect(func(): notification.queue_free())
+
+## Apply clubhouse effects when golfer finishes round (visits clubhouse)
+func _apply_clubhouse_effects() -> void:
+	var entity_layer = GameManager.entity_layer
+	if not entity_layer:
+		return
+
+	# Find the clubhouse
+	var buildings = entity_layer.get_all_buildings()
+	for building in buildings:
+		if building.building_type != "clubhouse":
+			continue
+
+		# Apply revenue from upgraded clubhouse
+		var income = building.get_income_per_golfer()
+		if income > 0:
+			GameManager.modify_money(income)
+			GameManager.daily_stats.building_revenue += income
+			EventBus.log_transaction("%s at Clubhouse" % golfer_name, income)
+			_show_building_revenue_notification(income, "clubhouse")
+
+		# Apply satisfaction from upgraded clubhouse
+		var bonus = building.get_satisfaction_bonus()
+		if bonus > 0:
+			current_mood = clampf(current_mood + bonus, 0.0, 1.0)
+
+		break  # Only one clubhouse
 
 ## Show a thought bubble with golfer feedback
 ## Respects cooldown to prevent spam
