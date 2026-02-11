@@ -18,7 +18,7 @@ const PROPERTIES: Dictionary = {
 	Type.TEE_BOX: {"name": "Tee Box", "color": Color(0.6, 0.5, 0.3), "playable": true, "placement_cost": 30, "maintenance_cost": 10, "shot_difficulty": 0.0},
 	Type.BUNKER: {"name": "Bunker", "color": Color(0.9, 0.85, 0.6), "playable": true, "placement_cost": 25, "maintenance_cost": 8, "shot_difficulty": 0.6, "is_hazard": true},
 	Type.WATER: {"name": "Water", "color": Color(0.2, 0.5, 0.8), "playable": false, "placement_cost": 40, "maintenance_cost": 15, "is_hazard": true, "penalty_strokes": 1},
-	Type.PATH: {"name": "Cart Path", "color": Color(0.7, 0.7, 0.65), "playable": true, "placement_cost": 15, "maintenance_cost": 1, "shot_difficulty": 0.1},
+	Type.PATH: {"name": "Cart Path", "color": Color(0.7, 0.7, 0.65), "playable": true, "placement_cost": 15, "maintenance_cost": 1, "shot_difficulty": 0.1, "speed_modifier": 1.5},
 	Type.OUT_OF_BOUNDS: {"name": "Out of Bounds", "color": Color(0.5, 0.3, 0.3), "playable": false, "placement_cost": 0, "maintenance_cost": 0, "penalty_strokes": 2},
 	Type.TREES: {"name": "Trees", "color": Color(0.15, 0.4, 0.15), "playable": true, "placement_cost": 20, "maintenance_cost": 3, "shot_difficulty": 0.7, "blocks_shots": true},
 	Type.FLOWER_BED: {"name": "Flower Bed", "color": Color(0.8, 0.4, 0.5), "playable": false, "placement_cost": 35, "maintenance_cost": 10, "beauty_bonus": 5},
@@ -45,3 +45,6 @@ static func get_placement_cost(type: Type) -> int:
 
 static func get_maintenance_cost(type: Type) -> int:
 	return get_properties(type).get("maintenance_cost", 0)
+
+static func get_speed_modifier(type: Type) -> float:
+	return get_properties(type).get("speed_modifier", 1.0)

@@ -184,7 +184,15 @@ func _process_walking(delta: float) -> void:
 			_on_reached_destination()
 		return
 
-	velocity = direction * walk_speed
+	# Apply terrain speed modifier (cart paths are faster)
+	var effective_speed = walk_speed
+	var terrain_grid = GameManager.terrain_grid
+	if terrain_grid:
+		var current_grid_pos = terrain_grid.screen_to_grid(global_position)
+		var terrain_type = terrain_grid.get_tile(current_grid_pos)
+		effective_speed *= TerrainTypes.get_speed_modifier(terrain_type)
+
+	velocity = direction * effective_speed
 	move_and_slide()
 
 	# Check for building proximity (revenue/satisfaction effects)
@@ -1053,8 +1061,20 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 	# Check if path crosses water or is short enough to go direct
 	var path_distance = Vector2(start_grid).distance_to(Vector2(end_grid))
 
-	if path_distance < 2.5 or not _path_crosses_obstacle(start_grid, end_grid, true):
-		# Short distance or no obstacles - go direct
+	if path_distance < 2.5:
+		# Very short distance - go direct
+		var result: Array[Vector2] = []
+		result.append(target_pos)
+		return result
+
+	# Try to find a cart path route for speed bonus (only for longer walks)
+	if path_distance >= 5.0:
+		var cart_path_route = _find_cart_path_route(start_grid, end_grid)
+		if not cart_path_route.is_empty():
+			return cart_path_route
+
+	if not _path_crosses_obstacle(start_grid, end_grid, true):
+		# No obstacles - go direct
 		var result: Array[Vector2] = []
 		result.append(target_pos)
 		return result
@@ -1132,6 +1152,75 @@ func _find_path_around_water(start: Vector2i, end: Vector2i) -> Array[Vector2]:
 
 	# No single waypoint works — go direct as fallback
 	var result: Array[Vector2] = []
+	result.append(terrain_grid.grid_to_screen_center(end))
+	return result
+
+## Find a route through nearby cart paths for speed bonus
+func _find_cart_path_route(start: Vector2i, end: Vector2i) -> Array[Vector2]:
+	var terrain_grid = GameManager.terrain_grid
+	if not terrain_grid:
+		return []
+
+	# Search for cart path tiles near the direct path
+	var direction = Vector2(end - start).normalized()
+	var distance = Vector2(start).distance_to(Vector2(end))
+	var search_radius: int = 6  # How far from direct path to search
+
+	var cart_path_tiles: Array[Vector2i] = []
+
+	# Sample along the path and search nearby for cart paths
+	var num_samples = int(distance / 3) + 1
+	for i in range(num_samples):
+		var t = float(i) / float(num_samples)
+		var sample = Vector2(start).lerp(Vector2(end), t)
+
+		# Search in a box around the sample point
+		for dx in range(-search_radius, search_radius + 1):
+			for dy in range(-search_radius, search_radius + 1):
+				var check_pos = Vector2i(int(sample.x) + dx, int(sample.y) + dy)
+				if not terrain_grid.is_valid_position(check_pos):
+					continue
+				if terrain_grid.get_tile(check_pos) == TerrainTypes.Type.PATH:
+					if not cart_path_tiles.has(check_pos):
+						cart_path_tiles.append(check_pos)
+
+	if cart_path_tiles.is_empty():
+		return []
+
+	# Find cart path tiles closest to start and end
+	var closest_to_start: Vector2i = cart_path_tiles[0]
+	var closest_to_end: Vector2i = cart_path_tiles[0]
+	var min_dist_start: float = Vector2(start).distance_to(Vector2(closest_to_start))
+	var min_dist_end: float = Vector2(end).distance_to(Vector2(closest_to_end))
+
+	for tile in cart_path_tiles:
+		var dist_start = Vector2(start).distance_to(Vector2(tile))
+		var dist_end = Vector2(end).distance_to(Vector2(tile))
+		if dist_start < min_dist_start:
+			min_dist_start = dist_start
+			closest_to_start = tile
+		if dist_end < min_dist_end:
+			min_dist_end = dist_end
+			closest_to_end = tile
+
+	# Only use cart path if it provides a reasonable route
+	# (cart path entry/exit should be close enough to be worth it)
+	if min_dist_start > 10 or min_dist_end > 10:
+		return []
+
+	# Check that the cart path route doesn't cross obstacles
+	if _path_crosses_obstacle(start, closest_to_start, true):
+		return []
+	if _path_crosses_obstacle(closest_to_end, end, true):
+		return []
+
+	# Build the route: start -> cart path entry -> cart path exit -> end
+	var result: Array[Vector2] = []
+	if closest_to_start != closest_to_end:
+		result.append(terrain_grid.grid_to_screen_center(closest_to_start))
+		result.append(terrain_grid.grid_to_screen_center(closest_to_end))
+	else:
+		result.append(terrain_grid.grid_to_screen_center(closest_to_start))
 	result.append(terrain_grid.grid_to_screen_center(end))
 	return result
 
