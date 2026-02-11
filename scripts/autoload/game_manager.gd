@@ -29,6 +29,9 @@ var wind_system: WindSystem = null
 # Reference to weather system (set by main scene)
 var weather_system: WeatherSystem = null
 
+# Reference to tournament manager (set by main scene)
+var tournament_manager: TournamentManager = null
+
 # Reference to entity layer for building queries (set by main scene)
 var entity_layer = null
 

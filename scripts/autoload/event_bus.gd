@@ -78,6 +78,11 @@ signal selection_cleared()
 signal end_of_day(day_number: int)
 signal course_closing()
 
+# Tournament Signals
+signal tournament_scheduled(tier: int, start_day: int)
+signal tournament_started(tier: int)
+signal tournament_completed(tier: int, results: Dictionary)
+
 # Save/Load Signals
 signal save_requested()
 signal save_completed(success: bool)

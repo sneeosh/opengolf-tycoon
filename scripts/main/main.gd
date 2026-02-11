@@ -46,6 +46,8 @@ var building_info_panel: BuildingInfoPanel = null
 var financial_panel: FinancialPanel = null
 var mini_map: MiniMap = null
 var hole_stats_panel: HoleStatsPanel = null
+var tournament_manager: TournamentManager = null
+var tournament_panel: TournamentPanel = null
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 
@@ -100,6 +102,12 @@ func _ready() -> void:
 	day_night_system.name = "DayNightSystem"
 	add_child(day_night_system)
 
+	# Set up tournament manager
+	tournament_manager = TournamentManager.new()
+	tournament_manager.name = "TournamentManager"
+	add_child(tournament_manager)
+	GameManager.tournament_manager = tournament_manager
+
 	# Set up save manager references
 	SaveManager.set_references(terrain_grid, entity_layer, golfer_manager, ball_manager)
 
@@ -116,6 +124,7 @@ func _ready() -> void:
 	_setup_financial_panel()
 	_setup_mini_map()
 	_setup_hole_stats_panel()
+	_setup_tournament_panel()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -157,6 +166,9 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_Y:
 				_perform_redo()
 				get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_T:
+			_toggle_tournament_panel()
+			get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("select"):
@@ -1262,3 +1274,33 @@ func _show_hole_stats(hole_number: int) -> void:
 			var viewport_size = get_viewport().get_visible_rect().size
 			hole_stats_panel.position = (viewport_size - hole_stats_panel.custom_minimum_size) / 2
 			break
+
+# --- Tournament Panel ---
+
+func _setup_tournament_panel() -> void:
+	"""Add tournament panel to the HUD."""
+	var hud = $UI/HUD
+
+	tournament_panel = TournamentPanel.new()
+	tournament_panel.name = "TournamentPanel"
+	tournament_panel._build_ui()
+	tournament_panel.setup(tournament_manager)
+	hud.add_child(tournament_panel)
+	tournament_panel.hide()
+
+	# Add tournament button to bottom bar
+	var bottom_bar = $UI/HUD/BottomBar
+	var tournament_btn = Button.new()
+	tournament_btn.name = "TournamentBtn"
+	tournament_btn.text = "Tournament"
+	tournament_btn.tooltip_text = "Host tournaments (T)"
+	tournament_btn.pressed.connect(_toggle_tournament_panel)
+	bottom_bar.add_child(tournament_btn)
+
+func _toggle_tournament_panel() -> void:
+	"""Toggle the tournament panel visibility."""
+	tournament_panel.toggle()
+	if tournament_panel.visible:
+		# Center the panel on screen
+		var viewport_size = get_viewport().get_visible_rect().size
+		tournament_panel.position = (viewport_size - tournament_panel.custom_minimum_size) / 2

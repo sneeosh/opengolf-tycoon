@@ -161,6 +161,10 @@ func _build_save_data() -> Dictionary:
 			"intensity": GameManager.weather_system.intensity,
 		}
 
+	# Tournament
+	if GameManager.tournament_manager:
+		data["tournament"] = GameManager.tournament_manager.get_save_data()
+
 	# Golfers: NOT saved - they are cleared on load and respawn naturally when
 	# simulation resumes. Full mid-action state persistence is a future milestone.
 
@@ -231,6 +235,10 @@ func _apply_save_data(data: Dictionary) -> void:
 		GameManager.weather_system.intensity = float(weather_data.get("intensity", 0.0))
 		# Emit signal to update UI and visuals
 		EventBus.weather_changed.emit(GameManager.weather_system.weather_type, GameManager.weather_system.intensity)
+
+	# Tournament
+	if GameManager.tournament_manager and data.has("tournament"):
+		GameManager.tournament_manager.load_save_data(data["tournament"])
 
 	# Course Records
 	if data.has("course_records"):
