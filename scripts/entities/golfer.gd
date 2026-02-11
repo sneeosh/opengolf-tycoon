@@ -12,41 +12,41 @@ enum State {
 }
 
 enum Club {
-	DRIVER,       # Long distance, lower accuracy (220-300 yards)
-	FAIRWAY_WOOD, # Mid-long distance, moderate accuracy (180-250 yards)
-	IRON,         # Medium distance, medium accuracy (120-195 yards)
-	WEDGE,        # Short distance, high accuracy (30-120 yards)
-	PUTTER        # Putting surface, distance-based accuracy (0-90 feet)
+	DRIVER,       # Long distance, lower accuracy (220-308 yards)
+	FAIRWAY_WOOD, # Mid-long distance, moderate accuracy (176-242 yards)
+	IRON,         # Medium distance, medium accuracy (110-198 yards)
+	WEDGE,        # Short distance, high accuracy (44-110 yards)
+	PUTTER        # Putting surface, distance-based accuracy (0-66 feet)
 }
 
-## Club characteristics (distances in tiles, 1 tile = 15 yards)
+## Club characteristics (distances in tiles, 1 tile = 22 yards)
 const CLUB_STATS = {
 	Club.DRIVER: {
-		"max_distance": 20,    # tiles (300 yards)
-		"min_distance": 15,    # tiles (225 yards)
+		"max_distance": 14,    # tiles (308 yards)
+		"min_distance": 10,    # tiles (220 yards)
 		"accuracy_modifier": 0.7,
 		"name": "Driver"
 	},
 	Club.FAIRWAY_WOOD: {
-		"max_distance": 17,    # tiles (255 yards)
-		"min_distance": 12,    # tiles (180 yards)
+		"max_distance": 11,    # tiles (242 yards)
+		"min_distance": 8,     # tiles (176 yards)
 		"accuracy_modifier": 0.78,
 		"name": "Fairway Wood"
 	},
 	Club.IRON: {
-		"max_distance": 13,    # tiles (195 yards)
-		"min_distance": 8,     # tiles (120 yards)
+		"max_distance": 9,     # tiles (198 yards)
+		"min_distance": 5,     # tiles (110 yards)
 		"accuracy_modifier": 0.85,
 		"name": "Iron"
 	},
 	Club.WEDGE: {
-		"max_distance": 8,     # tiles (120 yards)
-		"min_distance": 2,     # tiles (30 yards)
+		"max_distance": 5,     # tiles (110 yards)
+		"min_distance": 2,     # tiles (44 yards)
 		"accuracy_modifier": 0.95,
 		"name": "Wedge"
 	},
 	Club.PUTTER: {
-		"max_distance": 2,     # tiles (30 yards, ~90 feet)
+		"max_distance": 1,     # tiles (22 yards, ~66 feet)
 		"min_distance": 0,     # tiles
 		"accuracy_modifier": 0.98,
 		"name": "Putter"
@@ -452,7 +452,7 @@ func take_shot(target: Vector2i) -> void:
 	if is_putt:
 		var hole_data = GameManager.course_data.holes[current_hole]
 		var dist_to_hole = ball_position_precise.distance_to(Vector2(hole_data.hole_position))
-		putt_detail = " (%.1fft to hole)" % (dist_to_hole * 15.0 * 3.0)  # tiles -> yards -> feet
+		putt_detail = " (%.1fft to hole)" % (dist_to_hole * 22.0 * 3.0)  # tiles -> yards -> feet
 	print("%s (ID:%d) - Hole %d, Stroke %d: %s shot, %d yards, %.1f%% accuracy%s" % [
 		golfer_name,
 		golfer_id,
@@ -770,13 +770,12 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 
 	var landing: Vector2
 
-	# Distances in tiles (1 tile = 15 yards = 45 feet):
-	#   0.07 tiles =  ~3 feet  (tap-in gimme)
-	#   0.15 tiles =  ~7 feet  (short putt)
-	#   0.33 tiles = ~15 feet  (mid-range)
-	#   0.50 tiles = ~22 feet  (challenging)
-	#   1.00 tiles = ~45 feet  (long putt)
-	#   2.00 tiles = ~90 feet  (lag putt territory)
+	# Distances in tiles (1 tile = 22 yards = 66 feet):
+	#   0.07 tiles =  ~5 feet  (tap-in gimme)
+	#   0.15 tiles = ~10 feet  (short putt)
+	#   0.33 tiles = ~22 feet  (mid-range)
+	#   0.50 tiles = ~33 feet  (challenging)
+	#   1.00 tiles = ~66 feet  (long putt / lag putt)
 
 	if distance < 0.07:
 		# Tap-in gimme — automatic hole-out
@@ -853,7 +852,7 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 				break
 		landing = last_valid
 
-	var distance_yards = int(from_precise.distance_to(landing) * 15.0)
+	var distance_yards = int(from_precise.distance_to(landing) * 22.0)
 
 	return {
 		"landing_position": Vector2i(landing.round()),

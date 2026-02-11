@@ -278,7 +278,7 @@ func _is_landing_area_clear(shooting_golfer: Golfer, group_golfers: Array) -> bo
 	var target = shooting_golfer.decide_shot_target(hole_position)
 
 	# Define a landing zone (radius around target)
-	const LANDING_ZONE_RADIUS = 5.0  # tiles (50 yards at 10 yards/tile)
+	const LANDING_ZONE_RADIUS = 5.0  # tiles (110 yards at 22 yards/tile)
 
 	# Check if any golfer from EARLIER groups is in the landing zone
 	# Only check groups ahead (lower group_id) to prevent deadlocks

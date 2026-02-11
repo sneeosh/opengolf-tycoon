@@ -86,7 +86,7 @@ func _place_green(position: Vector2i) -> bool:
 	# Ensure green is reasonable distance from tee
 	var distance = Vector2(pending_tee_position).distance_to(Vector2(position))
 	if distance < 7:
-		print("Green must be at least 7 tiles from tee (105 yards)")
+		print("Green must be at least 7 tiles from tee (154 yards)")
 		return false
 
 	# Paint green tiles in a 5x5 area
