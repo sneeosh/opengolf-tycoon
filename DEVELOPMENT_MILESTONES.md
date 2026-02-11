@@ -30,6 +30,9 @@ The game currently supports:
 25. **Wind system** - Per-day wind with direction/speed, club-sensitive displacement, AI compensation, HUD indicator
 26. **Terrain elevation system** - Raise/lower tools, always-visible elevation shading with contour lines, uphill/downhill shot effects, slope-influenced ball roll
 27. **Golfer feedback system** - Thought bubbles for reactions (score, hazards, pricing), FeedbackManager for aggregate tracking, satisfaction in end-of-day summary
+28. **Building effects system** - Proximity-based revenue from pro shop, restaurant, snack bar; satisfaction from restrooms and benches
+29. **Clubhouse upgrades** - 3-tier upgrade system with revenue/satisfaction bonuses, clickable building info panels
+30. **Cart path speed boost** - Golfers walk 50% faster on cart paths with pathfinding preference
 
 ---
 
@@ -337,22 +340,39 @@ _Deferred until core gameplay loop is complete. Currently, golfers are cleared o
 
 ## PRIORITY 6: Buildings & Facilities
 
-### [] Clubhouse
-- Starting clubhouse (already implied by spawn system)
-- Upgrade tiers that unlock amenities (pro shop, restaurant)
-- Each upgrade increases golfer satisfaction and revenue
-- Visual upgrades reflected on the map
+### [X] Clubhouse Upgrade System
+**STATUS: COMPLETE** - 3-tier clubhouse upgrade system:
+- ✅ Click on clubhouse opens building info panel
+- ✅ Level 1: Basic Clubhouse (starting)
+- ✅ Level 2: Clubhouse with Pro Shop ($8,000) - +$15/golfer, +5% satisfaction
+- ✅ Level 3: Full Service Clubhouse ($15,000) - +$40/golfer, +10% satisfaction
+- ✅ Visual upgrades at each level (shop window, outdoor seating)
+- ✅ Revenue and satisfaction applied when golfers finish round
 
-### [] Cart Paths
-- Paintable cart path terrain type
-- Golfers prefer walking on paths (faster movement)
-- Visual distinction on the isometric map
-- Connects tees, greens, and clubhouse
+### [X] Cart Paths
+**STATUS: COMPLETE** - Cart path terrain with speed boost:
+- ✅ Cart Path terrain type (uses existing PATH terrain)
+- ✅ 1.5x speed modifier for golfers walking on paths
+- ✅ Pathfinding prefers cart paths when available
+- ✅ Visual distinction (tan/gray color)
 
-### [] Additional Facilities (defer details until economy loop exists)
-- Practice facilities (driving range, putting green) - additional revenue
-- Restrooms along course - satisfaction boost
-- Benches and shelters - satisfaction boost
+### [X] Building Revenue & Satisfaction Effects
+**STATUS: COMPLETE** - Proximity-based building effects:
+- ✅ Pro Shop: $15/golfer within 8-tile radius
+- ✅ Restaurant: $25/golfer within 8-tile radius
+- ✅ Snack Bar: $5/golfer within 5-tile radius
+- ✅ Restroom: +5% satisfaction within 8-tile radius
+- ✅ Bench: +2% satisfaction within 3-tile radius
+- ✅ Golfers track visited buildings (revenue only triggers once per round)
+- ✅ Building revenue shown in end-of-day summary (separate from green fees)
+
+### [X] Building Placement Improvements
+**STATUS: COMPLETE** - Better building placement UX:
+- ✅ Unique buildings (clubhouse) can only be placed once
+- ✅ Grey out unique buildings in selection dialog if already placed
+- ✅ Prevent placing buildings on top of other buildings
+- ✅ Clear building selector after successful placement
+- ✅ Error messages for placement failures
 
 ### [] Golfer Needs System (Future Enhancement)
 - Add thirst, hunger, fatigue stats to golfers
@@ -516,7 +536,9 @@ _These are ambitious ideas that would each represent significant scope. Deferred
 11. ✅ ~~Green Fee UI~~ - COMPLETE (all P2 items done!)
 12. ✅ ~~Priority 3: Terrain & Course Design Features~~ - COMPLETE (water overlays, bunker effects, OB fix + markers, wind system, elevation system)
 13. ✅ ~~Priority 4: Save/Load & Essential UX~~ - COMPLETE (save/load, day/night, end-of-day summary, golfer feedback)
-14. Start Priority 5: Economy & Satisfaction Loop
+14. ✅ ~~Priority 5: Economy & Satisfaction Loop~~ - COMPLETE (operating costs, course rating, golfer tiers, course records)
+15. ✅ ~~Priority 6: Buildings & Facilities~~ - COMPLETE (clubhouse upgrades, cart paths, building revenue/satisfaction effects)
+16. Start Priority 7: UI/UX Improvements
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.
