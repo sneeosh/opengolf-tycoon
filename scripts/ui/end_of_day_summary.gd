@@ -13,7 +13,7 @@ func _ready() -> void:
 	_build_ui()
 
 func _build_ui() -> void:
-	custom_minimum_size = Vector2(380, 620)  # Extra height for tier breakdown
+	custom_minimum_size = Vector2(380, 720)  # Extra height for tier breakdown and feedback
 
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 16)
