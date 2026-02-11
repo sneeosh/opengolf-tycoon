@@ -316,11 +316,13 @@ _Deferred until core gameplay loop is complete. Currently, golfers are cleared o
 - ✅ Overall rating displayed in end-of-day summary with breakdown
 - ✅ Higher ratings increase golfer spawn rate
 
-### [] Golfer Types & Skill Tiers
-- Beginner, casual, serious, and pro skill tiers
-- Each tier has different expectations and spending
-- Better courses attract higher-tier golfers
-- Pro golfers generate reputation
+### [X] Golfer Types & Skill Tiers
+**STATUS: COMPLETE** - Four golfer tiers with tier-based mechanics:
+- ✅ Beginner, Casual, Serious, Pro skill tiers
+- ✅ Tier selection based on course rating, green fee, and reputation
+- ✅ Tier-based skill generation (Beginners: 0.3-0.5, Pros: 0.85-0.98)
+- ✅ Tier-based reputation gain (Beginner: +1, Pro: +10, doubled if under par)
+- ✅ End-of-day summary shows tier breakdown with color coding
 
 ### [] Course Records & Notable Events
 - Track course records (lowest round, hole-in-ones)
