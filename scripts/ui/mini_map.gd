@@ -14,6 +14,7 @@ var _camera_rect: Rect2 = Rect2()  # Current camera viewport in grid coords
 var _map_texture: ImageTexture = null
 var _needs_redraw: bool = true
 var _update_timer: float = 0.0
+var _is_dragging: bool = false  # Track drag state for click-and-drag navigation
 const UPDATE_INTERVAL: float = 0.5  # Redraw terrain every 0.5 seconds
 
 # Color palette for terrain types
@@ -184,14 +185,30 @@ func _map_to_world_pos(map_pos: Vector2) -> Vector2:
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			var local_pos = event.position
-			# Check if click is within map area
-			if local_pos.x >= BORDER_WIDTH and local_pos.x < BORDER_WIDTH + MAP_SIZE:
-				if local_pos.y >= BORDER_WIDTH and local_pos.y < BORDER_WIDTH + MAP_SIZE:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				var local_pos = event.position
+				# Check if click is within map area
+				if _is_within_map(local_pos):
+					_is_dragging = true
 					var world_pos = _map_to_world_pos(local_pos)
 					camera_move_requested.emit(world_pos)
 					accept_event()
+			else:
+				# Mouse button released
+				_is_dragging = false
+
+	elif event is InputEventMouseMotion and _is_dragging:
+		var local_pos = event.position
+		# Continue moving camera while dragging within map area
+		if _is_within_map(local_pos):
+			var world_pos = _map_to_world_pos(local_pos)
+			camera_move_requested.emit(world_pos)
+			accept_event()
+
+func _is_within_map(local_pos: Vector2) -> bool:
+	return local_pos.x >= BORDER_WIDTH and local_pos.x < BORDER_WIDTH + MAP_SIZE \
+		and local_pos.y >= BORDER_WIDTH and local_pos.y < BORDER_WIDTH + MAP_SIZE
 
 func _input(event: InputEvent) -> void:
 	# Toggle visibility with M key

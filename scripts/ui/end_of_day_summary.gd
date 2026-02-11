@@ -13,7 +13,12 @@ func _ready() -> void:
 	_build_ui()
 
 func _build_ui() -> void:
-	custom_minimum_size = Vector2(380, 720)  # Extra height for tier breakdown and feedback
+	# Get viewport height to set appropriate panel size
+	var viewport_height = 800  # Default fallback
+	if get_viewport():
+		viewport_height = get_viewport().get_visible_rect().size.y
+	var panel_height = min(680, viewport_height - 100)  # Leave margin from screen edges
+	custom_minimum_size = Vector2(380, panel_height)
 
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 16)
@@ -22,18 +27,29 @@ func _build_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", 16)
 	add_child(margin)
 
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	margin.add_child(vbox)
+	var main_vbox = VBoxContainer.new()
+	main_vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(main_vbox)
 
-	# Title
+	# Title (fixed at top)
 	var title = Label.new()
 	title.text = "Day %d Complete" % _day_number
 	title.add_theme_font_size_override("font_size", 24)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
+	main_vbox.add_child(title)
 
-	vbox.add_child(HSeparator.new())
+	main_vbox.add_child(HSeparator.new())
+
+	# Scrollable content area
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	main_vbox.add_child(scroll)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vbox)
 
 	# Stats container
 	var stats = GameManager.daily_stats
@@ -244,17 +260,14 @@ func _build_ui() -> void:
 		no_feedback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(no_feedback)
 
-	# Spacer
-	var spacer = Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(spacer)
+	# Continue button (fixed at bottom, outside scroll area)
+	main_vbox.add_child(HSeparator.new())
 
-	# Continue button
 	var continue_btn = Button.new()
 	continue_btn.text = "Continue to Day %d" % (_day_number + 1)
 	continue_btn.custom_minimum_size = Vector2(200, 40)
 	continue_btn.pressed.connect(_on_continue_pressed)
-	vbox.add_child(continue_btn)
+	main_vbox.add_child(continue_btn)
 
 func _create_stat_row(label_text: String, value_text: String, value_color: Color = Color.WHITE) -> HBoxContainer:
 	var row = HBoxContainer.new()

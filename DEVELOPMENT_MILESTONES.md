@@ -33,6 +33,10 @@ The game currently supports:
 28. **Building effects system** - Proximity-based revenue from pro shop, restaurant, snack bar; satisfaction from restrooms and benches
 29. **Clubhouse upgrades** - 3-tier upgrade system with revenue/satisfaction bonuses, clickable building info panels
 30. **Cart path speed boost** - Golfers walk 50% faster on cart paths with pathfinding preference
+31. **Mini-map navigation** - Course overview map with click-and-drag navigation, shows golfers/buildings/holes, toggle with M key
+32. **Financial dashboard** - Detailed income/expense breakdown toggled by clicking money display
+33. **Hole statistics panel** - Per-hole stats including average score, best score, score distribution
+34. **Selection indicator** - Bottom bar shows currently selected tool with color coding
 
 ---
 
@@ -385,31 +389,66 @@ _Deferred until core gameplay loop is complete. Currently, golfers are cleared o
 
 ## PRIORITY 7: UI/UX Improvements
 
-### [] Course Overview Map
-- Mini-map showing full course layout
-- Click to jump to location
-- Show active golfers on map
-- Highlight selected hole
+### [X] Course Overview Map
+**STATUS: COMPLETE** - Mini-map with navigation and course visualization:
+- ✅ Mini-map in bottom-left corner showing terrain colors
+- ✅ Hole locations displayed (tee=circle, green=square)
+- ✅ Buildings shown as rectangles
+- ✅ Active golfers shown as moving red dots
+- ✅ Camera viewport indicator rectangle
+- ✅ Click-to-navigate camera movement
+- ✅ Click-and-drag for smooth panning
+- ✅ Toggle visibility with M key
 
-### [] Financial Dashboard
-- Current budget display (already partial)
-- Income/expense breakdown
-- Revenue trends over time
-- Daily and cumulative profit/loss
+### [X] Financial Dashboard
+**STATUS: COMPLETE** - Detailed financial panel toggled by clicking money display:
+- ✅ Click money label to toggle detailed panel
+- ✅ Current balance display
+- ✅ Today's revenue breakdown (green fees + amenities)
+- ✅ Today's costs breakdown (terrain, base, staff)
+- ✅ Today's profit/loss calculation
+- ✅ Yesterday's comparison with trend indicator
+- ✅ Course reputation and golfers served
+- ✅ Scrollable content with close button
 
-### [] Build Mode Improvements
-- Categorized terrain menu
-- Quick-select hotkeys
-- Cost preview before placement
+### [X] Information Overlays
+**STATUS: COMPLETE** - Detailed information panels for game elements:
+- ✅ Building info panels (implemented in P6)
+- ✅ Hole statistics panel with detailed stats
+- ✅ Par, yardage, difficulty rating display
+- ✅ Average score and best score per hole
+- ✅ Score distribution (birdies, pars, bogeys, etc.)
+- ✅ Statistics persist across days (fixed index mismatch)
+- ✅ Scrollable content with close button
+
+### [X] Selection Indicator
+**STATUS: COMPLETE** - Visual feedback for current tool selection:
+- ✅ Bottom bar displays currently selected tool
+- ✅ Color-coded by tool type (terrain, placement, elevation)
+- ✅ Updates in real-time as tools are switched
+- ✅ Shows placement mode (tree type, rock size, building name)
+
+### [X] Panel Overflow Fixes
+**STATUS: COMPLETE** - All panels properly handle content overflow:
+- ✅ Financial panel with scroll container and close button
+- ✅ End-of-day summary with scroll container, fixed title/button
+- ✅ Hole stats panel with scroll container and close button
+- ✅ Window display scaling fixed (viewport stretch mode)
+
+### [X] Undo Improvements
+**STATUS: COMPLETE** - Better undo grouping for complex operations:
+- ✅ Tee box placement (9 tiles) undoes as single action
+- ✅ Green placement (25 tiles) undoes as single action
+
+### [] Build Mode Categorization (Deferred)
+_Moved to Future Ideas - basic tool selection works well enough for now_
+- Categorized terrain menu with collapsible sections
+- Quick-select hotkeys (1-9)
 - Hover tooltips for terrain types
 
-### [] Information Overlays
-- Golfer stats when clicked
-- Hole statistics (average score, pace of play)
-- Building information panels
-
-### [] Tutorial & Help
-- First-time player guidance (optional)
+### [] Tutorial & Help (Deferred)
+_Moved to Future Ideas - low priority until core features complete_
+- First-time player guidance
 - Tooltip hints for UI elements
 - Help menu with tips
 
@@ -482,11 +521,37 @@ _Deferred until core gameplay loop is complete. Currently, golfers are cleared o
 
 _These are ambitious ideas that would each represent significant scope. Deferred until the core game is complete and polished._
 
-- Mini-golf mode
-- Disc golf variant
 - Career mode with progressive challenges
 - Seasonal visual changes (fall foliage, spring flowers)
 - Course export/import and sharing
+
+---
+
+## Future Ideas (Deferred from Earlier Priorities)
+
+_These features were considered but deferred to focus on core gameplay. May be revisited later._
+
+### UI/UX (from P7)
+- Categorized terrain menu with collapsible sections
+- Quick-select hotkeys (1-9) for common tools
+- Hover tooltips showing terrain cost and maintenance
+- First-time player tutorial guidance
+- Tooltip hints for UI elements
+- Help menu with gameplay tips
+
+### Golfer AI (from P2)
+- Prefer walking on cart paths
+- More sophisticated A* pathfinding
+- Start golfers at clubhouse instead of tee box
+
+### Economy (from P6)
+- Golfer needs system (thirst, hunger, fatigue)
+- Buildings satisfy specific needs
+- Strategic building placement incentives
+
+### Save/Load (from P4)
+- Full mid-action golfer state persistence
+- Persist ball trajectories mid-flight
 
 ---
 
@@ -538,7 +603,8 @@ _These are ambitious ideas that would each represent significant scope. Deferred
 13. ✅ ~~Priority 4: Save/Load & Essential UX~~ - COMPLETE (save/load, day/night, end-of-day summary, golfer feedback)
 14. ✅ ~~Priority 5: Economy & Satisfaction Loop~~ - COMPLETE (operating costs, course rating, golfer tiers, course records)
 15. ✅ ~~Priority 6: Buildings & Facilities~~ - COMPLETE (clubhouse upgrades, cart paths, building revenue/satisfaction effects)
-16. Start Priority 7: UI/UX Improvements
+16. ✅ ~~Priority 7: UI/UX Improvements~~ - COMPLETE (mini-map, financial dashboard, hole stats, selection indicator, panel fixes, undo improvements)
+17. Start Priority 8: Advanced Features (Weather, Tournaments, Difficulty Rating)
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.

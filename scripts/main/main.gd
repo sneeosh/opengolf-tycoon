@@ -23,6 +23,7 @@ var build_mode_btn: Button = null
 var green_fee_label: Label = null
 var green_fee_decrease_btn: Button = null
 var green_fee_increase_btn: Button = null
+var selection_label: Label = null
 
 var current_tool: int = TerrainTypes.Type.FAIRWAY
 var brush_size: int = 1
@@ -98,6 +99,7 @@ func _ready() -> void:
 	_create_game_mode_label()
 	_create_green_fee_controls()
 	_create_wind_indicator()
+	_create_selection_indicator()
 	_create_save_load_button()
 	_setup_building_info_panel()
 	_setup_financial_panel()
@@ -126,6 +128,7 @@ func _process(_delta: float) -> void:
 	_update_ui()
 	_handle_mouse_hover()
 	_update_mini_map_camera()
+	_update_selection_indicator()
 
 func _input(event: InputEvent) -> void:
 	# Keyboard shortcuts - handled in _input so UI controls don't swallow them
@@ -266,6 +269,85 @@ func _create_wind_indicator() -> void:
 	if wind_system:
 		wind_indicator.set_wind(wind_system.wind_direction, wind_system.wind_speed)
 
+func _create_selection_indicator() -> void:
+	"""Create a label showing the currently selected tool/placement mode."""
+	var bottom_bar = $UI/HUD/BottomBar
+
+	# Create container with background
+	var container = PanelContainer.new()
+	container.name = "SelectionIndicator"
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_top", 2)
+	margin.add_theme_constant_override("margin_bottom", 2)
+	container.add_child(margin)
+
+	selection_label = Label.new()
+	selection_label.name = "SelectionLabel"
+	selection_label.text = "Selected: Fairway"
+	selection_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))  # Yellow-ish
+	margin.add_child(selection_label)
+
+	# Insert before the coordinate label (which is at the end)
+	bottom_bar.add_child(container)
+	var coord_index = coordinate_label.get_index()
+	bottom_bar.move_child(container, coord_index)
+
+func _update_selection_indicator() -> void:
+	"""Update the selection indicator based on current mode."""
+	if not selection_label:
+		return
+
+	var text = "Selected: "
+	var color = Color(1.0, 0.9, 0.5)  # Default yellow
+
+	# Check placement modes first (they take priority)
+	if hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_TEE:
+		text += "Place Tee Box"
+		color = Color(0.5, 1.0, 0.5)  # Green
+	elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_GREEN:
+		text += "Place Green"
+		color = Color(0.5, 1.0, 0.5)  # Green
+	elif placement_manager.placement_mode == PlacementManager.PlacementMode.TREE:
+		text += "Tree (%s)" % selected_tree_type.capitalize()
+		color = Color(0.4, 0.8, 0.4)  # Forest green
+	elif placement_manager.placement_mode == PlacementManager.PlacementMode.ROCK:
+		text += "Rock (%s)" % selected_rock_size.capitalize()
+		color = Color(0.7, 0.7, 0.7)  # Gray
+	elif placement_manager.placement_mode == PlacementManager.PlacementMode.BUILDING:
+		var building_name = placement_manager.selected_building_type.capitalize().replace("_", " ")
+		text += "Building (%s)" % building_name
+		color = Color(0.8, 0.6, 0.4)  # Brown
+	elif elevation_tool.is_active():
+		if elevation_tool.elevation_mode == ElevationTool.ElevationMode.RAISING:
+			text += "Raise Elevation"
+			color = Color(0.6, 0.8, 1.0)  # Light blue
+		else:
+			text += "Lower Elevation"
+			color = Color(1.0, 0.6, 0.6)  # Light red
+	else:
+		# Default to terrain tool
+		text += TerrainTypes.get_type_name(current_tool)
+		# Color based on terrain type
+		match current_tool:
+			TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.GREEN, TerrainTypes.Type.TEE_BOX:
+				color = Color(0.5, 0.9, 0.5)  # Green
+			TerrainTypes.Type.ROUGH:
+				color = Color(0.6, 0.8, 0.4)  # Darker green
+			TerrainTypes.Type.BUNKER:
+				color = Color(0.9, 0.85, 0.6)  # Sand
+			TerrainTypes.Type.WATER:
+				color = Color(0.4, 0.6, 1.0)  # Blue
+			TerrainTypes.Type.PATH:
+				color = Color(0.7, 0.7, 0.7)  # Gray
+			TerrainTypes.Type.OUT_OF_BOUNDS:
+				color = Color(0.9, 0.4, 0.4)  # Red
+
+	selection_label.text = text
+	selection_label.add_theme_color_override("font_color", color)
+
 func _on_green_fee_decrease() -> void:
 	"""Decrease green fee by $5"""
 	GameManager.set_green_fee(GameManager.green_fee - 5)
@@ -376,7 +458,10 @@ func _start_painting() -> void:
 	if hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
 		var mouse_world = camera.get_mouse_world_position()
 		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+		# Group all tee/green tiles into a single undo action
+		undo_manager.begin_stroke()
 		hole_tool.handle_click(grid_pos)
+		undo_manager.end_stroke()
 		return
 
 	# Check if we're in elevation painting mode
@@ -1038,6 +1123,7 @@ func _setup_financial_panel() -> void:
 	money_btn.flat = true
 	money_btn.pressed.connect(_on_money_clicked)
 	money_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	money_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL  # Button expands in HBoxContainer
 
 	# Get the parent and index of the money label
 	var top_bar = money_label.get_parent()
@@ -1048,9 +1134,6 @@ func _setup_financial_panel() -> void:
 	money_btn.add_child(money_label)
 	top_bar.add_child(money_btn)
 	top_bar.move_child(money_btn, label_index)
-
-	# Update reference to still point to the label
-	money_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 func _on_money_clicked() -> void:
 	"""Toggle the financial panel when money is clicked."""

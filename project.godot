@@ -32,9 +32,10 @@ FeedbackManager="*res://scripts/autoload/feedback_manager.gd"
 
 window/size/viewport_width=1600
 window/size/viewport_height=1000
+window/size/mode=2
 window/size/resizable=true
-window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
+window/stretch/mode="viewport"
+window/stretch/aspect="keep"
 
 [input]
 

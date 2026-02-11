@@ -77,10 +77,12 @@ func _ready() -> void:
 func _on_green_fee_paid_for_stats(_golfer_id: int, _golfer_name: String, amount: int) -> void:
 	daily_stats.record_green_fee(amount)
 
-func _on_golfer_finished_hole_for_stats(_golfer_id: int, hole_number: int, strokes: int, par: int) -> void:
+func _on_golfer_finished_hole_for_stats(_golfer_id: int, hole_index: int, strokes: int, par: int) -> void:
 	daily_stats.record_hole_score(strokes, par)
 
 	# Record per-hole cumulative stats
+	# Note: hole_index is 0-based from golfer, but HoleData uses 1-based hole_number
+	var hole_number = hole_index + 1
 	if not hole_statistics.has(hole_number):
 		hole_statistics[hole_number] = HoleStatistics.new(hole_number)
 	hole_statistics[hole_number].record_score(strokes, par)
