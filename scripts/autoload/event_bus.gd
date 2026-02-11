@@ -80,6 +80,9 @@ signal save_completed(success: bool)
 signal load_requested(save_name: String)
 signal load_completed(success: bool)
 
+# Records Signals
+signal record_broken(record_type: String, golfer_name: String, value: int, hole_number: int)
+
 func _ready() -> void:
 	print("EventBus initialized")
 
