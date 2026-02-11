@@ -465,9 +465,8 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 		"Dustin", "Justin", "Bryson", "Jon", "Collin", "Scottie", "Xander"
 	]
 
-	# Select tier based on course quality
-	var rating = GameManager.course_rating.get("overall", 3.0)
-	var tier = GolferTier.select_tier(rating, GameManager.green_fee, GameManager.reputation)
+	# Select tier based on course quality and difficulty
+	var tier = GolferTier.select_tier(GameManager.course_rating, GameManager.green_fee, GameManager.reputation)
 
 	# Build name with tier-appropriate prefix
 	var base_name = names[randi() % names.size()]
@@ -536,6 +535,10 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 		var score_to_par = total_strokes - finished_golfer.total_par
 		if score_to_par <= 0:
 			reputation_gain *= 2  # Double rep for pro under par
+
+	# Apply prestige multiplier (harder courses with good ratings = more reputation)
+	var prestige_mult = CourseRatingSystem.get_prestige_multiplier(GameManager.course_rating)
+	reputation_gain = int(float(reputation_gain) * prestige_mult)
 
 	GameManager.modify_reputation(reputation_gain)
 

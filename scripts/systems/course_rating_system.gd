@@ -1,12 +1,16 @@
 extends RefCounted
 class_name CourseRatingSystem
-## CourseRatingSystem - Calculates 1-5 star course rating
+## CourseRatingSystem - Calculates 1-5 star course rating and course difficulty
 ##
 ## Rating categories:
 ## - Condition: Quality of terrain in play corridors (premium vs rough)
 ## - Design: Variety of hole pars (has par 3s, 4s, 5s)
 ## - Value: Green fee vs reputation (fair pricing)
 ## - Pace: Ratio of bogeys (proxy for slow play)
+##
+## Course Difficulty:
+## - Average of all hole difficulty ratings (1-10 scale)
+## - Slope Rating: How much harder course is for avg vs scratch golfer (55-155)
 ##
 ## Overall rating is weighted average: condition 30%, design 20%, value 30%, pace 20%
 
@@ -35,7 +39,109 @@ static func calculate_rating(
 	ratings["overall"] = clampf(overall, 1.0, 5.0)
 	ratings["stars"] = int(round(ratings.overall))  # For display
 
+	# Calculate course difficulty and slope rating
+	var difficulty_data = _calculate_course_difficulty(course_data)
+	ratings["difficulty"] = difficulty_data.average
+	ratings["slope"] = difficulty_data.slope
+	ratings["course_rating"] = difficulty_data.course_rating
+
 	return ratings
+
+## Calculate average course difficulty from hole difficulties
+static func _calculate_course_difficulty(course_data) -> Dictionary:
+	var result = {"average": 5.0, "slope": 113, "course_rating": 72.0}
+
+	if not course_data:
+		return result
+
+	var holes = course_data.holes
+	if holes.is_empty():
+		return result
+
+	var total_difficulty: float = 0.0
+	var total_par: int = 0
+	var open_count: int = 0
+
+	for hole in holes:
+		if hole.is_open:
+			total_difficulty += hole.difficulty_rating
+			total_par += hole.par
+			open_count += 1
+
+	if open_count == 0:
+		return result
+
+	# Average difficulty (1-10 scale)
+	var avg_difficulty = total_difficulty / float(open_count)
+
+	# Slope rating (55-155, standard is 113)
+	# Based on average difficulty: 5.0 difficulty = 113 slope
+	# Each point above/below 5 adjusts slope by ~8 points
+	var slope = 113 + int((avg_difficulty - 5.0) * 8.0)
+	slope = clampi(slope, 55, 155)
+
+	# Course rating (expected score for scratch golfer)
+	# Based on total par adjusted by difficulty
+	# Courses with more hazards/difficulty add strokes
+	var difficulty_adjustment = (avg_difficulty - 5.0) * 0.15 * open_count
+	var course_rating = total_par + difficulty_adjustment
+
+	result.average = avg_difficulty
+	result.slope = slope
+	result.course_rating = course_rating
+
+	return result
+
+## Get prestige multiplier based on difficulty and quality
+## High difficulty + high quality = more prestigious = more reputation
+static func get_prestige_multiplier(course_rating: Dictionary) -> float:
+	var difficulty = course_rating.get("difficulty", 5.0)
+	var overall = course_rating.get("overall", 3.0)
+
+	# Base multiplier of 1.0
+	var multiplier = 1.0
+
+	# Difficult courses (7+ difficulty) with good ratings (4+ stars) get prestige bonus
+	if difficulty >= 7.0 and overall >= 4.0:
+		multiplier += 0.5  # +50% reputation
+	elif difficulty >= 6.0 and overall >= 3.5:
+		multiplier += 0.25  # +25% reputation
+
+	# Very high quality courses (5 stars) get additional bonus
+	if overall >= 4.5:
+		multiplier += 0.25
+
+	# Low quality courses get penalty
+	if overall < 2.0:
+		multiplier *= 0.75
+
+	return multiplier
+
+## Get difficulty text description
+static func get_difficulty_text(difficulty: float) -> String:
+	if difficulty < 3.0:
+		return "Easy"
+	elif difficulty < 5.0:
+		return "Moderate"
+	elif difficulty < 7.0:
+		return "Challenging"
+	elif difficulty < 9.0:
+		return "Difficult"
+	else:
+		return "Very Difficult"
+
+## Get slope rating text description
+static func get_slope_text(slope: int) -> String:
+	if slope < 80:
+		return "Beginner Friendly"
+	elif slope < 100:
+		return "Below Average"
+	elif slope < 120:
+		return "Average"
+	elif slope < 140:
+		return "Above Average"
+	else:
+		return "Championship"
 
 ## Condition rating: ratio of premium terrain in play corridors
 static func _calculate_condition_rating(terrain_grid, course_data) -> float:

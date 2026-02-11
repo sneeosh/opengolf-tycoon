@@ -142,6 +142,33 @@ func _build_ui() -> void:
 	vbox.add_child(value_row)
 	vbox.add_child(pace_row)
 
+	# Course Difficulty section
+	var difficulty = rating.get("difficulty", 5.0)
+	var slope = rating.get("slope", 113)
+	var course_rtg = rating.get("course_rating", 72.0)
+
+	# Difficulty with color coding
+	var diff_color = Color(0.4, 0.9, 0.4)  # Green for easy
+	if difficulty >= 7.0:
+		diff_color = Color(0.9, 0.4, 0.4)  # Red for hard
+	elif difficulty >= 5.0:
+		diff_color = Color(0.9, 0.9, 0.4)  # Yellow for medium
+
+	var diff_text = "%.1f (%s)" % [difficulty, CourseRatingSystem.get_difficulty_text(difficulty)]
+	var diff_row = _create_stat_row("Difficulty:", diff_text, diff_color)
+	vbox.add_child(diff_row)
+
+	# Slope rating
+	var slope_color = Color(0.7, 0.8, 1.0)  # Light blue
+	if slope >= 130:
+		slope_color = Color(0.9, 0.6, 0.3)  # Orange for championship
+	var slope_row = _create_stat_row("Slope Rating:", "%d" % slope, slope_color)
+	vbox.add_child(slope_row)
+
+	# Course rating (expected score)
+	var cr_row = _create_stat_row("Course Rating:", "%.1f" % course_rtg, dim_color)
+	vbox.add_child(cr_row)
+
 	vbox.add_child(HSeparator.new())
 
 	# Golfers served

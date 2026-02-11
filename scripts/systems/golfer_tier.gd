@@ -52,12 +52,22 @@ const TIER_DATA: Dictionary = {
 }
 
 ## Select a tier based on course rating, green fee, and reputation
-static func select_tier(course_rating: float, green_fee: int, reputation: float) -> Tier:
-	var weights = _calculate_tier_weights(course_rating, green_fee, reputation)
+## course_rating_data can be a Dictionary (from CourseRatingSystem) or a float (legacy)
+static func select_tier(course_rating_data, green_fee: int, reputation: float) -> Tier:
+	var weights = _calculate_tier_weights(course_rating_data, green_fee, reputation)
 	return _weighted_random_tier(weights)
 
-static func _calculate_tier_weights(rating: float, fee: int, reputation: float) -> Dictionary:
+static func _calculate_tier_weights(course_rating_data, fee: int, reputation: float) -> Dictionary:
 	var weights: Dictionary = {}
+
+	# Extract rating and difficulty from course_rating_data
+	var rating: float = 3.0
+	var difficulty: float = 5.0
+	if course_rating_data is Dictionary:
+		rating = course_rating_data.get("overall", 3.0)
+		difficulty = course_rating_data.get("difficulty", 5.0)
+	else:
+		rating = float(course_rating_data)
 
 	for tier in TIER_DATA.keys():
 		var data = TIER_DATA[tier]
@@ -80,6 +90,27 @@ static func _calculate_tier_weights(rating: float, fee: int, reputation: float) 
 			weight *= 0.1  # Pros don't come to unknown courses
 		elif tier == Tier.SERIOUS and reputation < 50:
 			weight *= 0.5
+
+		# Course difficulty affects tier attraction
+		# Difficult courses (7+) attract serious/pro golfers
+		# Easy courses (3-) attract beginners/casuals
+		if difficulty >= 7.0:
+			if tier == Tier.PRO:
+				weight *= 2.0  # Pros love challenging courses
+			elif tier == Tier.SERIOUS:
+				weight *= 1.5  # Serious golfers enjoy challenge
+			elif tier == Tier.BEGINNER:
+				weight *= 0.5  # Beginners avoid hard courses
+		elif difficulty >= 5.0:
+			if tier == Tier.SERIOUS:
+				weight *= 1.25  # Moderate challenge appeals to serious
+		elif difficulty < 3.0:
+			if tier == Tier.BEGINNER:
+				weight *= 1.5  # Easy courses attract beginners
+			elif tier == Tier.CASUAL:
+				weight *= 1.25  # Casuals like relaxed play
+			elif tier == Tier.PRO:
+				weight *= 0.3  # Pros avoid easy courses
 
 		weights[tier] = weight
 
