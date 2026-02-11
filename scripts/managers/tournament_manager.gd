@@ -138,6 +138,10 @@ func get_cooldown_remaining() -> int:
 	var days_since = GameManager.current_day - last_tournament_end_day
 	return max(0, TOURNAMENT_COOLDOWN - days_since)
 
+## Check if a tournament is currently in progress (course closed to regular play)
+func is_tournament_in_progress() -> bool:
+	return current_tournament_state == TournamentSystem.TournamentState.IN_PROGRESS
+
 ## Save tournament state
 func get_save_data() -> Dictionary:
 	return {

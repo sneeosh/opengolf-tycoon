@@ -88,7 +88,10 @@ func _process(delta: float) -> void:
 	# Only spawn during open hours
 	time_since_last_spawn += delta * GameManager.get_game_speed_multiplier()
 
-	if GameManager.is_course_open():
+	# Don't spawn regular golfers during tournaments
+	var tournament_active = GameManager.tournament_manager and GameManager.tournament_manager.is_tournament_in_progress()
+
+	if GameManager.is_course_open() and not tournament_active:
 		var effective_cooldown = get_effective_spawn_cooldown()
 		if time_since_last_spawn >= effective_cooldown:
 			if active_golfers.size() < max_concurrent_golfers and _is_first_tee_clear():
