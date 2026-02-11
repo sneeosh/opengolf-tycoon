@@ -36,7 +36,7 @@ func _ready() -> void:
 	
 	_update_visuals()
 
-func _input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
+func _on_click_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		building_selected.emit(self)
 
@@ -170,6 +170,22 @@ func _update_visuals() -> void:
 			_draw_bench(visual, size_x, size_y)
 		_:
 			_draw_generic(visual, size_x, size_y)
+
+	# Add click detection area
+	var click_area = Area2D.new()
+	click_area.name = "ClickArea"
+	click_area.input_pickable = true
+	add_child(click_area)
+
+	var collision = CollisionShape2D.new()
+	var shape = RectangleShape2D.new()
+	shape.size = Vector2(size_x, size_y)
+	collision.shape = shape
+	collision.position = Vector2(size_x / 2, size_y / 2)
+	click_area.add_child(collision)
+
+	# Connect click detection
+	click_area.input_event.connect(_on_click_area_input_event)
 
 func _draw_clubhouse(visual: Node2D, width_px: int, height_px: int) -> void:
 	"""Draw clubhouse - appearance varies by upgrade level"""
