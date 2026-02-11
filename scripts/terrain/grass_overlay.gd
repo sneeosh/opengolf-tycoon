@@ -1,0 +1,103 @@
+extends Node2D
+class_name GrassOverlay
+## GrassOverlay - Adds subtle grass blade patterns to grass-type terrain
+
+var _terrain_grid: TerrainGrid = null
+var _grass_positions: Dictionary = {}  # tile_pos -> Array of blade positions
+const GRASS_TYPES = [TerrainTypes.Type.GRASS, TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.ROUGH, TerrainTypes.Type.HEAVY_ROUGH]
+
+func _ready() -> void:
+	z_index = 1
+
+func setup(terrain_grid: TerrainGrid) -> void:
+	_terrain_grid = terrain_grid
+	_regenerate_grass()
+	terrain_grid.tile_changed.connect(_on_tile_changed)
+
+func _on_tile_changed(pos: Vector2i, _old_type: int, new_type: int) -> void:
+	if new_type in GRASS_TYPES:
+		_generate_grass_for_tile(pos)
+	else:
+		_grass_positions.erase(pos)
+	queue_redraw()
+
+func _regenerate_grass() -> void:
+	_grass_positions.clear()
+	if not _terrain_grid:
+		return
+
+	for x in range(_terrain_grid.grid_width):
+		for y in range(_terrain_grid.grid_height):
+			var pos = Vector2i(x, y)
+			var terrain_type = _terrain_grid.get_tile(pos)
+			if terrain_type in GRASS_TYPES:
+				_generate_grass_for_tile(pos)
+
+func _generate_grass_for_tile(pos: Vector2i) -> void:
+	var terrain_type = _terrain_grid.get_tile(pos)
+	var blades: Array = []
+
+	# Use position as seed for consistent generation
+	var rng = RandomNumberGenerator.new()
+	rng.seed = pos.x * 73856093 ^ pos.y * 19349663
+
+	# Different grass density based on terrain type
+	var blade_count: int
+	var blade_height_range: Vector2
+	var blade_color_base: Color
+
+	match terrain_type:
+		TerrainTypes.Type.FAIRWAY:
+			blade_count = rng.randi_range(4, 7)
+			blade_height_range = Vector2(2, 4)
+			blade_color_base = Color(0.35, 0.72, 0.38, 0.4)
+		TerrainTypes.Type.GREEN:
+			blade_count = rng.randi_range(6, 10)
+			blade_height_range = Vector2(1, 2)
+			blade_color_base = Color(0.3, 0.8, 0.4, 0.35)
+		TerrainTypes.Type.ROUGH:
+			blade_count = rng.randi_range(6, 10)
+			blade_height_range = Vector2(4, 7)
+			blade_color_base = Color(0.32, 0.5, 0.28, 0.45)
+		TerrainTypes.Type.HEAVY_ROUGH:
+			blade_count = rng.randi_range(10, 15)
+			blade_height_range = Vector2(6, 10)
+			blade_color_base = Color(0.28, 0.45, 0.25, 0.5)
+		_:  # GRASS
+			blade_count = rng.randi_range(5, 8)
+			blade_height_range = Vector2(3, 5)
+			blade_color_base = Color(0.4, 0.58, 0.32, 0.4)
+
+	for i in range(blade_count):
+		var local_x = rng.randf_range(-28, 28)
+		var local_y = rng.randf_range(-12, 12)
+		var height = rng.randf_range(blade_height_range.x, blade_height_range.y)
+		var lean = rng.randf_range(-0.3, 0.3)
+		# Slight color variation
+		var color_var = rng.randf_range(-0.05, 0.05)
+		var color = Color(
+			blade_color_base.r + color_var,
+			blade_color_base.g + color_var,
+			blade_color_base.b + color_var,
+			blade_color_base.a
+		)
+		blades.append({"x": local_x, "y": local_y, "height": height, "lean": lean, "color": color})
+
+	_grass_positions[pos] = blades
+
+func _draw() -> void:
+	if not _terrain_grid:
+		return
+
+	for pos in _grass_positions:
+		var screen_pos = _terrain_grid.grid_to_screen_center(pos)
+		var blades = _grass_positions[pos]
+
+		for blade in blades:
+			var base = screen_pos + Vector2(blade.x, blade.y)
+			var tip = base + Vector2(blade.lean * blade.height, -blade.height)
+			draw_line(base, tip, blade.color, 1.0)
+
+func force_redraw() -> void:
+	_regenerate_grass()
+	queue_redraw()

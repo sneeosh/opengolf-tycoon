@@ -19,12 +19,14 @@ signal elevation_changed(position: Vector2i, old_elevation: int, new_elevation: 
 var _ob_markers_overlay: OBMarkersOverlay = null
 var _water_overlay: WaterOverlay = null
 var _bunker_overlay: BunkerOverlay = null
+var _grass_overlay: GrassOverlay = null
 
 func _ready() -> void:
 	_initialize_grid()
 	_setup_ob_markers_overlay()
 	_setup_water_overlay()
 	_setup_bunker_overlay()
+	_setup_grass_overlay()
 	_setup_elevation_overlay()
 
 func _initialize_grid() -> void:
@@ -127,6 +129,12 @@ func _setup_bunker_overlay() -> void:
 	_bunker_overlay.name = "BunkerOverlay"
 	add_child(_bunker_overlay)
 	_bunker_overlay.initialize(self)
+
+func _setup_grass_overlay() -> void:
+	_grass_overlay = GrassOverlay.new()
+	_grass_overlay.name = "GrassOverlay"
+	add_child(_grass_overlay)
+	_grass_overlay.setup(self)
 
 func _setup_elevation_overlay() -> void:
 	_elevation_overlay = ElevationOverlay.new()

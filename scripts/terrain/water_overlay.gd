@@ -59,19 +59,33 @@ func _draw() -> void:
 
 		# Animated shimmer using sine waves with position-based offset
 		var wave_offset = float(pos.x * 3 + pos.y * 7)
-		var alpha = 0.08 + 0.06 * sin(_time * 2.5 + wave_offset)
-		var highlight_alpha = 0.04 + 0.04 * sin(_time * 1.8 + wave_offset + 1.5)
+		var alpha = 0.1 + 0.08 * sin(_time * 2.5 + wave_offset)
+		var highlight_alpha = 0.06 + 0.05 * sin(_time * 1.8 + wave_offset + 1.5)
 
 		# Draw shimmer rectangle covering the tile
 		var tile_rect = Rect2(local_pos, Vector2(terrain_grid.tile_width, terrain_grid.tile_height))
 
-		# Base wave tint
-		draw_rect(tile_rect, Color(0.4, 0.7, 1.0, alpha))
+		# Base wave tint - subtle blue shimmer
+		draw_rect(tile_rect, Color(0.5, 0.75, 1.0, alpha))
 
-		# Highlight streak
-		var streak_y = local_pos.y + terrain_grid.tile_height * 0.3 + sin(_time * 1.5 + wave_offset) * 4.0
-		var streak_rect = Rect2(
-			Vector2(local_pos.x + 4, streak_y),
-			Vector2(terrain_grid.tile_width - 8, 3)
+		# Multiple highlight streaks for more dynamic water
+		var streak_y1 = local_pos.y + terrain_grid.tile_height * 0.25 + sin(_time * 1.5 + wave_offset) * 3.0
+		var streak_rect1 = Rect2(
+			Vector2(local_pos.x + 6, streak_y1),
+			Vector2(terrain_grid.tile_width * 0.5, 2)
 		)
-		draw_rect(streak_rect, Color(0.8, 0.9, 1.0, highlight_alpha))
+		draw_rect(streak_rect1, Color(0.85, 0.95, 1.0, highlight_alpha))
+
+		var streak_y2 = local_pos.y + terrain_grid.tile_height * 0.6 + sin(_time * 1.2 + wave_offset + 2.0) * 4.0
+		var streak_rect2 = Rect2(
+			Vector2(local_pos.x + terrain_grid.tile_width * 0.3, streak_y2),
+			Vector2(terrain_grid.tile_width * 0.4, 2)
+		)
+		draw_rect(streak_rect2, Color(0.9, 0.95, 1.0, highlight_alpha * 0.8))
+
+		# Small sparkle dots
+		var sparkle_alpha = 0.3 + 0.3 * sin(_time * 4.0 + wave_offset * 2.0)
+		if sparkle_alpha > 0.4:
+			var sparkle_x = local_pos.x + 10 + (pos.x % 3) * 15
+			var sparkle_y = local_pos.y + 8 + (pos.y % 2) * 10
+			draw_circle(Vector2(sparkle_x, sparkle_y), 1.5, Color(1.0, 1.0, 1.0, sparkle_alpha * 0.5))

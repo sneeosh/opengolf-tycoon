@@ -9,20 +9,21 @@ enum Type {
 }
 
 const PROPERTIES: Dictionary = {
-	Type.EMPTY: {"name": "Empty", "color": Color(0.2, 0.2, 0.2), "playable": false, "placement_cost": 0, "maintenance_cost": 0},
-	Type.GRASS: {"name": "Natural Grass", "color": Color(0.4, 0.6, 0.3), "playable": true, "placement_cost": 0, "maintenance_cost": 0, "shot_difficulty": 0.3},
-	Type.FAIRWAY: {"name": "Fairway", "color": Color(0.3, 0.75, 0.3), "playable": true, "placement_cost": 10, "maintenance_cost": 5, "shot_difficulty": 0.0},
-	Type.ROUGH: {"name": "Rough", "color": Color(0.35, 0.55, 0.25), "playable": true, "placement_cost": 5, "maintenance_cost": 2, "shot_difficulty": 0.2},
-	Type.HEAVY_ROUGH: {"name": "Heavy Rough", "color": Color(0.3, 0.45, 0.2), "playable": true, "placement_cost": 0, "maintenance_cost": 0, "shot_difficulty": 0.5},
-	Type.GREEN: {"name": "Green", "color": Color(0.2, 0.85, 0.3), "playable": true, "placement_cost": 50, "maintenance_cost": 20, "shot_difficulty": 0.0},
-	Type.TEE_BOX: {"name": "Tee Box", "color": Color(0.6, 0.5, 0.3), "playable": true, "placement_cost": 30, "maintenance_cost": 10, "shot_difficulty": 0.0},
-	Type.BUNKER: {"name": "Bunker", "color": Color(0.9, 0.85, 0.6), "playable": true, "placement_cost": 25, "maintenance_cost": 8, "shot_difficulty": 0.6, "is_hazard": true},
-	Type.WATER: {"name": "Water", "color": Color(0.2, 0.5, 0.8), "playable": false, "placement_cost": 40, "maintenance_cost": 15, "is_hazard": true, "penalty_strokes": 1},
-	Type.PATH: {"name": "Cart Path", "color": Color(0.7, 0.7, 0.65), "playable": true, "placement_cost": 15, "maintenance_cost": 1, "shot_difficulty": 0.1, "speed_modifier": 1.5},
-	Type.OUT_OF_BOUNDS: {"name": "Out of Bounds", "color": Color(0.5, 0.3, 0.3), "playable": false, "placement_cost": 0, "maintenance_cost": 0, "penalty_strokes": 2},
-	Type.TREES: {"name": "Trees", "color": Color(0.15, 0.4, 0.15), "playable": true, "placement_cost": 20, "maintenance_cost": 3, "shot_difficulty": 0.7, "blocks_shots": true},
-	Type.FLOWER_BED: {"name": "Flower Bed", "color": Color(0.8, 0.4, 0.5), "playable": false, "placement_cost": 35, "maintenance_cost": 10, "beauty_bonus": 5},
-	Type.ROCKS: {"name": "Rocks", "color": Color(0.5, 0.5, 0.5), "playable": true, "placement_cost": 15, "maintenance_cost": 0, "shot_difficulty": 0.8},
+	# Prettier, more vibrant colors for better visual appeal
+	Type.EMPTY: {"name": "Empty", "color": Color(0.18, 0.22, 0.18), "playable": false, "placement_cost": 0, "maintenance_cost": 0},
+	Type.GRASS: {"name": "Natural Grass", "color": Color(0.45, 0.62, 0.35), "playable": true, "placement_cost": 0, "maintenance_cost": 0, "shot_difficulty": 0.3},
+	Type.FAIRWAY: {"name": "Fairway", "color": Color(0.4, 0.78, 0.4), "playable": true, "placement_cost": 10, "maintenance_cost": 5, "shot_difficulty": 0.0},
+	Type.ROUGH: {"name": "Rough", "color": Color(0.38, 0.55, 0.32), "playable": true, "placement_cost": 5, "maintenance_cost": 2, "shot_difficulty": 0.2},
+	Type.HEAVY_ROUGH: {"name": "Heavy Rough", "color": Color(0.32, 0.48, 0.28), "playable": true, "placement_cost": 0, "maintenance_cost": 0, "shot_difficulty": 0.5},
+	Type.GREEN: {"name": "Green", "color": Color(0.35, 0.88, 0.45), "playable": true, "placement_cost": 50, "maintenance_cost": 20, "shot_difficulty": 0.0},
+	Type.TEE_BOX: {"name": "Tee Box", "color": Color(0.45, 0.75, 0.42), "playable": true, "placement_cost": 30, "maintenance_cost": 10, "shot_difficulty": 0.0},
+	Type.BUNKER: {"name": "Bunker", "color": Color(0.95, 0.88, 0.65), "playable": true, "placement_cost": 25, "maintenance_cost": 8, "shot_difficulty": 0.6, "is_hazard": true},
+	Type.WATER: {"name": "Water", "color": Color(0.25, 0.55, 0.85), "playable": false, "placement_cost": 40, "maintenance_cost": 15, "is_hazard": true, "penalty_strokes": 1},
+	Type.PATH: {"name": "Cart Path", "color": Color(0.78, 0.75, 0.68), "playable": true, "placement_cost": 15, "maintenance_cost": 1, "shot_difficulty": 0.1, "speed_modifier": 1.5},
+	Type.OUT_OF_BOUNDS: {"name": "Out of Bounds", "color": Color(0.42, 0.35, 0.32), "playable": false, "placement_cost": 0, "maintenance_cost": 0, "penalty_strokes": 2},
+	Type.TREES: {"name": "Trees", "color": Color(0.22, 0.45, 0.22), "playable": true, "placement_cost": 20, "maintenance_cost": 3, "shot_difficulty": 0.7, "blocks_shots": true},
+	Type.FLOWER_BED: {"name": "Flower Bed", "color": Color(0.85, 0.5, 0.6), "playable": false, "placement_cost": 35, "maintenance_cost": 10, "beauty_bonus": 5},
+	Type.ROCKS: {"name": "Rocks", "color": Color(0.55, 0.52, 0.48), "playable": true, "placement_cost": 15, "maintenance_cost": 0, "shot_difficulty": 0.8},
 }
 
 static func get_properties(type: Type) -> Dictionary:
