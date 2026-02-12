@@ -8,13 +8,28 @@ var rock_size: String = "medium"  # small, medium, large
 var terrain_grid: TerrainGrid
 var rock_data: Dictionary = {}
 
+## Shadow references for updates when sun changes
+var _shadow_refs: Dictionary = {}
+var _shadow_config: ShadowRenderer.ShadowConfig = null
+
+## Variation data for this rock instance
+var _variation: PropVariation.VariationResult = null
+var _base_rock_color: Color = Color.GRAY
+
 signal rock_selected(rock: Rock)
 signal rock_destroyed(rock: Rock)
 
 const ROCK_PROPERTIES: Dictionary = {
-	"small": {"name": "Small Rock", "cost": 10, "width": 0.5, "height": 0.5, "color": Color(0.6, 0.6, 0.6)},
-	"medium": {"name": "Medium Rock", "cost": 15, "width": 1.0, "height": 0.8, "color": Color(0.5, 0.5, 0.5)},
-	"large": {"name": "Large Rock", "cost": 20, "width": 1.5, "height": 1.2, "color": Color(0.55, 0.55, 0.55)},
+	"small": {"name": "Small Rock", "cost": 10, "width": 0.5, "height": 0.5, "color": Color(0.6, 0.6, 0.6), "visual_height": 8.0, "base_width": 12.0},
+	"medium": {"name": "Medium Rock", "cost": 15, "width": 1.0, "height": 0.8, "color": Color(0.5, 0.5, 0.5), "visual_height": 16.0, "base_width": 20.0},
+	"large": {"name": "Large Rock", "cost": 20, "width": 1.5, "height": 1.2, "color": Color(0.55, 0.55, 0.55), "visual_height": 24.0, "base_width": 28.0},
+}
+
+## Variation parameters per rock size (rocks have more rotation variety)
+const ROCK_VARIATION: Dictionary = {
+	"small": {"scale": Vector2(0.85, 1.15), "rotation": Vector2(-20.0, 20.0), "hue": Vector2(-0.02, 0.02)},
+	"medium": {"scale": Vector2(0.85, 1.15), "rotation": Vector2(-15.0, 15.0), "hue": Vector2(-0.02, 0.02)},
+	"large": {"scale": Vector2(0.88, 1.12), "rotation": Vector2(-10.0, 10.0), "hue": Vector2(-0.02, 0.02)},
 }
 
 func _ready() -> void:
@@ -27,7 +42,14 @@ func _ready() -> void:
 		else:
 			rock_size = "medium"
 			rock_data = ROCK_PROPERTIES["medium"].duplicate(true)
+		_generate_variation()
 		_update_visuals()
+
+	# Connect to sun direction changes if ShadowSystem is available
+	if has_node("/root/ShadowSystem"):
+		var shadow_system = get_node("/root/ShadowSystem")
+		if shadow_system.has_signal("sun_direction_changed"):
+			shadow_system.sun_direction_changed.connect(_on_sun_direction_changed)
 
 func set_rock_size(size: String) -> void:
 	"""Set the rock size and load its data"""
@@ -40,7 +62,27 @@ func set_rock_size(size: String) -> void:
 
 	# Update visuals if already in tree (after _ready was called)
 	if is_inside_tree():
+		_generate_variation()
 		_update_visuals()
+
+
+func _generate_variation() -> void:
+	"""Generate deterministic variation based on grid position"""
+	_base_rock_color = rock_data.get("color", Color.GRAY)
+
+	# Get variation parameters for this rock size
+	var var_params = ROCK_VARIATION.get(rock_size, ROCK_VARIATION["medium"])
+
+	# Generate variation using position-based seeded randomness
+	# Use a different salt (100) to differentiate from trees at the same position
+	_variation = PropVariation.generate_custom_variation(
+		grid_position,
+		var_params["scale"],
+		var_params["rotation"],
+		var_params["hue"],
+		Vector2(-0.05, 0.05),  # Saturation (rocks are less colorful)
+		Vector2(-0.1, 0.1)    # Value (rocks vary more in brightness)
+	)
 
 func _input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -50,18 +92,24 @@ func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 
 func set_position_in_grid(pos: Vector2i) -> void:
+	var old_pos = grid_position
 	grid_position = pos
 	# Calculate world position from grid position
 	if terrain_grid:
 		var world_pos = terrain_grid.grid_to_screen(pos)
 		global_position = world_pos
 
+	# Regenerate variation if position changed (deterministic based on position)
+	if old_pos != pos and is_inside_tree():
+		_generate_variation()
+		_update_visuals()
+
 func destroy() -> void:
 	rock_destroyed.emit(self)
 	queue_free()
 
 func _update_visuals() -> void:
-	"""Create visual representation for the rock"""
+	"""Create visual representation for the rock with shadows and variation"""
 	# Remove existing visual if it exists
 	if has_node("Visual"):
 		get_node("Visual").queue_free()
@@ -71,9 +119,29 @@ func _update_visuals() -> void:
 	visual.name = "Visual"
 	add_child(visual)
 
-	var color = rock_data.get("color", Color.GRAY)
-	var width = rock_data.get("width", 1.0)
-	var height = rock_data.get("height", 0.8)
+	# Apply variation to rock color
+	var color = _base_rock_color
+	if _variation:
+		color = _variation.apply_color_shift(_base_rock_color)
+
+	# Configure shadow based on rock size (scale with variation)
+	var visual_height = rock_data.get("visual_height", 16.0)
+	var base_width = rock_data.get("base_width", 20.0)
+	var scale_mult = _variation.scale if _variation else 1.0
+	_shadow_config = ShadowRenderer.ShadowConfig.new(visual_height * scale_mult, base_width * scale_mult)
+	_shadow_config.base_offset = Vector2(0, 12 * scale_mult)  # Shadow at rock base
+
+	# Small rocks only get contact shadow (AO), larger rocks get both
+	if rock_size == "small":
+		_shadow_config.cast_drop_shadow = false
+
+	# Get shadow system reference
+	var shadow_system: Node = null
+	if has_node("/root/ShadowSystem"):
+		shadow_system = get_node("/root/ShadowSystem")
+
+	# Add shadows (rendered below rock)
+	_shadow_refs = ShadowRenderer.add_shadows_to_entity(visual, _shadow_config, shadow_system)
 
 	# Draw rock shape based on size
 	match rock_size:
@@ -85,6 +153,11 @@ func _update_visuals() -> void:
 			_draw_large_rock(visual, color)
 		_:
 			_draw_medium_rock(visual, color)
+
+	# Apply scale and rotation variation to the visual node
+	if _variation:
+		visual.scale = Vector2(_variation.scale, _variation.scale)
+		visual.rotation = _variation.rotation
 
 func _draw_small_rock(visual: Node2D, color: Color) -> void:
 	"""Draw a small rock"""
@@ -160,20 +233,10 @@ func _draw_large_rock(visual: Node2D, color: Color) -> void:
 		Vector2(10, 5)
 	])
 	visual.add_child(highlight)
-
-	# Add shadow
-	var shadow = Polygon2D.new()
-	shadow.color = Color(0, 0, 0, 0.3)
-	shadow.polygon = PackedVector2Array([
-		Vector2(-8, 12),
-		Vector2(8, 12),
-		Vector2(10, 18),
-		Vector2(-10, 18)
-	])
-	visual.add_child(shadow)
+	# Shadow is now handled by ShadowRenderer
 
 func get_rock_info() -> Dictionary:
-	return {
+	var info = {
 		"size": rock_size,
 		"position": grid_position,
 		"cost": rock_data.get("cost", 15),
@@ -181,3 +244,20 @@ func get_rock_info() -> Dictionary:
 		"height": rock_data.get("height", 0.8),
 		"name": rock_data.get("name", "Rock")
 	}
+	# Include variation for debugging/inspection (not needed for restore since it's deterministic)
+	if _variation:
+		info["variation"] = {
+			"scale": _variation.scale,
+			"rotation_deg": rad_to_deg(_variation.rotation),
+			"hue_shift": _variation.hue_shift
+		}
+	return info
+
+func _on_sun_direction_changed(_new_direction: float) -> void:
+	"""Update shadows when sun direction changes"""
+	if _shadow_config and not _shadow_refs.is_empty():
+		var shadow_system: Node = null
+		if has_node("/root/ShadowSystem"):
+			shadow_system = get_node("/root/ShadowSystem")
+		if shadow_system:
+			ShadowRenderer.update_shadows(_shadow_refs, _shadow_config, shadow_system)

@@ -1,35 +1,101 @@
 extends Node
 class_name TilesetGenerator
-## Generates a textured tileset image for more visually appealing terrain
+## Generates a textured tileset image with autotile variants for terrain transitions
 
 const TILE_WIDTH = 64
 const TILE_HEIGHT = 32
-const TILES_PER_ROW = 7
-const ROWS = 2
+const ATLAS_COLS = 16
+const ATLAS_ROWS = 16
 
+# Edge mask bits for autotiling (cardinal directions only for simplified approach)
+const EDGE_N = 1
+const EDGE_E = 2
+const EDGE_S = 4
+const EDGE_W = 8
+
+# Atlas layout: Each terrain type gets a row, with 16 variants per row
+# Variant index = edge mask (0-15 for all combinations of N/E/S/W edges)
+enum TerrainRow {
+	GRASS = 0,
+	FAIRWAY = 1,
+	GREEN = 2,
+	ROUGH = 3,
+	HEAVY_ROUGH = 4,
+	BUNKER = 5,
+	WATER = 6,
+	# Single-tile terrains (no autotiling needed)
+	SINGLES = 7  # TEE_BOX, PATH, OB, TREES, FLOWER_BED, ROCKS, EMPTY
+}
+
+# Base colors for each terrain type
+const TERRAIN_COLORS = {
+	"grass": Color(0.42, 0.58, 0.32),
+	"fairway_light": Color(0.42, 0.78, 0.42),
+	"fairway_dark": Color(0.36, 0.72, 0.36),
+	"green_light": Color(0.38, 0.88, 0.48),
+	"green_dark": Color(0.34, 0.82, 0.44),
+	"fringe": Color(0.40, 0.80, 0.44),  # Between green and fairway for edge collar
+	"rough": Color(0.36, 0.52, 0.30),
+	"heavy_rough": Color(0.30, 0.45, 0.26),
+	"bunker": Color(0.92, 0.85, 0.62),
+	"water": Color(0.25, 0.55, 0.85),
+	"empty": Color(0.18, 0.22, 0.18),
+	"tee_box_light": Color(0.48, 0.76, 0.45),
+	"tee_box_dark": Color(0.42, 0.70, 0.40),
+	"path": Color(0.75, 0.72, 0.65),
+	"oob": Color(0.40, 0.33, 0.30),
+	"trees": Color(0.20, 0.42, 0.20),
+	"flower_bed": Color(0.45, 0.32, 0.22),
+	"rocks": Color(0.48, 0.46, 0.42),
+}
+
+# Legacy function for backward compatibility
 static func generate_tileset() -> ImageTexture:
-	var image = Image.create(TILE_WIDTH * TILES_PER_ROW, TILE_HEIGHT * ROWS, false, Image.FORMAT_RGBA8)
+	return generate_expanded_tileset()
 
-	# Row 0: EMPTY, GRASS, FAIRWAY, ROUGH, HEAVY_ROUGH, GREEN, TEE_BOX
-	_draw_empty_tile(image, 0, 0)
-	_draw_grass_tile(image, 1, 0)
-	_draw_fairway_tile(image, 2, 0)
-	_draw_rough_tile(image, 3, 0)
-	_draw_heavy_rough_tile(image, 4, 0)
-	_draw_green_tile(image, 5, 0)
-	_draw_tee_box_tile(image, 6, 0)
+static func generate_expanded_tileset() -> ImageTexture:
+	var image = Image.create(TILE_WIDTH * ATLAS_COLS, TILE_HEIGHT * ATLAS_ROWS, false, Image.FORMAT_RGBA8)
 
-	# Row 1: BUNKER, WATER, PATH, OUT_OF_BOUNDS, TREES, FLOWER_BED, ROCKS
-	_draw_bunker_tile(image, 0, 1)
-	_draw_water_tile(image, 1, 1)
-	_draw_path_tile(image, 2, 1)
-	_draw_oob_tile(image, 3, 1)
-	_draw_trees_tile(image, 4, 1)
-	_draw_flower_bed_tile(image, 5, 1)
-	_draw_rocks_tile(image, 6, 1)
+	# Generate autotile variants for each terrain type (16 variants per row)
+	_generate_terrain_row(image, TerrainRow.GRASS, "_draw_grass_variant")
+	_generate_terrain_row(image, TerrainRow.FAIRWAY, "_draw_fairway_variant")
+	_generate_terrain_row(image, TerrainRow.GREEN, "_draw_green_variant")
+	_generate_terrain_row(image, TerrainRow.ROUGH, "_draw_rough_variant")
+	_generate_terrain_row(image, TerrainRow.HEAVY_ROUGH, "_draw_heavy_rough_variant")
+	_generate_terrain_row(image, TerrainRow.BUNKER, "_draw_bunker_variant")
+	_generate_terrain_row(image, TerrainRow.WATER, "_draw_water_variant")
+
+	# Single-tile terrains in row 7
+	_draw_empty_tile(image, 0, TerrainRow.SINGLES)
+	_draw_tee_box_tile(image, 1, TerrainRow.SINGLES)
+	_draw_path_tile(image, 2, TerrainRow.SINGLES)
+	_draw_oob_tile(image, 3, TerrainRow.SINGLES)
+	_draw_trees_tile(image, 4, TerrainRow.SINGLES)
+	_draw_flower_bed_tile(image, 5, TerrainRow.SINGLES)
+	_draw_rocks_tile(image, 6, TerrainRow.SINGLES)
 
 	var texture = ImageTexture.create_from_image(image)
 	return texture
+
+static func _generate_terrain_row(image: Image, row: int, draw_func_name: String) -> void:
+	# Generate 16 variants (edge_mask 0-15)
+	for edge_mask in range(16):
+		var col = edge_mask
+		match draw_func_name:
+			"_draw_grass_variant":
+				_draw_grass_variant(image, col, row, edge_mask)
+			"_draw_fairway_variant":
+				_draw_fairway_variant(image, col, row, edge_mask)
+			"_draw_green_variant":
+				_draw_green_variant(image, col, row, edge_mask)
+			"_draw_rough_variant":
+				_draw_rough_variant(image, col, row, edge_mask)
+			"_draw_heavy_rough_variant":
+				_draw_heavy_rough_variant(image, col, row, edge_mask)
+			"_draw_bunker_variant":
+				_draw_bunker_variant(image, col, row, edge_mask)
+			"_draw_water_variant":
+				_draw_water_variant(image, col, row, edge_mask)
 
 static func _get_tile_rect(col: int, row: int) -> Rect2i:
 	return Rect2i(col * TILE_WIDTH, row * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT)
@@ -40,8 +106,376 @@ static func _fill_tile(image: Image, col: int, row: int, color: Color) -> void:
 		for y in range(rect.position.y, rect.position.y + rect.size.y):
 			image.set_pixel(x, y, color)
 
+# Edge thickness for transition drawing - larger for smoother gradients
+const EDGE_WIDTH = 16
+const CORNER_BLEND_RADIUS = 20.0  # For diagonal corner smoothing
+
+static func _is_in_edge_zone(local_x: int, local_y: int, edge_mask: int) -> bool:
+	var in_n = local_y < EDGE_WIDTH and (edge_mask & EDGE_N)
+	var in_s = local_y >= TILE_HEIGHT - EDGE_WIDTH and (edge_mask & EDGE_S)
+	var in_w = local_x < EDGE_WIDTH and (edge_mask & EDGE_W)
+	var in_e = local_x >= TILE_WIDTH - EDGE_WIDTH and (edge_mask & EDGE_E)
+	return in_n or in_s or in_w or in_e
+
+static func _get_edge_blend_factor(local_x: int, local_y: int, edge_mask: int) -> float:
+	# Returns 0.0-1.0 for how much to blend toward edge color
+	# Uses smooth falloff and handles corners properly
+	var blend_factors: Array[float] = []
+
+	# Cardinal edge blends with smooth cubic falloff
+	if edge_mask & EDGE_N:
+		var t = float(local_y) / EDGE_WIDTH
+		if t < 1.0:
+			blend_factors.append(_smooth_falloff(1.0 - t))
+	if edge_mask & EDGE_S:
+		var t = float(TILE_HEIGHT - 1 - local_y) / EDGE_WIDTH
+		if t < 1.0:
+			blend_factors.append(_smooth_falloff(1.0 - t))
+	if edge_mask & EDGE_W:
+		var t = float(local_x) / EDGE_WIDTH
+		if t < 1.0:
+			blend_factors.append(_smooth_falloff(1.0 - t))
+	if edge_mask & EDGE_E:
+		var t = float(TILE_WIDTH - 1 - local_x) / EDGE_WIDTH
+		if t < 1.0:
+			blend_factors.append(_smooth_falloff(1.0 - t))
+
+	# Handle corners - blend based on distance from corner
+	var corner_blend = _get_corner_blend(local_x, local_y, edge_mask)
+	if corner_blend > 0:
+		blend_factors.append(corner_blend)
+
+	if blend_factors.is_empty():
+		return 0.0
+
+	# Use max blend factor for final result
+	var max_blend = 0.0
+	for f in blend_factors:
+		max_blend = max(max_blend, f)
+
+	return clamp(max_blend, 0.0, 1.0)
+
+static func _smooth_falloff(t: float) -> float:
+	# Smooth cubic falloff (ease-in-out style) for natural gradient
+	t = clamp(t, 0.0, 1.0)
+	return t * t * (3.0 - 2.0 * t)
+
+static func _get_corner_blend(local_x: int, local_y: int, edge_mask: int) -> float:
+	# Check diagonal corners and blend based on distance
+	var corner_blend = 0.0
+
+	# NW corner
+	if (edge_mask & EDGE_N) and (edge_mask & EDGE_W):
+		var dist = Vector2(local_x, local_y).length()
+		if dist < CORNER_BLEND_RADIUS:
+			corner_blend = max(corner_blend, _smooth_falloff(1.0 - dist / CORNER_BLEND_RADIUS))
+
+	# NE corner
+	if (edge_mask & EDGE_N) and (edge_mask & EDGE_E):
+		var dist = Vector2(TILE_WIDTH - 1 - local_x, local_y).length()
+		if dist < CORNER_BLEND_RADIUS:
+			corner_blend = max(corner_blend, _smooth_falloff(1.0 - dist / CORNER_BLEND_RADIUS))
+
+	# SW corner
+	if (edge_mask & EDGE_S) and (edge_mask & EDGE_W):
+		var dist = Vector2(local_x, TILE_HEIGHT - 1 - local_y).length()
+		if dist < CORNER_BLEND_RADIUS:
+			corner_blend = max(corner_blend, _smooth_falloff(1.0 - dist / CORNER_BLEND_RADIUS))
+
+	# SE corner
+	if (edge_mask & EDGE_S) and (edge_mask & EDGE_E):
+		var dist = Vector2(TILE_WIDTH - 1 - local_x, TILE_HEIGHT - 1 - local_y).length()
+		if dist < CORNER_BLEND_RADIUS:
+			corner_blend = max(corner_blend, _smooth_falloff(1.0 - dist / CORNER_BLEND_RADIUS))
+
+	return corner_blend
+
+# ============ GRASS VARIANTS ============
+# Grass tiles have subtle random grain texture. The runtime shader adds larger-scale
+# continuous variation, so we only add fine detail here that won't create visible tile seams.
+
+static func _draw_grass_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
+	var base = TERRAIN_COLORS["grass"]
+	var edge_color = TERRAIN_COLORS["rough"]  # Grass edges blend to rough
+	var rect = _get_tile_rect(col, row)
+	var rng = RandomNumberGenerator.new()
+	# Use edge_mask as part of seed so edge variants look slightly different
+	rng.seed = 98765 + edge_mask * 111
+
+	for x in range(rect.position.x, rect.position.x + rect.size.x):
+		for y in range(rect.position.y, rect.position.y + rect.size.y):
+			var local_x = x - rect.position.x
+			var local_y = y - rect.position.y
+
+			# Add fine random grain texture (per-pixel noise)
+			# This creates subtle grass-like texture without creating tile-boundary patterns
+			var grain = rng.randf_range(-0.03, 0.03)
+
+			var base_color = Color(
+				base.r + grain,
+				base.g + grain * 1.3,  # Slightly more variation in green channel
+				base.b + grain * 0.7
+			)
+
+			# Only blend edges for autotile transitions (when edge_mask != 0)
+			var blend = _get_edge_blend_factor(local_x, local_y, edge_mask)
+			if blend > 0:
+				base_color = base_color.lerp(edge_color, blend * 0.55)
+
+			image.set_pixel(x, y, base_color)
+
+# ============ FAIRWAY VARIANTS ============
+
+static func _draw_fairway_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
+	var light = TERRAIN_COLORS["fairway_light"]
+	var dark = TERRAIN_COLORS["fairway_dark"]
+	var edge_color = TERRAIN_COLORS["rough"]  # Fairway edges blend to rough
+	var rect = _get_tile_rect(col, row)
+	var rng = RandomNumberGenerator.new()
+	rng.seed = 34567 + edge_mask * 1000
+
+	for x in range(rect.position.x, rect.position.x + rect.size.x):
+		for y in range(rect.position.y, rect.position.y + rect.size.y):
+			var local_x = x - rect.position.x
+			var local_y = y - rect.position.y
+
+			# Diagonal mowing stripes with soft edges
+			var stripe_pos = float(local_x + local_y) / 8.0
+			var stripe_t = fmod(stripe_pos, 1.0)
+			# Smooth stripe transition instead of hard edge
+			var stripe_blend = smoothstep(0.4, 0.6, stripe_t) if stripe_t < 0.5 else 1.0 - smoothstep(0.9, 1.0, stripe_t)
+			var base = light.lerp(dark, stripe_blend)
+
+			# Add subtle variation within stripes
+			var noise = rng.randf_range(-0.025, 0.025)
+			var grain = sin(x * 0.9 + y * 0.4) * 0.015
+			var base_color = Color(
+				base.r + noise + grain,
+				base.g + noise * 1.1 + grain,
+				base.b + noise * 0.9
+			)
+
+			# Blend edges - mowing stripes fade out at edges
+			var blend = _get_edge_blend_factor(local_x, local_y, edge_mask)
+			if blend > 0:
+				# Edges lose the stripe pattern and blend to rough
+				var edge_base = Color(0.38, 0.68, 0.38)  # Intermediate color
+				base_color = base_color.lerp(edge_base, blend * 0.5)
+				base_color = base_color.lerp(edge_color, blend * 0.4)
+
+			image.set_pixel(x, y, base_color)
+
+# Smoothstep helper for soft transitions
+static func smoothstep(edge0: float, edge1: float, x: float) -> float:
+	var t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0)
+	return t * t * (3.0 - 2.0 * t)
+
+# ============ GREEN VARIANTS (with fringe at edges) ============
+
+static func _draw_green_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
+	var light = TERRAIN_COLORS["green_light"]
+	var dark = TERRAIN_COLORS["green_dark"]
+	var fringe_color = TERRAIN_COLORS["fringe"]
+	var outer_fringe = Color(0.38, 0.70, 0.38)  # Darker outer fringe blending to fairway
+	var rect = _get_tile_rect(col, row)
+	var rng = RandomNumberGenerator.new()
+	rng.seed = 67890 + edge_mask * 1000
+
+	for x in range(rect.position.x, rect.position.x + rect.size.x):
+		for y in range(rect.position.y, rect.position.y + rect.size.y):
+			var local_x = x - rect.position.x
+			var local_y = y - rect.position.y
+
+			# Fine horizontal stripes for putting green
+			var stripe = int(local_y / 4) % 2
+			var base = light if stripe == 0 else dark
+			var noise = rng.randf_range(-0.015, 0.015)
+			var base_color = Color(base.r + noise, base.g + noise, base.b + noise)
+
+			# Fringe collar at edges - key feature for green autotiling
+			var blend = _get_edge_blend_factor(local_x, local_y, edge_mask)
+			if blend > 0:
+				# Two-zone fringe: inner fringe (light) and outer fringe (darker, rougher)
+				if blend < 0.5:
+					# Inner fringe - stripes fade out, slight color shift
+					var t = blend / 0.5
+					var fringe_noise = rng.randf_range(-0.02, 0.02)
+					var inner_fringe = Color(
+						fringe_color.r + fringe_noise,
+						fringe_color.g + fringe_noise * 1.1,
+						fringe_color.b + fringe_noise * 0.8
+					)
+					# Fade stripes and shift color
+					base_color = base_color.lerp(inner_fringe, _smooth_falloff(t) * 0.7)
+				else:
+					# Outer fringe - rougher texture, darker color
+					var t = (blend - 0.5) / 0.5
+					var fringe_noise = rng.randf_range(-0.04, 0.04)
+					# Add some grass tuft texture
+					var tuft = sin(x * 0.6 + y * 0.4) * 0.03
+					var outer = Color(
+						outer_fringe.r + fringe_noise + tuft,
+						outer_fringe.g + fringe_noise * 1.2 + tuft,
+						outer_fringe.b + fringe_noise * 0.7
+					)
+					base_color = fringe_color.lerp(outer, _smooth_falloff(t))
+
+			image.set_pixel(x, y, base_color)
+
+# ============ ROUGH VARIANTS ============
+
+static func _draw_rough_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
+	var base = TERRAIN_COLORS["rough"]
+	var edge_color = TERRAIN_COLORS["heavy_rough"]
+	var rect = _get_tile_rect(col, row)
+	var rng = RandomNumberGenerator.new()
+	rng.seed = 45678 + edge_mask * 1000
+
+	for x in range(rect.position.x, rect.position.x + rect.size.x):
+		for y in range(rect.position.y, rect.position.y + rect.size.y):
+			var local_x = x - rect.position.x
+			var local_y = y - rect.position.y
+
+			# Multi-frequency noise for organic variation
+			var noise = rng.randf_range(-0.10, 0.10)
+			var tuft_large = sin(x * 0.4 + y * 0.2) * 0.06
+			var tuft_med = sin(x * 0.8 + y * 0.3) * 0.045
+			var grain = sin(x * 1.5 + y * 0.6) * 0.025
+
+			var combined = noise + tuft_large + tuft_med + grain
+
+			var base_color = Color(
+				base.r + combined,
+				base.g + combined * 1.35,
+				base.b + combined * 0.65
+			)
+
+			var blend = _get_edge_blend_factor(local_x, local_y, edge_mask)
+			if blend > 0:
+				base_color = base_color.lerp(edge_color, blend * 0.5)
+
+			image.set_pixel(x, y, base_color)
+
+# ============ HEAVY ROUGH VARIANTS ============
+
+static func _draw_heavy_rough_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
+	var base = TERRAIN_COLORS["heavy_rough"]
+	var edge_color = TERRAIN_COLORS["grass"]  # Heavy rough edges blend back to grass
+	var rect = _get_tile_rect(col, row)
+	var rng = RandomNumberGenerator.new()
+	rng.seed = 56789 + edge_mask * 1000
+
+	for x in range(rect.position.x, rect.position.x + rect.size.x):
+		for y in range(rect.position.y, rect.position.y + rect.size.y):
+			var local_x = x - rect.position.x
+			var local_y = y - rect.position.y
+
+			# Multi-frequency noise with extra variation for wild appearance
+			var noise = rng.randf_range(-0.12, 0.12)
+			var clump_large = sin(x * 0.3 + y * 0.25) * 0.07
+			var clump_med = sin(x * 0.6) * sin(y * 0.9) * 0.06
+			var grain = sin(x * 1.1 + y * 0.7) * cos(x * 0.5) * 0.03
+
+			var combined = noise + clump_large + clump_med + grain
+
+			var base_color = Color(
+				base.r + combined,
+				base.g + combined * 1.4,
+				base.b + combined * 0.55
+			)
+
+			var blend = _get_edge_blend_factor(local_x, local_y, edge_mask)
+			if blend > 0:
+				base_color = base_color.lerp(edge_color, blend * 0.5)
+
+			image.set_pixel(x, y, base_color)
+
+# ============ BUNKER VARIANTS ============
+
+static func _draw_bunker_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
+	var base = TERRAIN_COLORS["bunker"]
+	var edge_color = TERRAIN_COLORS["grass"]  # Sand edges blend to grass (lip)
+	var rect = _get_tile_rect(col, row)
+	var rng = RandomNumberGenerator.new()
+	rng.seed = 89012 + edge_mask * 1000
+
+	for x in range(rect.position.x, rect.position.x + rect.size.x):
+		for y in range(rect.position.y, rect.position.y + rect.size.y):
+			var local_x = x - rect.position.x
+			var local_y = y - rect.position.y
+
+			var noise = rng.randf_range(-0.08, 0.08)
+			var grain = rng.randf_range(-0.04, 0.04)
+			var base_color = Color(base.r + noise + grain, base.g + noise * 0.9 + grain, base.b + noise * 0.5)
+
+			# Bunker lip at edges
+			var blend = _get_edge_blend_factor(local_x, local_y, edge_mask)
+			if blend > 0:
+				# Create darker sand lip, then grass
+				var lip_color = Color(base.r * 0.85, base.g * 0.82, base.b * 0.7)
+				if blend < 0.5:
+					base_color = base_color.lerp(lip_color, blend * 1.5)
+				else:
+					base_color = lip_color.lerp(edge_color, (blend - 0.5) * 1.5)
+
+			image.set_pixel(x, y, base_color)
+
+# ============ WATER VARIANTS ============
+
+static func _draw_water_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
+	var base = TERRAIN_COLORS["water"]
+	var rect = _get_tile_rect(col, row)
+	var rng = RandomNumberGenerator.new()
+	rng.seed = 90123 + edge_mask * 1000
+
+	# Multi-zone shoreline colors
+	var shallow_water = Color(0.35, 0.60, 0.80)  # Lighter blue
+	var wet_sand = Color(0.50, 0.45, 0.35)       # Dark wet sand
+	var dry_sand = Color(0.65, 0.58, 0.45)       # Lighter dry sand
+	var grass_edge = Color(0.42, 0.55, 0.35)     # Grass-like edge
+
+	for x in range(rect.position.x, rect.position.x + rect.size.x):
+		for y in range(rect.position.y, rect.position.y + rect.size.y):
+			var local_x = x - rect.position.x
+			var local_y = y - rect.position.y
+
+			var wave = sin(local_x * 0.2 + local_y * 0.1) * 0.06
+			var noise = rng.randf_range(-0.03, 0.03)
+			var base_color = Color(base.r + wave + noise, base.g + wave * 0.8 + noise, base.b + wave * 0.3 + noise)
+
+			# Multi-zone shoreline transition
+			var blend = _get_edge_blend_factor(local_x, local_y, edge_mask)
+			if blend > 0:
+				# Zone 1 (0.0-0.25): Deep water -> Shallow water
+				# Zone 2 (0.25-0.5): Shallow water -> Wet sand
+				# Zone 3 (0.5-0.75): Wet sand -> Dry sand
+				# Zone 4 (0.75-1.0): Dry sand -> Grass edge
+				if blend < 0.25:
+					var t = blend / 0.25
+					base_color = base_color.lerp(shallow_water, _smooth_falloff(t))
+				elif blend < 0.5:
+					var t = (blend - 0.25) / 0.25
+					base_color = shallow_water.lerp(wet_sand, _smooth_falloff(t))
+					# Add some foam/splash variation
+					if rng.randf() < 0.15:
+						base_color = base_color.lightened(0.2)
+				elif blend < 0.75:
+					var t = (blend - 0.5) / 0.25
+					var sand_noise = rng.randf_range(-0.05, 0.05)
+					var sand = Color(wet_sand.r + sand_noise, wet_sand.g + sand_noise * 0.9, wet_sand.b + sand_noise * 0.8)
+					base_color = sand.lerp(dry_sand, _smooth_falloff(t))
+				else:
+					var t = (blend - 0.75) / 0.25
+					var sand_noise = rng.randf_range(-0.04, 0.04)
+					var dry = Color(dry_sand.r + sand_noise, dry_sand.g + sand_noise, dry_sand.b + sand_noise * 0.8)
+					base_color = dry.lerp(grass_edge, _smooth_falloff(t))
+
+			image.set_pixel(x, y, base_color)
+
+# ============ SINGLE TILE TERRAINS (no autotiling) ============
+
 static func _draw_empty_tile(image: Image, col: int, row: int) -> void:
-	var base = Color(0.18, 0.22, 0.18)
+	var base = TERRAIN_COLORS["empty"]
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 12345
@@ -51,88 +485,15 @@ static func _draw_empty_tile(image: Image, col: int, row: int) -> void:
 			var noise = rng.randf_range(-0.03, 0.03)
 			image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
 
-static func _draw_grass_tile(image: Image, col: int, row: int) -> void:
-	var base = Color(0.42, 0.58, 0.32)
-	var rect = _get_tile_rect(col, row)
-	var rng = RandomNumberGenerator.new()
-	rng.seed = 23456
-
-	for x in range(rect.position.x, rect.position.x + rect.size.x):
-		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			var noise = rng.randf_range(-0.06, 0.06)
-			# Add some clumpy variation
-			var clump = sin(x * 0.5) * cos(y * 0.8) * 0.04
-			image.set_pixel(x, y, Color(base.r + noise + clump, base.g + noise * 1.2 + clump, base.b + noise * 0.8))
-
-static func _draw_fairway_tile(image: Image, col: int, row: int) -> void:
-	var light = Color(0.42, 0.78, 0.42)
-	var dark = Color(0.36, 0.72, 0.36)
-	var rect = _get_tile_rect(col, row)
-	var rng = RandomNumberGenerator.new()
-	rng.seed = 34567
-
-	for x in range(rect.position.x, rect.position.x + rect.size.x):
-		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			# Diagonal mowing stripes
-			var local_x = x - rect.position.x
-			var local_y = y - rect.position.y
-			var stripe = int((local_x + local_y) / 8) % 2
-			var base = light if stripe == 0 else dark
-			var noise = rng.randf_range(-0.02, 0.02)
-			image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
-
-static func _draw_rough_tile(image: Image, col: int, row: int) -> void:
-	var base = Color(0.36, 0.52, 0.30)
-	var rect = _get_tile_rect(col, row)
-	var rng = RandomNumberGenerator.new()
-	rng.seed = 45678
-
-	for x in range(rect.position.x, rect.position.x + rect.size.x):
-		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			var noise = rng.randf_range(-0.08, 0.08)
-			# Tufty grass pattern
-			var tuft = sin(x * 0.8 + y * 0.3) * 0.05
-			image.set_pixel(x, y, Color(base.r + noise + tuft, base.g + noise * 1.3 + tuft, base.b + noise * 0.7))
-
-static func _draw_heavy_rough_tile(image: Image, col: int, row: int) -> void:
-	var base = Color(0.30, 0.45, 0.26)
-	var rect = _get_tile_rect(col, row)
-	var rng = RandomNumberGenerator.new()
-	rng.seed = 56789
-
-	for x in range(rect.position.x, rect.position.x + rect.size.x):
-		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			var noise = rng.randf_range(-0.1, 0.1)
-			# Dense clumpy pattern
-			var clump = sin(x * 0.6) * sin(y * 0.9) * 0.08
-			image.set_pixel(x, y, Color(base.r + noise + clump, base.g + noise * 1.4 + clump, base.b + noise * 0.6))
-
-static func _draw_green_tile(image: Image, col: int, row: int) -> void:
-	var light = Color(0.38, 0.88, 0.48)
-	var dark = Color(0.34, 0.82, 0.44)
-	var rect = _get_tile_rect(col, row)
-	var rng = RandomNumberGenerator.new()
-	rng.seed = 67890
-
-	for x in range(rect.position.x, rect.position.x + rect.size.x):
-		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			# Fine horizontal stripes for putting green
-			var local_y = y - rect.position.y
-			var stripe = int(local_y / 4) % 2
-			var base = light if stripe == 0 else dark
-			var noise = rng.randf_range(-0.015, 0.015)
-			image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
-
 static func _draw_tee_box_tile(image: Image, col: int, row: int) -> void:
-	var light = Color(0.48, 0.76, 0.45)
-	var dark = Color(0.42, 0.70, 0.40)
+	var light = TERRAIN_COLORS["tee_box_light"]
+	var dark = TERRAIN_COLORS["tee_box_dark"]
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 78901
 
 	for x in range(rect.position.x, rect.position.x + rect.size.x):
 		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			# Checkerboard-ish pattern
 			var local_x = x - rect.position.x
 			var local_y = y - rect.position.y
 			var check = (int(local_x / 8) + int(local_y / 4)) % 2
@@ -140,52 +501,22 @@ static func _draw_tee_box_tile(image: Image, col: int, row: int) -> void:
 			var noise = rng.randf_range(-0.02, 0.02)
 			image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
 
-static func _draw_bunker_tile(image: Image, col: int, row: int) -> void:
-	var base = Color(0.92, 0.85, 0.62)
-	var rect = _get_tile_rect(col, row)
-	var rng = RandomNumberGenerator.new()
-	rng.seed = 89012
-
-	for x in range(rect.position.x, rect.position.x + rect.size.x):
-		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			# Sandy granular texture
-			var noise = rng.randf_range(-0.08, 0.08)
-			var grain = rng.randf_range(-0.04, 0.04)
-			image.set_pixel(x, y, Color(base.r + noise + grain, base.g + noise * 0.9 + grain, base.b + noise * 0.5))
-
-static func _draw_water_tile(image: Image, col: int, row: int) -> void:
-	var base = Color(0.25, 0.55, 0.85)
-	var rect = _get_tile_rect(col, row)
-	var rng = RandomNumberGenerator.new()
-	rng.seed = 90123
-
-	for x in range(rect.position.x, rect.position.x + rect.size.x):
-		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			var local_x = x - rect.position.x
-			var local_y = y - rect.position.y
-			# Wave pattern
-			var wave = sin(local_x * 0.2 + local_y * 0.1) * 0.06
-			var noise = rng.randf_range(-0.03, 0.03)
-			image.set_pixel(x, y, Color(base.r + wave + noise, base.g + wave * 0.8 + noise, base.b + wave * 0.3 + noise))
-
 static func _draw_path_tile(image: Image, col: int, row: int) -> void:
-	var base = Color(0.75, 0.72, 0.65)
+	var base = TERRAIN_COLORS["path"]
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 1234
 
 	for x in range(rect.position.x, rect.position.x + rect.size.x):
 		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			# Gravel texture with speckles
 			var noise = rng.randf_range(-0.1, 0.1)
-			# Occasional darker pebble
 			var pebble = 0.0
 			if rng.randf() < 0.08:
 				pebble = -0.15
 			image.set_pixel(x, y, Color(base.r + noise + pebble, base.g + noise * 0.95 + pebble, base.b + noise * 0.9 + pebble))
 
 static func _draw_oob_tile(image: Image, col: int, row: int) -> void:
-	var base = Color(0.40, 0.33, 0.30)
+	var base = TERRAIN_COLORS["oob"]
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 2345
@@ -196,8 +527,7 @@ static func _draw_oob_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
 
 static func _draw_trees_tile(image: Image, col: int, row: int) -> void:
-	# Dark green base - the tree overlay will draw actual trees on top
-	var base = Color(0.20, 0.42, 0.20)
+	var base = TERRAIN_COLORS["trees"]
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 3456
@@ -209,8 +539,7 @@ static func _draw_trees_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise + dapple, base.g + noise * 1.2 + dapple, base.b + noise * 0.8))
 
 static func _draw_flower_bed_tile(image: Image, col: int, row: int) -> void:
-	# Brown mulch/soil base - flower overlay will add flowers
-	var base = Color(0.45, 0.32, 0.22)
+	var base = TERRAIN_COLORS["flower_bed"]
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 4567
@@ -218,15 +547,13 @@ static func _draw_flower_bed_tile(image: Image, col: int, row: int) -> void:
 	for x in range(rect.position.x, rect.position.x + rect.size.x):
 		for y in range(rect.position.y, rect.position.y + rect.size.y):
 			var noise = rng.randf_range(-0.08, 0.08)
-			# Mulch texture
 			var mulch = 0.0
 			if rng.randf() < 0.15:
 				mulch = rng.randf_range(-0.1, 0.1)
 			image.set_pixel(x, y, Color(base.r + noise + mulch, base.g + noise * 0.8 + mulch, base.b + noise * 0.6 + mulch))
 
 static func _draw_rocks_tile(image: Image, col: int, row: int) -> void:
-	# Gray rocky ground - rock overlay will add actual rocks
-	var base = Color(0.48, 0.46, 0.42)
+	var base = TERRAIN_COLORS["rocks"]
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 5678
@@ -234,6 +561,60 @@ static func _draw_rocks_tile(image: Image, col: int, row: int) -> void:
 	for x in range(rect.position.x, rect.position.x + rect.size.x):
 		for y in range(rect.position.y, rect.position.y + rect.size.y):
 			var noise = rng.randf_range(-0.1, 0.1)
-			# Rocky texture with variation
 			var rocky = sin(x * 0.3 + y * 0.2) * 0.06
 			image.set_pixel(x, y, Color(base.r + noise + rocky, base.g + noise * 0.98 + rocky, base.b + noise * 0.95 + rocky))
+
+# ============ UTILITY FUNCTIONS FOR TERRAIN GRID ============
+
+# Get atlas coordinates for a terrain type with given edge mask
+static func get_autotile_coords(terrain_type: int, edge_mask: int) -> Vector2i:
+	var row = _get_row_for_terrain_type(terrain_type)
+	if row == TerrainRow.SINGLES:
+		# Single tiles don't use edge mask, return specific column
+		var col = _get_single_tile_column(terrain_type)
+		return Vector2i(col, row)
+	else:
+		# Autotiled terrain: column = edge mask
+		return Vector2i(edge_mask, row)
+
+static func _get_row_for_terrain_type(terrain_type: int) -> int:
+	match terrain_type:
+		1:  # GRASS
+			return TerrainRow.GRASS
+		2:  # FAIRWAY
+			return TerrainRow.FAIRWAY
+		5:  # GREEN
+			return TerrainRow.GREEN
+		3:  # ROUGH
+			return TerrainRow.ROUGH
+		4:  # HEAVY_ROUGH
+			return TerrainRow.HEAVY_ROUGH
+		7:  # BUNKER
+			return TerrainRow.BUNKER
+		8:  # WATER
+			return TerrainRow.WATER
+		_:  # Single tiles
+			return TerrainRow.SINGLES
+
+static func _get_single_tile_column(terrain_type: int) -> int:
+	match terrain_type:
+		0:  # EMPTY
+			return 0
+		6:  # TEE_BOX
+			return 1
+		9:  # PATH
+			return 2
+		10:  # OUT_OF_BOUNDS
+			return 3
+		11:  # TREES
+			return 4
+		12:  # FLOWER_BED
+			return 5
+		13:  # ROCKS
+			return 6
+		_:
+			return 0
+
+# Check if a terrain type uses autotiling
+static func terrain_uses_autotile(terrain_type: int) -> bool:
+	return terrain_type in [1, 2, 3, 4, 5, 7, 8]  # GRASS, FAIRWAY, ROUGH, HEAVY_ROUGH, GREEN, BUNKER, WATER

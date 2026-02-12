@@ -6,12 +6,22 @@ var grid_position: Vector2i = Vector2i.ZERO
 var hole_number: int = 1
 var terrain_grid: TerrainGrid
 
+## Shadow references for updates when sun changes
+var _shadow_refs: Dictionary = {}
+var _shadow_config: ShadowRenderer.ShadowConfig = null
+
 signal flag_selected(flag: Flag)
 signal flag_moved(old_position: Vector2i, new_position: Vector2i)
 
 func _ready() -> void:
 	z_index = 50  # Render above terrain but below UI
 	_create_visual()
+
+	# Connect to sun direction changes if ShadowSystem is available
+	if has_node("/root/ShadowSystem"):
+		var shadow_system = get_node("/root/ShadowSystem")
+		if shadow_system.has_signal("sun_direction_changed"):
+			shadow_system.sun_direction_changed.connect(_on_sun_direction_changed)
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -34,6 +44,18 @@ func _create_visual() -> void:
 	var visual = Node2D.new()
 	visual.name = "Visual"
 	add_child(visual)
+
+	# Configure shadow for flag (tall, thin object)
+	_shadow_config = ShadowRenderer.ShadowConfig.new(40.0, 8.0)  # Height 40, narrow base
+	_shadow_config.base_offset = Vector2(0, 2)
+
+	# Get shadow system reference
+	var shadow_system: Node = null
+	if has_node("/root/ShadowSystem"):
+		shadow_system = get_node("/root/ShadowSystem")
+
+	# Add shadows (rendered below flag)
+	_shadow_refs = ShadowRenderer.add_shadows_to_entity(visual, _shadow_config, shadow_system)
 
 	# Flag pole (vertical line)
 	var pole = Polygon2D.new()
@@ -68,17 +90,6 @@ func _create_visual() -> void:
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 2)
 	visual.add_child(label)
-
-	# Shadow for the pole
-	var shadow = Polygon2D.new()
-	shadow.name = "Shadow"
-	shadow.color = Color(0, 0, 0, 0.3)
-	shadow.position = Vector2(2, 2)
-	shadow.polygon = PackedVector2Array([
-		Vector2(-8, 2), Vector2(8, 2),
-		Vector2(6, 0), Vector2(-6, 0)
-	])
-	visual.add_child(shadow)
 
 	# Input detection area
 	var input_area = Area2D.new()
@@ -126,3 +137,12 @@ func get_flag_info() -> Dictionary:
 
 func destroy() -> void:
 	queue_free()
+
+func _on_sun_direction_changed(_new_direction: float) -> void:
+	"""Update shadows when sun direction changes"""
+	if _shadow_config and not _shadow_refs.is_empty():
+		var shadow_system: Node = null
+		if has_node("/root/ShadowSystem"):
+			shadow_system = get_node("/root/ShadowSystem")
+		if shadow_system:
+			ShadowRenderer.update_shadows(_shadow_refs, _shadow_config, shadow_system)

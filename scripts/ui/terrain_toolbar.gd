@@ -1,6 +1,6 @@
-extends VBoxContainer
+extends PanelContainer
 class_name TerrainToolbar
-## TerrainToolbar - Organized toolbar with collapsible sections and hotkeys
+## TerrainToolbar - Redesigned build tools panel with icon+label buttons and rich tooltips
 
 signal tool_selected(tool_type: int)
 signal create_hole_pressed
@@ -14,53 +14,62 @@ signal bulldozer_pressed
 signal staff_pressed
 
 var _current_tool: int = TerrainTypes.Type.FAIRWAY
-var _tool_buttons: Dictionary = {}  # tool_type -> Button
+var _tool_buttons: Dictionary = {}  # tool_type -> ToolButton
 var _sections: Dictionary = {}  # section_name -> { header: Button, content: VBoxContainer }
+var _scroll_container: ScrollContainer
+var _content_vbox: VBoxContainer
 
 const TOOL_SECTIONS = {
 	"Course Terrain": {
+		"icon": "[=]",
 		"tools": [
-			{"type": TerrainTypes.Type.FAIRWAY, "name": "Fairway", "hotkey": "1"},
-			{"type": TerrainTypes.Type.ROUGH, "name": "Rough", "hotkey": "2"},
-			{"type": TerrainTypes.Type.GREEN, "name": "Green", "hotkey": "3"},
-			{"type": TerrainTypes.Type.TEE_BOX, "name": "Tee Box", "hotkey": "4"},
+			{"type": TerrainTypes.Type.FAIRWAY, "name": "Fairway", "icon": "[=]", "hotkey": "1", "desc": "Mowed playing surface for approach shots"},
+			{"type": TerrainTypes.Type.ROUGH, "name": "Rough", "icon": "[~]", "hotkey": "2", "desc": "Longer grass bordering fairways"},
+			{"type": TerrainTypes.Type.GREEN, "name": "Green", "icon": "[O]", "hotkey": "3", "desc": "Putting surface around the hole"},
+			{"type": TerrainTypes.Type.TEE_BOX, "name": "Tee Box", "icon": "[T]", "hotkey": "4", "desc": "Starting area for each hole"},
 		]
 	},
 	"Hazards": {
+		"icon": "[!]",
 		"tools": [
-			{"type": TerrainTypes.Type.BUNKER, "name": "Bunker", "hotkey": "5"},
-			{"type": TerrainTypes.Type.WATER, "name": "Water", "hotkey": "6"},
-			{"type": TerrainTypes.Type.OUT_OF_BOUNDS, "name": "Out of Bounds", "hotkey": "7"},
+			{"type": TerrainTypes.Type.BUNKER, "name": "Bunker", "icon": "[:]", "hotkey": "5", "desc": "Sand trap hazard"},
+			{"type": TerrainTypes.Type.WATER, "name": "Water", "icon": "[w]", "hotkey": "6", "desc": "Water hazard with penalty"},
+			{"type": TerrainTypes.Type.OUT_OF_BOUNDS, "name": "Out of Bounds", "icon": "[X]", "hotkey": "7", "desc": "Boundary area with stroke penalty"},
 		]
 	},
 	"Paths & Decor": {
+		"icon": "[.]",
 		"tools": [
-			{"type": TerrainTypes.Type.PATH, "name": "Path", "hotkey": "8"},
-			{"type": "tree", "name": "Trees", "hotkey": "T"},
-			{"type": "rock", "name": "Rocks", "hotkey": "R"},
-			{"type": "flower", "name": "Flower Bed", "hotkey": ""},
-			{"type": "bulldozer", "name": "Bulldozer", "hotkey": "X"},
+			{"type": TerrainTypes.Type.PATH, "name": "Path", "icon": "[.]", "hotkey": "8", "desc": "Walking path for golfers"},
+			{"type": "tree", "name": "Trees", "icon": "[^]", "hotkey": "T", "desc": "Adds beauty and obstacles"},
+			{"type": "rock", "name": "Rocks", "icon": "[*]", "hotkey": "R", "desc": "Decorative rock formations"},
+			{"type": "flower", "name": "Flower Bed", "icon": "[f]", "hotkey": "", "desc": "Colorful landscaping"},
+			{"type": "bulldozer", "name": "Bulldozer", "icon": "[D]", "hotkey": "X", "desc": "Removes trees, rocks, flowers"},
 		]
 	},
 	"Elevation": {
+		"icon": "[+-]",
 		"tools": [
-			{"type": "raise", "name": "Raise +", "hotkey": "+"},
-			{"type": "lower", "name": "Lower -", "hotkey": "-"},
+			{"type": "raise", "name": "Raise +", "icon": "[+]", "hotkey": "+", "desc": "Raise terrain elevation"},
+			{"type": "lower", "name": "Lower -", "icon": "[-]", "hotkey": "-", "desc": "Lower terrain elevation"},
 		]
 	},
 	"Structures": {
+		"icon": "[B]",
 		"tools": [
-			{"type": "building", "name": "Buildings", "hotkey": "B"},
+			{"type": "building", "name": "Buildings", "icon": "[B]", "hotkey": "B", "desc": "Place amenity buildings"},
 		]
 	},
 	"Hole Tools": {
+		"icon": "[H]",
 		"tools": [
-			{"type": "create_hole", "name": "Create Hole", "hotkey": "H"},
+			{"type": "create_hole", "name": "Create Hole", "icon": "[H]", "hotkey": "H", "desc": "Define tee box, green, and flag"},
 		]
 	},
 	"Management": {
+		"icon": "[P]",
 		"tools": [
-			{"type": "staff", "name": "Staff", "hotkey": "P"},
+			{"type": "staff", "name": "Staff", "icon": "[P]", "hotkey": "P", "desc": "Manage course maintenance staff"},
 		]
 	},
 }
@@ -69,45 +78,97 @@ func _ready() -> void:
 	_build_ui()
 
 func _build_ui() -> void:
-	# Clear existing children
-	for child in get_children():
-		child.queue_free()
+	# Apply panel style
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = UIConstants.COLOR_BG_PANEL
+	panel_style.corner_radius_top_left = 8
+	panel_style.corner_radius_top_right = 8
+	panel_style.corner_radius_bottom_right = 8
+	panel_style.corner_radius_bottom_left = 8
+	panel_style.content_margin_left = 8
+	panel_style.content_margin_right = 8
+	panel_style.content_margin_top = 8
+	panel_style.content_margin_bottom = 8
+	panel_style.border_width_left = 1
+	panel_style.border_width_top = 1
+	panel_style.border_width_right = 1
+	panel_style.border_width_bottom = 1
+	panel_style.border_color = UIConstants.COLOR_BORDER
+	add_theme_stylebox_override("panel", panel_style)
 
-	add_theme_constant_override("separation", 4)
+	# Wider panel for better readability
+	custom_minimum_size = Vector2(260, 500)
+	size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	# Main container
+	var main_vbox = VBoxContainer.new()
+	main_vbox.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
+	main_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	main_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(main_vbox)
 
 	# Title
 	var title = Label.new()
 	title.text = "Build Tools"
-	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_LG)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	add_child(title)
+	main_vbox.add_child(title)
 
-	add_child(HSeparator.new())
+	# Subtitle hint
+	var subtitle = Label.new()
+	subtitle.text = "Click headers to expand"
+	subtitle.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	subtitle.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	main_vbox.add_child(subtitle)
 
-	# Create each section
+	main_vbox.add_child(HSeparator.new())
+
+	# Scroll container for tools
+	_scroll_container = ScrollContainer.new()
+	_scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	main_vbox.add_child(_scroll_container)
+
+	_content_vbox = VBoxContainer.new()
+	_content_vbox.add_theme_constant_override("separation", UIConstants.SEPARATION_MD)
+	_content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll_container.add_child(_content_vbox)
+
+	# Create each section (collapsed by default)
 	for section_name in TOOL_SECTIONS.keys():
-		_create_section(section_name, TOOL_SECTIONS[section_name])
+		_create_section(section_name, TOOL_SECTIONS[section_name], true)
 
-func _create_section(section_name: String, section_data: Dictionary) -> void:
-	# Section header (clickable to collapse)
+func _create_section(section_name: String, section_data: Dictionary, start_collapsed: bool = false) -> void:
+	var section_vbox = VBoxContainer.new()
+	section_vbox.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
+	_content_vbox.add_child(section_vbox)
+
+	# Section header (clickable to expand/collapse)
 	var header_btn = Button.new()
-	header_btn.text = "v " + section_name
+	var icon = section_data.get("icon", "")
+	var prefix = "> " if start_collapsed else "v "
+	header_btn.text = "%s%s  %s" % [prefix, icon, section_name]
 	header_btn.flat = true
 	header_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	header_btn.add_theme_font_size_override("font_size", 13)
-	header_btn.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
-	add_child(header_btn)
+	header_btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
+	header_btn.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+	header_btn.custom_minimum_size = Vector2(0, 32)
+	section_vbox.add_child(header_btn)
 
 	# Section content container
 	var content = VBoxContainer.new()
-	content.add_theme_constant_override("separation", 2)
-	add_child(content)
+	content.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
+	content.visible = not start_collapsed  # Start collapsed if specified
+	section_vbox.add_child(content)
 
 	# Store references
 	_sections[section_name] = {
 		"header": header_btn,
 		"content": content,
-		"collapsed": false
+		"collapsed": start_collapsed
 	}
 
 	# Connect header click to toggle
@@ -118,64 +179,50 @@ func _create_section(section_name: String, section_data: Dictionary) -> void:
 		_create_tool_button(content, tool_data)
 
 func _create_tool_button(parent: VBoxContainer, tool_data: Dictionary) -> void:
-	var btn = Button.new()
 	var tool_type = tool_data["type"]
 	var tool_name = tool_data["name"]
+	var tool_icon = tool_data.get("icon", "")
 	var hotkey = tool_data.get("hotkey", "")
+	var description = tool_data.get("desc", "")
 
-	# Build button text with hotkey hint
-	if hotkey != "":
-		btn.text = "%s [%s]" % [tool_name, hotkey]
+	# Get cost and maintenance
+	var cost = 0
+	var maintenance = 0
+	if tool_type is int:
+		cost = TerrainTypes.get_placement_cost(tool_type)
+		maintenance = TerrainTypes.get_maintenance_cost(tool_type)
 	else:
-		btn.text = tool_name
+		var costs = _get_special_tool_costs(tool_type)
+		cost = costs.get("cost", 0)
+		maintenance = costs.get("maintenance", 0)
 
-	btn.custom_minimum_size = Vector2(180, 28)
-	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-
-	# Add tooltip with cost and maintenance info
-	var tooltip = _get_tool_tooltip(tool_type, tool_name)
-	btn.tooltip_text = tooltip
-
-	# Connect button press
-	btn.pressed.connect(_on_tool_button_pressed.bind(tool_type))
-
+	# Create ToolButton
+	var btn = ToolButton.create(tool_type, tool_name, tool_icon, hotkey, description, cost, maintenance)
+	btn.tool_pressed.connect(_on_tool_button_pressed)
 	parent.add_child(btn)
 
 	# Store reference for highlighting
 	_tool_buttons[tool_type] = btn
 
-func _get_tool_tooltip(tool_type, tool_name: String) -> String:
-	if tool_type is int:
-		var cost = TerrainTypes.get_placement_cost(tool_type)
-		var maintenance = TerrainTypes.get_maintenance_cost(tool_type)
-		var tooltip = tool_name
-		if cost > 0:
-			tooltip += "\nCost: $%d per tile" % cost
-		if maintenance > 0:
-			tooltip += "\nMaintenance: $%d/day" % maintenance
-		return tooltip
-	else:
-		# Special tools
-		match tool_type:
-			"tree":
-				return "Trees\nCost: $18-25 per tree\nAdds beauty to course"
-			"rock":
-				return "Rocks\nCost: $10-20 per rock\nDecorative hazard"
-			"flower":
-				return "Flower Bed\nCost: $35 per tile\nBoosts aesthetics"
-			"bulldozer":
-				return "Bulldozer\nRemoves trees, rocks, flowers\nCosts money to clear"
-			"building":
-				return "Buildings\nVarious costs\nAdd amenities"
-			"create_hole":
-				return "Create Hole\nPlace tee, then green\nDefines playable hole"
-			"staff":
-				return "Staff Management\nChoose staff quality tier\nAffects costs and course condition"
-			"raise":
-				return "Raise Elevation\nNo cost\nAffects ball physics"
-			"lower":
-				return "Lower Elevation\nNo cost\nAffects ball physics"
-		return tool_name
+func _get_special_tool_costs(tool_type: String) -> Dictionary:
+	match tool_type:
+		"tree":
+			return {"cost": 20, "maintenance": 0}
+		"rock":
+			return {"cost": 15, "maintenance": 0}
+		"flower":
+			return {"cost": 35, "maintenance": 2}
+		"bulldozer":
+			return {"cost": 5, "maintenance": 0}
+		"building":
+			return {"cost": 0, "maintenance": 0}  # Varies by building
+		"create_hole":
+			return {"cost": 0, "maintenance": 0}
+		"staff":
+			return {"cost": 0, "maintenance": 0}
+		"raise", "lower":
+			return {"cost": 0, "maintenance": 0}
+	return {"cost": 0, "maintenance": 0}
 
 func _toggle_section(section_name: String) -> void:
 	var section = _sections.get(section_name)
@@ -186,8 +233,10 @@ func _toggle_section(section_name: String) -> void:
 	section["content"].visible = not section["collapsed"]
 
 	# Update header text
+	var section_data = TOOL_SECTIONS.get(section_name, {})
+	var icon = section_data.get("icon", "")
 	var prefix = "> " if section["collapsed"] else "v "
-	section["header"].text = prefix + section_name
+	section["header"].text = "%s%s  %s" % [prefix, icon, section_name]
 
 func _on_tool_button_pressed(tool_type) -> void:
 	if tool_type is int:
@@ -220,11 +269,14 @@ func _update_selection_highlight() -> void:
 	# Reset all buttons
 	for tool_type in _tool_buttons.keys():
 		var btn = _tool_buttons[tool_type]
-		btn.modulate = Color(1, 1, 1, 1)
+		if btn is ToolButton:
+			btn.set_selected(false)
 
 	# Highlight current tool
 	if _current_tool in _tool_buttons:
-		_tool_buttons[_current_tool].modulate = Color(0.5, 1.0, 0.5, 1)
+		var btn = _tool_buttons[_current_tool]
+		if btn is ToolButton:
+			btn.set_selected(true)
 
 func _input(event: InputEvent) -> void:
 	if not is_visible_in_tree():

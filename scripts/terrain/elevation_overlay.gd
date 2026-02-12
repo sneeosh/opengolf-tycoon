@@ -22,6 +22,10 @@ func _draw() -> void:
 	if not terrain_grid:
 		return
 
+	# Only draw elevation overlay when elevation tool is active
+	if not _elevation_active:
+		return
+
 	# Only draw tiles visible in the viewport
 	var canvas_transform = get_canvas_transform()
 	var viewport_rect = get_viewport_rect()
@@ -30,8 +34,8 @@ func _draw() -> void:
 		viewport_rect.size / canvas_transform.get_scale()
 	)
 
-	# Base alpha: always visible, more prominent when elevation tool is active
-	var base_alpha = 0.2 if _elevation_active else 0.15
+	# Alpha for elevation visualization
+	var base_alpha = 0.25
 
 	for x in range(terrain_grid.grid_width):
 		for y in range(terrain_grid.grid_height):

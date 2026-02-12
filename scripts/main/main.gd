@@ -6,9 +6,6 @@ extends Node2D
 @onready var ball_manager: BallManager = $BallManager
 @onready var hole_manager: HoleManager = $HoleManager
 @onready var golfer_manager: GolferManager = $GolferManager
-@onready var money_label: Label = $UI/HUD/TopBar/MoneyLabel
-@onready var day_label: Label = $UI/HUD/TopBar/DayLabel
-@onready var reputation_label: Label = $UI/HUD/TopBar/ReputationLabel
 @onready var coordinate_label: Label = $UI/HUD/BottomBar/CoordinateLabel
 @onready var tool_panel_container: Control = $UI/HUD/ToolPanel
 var terrain_toolbar: TerrainToolbar = null
@@ -18,6 +15,13 @@ var terrain_toolbar: TerrainToolbar = null
 @onready var fast_btn: Button = $UI/HUD/BottomBar/SpeedControls/FastBtn
 @onready var speed_controls: HBoxContainer = $UI/HUD/BottomBar/SpeedControls
 
+# New UI components
+var top_hud_bar: TopHUDBar = null
+
+# Legacy references (kept for compatibility, now managed by TopHUDBar)
+var money_label: Label = null
+var day_label: Label = null
+var reputation_label: Label = null
 var game_mode_label: Label = null
 var build_mode_btn: Button = null
 var green_fee_label: Label = null
@@ -52,6 +56,7 @@ var tournament_panel: TournamentPanel = null
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 var bulldozer_mode: bool = false
+var placement_preview: PlacementPreview = null
 
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
@@ -115,12 +120,13 @@ func _ready() -> void:
 
 	_connect_signals()
 	_connect_ui_buttons()
-	_create_game_mode_label()
+	_setup_top_hud_bar()
 	_create_green_fee_controls()
 	_create_wind_indicator()
 	_create_weather_indicator()
 	_create_zoom_hint()
 	_setup_rain_overlay()
+	_setup_placement_preview()
 	_create_selection_indicator()
 	_create_save_load_button()
 	_setup_building_info_panel()
@@ -172,6 +178,9 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_T:
 			_toggle_tournament_panel()
 			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_F3:
+			_toggle_terrain_debug_overlay()
+			get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("select"):
@@ -211,9 +220,14 @@ func _setup_terrain_toolbar() -> void:
 	for child in tool_panel_container.get_children():
 		child.queue_free()
 
+	# Ensure tool panel container expands
+	tool_panel_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
 	# Create and add new toolbar
 	terrain_toolbar = TerrainToolbar.new()
 	terrain_toolbar.name = "TerrainToolbar"
+	terrain_toolbar.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	terrain_toolbar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tool_panel_container.add_child(terrain_toolbar)
 
 	# Connect toolbar signals
@@ -234,24 +248,40 @@ func _initialize_game() -> void:
 	var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
 	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
 	camera.focus_on(Vector2(center_x, center_y), true)
+	# Initialize terrain painting preview with default tool
+	if placement_preview:
+		placement_preview.set_terrain_tool(current_tool)
+		placement_preview.set_terrain_painting_enabled(true)
 
-func _create_game_mode_label() -> void:
-	"""Create a label to show the current game mode"""
-	game_mode_label = Label.new()
-	game_mode_label.name = "GameModeLabel"
+func _setup_top_hud_bar() -> void:
+	"""Replace old TopBar with new TopHUDBar component"""
+	var old_top_bar = $UI/HUD/TopBar
+	var hud = $UI/HUD
 
-	# Add theme overrides for visibility
-	game_mode_label.add_theme_font_size_override("font_size", 18)
+	# Remove old top bar children
+	for child in old_top_bar.get_children():
+		child.queue_free()
+	old_top_bar.queue_free()
 
-	# Insert as first child in top bar
-	var top_bar = $UI/HUD/TopBar
-	top_bar.add_child(game_mode_label)
-	top_bar.move_child(game_mode_label, 0)
+	# Create new TopHUDBar
+	top_hud_bar = TopHUDBar.new()
+	top_hud_bar.name = "TopHUDBar"
+
+	# Set anchors to top, full width
+	top_hud_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	top_hud_bar.offset_bottom = UIConstants.TOP_HUD_HEIGHT
+
+	# Connect money click to financial panel
+	top_hud_bar.money_clicked.connect(_on_money_clicked)
+
+	# Add to HUD as first child
+	hud.add_child(top_hud_bar)
+	hud.move_child(top_hud_bar, 0)
 
 	# Create "Build Mode" button to return from simulation
 	build_mode_btn = Button.new()
 	build_mode_btn.name = "BuildModeBtn"
-	build_mode_btn.text = "🔨 Build"
+	build_mode_btn.text = "# Build"
 	build_mode_btn.pressed.connect(_on_build_mode_pressed)
 	speed_controls.add_child(build_mode_btn)
 
@@ -323,6 +353,16 @@ func _setup_rain_overlay() -> void:
 	add_child(rain_overlay)
 	if weather_system:
 		rain_overlay.setup(weather_system)
+
+func _setup_placement_preview() -> void:
+	"""Create placement preview overlay for building/tree/rock placement"""
+	placement_preview = PlacementPreview.new()
+	placement_preview.name = "PlacementPreview"
+	placement_preview.set_terrain_grid(terrain_grid)
+	placement_preview.set_placement_manager(placement_manager)
+	placement_preview.set_camera(camera)
+	# Add as child of main scene so it renders above terrain
+	add_child(placement_preview)
 
 func _create_selection_indicator() -> void:
 	"""Create a label showing the currently selected tool/placement mode."""
@@ -423,40 +463,8 @@ func _on_build_mode_pressed() -> void:
 		print("Returned to building mode")
 
 func _update_ui() -> void:
-	# Update money with trend indicator
-	var trend_indicator = ""
-	if GameManager.yesterday_stats != null:
-		var today_profit = GameManager.daily_stats.get_profit()
-		var yesterday_profit = GameManager.yesterday_stats.get_profit()
-		if today_profit > yesterday_profit:
-			trend_indicator = " ^"  # Up arrow
-		elif today_profit < yesterday_profit:
-			trend_indicator = " v"  # Down arrow
-	money_label.text = "$%d%s" % [GameManager.money, trend_indicator]
-	day_label.text = "Day %d - %s" % [GameManager.current_day, GameManager.get_time_string()]
-	reputation_label.text = "Rep: %.0f" % GameManager.reputation
-
-	# Update game mode label
-	if game_mode_label:
-		match GameManager.current_mode:
-			GameManager.GameMode.BUILDING:
-				game_mode_label.text = "🔨 BUILDING MODE"
-				game_mode_label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.2))
-			GameManager.GameMode.SIMULATING:
-				var speed_text = ""
-				match GameManager.current_speed:
-					GameManager.GameSpeed.PAUSED:
-						speed_text = "⏸ PAUSED"
-					GameManager.GameSpeed.NORMAL:
-						speed_text = "▶ PLAYING"
-					GameManager.GameSpeed.FAST:
-						speed_text = "⏩ FAST"
-				game_mode_label.text = speed_text
-				game_mode_label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
-			_:
-				game_mode_label.text = "MODE: %s" % GameManager.current_mode
-
-	# Update button states
+	# TopHUDBar now handles money/day/reputation/weather/wind updates via signals
+	# Only update button states here
 	_update_button_states()
 
 func _update_button_states() -> void:
@@ -596,6 +604,10 @@ func _on_tool_selected(tool_type: int) -> void:
 	# Update toolbar highlight
 	if terrain_toolbar:
 		terrain_toolbar.set_current_tool(tool_type)
+	# Update placement preview for terrain painting
+	if placement_preview:
+		placement_preview.set_terrain_tool(tool_type)
+		placement_preview.set_terrain_painting_enabled(true)
 	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
 
 func _on_create_hole_pressed() -> void:
@@ -603,6 +615,7 @@ func _on_create_hole_pressed() -> void:
 	placement_manager.cancel_placement()
 	_cancel_elevation_mode()
 	_cancel_bulldozer_mode()
+	_disable_terrain_painting_preview()
 	is_painting = false
 	hole_tool.start_tee_placement()
 
@@ -718,6 +731,7 @@ func _on_tree_placement_pressed() -> void:
 	hole_tool.cancel_placement()
 	_cancel_elevation_mode()
 	_cancel_bulldozer_mode()
+	_disable_terrain_painting_preview()
 	is_painting = false
 
 	# Create tree selection dialog
@@ -753,6 +767,7 @@ func _on_building_placement_pressed() -> void:
 	hole_tool.cancel_placement()
 	_cancel_elevation_mode()
 	_cancel_bulldozer_mode()
+	_disable_terrain_painting_preview()
 	is_painting = false
 	
 	if building_registry.is_empty():
@@ -825,6 +840,7 @@ func _on_rock_placement_pressed() -> void:
 	hole_tool.cancel_placement()
 	_cancel_elevation_mode()
 	_cancel_bulldozer_mode()
+	_disable_terrain_painting_preview()
 	is_painting = false
 
 	# Create rock selection dialog
@@ -869,6 +885,7 @@ func _on_raise_elevation_pressed() -> void:
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
 	_cancel_bulldozer_mode()
+	_disable_terrain_painting_preview()
 	is_painting = false
 	elevation_tool.start_raising()
 	terrain_grid.set_elevation_overlay_active(true)
@@ -878,6 +895,7 @@ func _on_lower_elevation_pressed() -> void:
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
 	_cancel_bulldozer_mode()
+	_disable_terrain_painting_preview()
 	is_painting = false
 	elevation_tool.start_lowering()
 	terrain_grid.set_elevation_overlay_active(true)
@@ -888,6 +906,7 @@ func _on_bulldozer_pressed() -> void:
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
 	_cancel_elevation_mode()
+	_disable_terrain_painting_preview()
 	is_painting = false
 	bulldozer_mode = true
 	EventBus.notify("Bulldozer mode - Click to remove objects", "info")
@@ -895,6 +914,11 @@ func _on_bulldozer_pressed() -> void:
 
 func _cancel_bulldozer_mode() -> void:
 	bulldozer_mode = false
+
+func _disable_terrain_painting_preview() -> void:
+	"""Disable terrain painting preview when switching to other modes"""
+	if placement_preview:
+		placement_preview.set_terrain_painting_enabled(false)
 
 func _on_new_game_started() -> void:
 	"""Generate natural terrain when a new game starts"""
@@ -949,6 +973,8 @@ func _place_tree(grid_pos: Vector2i, cost: int) -> void:
 		EventBus.log_transaction("Tree: %s" % selected_tree_type.capitalize(), -cost)
 		undo_manager.record_entity_placement("tree", grid_pos, selected_tree_type, cost)
 		print("Placed %s tree at %s" % [selected_tree_type, grid_pos])
+		# Placement feedback
+		_play_placement_feedback(grid_pos, "tree")
 	else:
 		EventBus.notify("Failed to place tree!", "error")
 
@@ -970,6 +996,8 @@ func _place_building(grid_pos: Vector2i, cost: int) -> void:
 		EventBus.log_transaction("Building: %s" % building_name, -cost)
 		undo_manager.record_entity_placement("building", grid_pos, building_type, cost)
 		print("Placed %s at %s" % [building_type, grid_pos])
+		# Placement feedback
+		_play_placement_feedback(grid_pos, "building")
 		# Clear the building selector after successful placement
 		placement_manager.cancel_placement()
 	else:
@@ -983,8 +1011,27 @@ func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 		EventBus.log_transaction("Rock: %s" % selected_rock_size.capitalize(), -cost)
 		undo_manager.record_entity_placement("rock", grid_pos, selected_rock_size, cost)
 		print("Placed %s rock at %s" % [selected_rock_size, grid_pos])
+		# Placement feedback
+		_play_placement_feedback(grid_pos, "rock")
 	else:
 		EventBus.notify("Failed to place rock!", "error")
+
+func _play_placement_feedback(grid_pos: Vector2i, placement_type: String) -> void:
+	"""Play visual feedback effects when placing an entity"""
+	var world_pos = terrain_grid.grid_to_screen_center(grid_pos)
+
+	# Spawn particle burst
+	PlacementFeedback.create_at(self, world_pos, placement_type)
+
+	# Ring burst effect with success color
+	PlacementFeedback.create_ring_burst(self, world_pos, UIConstants.COLOR_SUCCESS)
+
+	# Micro camera shake for satisfying feedback
+	if camera:
+		camera.micro_shake()
+
+	# Sound hook (placeholder for future audio)
+	PlacementFeedback.play_placement_sound(placement_type)
 
 # Bulldozer removal costs
 const BULLDOZER_COSTS = {
@@ -1277,7 +1324,7 @@ func _on_building_panel_closed() -> void:
 # --- Financial Panel ---
 
 func _setup_financial_panel() -> void:
-	"""Add financial panel to the HUD and make money label clickable."""
+	"""Add financial panel to the HUD."""
 	var hud = $UI/HUD
 
 	# Create financial panel
@@ -1294,23 +1341,7 @@ func _setup_financial_panel() -> void:
 	hud.add_child(staff_panel)
 	staff_panel.hide()
 
-	# Make money label clickable by wrapping it in a button-like container
-	var money_btn = Button.new()
-	money_btn.name = "MoneyButton"
-	money_btn.flat = true
-	money_btn.pressed.connect(_on_money_clicked)
-	money_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	money_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL  # Button expands in HBoxContainer
-
-	# Get the parent and index of the money label
-	var top_bar = money_label.get_parent()
-	var label_index = money_label.get_index()
-
-	# Remove the label, add it to button, then add button to top bar
-	top_bar.remove_child(money_label)
-	money_btn.add_child(money_label)
-	top_bar.add_child(money_btn)
-	top_bar.move_child(money_btn, label_index)
+	# Note: Money click is now handled by TopHUDBar.money_clicked signal
 
 func _on_money_clicked() -> void:
 	## Toggle the financial panel when money is clicked.
@@ -1459,3 +1490,8 @@ func _toggle_tournament_panel() -> void:
 		# Center the panel on screen
 		var viewport_size = get_viewport().get_visible_rect().size
 		tournament_panel.position = (viewport_size - tournament_panel.custom_minimum_size) / 2
+
+func _toggle_terrain_debug_overlay() -> void:
+	"""Toggle the terrain debug overlay (F3)."""
+	if terrain_grid:
+		terrain_grid.toggle_debug_overlay()
