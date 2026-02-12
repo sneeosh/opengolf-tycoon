@@ -92,7 +92,7 @@ static func check_qualification(tier: TournamentTier, course_data, course_rating
 	for hole in course_data.holes:
 		if hole.is_open:
 			open_holes += 1
-			total_yardage += hole.yardage
+			total_yardage += hole.distance_yards
 
 	# Check hole count
 	if open_holes < requirements.min_holes:
