@@ -27,39 +27,28 @@ static func generate(terrain_grid: TerrainGrid, entity_layer: EntityLayer, seed_
 	print("Natural terrain generation complete")
 
 static func _generate_elevation(terrain_grid: TerrainGrid, rng: RandomNumberGenerator) -> void:
-	## Generate natural elevation using simplex-like noise
+	## Generate natural elevation using FastNoiseLite for organic distribution
 	var width = terrain_grid.grid_width
 	var height = terrain_grid.grid_height
 
-	# Create multiple "hill centers" for natural-looking terrain
-	var hill_count = rng.randi_range(8, 15)
-	var hills: Array = []
+	# Use Godot's noise generator for natural-looking terrain
+	var noise = FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	noise.seed = rng.randi()
+	noise.frequency = 0.02  # Controls hill size (lower = larger hills)
+	noise.fractal_octaves = 3  # Adds detail variation
 
-	for i in range(hill_count):
-		hills.append({
-			"center": Vector2(rng.randf_range(0, width), rng.randf_range(0, height)),
-			"radius": rng.randf_range(15, 40),
-			"height": rng.randi_range(-3, 4),  # Can be hills or valleys
-			"falloff": rng.randf_range(1.5, 3.0)
-		})
-
-	# Apply hills to elevation
+	# Apply noise-based elevation across the entire map
 	for x in range(width):
 		for y in range(height):
 			var pos = Vector2i(x, y)
-			var total_elevation: float = 0.0
+			# Get noise value (-1 to 1) and scale to elevation range (-3 to 3)
+			var noise_value = noise.get_noise_2d(float(x), float(y))
+			var elevation = roundi(noise_value * 3.5)
+			elevation = clampi(elevation, -3, 3)
 
-			for hill in hills:
-				var dist = Vector2(x, y).distance_to(hill.center)
-				if dist < hill.radius:
-					# Smooth falloff
-					var factor = 1.0 - pow(dist / hill.radius, hill.falloff)
-					total_elevation += hill.height * factor
-
-			# Clamp and apply
-			var final_elevation = clampi(roundi(total_elevation), -3, 3)
-			if final_elevation != 0:
-				terrain_grid.set_elevation(pos, final_elevation)
+			if elevation != 0:
+				terrain_grid.set_elevation(pos, elevation)
 
 static func _generate_water(terrain_grid: TerrainGrid, rng: RandomNumberGenerator) -> void:
 	## Generate natural water features (ponds)
