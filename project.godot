@@ -91,6 +91,10 @@ rotate_camera={
 2d_physics/layer_4="golf_balls"
 2d_physics/layer_5="ui_interaction"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gut/plugin.cfg")
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
