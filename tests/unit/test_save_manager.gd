@@ -111,7 +111,7 @@ func test_game_state_json_roundtrip() -> void:
 	var json_string = JSON.stringify(save_data)
 	var parsed = JSON.parse_string(json_string)
 
-	assert_ne(parsed, null, "JSON should parse successfully")
+	assert_not_null(parsed, "JSON should parse successfully")
 	assert_eq(parsed.version, 2)
 	assert_eq(parsed.game_state.course_name, "Test Links")
 	assert_eq(parsed.game_state.money, 75000)
