@@ -27,6 +27,7 @@ GameManager="*res://scripts/autoload/game_manager.gd"
 EventBus="*res://scripts/autoload/event_bus.gd"
 SaveManager="*res://scripts/autoload/save_manager.gd"
 FeedbackManager="*res://scripts/autoload/feedback_manager.gd"
+ShadowSystem="*res://scripts/systems/shadow_system.gd"
 
 [display]
 

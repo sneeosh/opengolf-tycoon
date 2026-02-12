@@ -9,6 +9,10 @@ var rocks: Dictionary = {}      # key: Vector2i (grid_pos), value: Rock node
 var terrain_grid: TerrainGrid
 var building_registry: Dictionary = {}  # Can accept either Node or Dictionary
 
+## Map seed for deterministic prop variations
+## Set once at game start or load for consistent visual results
+var map_seed: int = 0
+
 signal building_placed(building: Building, cost: int)
 signal tree_placed(tree: TreeEntity, cost: int)
 signal rock_placed(rock: Rock, cost: int)
@@ -25,9 +29,33 @@ func _ready() -> void:
 	buildings_container.name = "Buildings"
 	trees_container.name = "Trees"
 	rocks_container.name = "Rocks"
+
+	# Enable Y-sorting for proper isometric depth ordering
+	# Objects lower on screen (higher Y) render in front of objects higher on screen
+	buildings_container.y_sort_enabled = true
+	trees_container.y_sort_enabled = true
+	rocks_container.y_sort_enabled = true
+
 	add_child(buildings_container)
 	add_child(trees_container)
 	add_child(rocks_container)
+
+	# Generate a random map seed if not set (new game)
+	if map_seed == 0:
+		randomize()
+		map_seed = randi()
+	_apply_map_seed()
+
+
+func _apply_map_seed() -> void:
+	"""Apply the map seed to the prop variation system"""
+	PropVariation.set_map_seed(map_seed)
+
+
+func set_map_seed(seed_value: int) -> void:
+	"""Set the map seed and apply it to prop variations"""
+	map_seed = seed_value
+	_apply_map_seed()
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -233,6 +261,7 @@ func get_all_rocks() -> Array:
 
 func serialize() -> Dictionary:
 	var data: Dictionary = {
+		"map_seed": map_seed,
 		"buildings": {},
 		"trees": {},
 		"rocks": {}
@@ -265,14 +294,21 @@ func deserialize(data: Dictionary) -> void:
 	"""Reconstruct entities from saved data."""
 	clear_all()
 
+	# Restore map seed for consistent prop variations
+	if data.has("map_seed"):
+		set_map_seed(data["map_seed"])
+
 	if data.has("trees"):
 		for key in data["trees"]:
 			var parts = key.split(",")
 			if parts.size() == 2:
 				var pos = Vector2i(int(parts[0]), int(parts[1]))
-				var tree_data = data["trees"][key]
-				var tree_type = tree_data.get("tree_type", "oak") if tree_data is Dictionary else "oak"
-				place_tree(pos, tree_type)
+				var tree_data_saved = data["trees"][key]
+				# Support both "type" (current) and "tree_type" (legacy) keys
+				var tree_type_val = "oak"
+				if tree_data_saved is Dictionary:
+					tree_type_val = tree_data_saved.get("type", tree_data_saved.get("tree_type", "oak"))
+				place_tree(pos, tree_type_val)
 
 	if data.has("buildings"):
 		for key in data["buildings"]:
@@ -293,9 +329,12 @@ func deserialize(data: Dictionary) -> void:
 			var parts = key.split(",")
 			if parts.size() == 2:
 				var pos = Vector2i(int(parts[0]), int(parts[1]))
-				var rock_data = data["rocks"][key]
-				var rock_size = rock_data.get("rock_size", "medium") if rock_data is Dictionary else "medium"
-				place_rock(pos, rock_size)
+				var rock_data_saved = data["rocks"][key]
+				# Support both "size" (current) and "rock_size" (legacy) keys
+				var rock_size_val = "medium"
+				if rock_data_saved is Dictionary:
+					rock_size_val = rock_data_saved.get("size", rock_data_saved.get("rock_size", "medium"))
+				place_rock(pos, rock_size_val)
 
 func _on_building_selected(building: Building) -> void:
 	building_selected.emit(building)

@@ -172,6 +172,9 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_T:
 			_toggle_tournament_panel()
 			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_F3:
+			_toggle_terrain_debug_overlay()
+			get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("select"):
@@ -1459,3 +1462,8 @@ func _toggle_tournament_panel() -> void:
 		# Center the panel on screen
 		var viewport_size = get_viewport().get_visible_rect().size
 		tournament_panel.position = (viewport_size - tournament_panel.custom_minimum_size) / 2
+
+func _toggle_terrain_debug_overlay() -> void:
+	"""Toggle the terrain debug overlay (F3)."""
+	if terrain_grid:
+		terrain_grid.toggle_debug_overlay()

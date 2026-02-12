@@ -25,9 +25,12 @@ var _tree_overlay: TreeOverlay = null
 var _rock_overlay: RockOverlay = null
 var _flower_overlay: FlowerOverlay = null
 var _path_overlay: PathOverlay = null
+var _debug_overlay: TerrainDebugOverlay = null
+var _noise_overlay: TerrainNoiseOverlay = null
 
 func _ready() -> void:
 	_generate_tileset()
+	_apply_variation_shader()
 	_initialize_grid()
 	_setup_ob_markers_overlay()
 	_setup_water_overlay()
@@ -39,12 +42,29 @@ func _ready() -> void:
 	_setup_flower_overlay()
 	_setup_path_overlay()
 	_setup_elevation_overlay()
+	_setup_debug_overlay()
+	_setup_noise_overlay()
+
+	# Force a complete redraw after one frame to ensure shader is fully applied
+	# This fixes the issue where initial tiles don't get shader variation
+	call_deferred("_refresh_all_tiles")
+
+func _refresh_all_tiles() -> void:
+	# Force redraw of all tiles to ensure shader is applied correctly
+	# This is called deferred after _ready() to fix initial tile rendering
+	if not tile_map:
+		return
+	for x in range(grid_width):
+		for y in range(grid_height):
+			_update_tile_visual(Vector2i(x, y))
+	# Also force the TileMapLayer to redraw
+	tile_map.queue_redraw()
 
 func _generate_tileset() -> void:
 	if not tile_map:
 		return
-	# Generate textured tileset at runtime
-	var texture = TilesetGenerator.generate_tileset()
+	# Generate expanded textured tileset with autotile variants at runtime
+	var texture = TilesetGenerator.generate_expanded_tileset()
 	var tileset = TileSet.new()
 	tileset.tile_size = Vector2i(tile_width, tile_height)
 
@@ -52,13 +72,48 @@ func _generate_tileset() -> void:
 	source.texture = texture
 	source.texture_region_size = Vector2i(tile_width, tile_height)
 
-	# Create tiles for each terrain type (7 columns, 2 rows)
-	for row in range(2):
-		for col in range(7):
+	# Create tiles for expanded atlas (16 columns, 16 rows)
+	for row in range(TilesetGenerator.ATLAS_ROWS):
+		for col in range(TilesetGenerator.ATLAS_COLS):
 			source.create_tile(Vector2i(col, row))
 
 	tileset.add_source(source)
 	tile_map.tile_set = tileset
+
+func _apply_variation_shader() -> void:
+	if not tile_map:
+		return
+	# Check if shader file exists before loading
+	if not ResourceLoader.exists("res://shaders/terrain_variation.gdshader"):
+		return
+
+	var shader = load("res://shaders/terrain_variation.gdshader")
+	if not shader:
+		return
+
+	var material = ShaderMaterial.new()
+	material.shader = shader
+
+	# Atlas layout for proper tile center sampling
+	material.set_shader_parameter("tile_size", Vector2(tile_width, tile_height))
+	material.set_shader_parameter("atlas_size", Vector2(
+		TilesetGenerator.TILE_WIDTH * TilesetGenerator.ATLAS_COLS,
+		TilesetGenerator.TILE_HEIGHT * TilesetGenerator.ATLAS_ROWS
+	))
+
+	# Fixed terrain base colors (shader detects terrain type and uses these)
+	material.set_shader_parameter("grass_color", Vector3(0.42, 0.58, 0.32))
+	material.set_shader_parameter("fairway_color", Vector3(0.39, 0.75, 0.39))
+	material.set_shader_parameter("green_color", Vector3(0.36, 0.85, 0.46))
+	material.set_shader_parameter("rough_color", Vector3(0.36, 0.52, 0.30))
+	material.set_shader_parameter("heavy_rough_color", Vector3(0.30, 0.45, 0.26))
+
+	# Procedural variation amounts
+	material.set_shader_parameter("hue_variation", 0.04)
+	material.set_shader_parameter("value_variation", 0.18)
+	material.set_shader_parameter("saturation_variation", 0.06)
+
+	tile_map.material = material
 
 func _initialize_grid() -> void:
 	for x in range(grid_width):
@@ -98,9 +153,57 @@ func set_tile(pos: Vector2i, terrain_type: int) -> void:
 	if old_type == terrain_type:
 		return
 	_grid[pos] = terrain_type
-	_update_tile_visual(pos)
+	_update_tile_with_neighbors(pos)
 	tile_changed.emit(pos, old_type, terrain_type)
 	EventBus.terrain_tile_changed.emit(pos, old_type, terrain_type)
+
+func _update_tile_with_neighbors(pos: Vector2i) -> void:
+	# Update the tile and all 8 neighbors for seamless autotile transitions
+	_update_tile_visual(pos)
+	for neighbor in _get_4_neighbors(pos):
+		if is_valid_position(neighbor):
+			_update_tile_visual(neighbor)
+
+func _get_4_neighbors(pos: Vector2i) -> Array[Vector2i]:
+	return [
+		pos + Vector2i(0, -1),  # North
+		pos + Vector2i(1, 0),   # East
+		pos + Vector2i(0, 1),   # South
+		pos + Vector2i(-1, 0)   # West
+	]
+
+func _calculate_edge_mask(pos: Vector2i, terrain_type: int) -> int:
+	# Calculate which edges need transition visuals
+	# An edge is marked if the neighbor is a DIFFERENT terrain type
+	var edge_mask = 0
+	var n_pos = pos + Vector2i(0, -1)
+	var e_pos = pos + Vector2i(1, 0)
+	var s_pos = pos + Vector2i(0, 1)
+	var w_pos = pos + Vector2i(-1, 0)
+
+	if _is_different_terrain(n_pos, terrain_type):
+		edge_mask |= TilesetGenerator.EDGE_N
+	if _is_different_terrain(e_pos, terrain_type):
+		edge_mask |= TilesetGenerator.EDGE_E
+	if _is_different_terrain(s_pos, terrain_type):
+		edge_mask |= TilesetGenerator.EDGE_S
+	if _is_different_terrain(w_pos, terrain_type):
+		edge_mask |= TilesetGenerator.EDGE_W
+
+	return edge_mask
+
+func _is_different_terrain(pos: Vector2i, terrain_type: int) -> bool:
+	if not is_valid_position(pos):
+		return true  # Treat out-of-bounds as different
+	var neighbor_type = get_tile(pos)
+	if neighbor_type == terrain_type:
+		return false
+	# Special case: grass family transitions are smooth within family
+	var grass_family = [TerrainTypes.Type.GRASS, TerrainTypes.Type.FAIRWAY,
+						TerrainTypes.Type.ROUGH, TerrainTypes.Type.HEAVY_ROUGH]
+	if terrain_type in grass_family and neighbor_type in grass_family:
+		return false
+	return true
 
 func paint_tiles(positions: Array, terrain_type: int) -> void:
 	for pos in positions:
@@ -131,17 +234,12 @@ func get_total_maintenance_cost() -> int:
 func _update_tile_visual(pos: Vector2i) -> void:
 	if tile_map:
 		var terrain_type = get_tile(pos)
-		var atlas_coords = _get_atlas_coords_for_type(terrain_type)
+		var edge_mask = 0
+		# Only calculate edge mask for autotileable terrains
+		if TilesetGenerator.terrain_uses_autotile(terrain_type):
+			edge_mask = _calculate_edge_mask(pos, terrain_type)
+		var atlas_coords = TilesetGenerator.get_autotile_coords(terrain_type, edge_mask)
 		tile_map.set_cell(pos, 0, atlas_coords)
-
-func _get_atlas_coords_for_type(terrain_type: int) -> Vector2i:
-	# Tileset is arranged in a 7-column grid (2 rows)
-	# Row 0: EMPTY, GRASS, FAIRWAY, ROUGH, HEAVY_ROUGH, GREEN, TEE_BOX
-	# Row 1: BUNKER, WATER, PATH, OUT_OF_BOUNDS, TREES, FLOWER_BED, ROCKS
-	const TILES_PER_ROW = 7
-	var x = terrain_type % TILES_PER_ROW
-	var y = terrain_type / TILES_PER_ROW
-	return Vector2i(x, y)
 
 func _setup_ob_markers_overlay() -> void:
 	_ob_markers_overlay = OBMarkersOverlay.new()
@@ -202,6 +300,26 @@ func _setup_elevation_overlay() -> void:
 	_elevation_overlay.name = "ElevationOverlay"
 	add_child(_elevation_overlay)
 	_elevation_overlay.initialize(self)
+
+func _setup_debug_overlay() -> void:
+	_debug_overlay = TerrainDebugOverlay.new()
+	_debug_overlay.name = "TerrainDebugOverlay"
+	add_child(_debug_overlay)
+	_debug_overlay.initialize(self)
+
+func _setup_noise_overlay() -> void:
+	# Disabled - noise overlay doesn't help with tile boundary visibility
+	# The terrain_variation shader handles all variation
+	pass
+
+## Toggle debug overlay visibility
+func toggle_debug_overlay() -> void:
+	if _debug_overlay:
+		_debug_overlay.toggle()
+
+## Check if debug overlay is enabled
+func is_debug_overlay_enabled() -> bool:
+	return _debug_overlay and _debug_overlay.is_enabled()
 
 ## Get elevation at a position (default 0)
 func get_elevation(pos: Vector2i) -> int:
@@ -337,13 +455,17 @@ func serialize_elevation() -> Dictionary:
 
 func deserialize(data: Dictionary) -> void:
 	_initialize_grid()
+	# First pass: set all terrain types
 	for key in data:
 		var parts = key.split(",")
 		if parts.size() == 2:
 			var pos = Vector2i(int(parts[0]), int(parts[1]))
 			if is_valid_position(pos):
 				_grid[pos] = data[key]
-				_update_tile_visual(pos)
+	# Second pass: update visuals with correct autotile edges
+	for x in range(grid_width):
+		for y in range(grid_height):
+			_update_tile_visual(Vector2i(x, y))
 
 func deserialize_elevation(data: Dictionary) -> void:
 	_elevation_grid.clear()
