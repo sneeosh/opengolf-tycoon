@@ -490,28 +490,35 @@ _Moved to Future Ideas - low priority until core features complete_
 
 ---
 
-## PRIORITY 9: Polish & Content
+## PRIORITY 9: Polish & Content ✅ COMPLETE
 
-### [] Visual & Audio Polish
-- Custom sprites for all terrain types
-- Animated water and flags
-- Ambient sounds (birds, wind, golf shots)
-- Music tracks for different game states
-- Particle effects (sand spray, water splash)
+### [X] Visual Polish
+**STATUS: COMPLETE** - Terrain and building visuals significantly improved:
+- ✅ Procedural textured tileset (mowing stripes, wave patterns, gravel textures)
+- ✅ Tree overlay with 3 tree types (pine, oak, bushy) with shadows
+- ✅ Flower bed overlay with colorful flower clusters
+- ✅ Rock overlay with natural-looking formations
+- ✅ Fairway and path visual overlays
+- ✅ Improved building visuals (all building types)
+- ✅ Particle effects (sand spray, water splash) - done in P3
 
-### [] Additional Terrain Objects
-- Flower beds and gardens
-- Bridges over water
-- Cart paths (visual and functional)
-- Additional decorative objects
+### [X] Additional Terrain Objects
+**STATUS: COMPLETE** - Core decorative objects implemented:
+- ✅ Flower beds with FlowerOverlay
+- ✅ Cart paths (visual and functional) - done in P6
+- ✅ Trees and rocks with improved visuals
 
-### [~] Zoom & Scale Tuning
-**STATUS: PARTIAL** - Yardage scale adjusted, zoom polish remaining:
-- ✅ Yardage scale tripled (5 → 15 yards/tile) for more realistic hole yardages
-- ✅ All club distances, ball rolling, safety radii, and thresholds scaled to match
-- ⏳ Adjust default zoom for realistic yardage
-- ⏳ Smooth zoom transitions
-- ⏳ Remember zoom preference
+### [X] Zoom & Scale Tuning
+**STATUS: COMPLETE** - Yardage and zoom controls:
+- ✅ Yardage scale adjusted (22 yards/tile) for realistic hole distances
+- ✅ All club distances scaled to match
+- ✅ Pinch-to-zoom gesture support (Mac trackpad)
+- ✅ Keyboard zoom hotkeys ([ and ])
+
+### [X] Gameplay Polish
+**STATUS: COMPLETE** - Shot accuracy and building fixes:
+- ✅ Fixed shot accuracy (errors go short/sideways, never unrealistically long)
+- ✅ Prevented terrain/elevation painting under buildings
 
 ---
 
@@ -544,6 +551,17 @@ _These are ambitious ideas that would each represent significant scope. Deferred
 ## Future Ideas (Deferred from Earlier Priorities)
 
 _These features were considered but deferred to focus on core gameplay. May be revisited later._
+
+### Audio & Animation (from P9)
+- Ambient sounds (birds, wind, golf shots)
+- Music tracks for different game states
+- Animated water tiles
+- Animated flag waving
+
+### Additional Content (from P9)
+- Bridges over water
+- Smooth zoom transitions
+- Remember zoom preference between sessions
 
 ### UI/UX (from P7)
 - Categorized terrain menu with collapsible sections
@@ -618,7 +636,9 @@ _These features were considered but deferred to focus on core gameplay. May be r
 14. ✅ ~~Priority 5: Economy & Satisfaction Loop~~ - COMPLETE (operating costs, course rating, golfer tiers, course records)
 15. ✅ ~~Priority 6: Buildings & Facilities~~ - COMPLETE (clubhouse upgrades, cart paths, building revenue/satisfaction effects)
 16. ✅ ~~Priority 7: UI/UX Improvements~~ - COMPLETE (mini-map, financial dashboard, hole stats, selection indicator, panel fixes, undo improvements)
-17. Start Priority 8: Advanced Features (Weather, Tournaments, Difficulty Rating)
+17. ✅ ~~Priority 8: Advanced Features~~ - COMPLETE (weather system, tournaments, difficulty rating)
+18. ✅ ~~Priority 9: Polish & Content~~ - COMPLETE (terrain visuals, zoom controls, shot accuracy fixes)
+19. Start Priority 10: Performance & Optimization (approaching Alpha!)
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.
