@@ -36,6 +36,10 @@ jobs:
             preset: "Linux"
             output_dir: build/linux
             artifact_name: linux
+          - name: Web
+            preset: "Web"
+            output_dir: build/web
+            artifact_name: web
 
     steps:
       - name: Checkout
@@ -72,12 +76,43 @@ jobs:
           mkdir -p "${{ matrix.output_dir }}"
           godot --headless --export-release "${{ matrix.preset }}" 2>&1
 
+      - name: Add Cloudflare headers for cross-origin isolation
+        if: matrix.artifact_name == 'web'
+        run: |
+          cat > "${{ matrix.output_dir }}/_headers" << 'HEADERS'
+          /*
+            Cross-Origin-Opener-Policy: same-origin
+            Cross-Origin-Embedder-Policy: require-corp
+          HEADERS
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: "${{ env.PROJECT_NAME }}-${{ matrix.artifact_name }}"
           path: ${{ matrix.output_dir }}
           if-no-files-found: error
+
+  deploy-web:
+    name: Deploy to Cloudflare Pages
+    needs: export
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Download web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: "${{ env.PROJECT_NAME }}-web"
+          path: web
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy web --project-name=opengolf-tycoon
 
   release:
     name: Create Release
