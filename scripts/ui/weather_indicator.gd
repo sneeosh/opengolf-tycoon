@@ -20,7 +20,7 @@ func _ready() -> void:
 	title.text = "Weather"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 10)
-	title.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	title.add_theme_color_override("font_color", Color.WHITE)
 	vbox.add_child(title)
 
 	# Icon/condition label

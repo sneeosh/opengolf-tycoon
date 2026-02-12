@@ -313,7 +313,7 @@ func _create_zoom_hint() -> void:
 	zoom_label.name = "ZoomHint"
 	zoom_label.text = "Zoom: [ - ] +"
 	zoom_label.add_theme_font_size_override("font_size", 12)
-	zoom_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	zoom_label.add_theme_color_override("font_color", Color.WHITE)
 	bottom_bar.add_child(zoom_label)
 
 func _setup_rain_overlay() -> void:
