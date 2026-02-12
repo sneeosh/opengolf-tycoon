@@ -208,9 +208,20 @@ func _would_overlap_building(new_pos: Vector2i, new_width: int, new_height: int)
 	return false
 
 func has_building_of_type(building_type: String) -> bool:
-	"""Check if a building of the specified type already exists"""
+	## Check if a building of the specified type already exists
 	for existing in buildings.values():
 		if existing.building_type == building_type:
+			return true
+	return false
+
+func is_tile_occupied_by_building(grid_pos: Vector2i) -> bool:
+	## Check if a tile is occupied by any building (including multi-tile buildings)
+	for building in buildings.values():
+		var b_pos = building.grid_position
+		var b_width = building.width
+		var b_height = building.height
+		if grid_pos.x >= b_pos.x and grid_pos.x < b_pos.x + b_width and \
+		   grid_pos.y >= b_pos.y and grid_pos.y < b_pos.y + b_height:
 			return true
 	return false
 

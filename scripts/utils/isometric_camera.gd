@@ -38,10 +38,22 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.pressed:
 				_drag_start_mouse = event.position
 				_drag_start_camera = global_position
-	
+
 	if event is InputEventMouseMotion and _is_dragging:
 		var drag_offset = event.position - _drag_start_mouse
 		_target_position = _drag_start_camera - drag_offset / zoom.x
+
+	# Mac trackpad pinch-to-zoom gesture
+	if event is InputEventMagnifyGesture:
+		var pinch_zoom_speed = 0.5
+		_zoom_camera((1.0 - event.factor) * pinch_zoom_speed)
+
+	# Keyboard zoom hotkeys: ] to zoom in, [ to zoom out
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_BRACKETRIGHT:
+			_zoom_camera(-zoom_speed * 2)
+		elif event.keycode == KEY_BRACKETLEFT:
+			_zoom_camera(zoom_speed * 2)
 
 func _handle_keyboard_input(delta: float) -> void:
 	var direction := Vector2.ZERO

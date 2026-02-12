@@ -7,13 +7,14 @@ signal close_requested
 
 var _tier_buttons: Array = []
 var _effects_label: Label = null
+var _content_vbox: VBoxContainer = null
 
 func _ready() -> void:
 	_build_ui()
 	hide()
 
 func _build_ui() -> void:
-	custom_minimum_size = Vector2(280, 250)
+	custom_minimum_size = Vector2(320, 280)
 
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 12)
@@ -22,17 +23,17 @@ func _build_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", 12)
 	add_child(margin)
 
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	margin.add_child(vbox)
+	var main_vbox = VBoxContainer.new()
+	main_vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(main_vbox)
 
 	# Title row with close button
 	var title_row = HBoxContainer.new()
-	vbox.add_child(title_row)
+	main_vbox.add_child(title_row)
 
 	var title = Label.new()
 	title.text = "Staff Management"
-	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_font_size_override("font_size", 18)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title)
 
@@ -42,7 +43,19 @@ func _build_ui() -> void:
 	close_btn.pressed.connect(_on_close_pressed)
 	title_row.add_child(close_btn)
 
-	vbox.add_child(HSeparator.new())
+	main_vbox.add_child(HSeparator.new())
+
+	# Content area
+	_content_vbox = VBoxContainer.new()
+	_content_vbox.add_theme_constant_override("separation", 6)
+	_content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_vbox.add_child(_content_vbox)
+
+	# Tier selection section
+	var tier_label = Label.new()
+	tier_label.text = "Select Staff Tier"
+	tier_label.add_theme_font_size_override("font_size", 14)
+	_content_vbox.add_child(tier_label)
 
 	# Tier selection buttons
 	for tier in GameManager.STAFF_TIER_DATA.keys():
@@ -53,20 +66,21 @@ func _build_ui() -> void:
 		btn.toggle_mode = true
 		btn.button_pressed = (tier == GameManager.current_staff_tier)
 		btn.pressed.connect(_on_tier_selected.bind(tier))
-		vbox.add_child(btn)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_content_vbox.add_child(btn)
 		_tier_buttons.append(btn)
 
-	vbox.add_child(HSeparator.new())
+	_content_vbox.add_child(HSeparator.new())
 
 	# Effects display
 	var effects_title = Label.new()
 	effects_title.text = "Current Effects:"
 	effects_title.add_theme_font_size_override("font_size", 14)
-	vbox.add_child(effects_title)
+	_content_vbox.add_child(effects_title)
 
 	_effects_label = Label.new()
 	_effects_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(_effects_label)
+	_content_vbox.add_child(_effects_label)
 
 	_update_effects_display()
 

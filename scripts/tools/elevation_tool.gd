@@ -33,7 +33,8 @@ func is_active() -> bool:
 
 ## Paint elevation at the given grid position using the current mode
 ## Returns array of changes for undo tracking: [{position, old_elevation, new_elevation}]
-func paint_elevation(grid_pos: Vector2i, terrain_grid: TerrainGrid, brush_size: int = 1) -> Array:
+## Optional entity_layer parameter to skip tiles occupied by buildings
+func paint_elevation(grid_pos: Vector2i, terrain_grid: TerrainGrid, brush_size: int = 1, entity_layer: EntityLayer = null) -> Array:
 	if elevation_mode == ElevationMode.NONE:
 		return []
 	if not terrain_grid or not terrain_grid.is_valid_position(grid_pos):
@@ -44,6 +45,9 @@ func paint_elevation(grid_pos: Vector2i, terrain_grid: TerrainGrid, brush_size: 
 	var changes: Array = []
 
 	for tile_pos in tiles:
+		# Skip tiles occupied by buildings
+		if entity_layer and entity_layer.is_tile_occupied_by_building(tile_pos):
+			continue
 		var old_elevation = terrain_grid.get_elevation(tile_pos)
 		var new_elevation = clampi(old_elevation + change_amount, -5, 5)
 		if new_elevation != old_elevation:

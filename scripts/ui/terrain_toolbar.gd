@@ -60,7 +60,7 @@ const TOOL_SECTIONS = {
 	},
 	"Management": {
 		"tools": [
-			{"type": "staff", "name": "Staff", "hotkey": "S"},
+			{"type": "staff", "name": "Staff", "hotkey": "M"},
 		]
 	},
 }
@@ -267,7 +267,7 @@ func _input(event: InputEvent) -> void:
 				_on_tool_button_pressed("lower")
 			KEY_X:
 				_on_tool_button_pressed("bulldozer")
-			KEY_S:
+			KEY_M:
 				_on_tool_button_pressed("staff")
 
 func set_current_tool(tool_type: int) -> void:

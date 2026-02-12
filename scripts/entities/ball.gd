@@ -87,6 +87,20 @@ func start_flight_screen(from_screen: Vector2, to_screen: Vector2, duration: flo
 	_change_state(BallState.IN_FLIGHT)
 	global_position = flight_start_pos
 
+## Start a flight animation with arc using precise screen coordinates (for sub-tile shots)
+func start_flight_screen_with_arc(from_screen: Vector2, to_screen: Vector2, duration: float = 1.5, wind_offset: Vector2 = Vector2.ZERO) -> void:
+	flight_start_pos = from_screen
+	flight_end_pos = to_screen
+	flight_progress = 0.0
+	flight_duration = duration
+
+	var distance = flight_start_pos.distance_to(flight_end_pos)
+	flight_max_height = min(distance * 0.3, 150.0)
+	wind_visual_offset = wind_offset
+
+	_change_state(BallState.IN_FLIGHT)
+	global_position = flight_start_pos
+
 func _process_flight(delta: float) -> void:
 	flight_progress += delta / flight_duration
 

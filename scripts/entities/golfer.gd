@@ -416,7 +416,9 @@ func take_shot(target: Vector2i) -> void:
 	await _play_swing_animation()
 
 	var terrain_grid = GameManager.terrain_grid
-	var current_terrain = terrain_grid.get_tile(ball_position) if terrain_grid else -1
+	# Use rounded precise position for terrain check to handle sub-tile edge cases
+	var terrain_check_pos = Vector2i(ball_position_precise.round()) if terrain_grid else ball_position
+	var current_terrain = terrain_grid.get_tile(terrain_check_pos) if terrain_grid else -1
 	var is_putt = current_terrain == TerrainTypes.Type.GREEN
 
 	# Save position before shot for OB stroke-and-distance penalty
@@ -438,13 +440,16 @@ func take_shot(target: Vector2i) -> void:
 	else:
 		# Standard shot calculation
 		var from_pos = ball_position
+		var from_precise = ball_position_precise
 		shot_result = _calculate_shot(ball_position, target)
 		ball_position = shot_result.landing_position
-		ball_position_precise = Vector2(ball_position)
+		ball_position_precise = shot_result.landing_position_precise
 
-		# Emit ball landed signal for flight animation
+		# Emit precise ball landed signal for sub-tile flight animation
 		if terrain_grid:
-			EventBus.ball_landed.emit(golfer_id, from_pos, shot_result.landing_position, terrain_grid.get_tile(shot_result.landing_position))
+			var from_screen = terrain_grid.grid_to_screen_precise(from_precise)
+			var to_screen = terrain_grid.grid_to_screen_precise(shot_result.landing_position_precise)
+			EventBus.ball_shot_landed_precise.emit(golfer_id, from_screen, to_screen, shot_result.distance)
 
 	# Debug output
 	var club_name = CLUB_STATS[shot_result.club]["name"]
@@ -898,10 +903,11 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 
 	# Short game accuracy boost for wedge shots based on real amateur golfer data
 	# Closer wedge shots should be much more accurate regardless of skill level
-	# Real-world averages: 20yds ~7yd error, 50yds ~15yd error, 100yds ~20yd error
+	# At 22 yards/tile: 50yds = ~2.3 tiles, shots under 50yds should hit green most of the time
 	if club == Club.WEDGE:
 		var distance_ratio = clamp(distance_to_target / float(club_stats["max_distance"]), 0.0, 1.0)
-		var short_game_floor = lerpf(0.85, 0.6, distance_ratio)
+		# Much higher floor for close shots: 0.96 at point blank, 0.80 at max wedge distance
+		var short_game_floor = lerpf(0.96, 0.80, distance_ratio)
 		total_accuracy = max(total_accuracy, short_game_floor)
 
 	# Putt accuracy floor - scales with putting skill
@@ -975,7 +981,14 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 
 	# Lateral error (slice/hook) - primary miss pattern, can go either direction
 	var perpendicular = Vector2(-direction.y, direction.x)
-	var lateral_error = randf_range(-1.0, 1.0) * error_range * 1.5
+	var lateral_multiplier = 1.5
+	# Reduce lateral error for short wedge shots - these are controlled swings
+	# Full swing = more lateral miss potential, partial swing = tighter dispersion
+	if club == Club.WEDGE:
+		var wedge_distance_ratio = clamp(actual_distance / float(club_stats["max_distance"]), 0.0, 1.0)
+		# Scale lateral error: 0.4x for very short shots, 1.2x for full wedge
+		lateral_multiplier = lerpf(0.4, 1.2, wedge_distance_ratio)
+	var lateral_error = randf_range(-1.0, 1.0) * error_range * lateral_multiplier
 
 	# Longitudinal error - only SHORT, never long (mishits lose distance)
 	# Worse accuracy = more likely to chunk/top it and lose distance
@@ -989,11 +1002,14 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 		var wind_displacement = GameManager.wind_system.get_wind_displacement(direction, actual_distance, club)
 		landing_point += wind_displacement
 
+	# Keep sub-tile precision - use round for accurate grid cell
+	var landing_position_precise = landing_point
 	var landing_position = Vector2i(landing_point.round())
 
 	# Ensure landing position is valid
 	if not terrain_grid.is_valid_position(landing_position):
 		landing_position = target
+		landing_position_precise = Vector2(target)
 
 	# For putts, ensure ball stays on green or goes in hole
 	if club == Club.PUTTER:
@@ -1024,6 +1040,7 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 
 	return {
 		"landing_position": landing_position,
+		"landing_position_precise": landing_position_precise,
 		"distance": distance_yards,
 		"accuracy": total_accuracy,
 		"club": club
@@ -1168,13 +1185,8 @@ func _walk_to_ball() -> void:
 	if not GameManager.terrain_grid:
 		return
 
-	# Use sub-tile precision on the green for accurate positioning
-	var ball_screen_pos: Vector2
-	var current_terrain = GameManager.terrain_grid.get_tile(ball_position)
-	if current_terrain == TerrainTypes.Type.GREEN:
-		ball_screen_pos = GameManager.terrain_grid.grid_to_screen_precise(ball_position_precise)
-	else:
-		ball_screen_pos = GameManager.terrain_grid.grid_to_screen_center(ball_position)
+	# Always use sub-tile precision for accurate ball positioning
+	var ball_screen_pos = GameManager.terrain_grid.grid_to_screen_precise(ball_position_precise)
 	path = _find_path_to(ball_screen_pos)
 	path_index = 0
 	_change_state(State.WALKING)

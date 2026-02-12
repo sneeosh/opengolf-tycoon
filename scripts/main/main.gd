@@ -1303,25 +1303,27 @@ func _setup_financial_panel() -> void:
 	top_bar.move_child(money_btn, label_index)
 
 func _on_money_clicked() -> void:
-	"""Toggle the financial panel when money is clicked."""
+	## Toggle the financial panel when money is clicked.
 	financial_panel.toggle()
 	if financial_panel.visible:
-		# Center the panel on screen
+		# Center the panel on screen using actual size
 		var viewport_size = get_viewport().get_visible_rect().size
-		financial_panel.position = (viewport_size - financial_panel.custom_minimum_size) / 2
+		var panel_size = financial_panel.get_combined_minimum_size()
+		financial_panel.position = (viewport_size - panel_size) / 2
 
 func _on_financial_panel_closed() -> void:
 	"""Hide the financial panel."""
 	financial_panel.hide()
 
 func _on_staff_pressed() -> void:
-	"""Toggle staff management panel."""
+	## Toggle staff management panel.
 	if staff_panel:
 		staff_panel.toggle()
 		if staff_panel.visible:
-			# Center the panel on screen
+			# Center the panel on screen using actual size
 			var viewport_size = get_viewport().get_visible_rect().size
-			staff_panel.position = (viewport_size - staff_panel.custom_minimum_size) / 2
+			var panel_size = staff_panel.get_combined_minimum_size()
+			staff_panel.position = (viewport_size - panel_size) / 2
 
 func _on_staff_panel_closed() -> void:
 	"""Hide the staff panel."""

@@ -18,6 +18,7 @@ func _ready() -> void:
 	EventBus.shot_taken.connect(_on_shot_taken)
 	EventBus.ball_landed.connect(_on_ball_landed)
 	EventBus.ball_putt_landed_precise.connect(_on_ball_putt_precise)
+	EventBus.ball_shot_landed_precise.connect(_on_ball_shot_precise)
 	EventBus.golfer_started_hole.connect(_on_golfer_started_hole)
 	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole)
 	EventBus.golfer_finished_round.connect(_on_golfer_finished_round)
@@ -30,6 +31,8 @@ func _exit_tree() -> void:
 		EventBus.ball_landed.disconnect(_on_ball_landed)
 	if EventBus.ball_putt_landed_precise.is_connected(_on_ball_putt_precise):
 		EventBus.ball_putt_landed_precise.disconnect(_on_ball_putt_precise)
+	if EventBus.ball_shot_landed_precise.is_connected(_on_ball_shot_precise):
+		EventBus.ball_shot_landed_precise.disconnect(_on_ball_shot_precise)
 	if EventBus.golfer_started_hole.is_connected(_on_golfer_started_hole):
 		EventBus.golfer_started_hole.disconnect(_on_golfer_started_hole)
 	if EventBus.golfer_finished_hole.is_connected(_on_golfer_finished_hole):
@@ -261,6 +264,45 @@ func _on_ball_putt_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 	var duration = 0.3 + (distance_yards / 100.0) * 0.7
 	duration = clamp(duration, 0.3, 1.5)
 	ball.start_flight_screen(from_screen, to_screen, duration, true)
+
+func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vector2, distance_yards: int) -> void:
+	# Handle precise sub-tile shot animation (non-putt shots with arc)
+	# Debounce: prevent multiple shots for same golfer on same frame
+	var current_frame = Engine.get_process_frames()
+	if _last_shot_frame.get(golfer_id, -1) == current_frame:
+		return
+	_last_shot_frame[golfer_id] = current_frame
+
+	var ball = get_or_create_ball(golfer_id)
+	if not ball:
+		return
+
+	# Prevent duplicate animations - if ball is already in flight, ignore
+	if ball.ball_state == Ball.BallState.IN_FLIGHT:
+		return
+
+	ball.visible = true
+
+	# Sand spray when hitting out of a bunker
+	if terrain_grid:
+		var from_grid = terrain_grid.screen_to_grid(from_screen)
+		if terrain_grid.get_tile(from_grid) == TerrainTypes.Type.BUNKER:
+			SandSprayEffect.create_at(ball.get_parent(), from_screen)
+
+	# Calculate flight duration based on distance (longer shots take longer)
+	var base_duration = 1.0
+	var duration = base_duration + (distance_yards / 300.0) * 1.5
+	duration = clamp(duration, 0.5, 3.0)
+
+	# Calculate wind visual offset
+	var wind_offset = Vector2.ZERO
+	if GameManager.wind_system and terrain_grid:
+		var shot_direction = (to_screen - from_screen).normalized()
+		var distance_tiles = from_screen.distance_to(to_screen) / terrain_grid.tile_width
+		var wind_tile_disp = GameManager.wind_system.get_wind_displacement(shot_direction, distance_tiles, 1)
+		wind_offset = wind_tile_disp * terrain_grid.tile_width * 0.5
+
+	ball.start_flight_screen_with_arc(from_screen, to_screen, duration, wind_offset)
 
 func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 	# Remove ball when golfer finishes their round
