@@ -360,3 +360,12 @@ func set_current_tool(tool_type: int) -> void:
 
 func get_current_tool() -> int:
 	return _current_tool
+
+func clear_selection() -> void:
+	"""Clear all button selections (null selector state)"""
+	_current_tool = -1  # Invalid tool type indicates no selection
+	_update_selection_highlight()
+
+func has_selection() -> bool:
+	"""Check if any terrain tool is currently selected"""
+	return _current_tool >= 0 and _current_tool in _tool_buttons

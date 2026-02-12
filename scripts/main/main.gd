@@ -38,9 +38,7 @@ var hole_tool: HoleCreationTool = HoleCreationTool.new()
 var placement_manager: PlacementManager = PlacementManager.new()
 var undo_manager: UndoManager = UndoManager.new()
 var wind_system: WindSystem = null
-var wind_indicator: WindIndicator = null
 var weather_system: WeatherSystem = null
-var weather_indicator: WeatherIndicator = null
 var rain_overlay: RainOverlay = null
 var day_night_system: DayNightSystem = null
 var elevation_tool: ElevationTool = ElevationTool.new()
@@ -122,8 +120,6 @@ func _ready() -> void:
 	_connect_ui_buttons()
 	_setup_top_hud_bar()
 	_create_green_fee_controls()
-	_create_wind_indicator()
-	_create_weather_indicator()
 	_create_zoom_hint()
 	_setup_rain_overlay()
 	_setup_placement_preview()
@@ -326,24 +322,6 @@ func _create_green_fee_controls() -> void:
 	bottom_bar.add_child(green_fee_container)
 	bottom_bar.move_child(green_fee_container, 1)  # Position after SpeedControls
 
-func _create_wind_indicator() -> void:
-	wind_indicator = WindIndicator.new()
-	wind_indicator.name = "WindIndicator"
-	var bottom_bar = $UI/HUD/BottomBar
-	bottom_bar.add_child(wind_indicator)
-	# Set initial wind state
-	if wind_system:
-		wind_indicator.set_wind(wind_system.wind_direction, wind_system.wind_speed)
-
-func _create_weather_indicator() -> void:
-	weather_indicator = WeatherIndicator.new()
-	weather_indicator.name = "WeatherIndicator"
-	var bottom_bar = $UI/HUD/BottomBar
-	bottom_bar.add_child(weather_indicator)
-	# Set initial weather state
-	if weather_system:
-		weather_indicator.set_weather(weather_system.weather_type, weather_system.intensity)
-
 func _create_zoom_hint() -> void:
 	var bottom_bar = $UI/HUD/BottomBar
 	var zoom_label = Label.new()
@@ -404,6 +382,14 @@ func _update_selection_indicator() -> void:
 
 	var text = "Selected: "
 	var color = Color(1.0, 0.9, 0.5)  # Default yellow
+
+	# Check null selector state first
+	if not _has_active_tool():
+		text += "None (press a tool key to select)"
+		color = Color(0.6, 0.6, 0.6)  # Gray
+		selection_label.text = text
+		selection_label.add_theme_color_override("font_color", color)
+		return
 
 	# Check placement modes first (they take priority)
 	if hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_TEE:
@@ -517,6 +503,10 @@ func _handle_mouse_hover() -> void:
 		coordinate_label.text = "Out of bounds"
 
 func _start_painting() -> void:
+	# Check if in null selector state - do nothing, allow clicking buildings/UI
+	if not _has_active_tool():
+		return
+
 	# Check if we're in bulldozer mode
 	if bulldozer_mode:
 		var mouse_world = camera.get_mouse_world_position()
@@ -598,6 +588,28 @@ func _cancel_action() -> void:
 	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
 		placement_manager.cancel_placement()
 		print("Cancelled placement mode")
+	if hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
+		hole_tool.cancel_placement()
+		print("Cancelled hole placement")
+	# Enter null selector state - deselect terrain tool
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
+	_disable_terrain_painting_preview()
+	print("Deselected all tools (null selector mode)")
+
+func _has_active_tool() -> bool:
+	"""Check if any tool is currently active (not in null selector state)"""
+	if bulldozer_mode:
+		return true
+	if elevation_tool.is_active():
+		return true
+	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
+		return true
+	if hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
+		return true
+	if terrain_toolbar and terrain_toolbar.has_selection():
+		return true
+	return false
 
 func _on_tool_selected(tool_type: int) -> void:
 	# Cancel any hole placement, building/tree placement, elevation mode, and bulldozer mode
@@ -624,6 +636,8 @@ func _on_create_hole_pressed() -> void:
 	_cancel_bulldozer_mode()
 	_disable_terrain_painting_preview()
 	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
 	hole_tool.start_tee_placement()
 
 func _on_speed_selected(speed: int) -> void:
@@ -740,6 +754,8 @@ func _on_tree_placement_pressed() -> void:
 	_cancel_bulldozer_mode()
 	_disable_terrain_painting_preview()
 	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
 
 	# Create tree selection dialog
 	var dialog = AcceptDialog.new()
@@ -776,7 +792,9 @@ func _on_building_placement_pressed() -> void:
 	_cancel_bulldozer_mode()
 	_disable_terrain_painting_preview()
 	is_painting = false
-	
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
+
 	if building_registry.is_empty():
 		print("ERROR: Building registry is empty!")
 		EventBus.notify("Building system not initialized!", "error")
@@ -849,6 +867,8 @@ func _on_rock_placement_pressed() -> void:
 	_cancel_bulldozer_mode()
 	_disable_terrain_painting_preview()
 	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
 
 	# Create rock selection dialog
 	var dialog = AcceptDialog.new()
@@ -894,6 +914,8 @@ func _on_raise_elevation_pressed() -> void:
 	_cancel_bulldozer_mode()
 	_disable_terrain_painting_preview()
 	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
 	elevation_tool.start_raising()
 	terrain_grid.set_elevation_overlay_active(true)
 	print("Elevation mode: RAISING")
@@ -904,6 +926,8 @@ func _on_lower_elevation_pressed() -> void:
 	_cancel_bulldozer_mode()
 	_disable_terrain_painting_preview()
 	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
 	elevation_tool.start_lowering()
 	terrain_grid.set_elevation_overlay_active(true)
 	print("Elevation mode: LOWERING")
@@ -915,6 +939,8 @@ func _on_bulldozer_pressed() -> void:
 	_cancel_elevation_mode()
 	_disable_terrain_painting_preview()
 	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
 	bulldozer_mode = true
 	EventBus.notify("Bulldozer mode - Click to remove objects", "info")
 	print("Bulldozer mode: ACTIVE")
