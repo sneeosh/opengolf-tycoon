@@ -522,7 +522,274 @@ _Moved to Future Ideas - low priority until core features complete_
 
 ---
 
-## PRIORITY 10: Performance & Optimization
+## PRIORITY 10: Course Theming, Visuals & Gameplay Expansion
+
+### [] Course Type / Theme System
+**Goal:** Let players choose a course environment at game start, each with distinct visuals, natural object distributions, and gameplay feel. This is foundational for replayability and will eventually support multi-course ownership.
+
+**Course Types to Implement:**
+1. **Parkland (Default)** - Current game style. Lush green grass, deciduous trees (oak, maple), gentle rolling hills, flower beds. Balanced difficulty.
+2. **Desert** - Arid sandy base terrain, cacti and desert scrub instead of trees, rocky outcroppings, minimal water. Fairways are oases of green surrounded by sand/hardpan. Color palette: tan, burnt orange, sage green fairways, terracotta.
+3. **Links (Oceanfront)** - Coastal Scottish-style. Fescue grass (golden-brown rough), pot bunkers (deep & small), dune mounds, sea grass, minimal trees. Strong persistent wind. Color palette: golden browns, muted greens, grey-blue water accents.
+4. **Mountain** - Dramatic elevation changes, pine/fir forests, exposed rock faces, mountain streams. Thinner air = longer drives (+5% distance). Color palette: deep greens, grey stone, snow-capped backgrounds.
+5. **City/Municipal** - Flat terrain, chain-link fencing instead of OB stakes, small ponds, minimal natural features, concrete cart paths. Cheaper land/maintenance but lower satisfaction ceiling. Color palette: muted greens, grey, urban browns.
+6. **Resort** - Tropical lush. Palm trees, vibrant flower beds, white sand bunkers, lagoon-style water features. Higher construction costs but premium green fee tolerance. Color palette: vivid greens, turquoise water, white sand, bright flowers.
+
+**Implementation Details:**
+- Add `CourseTheme` resource/enum with per-type configuration:
+  - `base_colors: Dictionary` — color overrides for each terrain tile type (passed to TilesetGenerator)
+  - `natural_objects: Array[Dictionary]` — weighted spawn table for auto-placed decorative objects (tree types, rocks, flora)
+  - `overlay_config: Dictionary` — per-overlay color/style parameters (e.g., links rough uses golden fescue tints)
+  - `gameplay_modifiers: Dictionary` — wind_base_strength, distance_modifier, maintenance_cost_multiplier, green_fee_baseline
+  - `ambient_description: String` — flavor text for UI
+- Extend `TilesetGenerator` to accept a `CourseTheme` and use its color palette instead of hardcoded colors
+- All 14 overlay classes need a `theme` parameter to tint/style their procedural drawing (e.g., `TreeOverlay` draws palms for Resort, pines for Mountain, cacti for Desert)
+- Add course type selection screen shown before new game begins (grid of 6 cards with preview thumbnail, name, and 2-line description)
+- Store selected course type in `GameManager` and serialize in save data
+- Extend `terrain_types.json` with per-theme cost overrides (e.g., water is cheaper on Resort, bunkers cheaper on Links)
+- Natural object auto-distribution: when a new game starts, procedurally scatter theme-appropriate objects on empty/grass tiles using noise-based density maps
+
+**Future Extension (not this priority):**
+- Multi-course ownership: player can start a second course of a different type, switching between them
+- Unlockable course types based on reputation milestones
+
+---
+
+### [] Improved Elevation Contour Visuals
+**Goal:** Make elevation contours look more natural and appealing rather than the current hard-edged topographic lines.
+
+**Current State:** `ElevationOverlay` in `scripts/terrain/overlays/elevation_overlay.gd` draws contour lines at elevation boundaries with alpha 0.15-0.2. The lines are drawn per-tile where adjacent tiles have different elevation, producing a jagged staircase effect.
+
+**Improvements:**
+- **Smooth contour interpolation:** Instead of drawing hard lines at tile boundaries, use marching squares or a similar algorithm to interpolate contour positions within the tile grid, producing smooth curved contour lines
+- **Gradient shading between contours:** Replace the flat alpha tinting with smooth gradient transitions. Tiles should blend gradually between elevation levels rather than having uniform tint per tile
+- **Variable line weight:** Contour lines at major elevation intervals (every 2-3 levels) should be thicker/more prominent; intermediate lines should be thin and subtle
+- **Natural color grading:** Higher elevations should shift subtly toward lighter/cooler tones; lower elevations toward darker/warmer tones, mimicking real topographic relief shading
+- **Hillshade effect:** Add optional directional shading to simulate sunlight hitting slopes (northwest light source convention), giving the terrain a 3D feel without actual 3D rendering
+- **Green contour awareness:** Greens should show subtle slope indicators (arrows or grain lines) to help players read putt breaks visually
+
+**Technical Approach:**
+- Refactor `ElevationOverlay._draw_elevation_visuals()` to pre-compute a smoothed elevation field using bilinear interpolation across the tile grid
+- Use the interpolated field to draw anti-aliased contour lines via marching squares
+- Apply per-pixel gradient shading based on interpolated elevation values
+- Consider caching the overlay as an `ImageTexture` and only regenerating when elevation changes (performance optimization)
+
+---
+
+### [] Fix Golfer Overlap / Z-Ordering
+**Goal:** Prevent golfers from stacking on top of each other and becoming invisible when multiple golfers occupy nearby tiles.
+
+**Current State:** Golfers are rendered as `Node2D` children of the main scene. When multiple golfers stand on the same or adjacent tiles (e.g., waiting on a tee box, putting on a green), they overlap and obscure each other. There's no visual indication of hidden golfers.
+
+**Fixes:**
+- **Isometric Y-sort:** Ensure golfers are sorted by their isometric Y position (screen Y + a fraction of screen X) every frame. Godot's `CanvasItem.z_index` or a `YSort`/manual sort on the parent node can handle this. Golfers "in front" (lower on screen) should render on top of golfers "behind" them
+- **Positional offset for co-located golfers:** When multiple golfers occupy the same tile (e.g., group waiting on tee), apply small visual offsets so they fan out slightly (like a group standing together). Offset by ~8-12px in screen space per additional golfer
+- **Group clustering logic:** On tee boxes and greens, arrange waiting golfers in a semicircle or line formation rather than stacking them all at the tile center
+- **Name label stacking:** When golfers are close together, stagger their name/score labels vertically so they don't overlap. Use a simple collision avoidance pass on label positions
+- **Active golfer highlighting:** The golfer currently taking a shot should have a subtle highlight ring or always render on top (highest z_index) so the active player is always visible
+
+**Implementation Notes:**
+- Add a `_sort_golfers()` method to `GolferManager` called each frame (or when golfer positions change)
+- Modify `golfer.gd` to expose a `visual_offset: Vector2` that shifts the sprite without changing the logical grid position
+- On tee/green tiles, `GolferManager` assigns offsets to co-located golfers based on group position index
+
+---
+
+### [] Land Purchase & Course Size Progression
+**Goal:** Start with a small plot of land and expand by purchasing adjacent parcels. Creates a natural progression curve and meaningful economic decisions.
+
+**Implementation Details:**
+- **Starting plot:** New courses begin with a limited buildable area (e.g., 40×40 tiles out of the 128×128 grid). Only tiles within owned land can have terrain placed or modified
+- **Land parcels:** Divide the full 128×128 grid into purchasable rectangular parcels (e.g., 16×16 or 20×20 blocks). Display a grid overlay showing parcel boundaries when in a "Buy Land" mode
+- **Progressive pricing:** Base land cost starts at $5,000 per parcel. Each subsequent parcel purchased increases the price by 15-25% (simulating market demand / scarcity). Parcels further from the course center cost more (distance premium). Parcels adjacent to water or with elevation variety could cost a premium
+- **Visual feedback:** Owned land shown with normal terrain colors. Unowned land shown with a dark tint/hatch overlay. Purchasable parcels (adjacent to owned land) highlighted when in buy mode
+- **Purchase UI:** New "Buy Land" button in build mode toolbar. Clicking shows available parcels with prices. Confirm dialog before purchase. Purchased parcels immediately become buildable
+- **Boundary enforcement:** Terrain tools, entity placement, and hole creation all check land ownership. Show error message if player tries to build on unowned land
+- **Save/load:** Serialize owned parcel list in save data. Migrate old saves to assume all land is owned (backwards compatibility)
+
+**Gameplay Balance:**
+- Starting 40×40 plot fits ~3-4 holes comfortably, forcing early decisions about layout
+- A full 18-hole championship course requires ~6-8 parcel purchases ($30K-$80K total investment)
+- Creates natural spending tension: invest in land expansion vs. buildings vs. course improvements
+- Links and Desert themes could have cheaper land; Resort and City more expensive
+
+---
+
+### [] Improved Golfer & Natural Object Sprites
+**Goal:** Upgrade the visual quality of golfers, trees, rocks, and other course objects from procedural primitives to more appealing hand-crafted or semi-procedural sprites.
+
+**Current State:**
+- Golfers: Procedurally drawn from `Polygon2D` shapes (9 body parts: head, body, arms, legs, shoes, collar, hands, hair, cap). Functional but blocky and toy-like at ~20px tall
+- Trees: 3 procedural varieties in `TreeOverlay` (pine=triangle, oak=circle, bushy=wide circle) drawn with basic polygons and flat color fills
+- Rocks: Simple grey blobs in `RockOverlay`
+- Buildings: Procedurally drawn colored rectangles with minimal detail in `building.gd`
+
+**Recommended Approach — Hybrid (procedural base + hand-drawn detail):**
+- **Best practice for isometric 2D pixel art at this scale** is to hand-draw a small sprite sheet of base templates and then programmatically recolor/vary them. This gives much better visual quality than pure procedural generation while still allowing randomization
+- **Golfer sprites:** Design a 4-direction sprite sheet (front, back, left, right) at 32×32px or 48×48px per frame. Include animation frames for: idle (2 frames), walk cycle (4-6 frames), swing (4 frames), putt (3 frames). Recolor via shader or palette swap for shirt/pants/cap variety. Tools: Aseprite (pixel art standard), LibreSprite (free), or Piskel (browser-based)
+- **Tree sprites:** Hand-draw 4-5 tree varieties per course theme at 48×64px. Each theme needs its own set (palms for Resort, cacti for Desert, pines for Mountain, etc.). Can recolor/scale procedurally for variety
+- **Rock sprites:** 3-4 rock formations per theme at 32×32px. Desert gets sandstone, Mountain gets granite, Links gets weathered stone
+- **Building sprites:** Redesign as proper isometric sprites at 64×64px or larger. Each building type gets a unique identifiable silhouette
+- **Implementation:** Replace `Polygon2D` drawing in `golfer.gd` with `AnimatedSprite2D` loading from sprite sheets. Replace overlay drawing with `Sprite2D` instances placed by the overlay system. This is a significant refactor of the rendering pipeline but greatly improves visual quality
+
+**Alternative — Enhanced Procedural:**
+- If hand-drawing is too time-intensive, invest in better procedural generation: add outlines, shading gradients, anti-aliasing, and more detail layers to the existing `Polygon2D` approach. This is cheaper but has a lower visual ceiling
+- Could use AI sprite generation tools (Stable Diffusion with pixel art LoRA) to generate base sprites and then clean up manually
+
+**Sprite Asset Pipeline:**
+- Store sprites in `assets/sprites/` organized by category: `golfers/`, `trees/`, `rocks/`, `buildings/`
+- Use Godot's `SpriteFrames` resource for animated sprites
+- Theme-variant sprites stored in subdirectories per theme: `assets/sprites/trees/parkland/`, `assets/sprites/trees/desert/`, etc.
+
+---
+
+### [] Player-Controlled Golfer Mode
+**Goal:** Let the player play their own course as a golfer, adding a "play the course" gameplay loop alongside the management sim. This is a signature SimGolf feature.
+
+**Implementation — Phase 1 (Core Mechanics):**
+- **Mode switch:** Add "Play Course" button that switches from management to player-golfer mode. Camera follows the player's golfer. Management UI hides; golf HUD appears
+- **Shot interface:**
+  - **Club selection:** Horizontal club bar at bottom of screen (Driver, 3-Wood, 5-Iron, 7-Iron, PW, SW, Putter). Click or number keys 1-7 to select
+  - **Aim system:** Click-and-drag from ball to set direction. Show projected landing zone circle that accounts for club distance and accuracy. Direction line extends from ball with a cone showing accuracy spread
+  - **Power meter:** After setting direction, press-and-hold spacebar for power (0-100%). Release to fire. Alternatively, a classic 3-click swing meter (tap to start, tap for power, tap for accuracy)
+  - **Shot shape selector:** Straight, Draw, Fade toggle. Affects trajectory curve and landing offset
+- **Shot sectors / zones:** When aiming, display a translucent overlay showing:
+  - **Landing zone:** Circle/ellipse where the ball is expected to land based on club + power
+  - **Danger zones:** Red tint on water/OB areas within range
+  - **Optimal zone:** Green tint on fairway/green areas within range
+  - Sector accuracy is affected by player skill (could be upgradable)
+
+**Implementation — Phase 2 (Full Experience):**
+- **Putting interface:** Overhead view of green with grid lines showing slope. Drag to set putt direction and power. Show predicted ball path based on slope/break
+- **Score tracking:** Full scorecard UI showing hole-by-hole scores, running total, par comparison
+- **Wind compensation:** Show wind arrow more prominently, player must manually adjust aim
+- **Course flyover:** Before each hole, brief camera pan from tee to green showing layout
+- **Player golfer customization:** Choose name, appearance (uses existing golfer color system)
+- **AI playing partners:** Option to play alongside 1-3 AI golfers for group feel
+
+**Technical Considerations:**
+- Need a new `PlayerGolfer` class or mode flag on existing `Golfer` class that replaces AI decision-making with input handling
+- Shot calculation reuses existing physics (`ball.gd` trajectory, terrain modifiers, wind effects) but with player-chosen parameters instead of AI-chosen
+- Camera system needs a "follow" mode that tracks the player golfer smoothly
+- Game time should pause or slow during player shots (real-time aiming doesn't work if time is running at 4x)
+- Management simulation continues in the background (other golfers play, money accumulates) while player is on course
+
+---
+
+### [] Menu & UI Overhaul
+**Goal:** Bring the UI up to tycoon-game standards (think Planet Coaster, Two Point Hospital, OpenTTD). The current UI is functional but feels like a debug interface rather than a polished game.
+
+**Current Issues:**
+- Top bar is a flat HBox of labels with no visual styling or hierarchy
+- Tool palette is a plain list of buttons in a VBox with no grouping or visual separation
+- Panels (financial, stats, etc.) use default Godot theme with minimal custom styling
+- No main menu / title screen
+- No settings/options menu
+- Speed controls are small plain buttons
+- No visual theme tying the UI together
+
+**Improvements:**
+
+1. **Main Menu / Title Screen:**
+   - Game logo and title
+   - "New Game" (leads to course type selection), "Load Game", "Settings", "Quit"
+   - Animated background showing a procedurally generated course with golfers playing
+   - Transition animation into gameplay
+
+2. **Custom UI Theme:**
+   - Design a cohesive Godot `Theme` resource with custom styles for: buttons, panels, labels, scrollbars, sliders, separators
+   - Color palette: Golf-inspired greens, warm wood-tones for panels, cream/white text
+   - Consistent border radius, shadow, and padding across all UI elements
+   - Font upgrade: Use a clean sans-serif font (e.g., Nunito, Open Sans) for body text and a display font for headers
+
+3. **Top Bar Redesign:**
+   - Segmented bar with distinct sections: Money (with coin icon), Day/Time (with clock icon), Reputation (with star icon), Weather (with condition icon), Wind (with compass)
+   - Each section is a clickable panel that opens its detailed view
+   - Subtle background with rounded segments and dividers
+
+4. **Toolbar Redesign:**
+   - Tabbed categories: Terrain, Landscaping, Buildings, Holes, Utilities
+   - Each tab shows a grid of icon buttons (not text lists)
+   - Hover tooltip shows name, cost, and description
+   - Selected tool highlighted with border glow
+   - Collapsible/dockable panel
+
+5. **Improved Speed Controls:**
+   - Larger, more visible play/pause/fast/ultra buttons with icons
+   - Current speed shown as text label next to controls
+   - Keyboard shortcuts displayed on hover (1/2/3/4 or similar)
+
+6. **Notification System Upgrade:**
+   - Toast-style notifications that stack in corner and auto-dismiss
+   - Color-coded by type (green=revenue, red=cost, blue=info, gold=achievement)
+   - Click to expand for detail
+
+7. **Settings Menu:**
+   - Graphics: overlay toggle, zoom sensitivity
+   - Gameplay: auto-save frequency, notification preferences
+   - Audio: volume sliders (when audio is added)
+   - Controls: key rebinding
+
+---
+
+### [] Staff & Grounds Maintenance System
+**Goal:** Add a staff management layer where the player hires and manages course employees. Staff quality directly affects course condition, pace of play, and golfer satisfaction — a core tycoon mechanic.
+
+**Staff Types:**
+- **Groundskeepers:** Maintain terrain quality. Without enough groundskeepers, fairways slowly degrade toward rough, greens get slower (affects putt physics), bunkers become unkempt (reduced visual quality + harder lies). Each groundskeeper maintains ~20-30 tiles. Salary: $50-$150/day depending on skill
+- **Course Marshals:** Speed up pace of play. Reduce average round time by nudging slow groups. Without marshals, groups can slow down and reduce daily throughput. Each marshal covers ~4-5 holes. Salary: $40-$80/day
+- **Cart Operators:** Required to offer golf cart rentals (additional revenue stream: $15-$30/round). Carts make golfers move faster (2x path speed). Each operator supports ~8 carts. Salary: $30-$60/day
+- **Pro Shop Staff:** Required for pro shop to generate revenue. Higher-skilled staff generates more sales. Salary: $40-$100/day
+
+**Implementation:**
+- Staff panel in management UI showing all hired staff with names, roles, skill levels, salaries
+- Hire/fire with confirmation dialogs
+- Staff skill levels (1-5 stars) affect their effectiveness — higher-skilled staff cost more
+- Daily payroll added to operating costs (separate line item in financial dashboard)
+- Course condition degrades over time based on groundskeeper coverage ratio
+- `TerrainGrid` tracks per-tile condition value (0-100%) that groundskeepers restore each day
+- Condition affects gameplay: degraded greens have more random putt deviation, degraded fairways give slight rough-like lie penalties
+
+---
+
+### [] Seasonal Calendar & Event System
+**Goal:** Add a yearly calendar that cycles through seasons, affecting weather patterns, golfer traffic, maintenance costs, and creating natural revenue fluctuations that the player must plan around.
+
+**Seasons:**
+- **Spring (Days 1-90):** Moderate traffic, frequent rain, courses recovering from winter. Maintenance costs +20% (aeration, overseeding). Gradual traffic increase
+- **Summer (Days 91-180):** Peak season. Maximum golfer traffic, hot weather, occasional thunderstorms. Premium pricing opportunity. Highest revenue potential
+- **Fall (Days 181-270):** Traffic declining gradually, beautiful weather, lower rain. Tournament season bonuses. Leaf cleanup maintenance
+- **Winter (Days 271-360):** Low traffic (50-70% reduction depending on course type). Desert/Resort courses less affected. Reduced maintenance costs. Good time for renovations (cheaper building costs)
+
+**Implementation:**
+- Add `season` property to `GameManager` derived from `current_day % 360`
+- Season affects: weather probability tables, golfer spawn rate multiplier, maintenance cost multiplier, green fee tolerance (golfers accept higher fees in peak season)
+- Seasonal visual hints (future enhancement, listed in Post-1.0): grass color shifts, leaf particles in fall, frost overlay in winter
+- Calendar UI widget showing current month/season with upcoming events (tournaments, holidays)
+- **Holiday events:** Random bonus traffic days (e.g., "Holiday Weekend" = 2x golfers for 2-3 days) with advance notice so player can prepare
+
+---
+
+### [] Marketing & Advertising System
+**Goal:** Give players a way to actively attract more golfers rather than passively waiting for reputation to grow. Spending money on marketing is a classic tycoon lever.
+
+**Marketing Channels:**
+- **Local Newspaper Ad:** $200/week, +15% local traffic (Beginner/Casual golfers)
+- **Golf Magazine Feature:** $1,000/month, +10% Serious/Pro golfers, requires 3+ star rating
+- **Social Media Campaign:** $500/week, +20% traffic across all tiers, effect decays after campaign ends
+- **Tournament Sponsorship:** $2,000 per event, doubles tournament prize money and reputation gain
+- **Loyalty Program:** $100/month flat cost, 10% of golfers become "regulars" who visit 3x as often and have higher satisfaction baseline
+
+**Implementation:**
+- Marketing panel accessible from management UI
+- Active campaigns shown with duration remaining and estimated effect
+- ROI tracking: panel shows cost vs. estimated additional revenue from each campaign
+- Campaigns require minimum reputation/rating thresholds
+- Diminishing returns: running multiple campaigns of the same type gives reduced bonus
+
+---
+
+## PRIORITY 11: Performance & Optimization
 
 ### [] Performance Optimization
 - Optimize rendering for large courses (18+ holes)
@@ -638,7 +905,8 @@ _These features were considered but deferred to focus on core gameplay. May be r
 16. ✅ ~~Priority 7: UI/UX Improvements~~ - COMPLETE (mini-map, financial dashboard, hole stats, selection indicator, panel fixes, undo improvements)
 17. ✅ ~~Priority 8: Advanced Features~~ - COMPLETE (weather system, tournaments, difficulty rating)
 18. ✅ ~~Priority 9: Polish & Content~~ - COMPLETE (terrain visuals, zoom controls, shot accuracy fixes)
-19. Start Priority 10: Performance & Optimization (approaching Alpha!)
+19. Start Priority 10: Course Theming, Visuals & Gameplay Expansion
+20. Priority 11: Performance & Optimization (approaching Alpha!)
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.
