@@ -4,9 +4,12 @@ Thank you for considering contributing!
 
 ## Getting Started
 
-1. Install [Godot Engine 4.3+](https://godotengine.org/download)
+1. Install [Godot Engine 4.6+](https://godotengine.org/download) (standard version, not .NET)
 2. Fork and clone the repository
 3. Open `project.godot` in Godot
+4. Press F5 to run
+
+No setup scripts or build steps required - all assets are included.
 
 ## How to Contribute
 

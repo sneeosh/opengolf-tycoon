@@ -3,7 +3,7 @@
 An open source golf course builder and management game inspired by Sid Meier's SimGolf, built with Godot 4.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Godot](https://img.shields.io/badge/Godot-4.3+-blue.svg)
+![Godot](https://img.shields.io/badge/Godot-4.6+-blue.svg)
 ![Status](https://img.shields.io/badge/status-early%20development-orange.svg)
 
 ## About
@@ -63,29 +63,41 @@ OpenGolf Tycoon is a spiritual successor to the classic SimGolf (2002). Design a
 
 ### Prerequisites
 
-- [Godot Engine 4.3+](https://godotengine.org/download) (standard version)
+- [Godot Engine 4.6+](https://godotengine.org/download) (standard version, not .NET)
 
 ### Installation
 
-1. Clone this repository
+No build steps or setup scripts required - all assets are included in the repository.
+
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/sneeosh/simgolf-godot.git
+   ```
 2. Open Godot Engine
 3. Click "Import" and navigate to the `project.godot` file
 4. Click "Import & Edit"
 5. Press F5 to run the game
 
+That's it! Godot will automatically import all assets on first load.
+
 ## Project Structure
 
 ```
-opengolf-tycoon/
+simgolf-godot/
+├── assets/                  # Game assets
+│   └── tilesets/           # Terrain tileset images
 ├── data/                    # Game data (JSON configs)
-├── resources/               # Assets (sprites, audio, fonts)
 ├── scenes/                  # Godot scenes (.tscn files)
 ├── scripts/                 # GDScript files
-│   ├── autoload/           # Singleton managers
-│   ├── terrain/            # Terrain system
-│   ├── golfers/            # Golfer AI
-│   ├── economy/            # Economic simulation
-│   └── ...
+│   ├── autoload/           # Singleton managers (GameManager, EventBus, etc.)
+│   ├── course/             # Course and hole management
+│   ├── entities/           # Golfers, balls, buildings, trees
+│   ├── managers/           # Game subsystem managers
+│   ├── systems/            # Wind, day/night, course rating
+│   ├── terrain/            # Terrain grid and overlays
+│   ├── tools/              # Editor tools and utilities
+│   ├── ui/                 # UI panels and controls
+│   └── utils/              # Camera, helpers
 └── project.godot
 ```
 
