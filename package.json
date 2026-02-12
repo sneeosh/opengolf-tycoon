@@ -4,6 +4,7 @@
 	"private": true,
 	"scripts": {
 		"deploy": "wrangler deploy",
+		"deploy:web": "./deploy-web.sh",
 		"dev": "wrangler dev"
 	},
 	"devDependencies": {

@@ -320,14 +320,16 @@ func _update_wind() -> void:
 		_wind_label.text = "0 mph"
 		return
 
-	var speed = wind_system.get("current_speed")
-	var direction = wind_system.get("current_direction")
+	var speed = wind_system.get("wind_speed")
+	var direction = wind_system.get("wind_direction")
 	if speed == null:
 		speed = 0.0
 	if direction == null:
 		direction = 0.0
 
-	var dir_name = _get_direction_name(direction)
+	# Convert radians to degrees for direction name
+	var degrees = fmod(rad_to_deg(direction) + 360.0, 360.0)
+	var dir_name = _get_direction_name(degrees)
 	_wind_label.text = "%s %d mph" % [dir_name, int(speed)]
 
 	# Color based on wind speed

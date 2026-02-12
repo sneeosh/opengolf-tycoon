@@ -2,5 +2,16 @@ name = "opengolf-tycoon"
 main = "src/worker.js"
 compatibility_date = "2025-01-01"
 
+routes = [
+  { pattern = "golf.kennyatx.com/*", zone_name = "kennyatx.com" }
+]
+
 [assets]
 directory = "./build/web"
+binding = "ASSETS"
+html_handling = "none"
+not_found_handling = "none"
+
+[[r2_buckets]]
+binding = "R2_ASSETS"
+bucket_name = "opengolf-assets"
