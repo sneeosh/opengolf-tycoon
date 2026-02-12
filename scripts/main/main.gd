@@ -183,8 +183,11 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Only process painting input in BUILDING mode
-	if GameManager.current_mode != GameManager.GameMode.BUILDING:
+	# Allow building/tree/rock placement in any mode
+	var in_placement_mode = placement_manager.placement_mode != PlacementManager.PlacementMode.NONE
+
+	# Other tools (terrain painting, elevation, hole creation, bulldozer) require BUILDING mode
+	if not in_placement_mode and GameManager.current_mode != GameManager.GameMode.BUILDING:
 		return
 
 	if event.is_action_pressed("select"):
