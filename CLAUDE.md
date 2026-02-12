@@ -111,9 +111,22 @@ Main (Node2D) ← main.gd
 - **4 export targets** in `export_presets.cfg`: Windows, macOS, Linux, Web
 - **CI/CD**: `.github/workflows/export-game.yml` — Godot 4.6 headless export on version tags, creates GitHub Release, deploys web build to Cloudflare Pages.
 
+## Testing
+
+Unit tests use **GUT** (Godot Unit Test) framework. Tests are in `tests/unit/`.
+
+**Run tests:**
+```bash
+make test          # Using Makefile
+./test.sh          # Using shell script
+```
+
+**Test coverage:** GameManager, SaveManager, CourseRatingSystem, CourseRecords, DailyStatistics, GolferTier.
+
+**Override Godot path:** `make test GODOT=/path/to/godot` or `GODOT=/path/to/godot ./test.sh`
+
 ## Development Notes
 
-- No formal test framework (no GDUnit). Manual testing via DEVELOPMENT_MILESTONES.md checklist.
 - No audio system yet. No full A* pathfinding (heuristic-based). No career mode. No course sharing. No tutorial.
 - Golfers are NOT saved/loaded (respawn naturally to avoid complex mid-action state serialization).
 - Save format is versioned (SAVE_VERSION = 2) for forward compatibility.
