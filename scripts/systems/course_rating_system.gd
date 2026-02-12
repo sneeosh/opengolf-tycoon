@@ -175,7 +175,12 @@ static func _calculate_condition_rating(terrain_grid, course_data) -> float:
 
 	var ratio = float(premium_tiles) / float(total_tiles)
 	# 0% premium = 1 star, 60%+ premium = 5 stars
-	return clampf(1.0 + (ratio / 0.15), 1.0, 5.0)
+	var base_rating = clampf(1.0 + (ratio / 0.15), 1.0, 5.0)
+
+	# Apply staff tier modifier
+	var tier_data = GameManager.STAFF_TIER_DATA.get(GameManager.current_staff_tier, {})
+	var condition_mod = tier_data.get("condition_modifier", 1.0)
+	return clampf(base_rating * condition_mod, 1.0, 5.0)
 
 ## Design rating: variety of hole pars
 static func _calculate_design_rating(course_data) -> float:

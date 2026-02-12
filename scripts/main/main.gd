@@ -44,12 +44,14 @@ var building_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
 var building_info_panel: BuildingInfoPanel = null
 var financial_panel: FinancialPanel = null
+var staff_panel: StaffPanel = null
 var mini_map: MiniMap = null
 var hole_stats_panel: HoleStatsPanel = null
 var tournament_manager: TournamentManager = null
 var tournament_panel: TournamentPanel = null
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
+var bulldozer_mode: bool = false
 
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
@@ -192,6 +194,7 @@ func _connect_signals() -> void:
 	EventBus.green_fee_changed.connect(_on_green_fee_changed)
 	EventBus.end_of_day.connect(_on_end_of_day)
 	EventBus.load_completed.connect(_on_load_completed)
+	EventBus.new_game_started.connect(_on_new_game_started)
 
 func _connect_ui_buttons() -> void:
 	# Replace old tool panel with new terrain toolbar
@@ -221,6 +224,8 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.building_placement_pressed.connect(_on_building_placement_pressed)
 	terrain_toolbar.raise_elevation_pressed.connect(_on_raise_elevation_pressed)
 	terrain_toolbar.lower_elevation_pressed.connect(_on_lower_elevation_pressed)
+	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
+	terrain_toolbar.staff_pressed.connect(_on_staff_pressed)
 
 func _initialize_game() -> void:
 	GameManager.new_game("My Golf Course")
@@ -487,6 +492,13 @@ func _handle_mouse_hover() -> void:
 		coordinate_label.text = "Out of bounds"
 
 func _start_painting() -> void:
+	# Check if we're in bulldozer mode
+	if bulldozer_mode:
+		var mouse_world = camera.get_mouse_world_position()
+		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+		_handle_bulldozer_click(grid_pos)
+		return
+
 	# Check if we're in placement mode (building or tree)
 	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
 		var mouse_world = camera.get_mouse_world_position()
@@ -528,13 +540,19 @@ func _paint_at_mouse() -> void:
 	if not terrain_grid.is_valid_position(grid_pos): return
 	
 	var cost = TerrainTypes.get_placement_cost(current_tool)
-	if cost > 0 and GameManager.money < cost:
-		EventBus.notify("Not enough money!", "error")
+	if cost > 0 and not GameManager.can_afford(cost):
+		if GameManager.is_bankrupt():
+			EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+		else:
+			EventBus.notify("Not enough money!", "error")
 		return
-	
+
 	var tiles_to_paint = [grid_pos] if brush_size <= 1 else terrain_grid.get_brush_tiles(grid_pos, brush_size)
 	var total_cost = 0
 	for tile_pos in tiles_to_paint:
+		# Skip tiles occupied by buildings
+		if entity_layer and entity_layer.is_tile_occupied_by_building(tile_pos):
+			continue
 		if terrain_grid.get_tile(tile_pos) != current_tool:
 			terrain_grid.set_tile(tile_pos, current_tool)
 			total_cost += cost
@@ -546,6 +564,9 @@ func _paint_at_mouse() -> void:
 func _cancel_action() -> void:
 	is_painting = false
 	last_paint_pos = Vector2i(-1, -1)
+	if bulldozer_mode:
+		_cancel_bulldozer_mode()
+		print("Cancelled bulldozer mode")
 	if elevation_tool.is_active():
 		_cancel_elevation_mode()
 		print("Cancelled elevation mode")
@@ -554,10 +575,11 @@ func _cancel_action() -> void:
 		print("Cancelled placement mode")
 
 func _on_tool_selected(tool_type: int) -> void:
-	# Cancel any hole placement, building/tree placement, and elevation mode
+	# Cancel any hole placement, building/tree placement, elevation mode, and bulldozer mode
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
 	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
 	is_painting = false
 
 	current_tool = tool_type
@@ -567,9 +589,10 @@ func _on_tool_selected(tool_type: int) -> void:
 	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
 
 func _on_create_hole_pressed() -> void:
-	# Cancel any building/tree placement, elevation, or terrain painting
+	# Cancel any building/tree placement, elevation, bulldozer, or terrain painting
 	placement_manager.cancel_placement()
 	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
 	is_painting = false
 	hole_tool.start_tee_placement()
 
@@ -684,6 +707,7 @@ func _on_tree_placement_pressed() -> void:
 	"""Show tree selection menu and start tree placement mode"""
 	hole_tool.cancel_placement()
 	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
 	is_painting = false
 
 	# Create tree selection dialog
@@ -718,6 +742,7 @@ func _on_building_placement_pressed() -> void:
 	print("Building button pressed!")
 	hole_tool.cancel_placement()
 	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
 	is_painting = false
 	
 	if building_registry.is_empty():
@@ -789,6 +814,7 @@ func _on_rock_placement_pressed() -> void:
 	"""Show rock size selection menu and start rock placement mode"""
 	hole_tool.cancel_placement()
 	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
 	is_painting = false
 
 	# Create rock selection dialog
@@ -826,12 +852,13 @@ func _on_rock_size_selected(rock_size: String, dialog: AcceptDialog) -> void:
 	print("Rock placement mode: %s" % rock_size)
 
 func _on_flower_bed_placement_pressed() -> void:
-	"""Flower bed placement - to be implemented"""
-	EventBus.notify("Flower beds coming soon!", "info")
+	"""Start flower bed painting mode"""
+	_on_tool_selected(TerrainTypes.Type.FLOWER_BED)
 
 func _on_raise_elevation_pressed() -> void:
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
+	_cancel_bulldozer_mode()
 	is_painting = false
 	elevation_tool.start_raising()
 	terrain_grid.set_elevation_overlay_active(true)
@@ -840,10 +867,30 @@ func _on_raise_elevation_pressed() -> void:
 func _on_lower_elevation_pressed() -> void:
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
+	_cancel_bulldozer_mode()
 	is_painting = false
 	elevation_tool.start_lowering()
 	terrain_grid.set_elevation_overlay_active(true)
 	print("Elevation mode: LOWERING")
+
+func _on_bulldozer_pressed() -> void:
+	"""Activate bulldozer mode to remove trees, rocks, and flower beds"""
+	hole_tool.cancel_placement()
+	placement_manager.cancel_placement()
+	_cancel_elevation_mode()
+	is_painting = false
+	bulldozer_mode = true
+	EventBus.notify("Bulldozer mode - Click to remove objects", "info")
+	print("Bulldozer mode: ACTIVE")
+
+func _cancel_bulldozer_mode() -> void:
+	bulldozer_mode = false
+
+func _on_new_game_started() -> void:
+	"""Generate natural terrain when a new game starts"""
+	# Generate natural terrain features
+	NaturalTerrainGenerator.generate(terrain_grid, entity_layer)
+	print("Natural terrain generated for new course")
 
 func _cancel_elevation_mode() -> void:
 	if elevation_tool.is_active():
@@ -859,7 +906,7 @@ func _paint_elevation_at_mouse() -> void:
 	if not terrain_grid.is_valid_position(grid_pos):
 		return
 
-	var changes = elevation_tool.paint_elevation(grid_pos, terrain_grid, brush_size)
+	var changes = elevation_tool.paint_elevation(grid_pos, terrain_grid, brush_size, entity_layer)
 	if not changes.is_empty():
 		undo_manager.record_elevation_stroke(changes)
 
@@ -870,10 +917,13 @@ func _handle_placement_click(grid_pos: Vector2i) -> void:
 		return
 	
 	var cost = placement_manager.get_placement_cost()
-	if cost > 0 and GameManager.money < cost:
-		EventBus.notify("Not enough money!", "error")
+	if cost > 0 and not GameManager.can_afford(cost):
+		if GameManager.is_bankrupt():
+			EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+		else:
+			EventBus.notify("Not enough money!", "error")
 		return
-	
+
 	if placement_manager.placement_mode == PlacementManager.PlacementMode.TREE:
 		_place_tree(grid_pos, cost)
 	elif placement_manager.placement_mode == PlacementManager.PlacementMode.BUILDING:
@@ -926,7 +976,76 @@ func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 	else:
 		EventBus.notify("Failed to place rock!", "error")
 
+# Bulldozer removal costs
+const BULLDOZER_COSTS = {
+	"tree": 15,
+	"rock": 10,
+	"flower_bed": 20
+}
+
+func _handle_bulldozer_click(grid_pos: Vector2i) -> void:
+	"""Handle bulldozer click - remove trees, rocks, or flower beds"""
+	# Check for tree at position
+	var tree = entity_layer.get_tree_at(grid_pos)
+	if tree:
+		var cost = BULLDOZER_COSTS["tree"]
+		if not GameManager.can_afford(cost):
+			if GameManager.is_bankrupt():
+				EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+			else:
+				EventBus.notify("Not enough money to remove tree ($%d)" % cost, "error")
+			return
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Remove tree", -cost)
+		entity_layer.remove_tree(grid_pos)
+		EventBus.notify("Tree removed (-$%d)" % cost, "info")
+		return
+
+	# Check for rock at position
+	var rock = entity_layer.get_rock_at(grid_pos)
+	if rock:
+		var cost = BULLDOZER_COSTS["rock"]
+		if not GameManager.can_afford(cost):
+			if GameManager.is_bankrupt():
+				EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+			else:
+				EventBus.notify("Not enough money to remove rock ($%d)" % cost, "error")
+			return
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Remove rock", -cost)
+		entity_layer.remove_rock(grid_pos)
+		EventBus.notify("Rock removed (-$%d)" % cost, "info")
+		return
+
+	# Check for flower bed terrain
+	var tile_type = terrain_grid.get_tile(grid_pos)
+	if tile_type == TerrainTypes.Type.FLOWER_BED:
+		var cost = BULLDOZER_COSTS["flower_bed"]
+		if not GameManager.can_afford(cost):
+			if GameManager.is_bankrupt():
+				EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+			else:
+				EventBus.notify("Not enough money to remove flower bed ($%d)" % cost, "error")
+			return
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Remove flower bed", -cost)
+		terrain_grid.set_tile(grid_pos, TerrainTypes.Type.GRASS)
+		EventBus.notify("Flower bed removed (-$%d)" % cost, "info")
+		return
+
+	# Nothing to remove at this position
+	EventBus.notify("Nothing to bulldoze here", "info")
+
 # --- Day/Night Cycle ---
+
+func _calculate_building_operating_costs() -> int:
+	"""Sum operating costs from all placed buildings."""
+	var total: int = 0
+	if entity_layer:
+		for building in entity_layer.get_all_buildings():
+			var op_cost = building.building_data.get("operating_cost", 0)
+			total += op_cost
+	return total
 
 func _on_end_of_day(day_number: int) -> void:
 	"""Handle end of day — show summary panel."""
@@ -936,7 +1055,8 @@ func _on_end_of_day(day_number: int) -> void:
 	# Calculate and deduct operating costs BEFORE showing summary
 	var terrain_cost = terrain_grid.get_total_maintenance_cost()
 	var hole_count = GameManager.current_course.holes.size() if GameManager.current_course else 0
-	GameManager.daily_stats.calculate_operating_costs(terrain_cost, hole_count)
+	var building_costs = _calculate_building_operating_costs()
+	GameManager.daily_stats.calculate_operating_costs(terrain_cost, hole_count, building_costs)
 
 	var total_cost = GameManager.daily_stats.operating_costs
 	if total_cost > 0:
@@ -1157,6 +1277,13 @@ func _setup_financial_panel() -> void:
 	hud.add_child(financial_panel)
 	financial_panel.hide()
 
+	# Create staff panel
+	staff_panel = StaffPanel.new()
+	staff_panel.name = "StaffPanel"
+	staff_panel.close_requested.connect(_on_staff_panel_closed)
+	hud.add_child(staff_panel)
+	staff_panel.hide()
+
 	# Make money label clickable by wrapping it in a button-like container
 	var money_btn = Button.new()
 	money_btn.name = "MoneyButton"
@@ -1186,6 +1313,19 @@ func _on_money_clicked() -> void:
 func _on_financial_panel_closed() -> void:
 	"""Hide the financial panel."""
 	financial_panel.hide()
+
+func _on_staff_pressed() -> void:
+	"""Toggle staff management panel."""
+	if staff_panel:
+		staff_panel.toggle()
+		if staff_panel.visible:
+			# Center the panel on screen
+			var viewport_size = get_viewport().get_visible_rect().size
+			staff_panel.position = (viewport_size - staff_panel.custom_minimum_size) / 2
+
+func _on_staff_panel_closed() -> void:
+	"""Hide the staff panel."""
+	staff_panel.hide()
 
 # --- Mini Map ---
 

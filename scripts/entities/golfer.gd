@@ -904,11 +904,16 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 		var short_game_floor = lerpf(0.85, 0.6, distance_ratio)
 		total_accuracy = max(total_accuracy, short_game_floor)
 
-	# Putt accuracy floor - even bad putters don't wildly miss short putts
-	# Short putts (<1 tile) are nearly automatic, longer putts still require skill
+	# Putt accuracy floor - scales with putting skill
+	# Short putts still have high floor, but low-skill golfers struggle more on long putts
 	if club == Club.PUTTER:
 		var putt_distance_ratio = clamp(distance_to_target / float(club_stats["max_distance"]), 0.0, 1.0)
-		var putt_floor = lerpf(0.95, 0.75, putt_distance_ratio)
+		# Scale floor based on putting skill:
+		# Low skill (0.3): 50% to 85% floor range
+		# High skill (0.95): 80% to 95% floor range
+		var skill_floor_min = lerpf(0.50, 0.80, putting_skill)
+		var skill_floor_max = lerpf(0.85, 0.95, putting_skill)
+		var putt_floor = lerpf(skill_floor_max, skill_floor_min, putt_distance_ratio)
 		total_accuracy = max(total_accuracy, putt_floor)
 
 	# Distance modifier: base ability + random shot-to-shot variance
@@ -960,20 +965,23 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	var intended_distance = Vector2(from).distance_to(Vector2(target))
 	var actual_distance = intended_distance * distance_modifier
 
-	# Add directional error using elliptical distribution
-	# Real golf dispersion is wider laterally (draw/fade/slice) than long/short
-	var error_range = (1.0 - total_accuracy) * 10.0
+	# Add directional error - mishits go sideways or short, never long
+	# Real golf: you can slice/hook (lateral) or mis-hit (short), but you can't
+	# accidentally hit it farther than your swing allows
+	# Error multiplier scaled for 22 yards/tile (was 10.0 at 15 yards/tile)
+	var error_range = (1.0 - total_accuracy) * 7.0
 	var direction = Vector2(target - from).normalized()
 	var landing_point = Vector2(from) + (direction * actual_distance)
 
-	# Polar distribution: random angle + distance, stretched laterally
-	var error_angle = randf_range(0.0, TAU)
-	var error_magnitude = randf_range(0.0, error_range)
-	# Perpendicular axis gets 1.5x the error (side-to-side miss is more common)
+	# Lateral error (slice/hook) - primary miss pattern, can go either direction
 	var perpendicular = Vector2(-direction.y, direction.x)
-	var lateral_error = cos(error_angle) * error_magnitude * 1.5  # Side-to-side
-	var longitudinal_error = sin(error_angle) * error_magnitude    # Long/short
-	var random_offset = perpendicular * lateral_error + direction * longitudinal_error
+	var lateral_error = randf_range(-1.0, 1.0) * error_range * 1.5
+
+	# Longitudinal error - only SHORT, never long (mishits lose distance)
+	# Worse accuracy = more likely to chunk/top it and lose distance
+	var short_error = randf_range(0.0, error_range) * -1.0  # Always negative (shorter)
+
+	var random_offset = perpendicular * lateral_error + direction * short_error
 	landing_point += random_offset
 
 	# Apply wind displacement
@@ -1124,7 +1132,7 @@ func _find_water_drop_position(water_position: Vector2i) -> Vector2i:
 
 				# Must not be closer to the hole than where ball entered water
 				var candidate_distance_to_hole = Vector2(candidate).distance_to(Vector2(hole_position))
-				if candidate_distance_to_hole < water_distance_to_hole - 0.5:
+				if candidate_distance_to_hole < water_distance_to_hole:
 					continue
 
 				# Score: prefer fairway/grass, penalize rough/trees
@@ -1236,9 +1244,14 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 		else:
 			# Ball flight: the ball flies through the air and clears water/OB below.
 			# Landing in water/OB is penalized by _evaluate_landing_zone terrain scoring.
-			# Trees block when the ball is low (first/last 20% of flight).
+			# Trees block when the ball is low - use parabolic height model.
 			if terrain_type == TerrainTypes.Type.TREES:
-				if t < 0.2 or t > 0.8:
+				# Ball trajectory: parabolic arc with peak at midpoint
+				# At t=0.0 and t=1.0, ball is at ground level
+				# At t=0.5, ball is at maximum height (apex)
+				var height_factor = 4.0 * t * (1.0 - t)  # 0 at edges, 1 at midpoint
+				var tree_clear_threshold = 0.3  # Must be above 30% of max height to clear
+				if height_factor < tree_clear_threshold:
 					return true
 
 	return false
@@ -1561,6 +1574,14 @@ func _apply_clubhouse_effects() -> void:
 	for building in buildings:
 		if building.building_type != "clubhouse":
 			continue
+
+		# Skip if already visited this round (to prevent double-charging)
+		var building_id = building.get_instance_id()
+		if _visited_buildings.has(building_id):
+			break
+
+		# Mark as visited
+		_visited_buildings[building_id] = true
 
 		# Apply revenue from upgraded clubhouse
 		var income = building.get_income_per_golfer()

@@ -1,6 +1,10 @@
 extends Node
 ## EventBus - Global signal hub for decoupled communication
 
+# Transaction history tracking (prevents memory leak from unbounded growth)
+var transaction_history: Array = []
+const MAX_TRANSACTION_HISTORY: int = 1000
+
 # Game State Signals
 signal game_mode_changed(old_mode: int, new_mode: int)
 signal game_speed_changed(new_speed: int)
@@ -101,4 +105,24 @@ func notify(message: String, type: String = "info") -> void:
 func log_transaction(description: String, amount: int) -> void:
 	var sign_str = "+" if amount >= 0 else ""
 	print("[Transaction] %s: %s$%d" % [description, sign_str, amount])
+
+	# Store transaction with timestamp (prevents unbounded memory growth)
+	transaction_history.append({
+		"description": description,
+		"amount": amount,
+		"day": GameManager.current_day if GameManager else 1,
+		"time": Time.get_ticks_msec()
+	})
+
+	# Purge oldest entries if over limit
+	while transaction_history.size() > MAX_TRANSACTION_HISTORY:
+		transaction_history.pop_front()
+
 	transaction_completed.emit(description, amount)
+
+func clear_transaction_history() -> void:
+	transaction_history.clear()
+
+func get_recent_transactions(count: int = 50) -> Array:
+	var start_idx = max(0, transaction_history.size() - count)
+	return transaction_history.slice(start_idx)

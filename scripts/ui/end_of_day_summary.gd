@@ -92,6 +92,9 @@ func _build_ui() -> void:
 	if stats.staff_wages > 0:
 		var staff_row = _create_stat_row("  Staff:", "-$%d" % stats.staff_wages, dim_color)
 		vbox.add_child(staff_row)
+	if stats.building_operating_costs > 0:
+		var building_row = _create_stat_row("  Buildings:", "-$%d" % stats.building_operating_costs, dim_color)
+		vbox.add_child(building_row)
 
 	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % stats.operating_costs, Color(0.9, 0.5, 0.5))
 	vbox.add_child(total_costs_row)

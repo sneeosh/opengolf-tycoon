@@ -10,6 +10,8 @@ signal flower_bed_pressed
 signal building_placement_pressed
 signal raise_elevation_pressed
 signal lower_elevation_pressed
+signal bulldozer_pressed
+signal staff_pressed
 
 var _current_tool: int = TerrainTypes.Type.FAIRWAY
 var _tool_buttons: Dictionary = {}  # tool_type -> Button
@@ -37,6 +39,7 @@ const TOOL_SECTIONS = {
 			{"type": "tree", "name": "Trees", "hotkey": "T"},
 			{"type": "rock", "name": "Rocks", "hotkey": "R"},
 			{"type": "flower", "name": "Flower Bed", "hotkey": ""},
+			{"type": "bulldozer", "name": "Bulldozer", "hotkey": "X"},
 		]
 	},
 	"Elevation": {
@@ -53,6 +56,11 @@ const TOOL_SECTIONS = {
 	"Hole Tools": {
 		"tools": [
 			{"type": "create_hole", "name": "Create Hole", "hotkey": "H"},
+		]
+	},
+	"Management": {
+		"tools": [
+			{"type": "staff", "name": "Staff", "hotkey": "S"},
 		]
 	},
 }
@@ -154,11 +162,15 @@ func _get_tool_tooltip(tool_type, tool_name: String) -> String:
 			"rock":
 				return "Rocks\nCost: $10-20 per rock\nDecorative hazard"
 			"flower":
-				return "Flower Bed\nCost: $30 per tile\nBoosts aesthetics"
+				return "Flower Bed\nCost: $35 per tile\nBoosts aesthetics"
+			"bulldozer":
+				return "Bulldozer\nRemoves trees, rocks, flowers\nCosts money to clear"
 			"building":
 				return "Buildings\nVarious costs\nAdd amenities"
 			"create_hole":
 				return "Create Hole\nPlace tee, then green\nDefines playable hole"
+			"staff":
+				return "Staff Management\nChoose staff quality tier\nAffects costs and course condition"
 			"raise":
 				return "Raise Elevation\nNo cost\nAffects ball physics"
 			"lower":
@@ -199,6 +211,10 @@ func _on_tool_button_pressed(tool_type) -> void:
 				raise_elevation_pressed.emit()
 			"lower":
 				lower_elevation_pressed.emit()
+			"bulldozer":
+				bulldozer_pressed.emit()
+			"staff":
+				staff_pressed.emit()
 
 func _update_selection_highlight() -> void:
 	# Reset all buttons
@@ -249,6 +265,10 @@ func _input(event: InputEvent) -> void:
 				_on_tool_button_pressed("raise")
 			KEY_MINUS, KEY_KP_SUBTRACT:  # - key
 				_on_tool_button_pressed("lower")
+			KEY_X:
+				_on_tool_button_pressed("bulldozer")
+			KEY_S:
+				_on_tool_button_pressed("staff")
 
 func set_current_tool(tool_type: int) -> void:
 	_current_tool = tool_type

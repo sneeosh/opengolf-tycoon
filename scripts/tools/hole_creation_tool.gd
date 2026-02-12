@@ -62,8 +62,11 @@ func _place_tee(position: Vector2i) -> bool:
 
 	# Check if we can afford it
 	var cost = TerrainTypes.get_placement_cost(TerrainTypes.Type.TEE_BOX) * tee_tiles.size()
-	if GameManager.money < cost:
-		EventBus.notify("Not enough money to place tee box (need $%d)" % cost, "error")
+	if not GameManager.can_afford(cost):
+		if GameManager.is_bankrupt():
+			EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+		else:
+			EventBus.notify("Not enough money to place tee box (need $%d)" % cost, "error")
 		return false
 
 	# Place the tee box
@@ -94,8 +97,11 @@ func _place_green(position: Vector2i) -> bool:
 
 	# Check if we can afford it
 	var cost = TerrainTypes.get_placement_cost(TerrainTypes.Type.GREEN) * green_tiles.size()
-	if GameManager.money < cost:
-		print("Not enough money to place green (need $", cost, ")")
+	if not GameManager.can_afford(cost):
+		if GameManager.is_bankrupt():
+			EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+		else:
+			EventBus.notify("Not enough money to place green (need $%d)" % cost, "error")
 		return false
 
 	# Place the green

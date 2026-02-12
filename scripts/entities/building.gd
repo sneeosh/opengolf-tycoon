@@ -94,7 +94,11 @@ func upgrade() -> bool:
 		return false
 
 	var cost = get_upgrade_cost()
-	if GameManager.money < cost:
+	if not GameManager.can_afford(cost):
+		if GameManager.is_bankrupt():
+			EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+		else:
+			EventBus.notify("Cannot afford upgrade ($%d)" % cost, "error")
 		return false
 
 	GameManager.modify_money(-cost)
@@ -906,4 +910,12 @@ func get_building_info() -> Dictionary:
 
 ## Restore building from saved data
 func restore_from_info(info: Dictionary) -> void:
-	upgrade_level = info.get("upgrade_level", 1)
+	var new_level = info.get("upgrade_level", 1)
+	if new_level != upgrade_level:
+		upgrade_level = new_level
+		# Refresh visuals to match upgraded state
+		for child in get_children():
+			if child.name == "Visual" or child.name == "ClickArea":
+				child.queue_free()
+		# Use call_deferred to ensure old nodes are freed first
+		call_deferred("_update_visuals")

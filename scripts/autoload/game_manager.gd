@@ -20,6 +20,38 @@ var green_fee: int = 30  # Default $30 per golfer
 const MIN_GREEN_FEE: int = 10
 const MAX_GREEN_FEE: int = 200
 
+# Bankruptcy threshold - spending blocked below this amount
+const BANKRUPTCY_THRESHOLD: int = -1000
+
+# Staff tier system
+enum StaffTier { PART_TIME, FULL_TIME, PREMIUM }
+
+const STAFF_TIER_DATA = {
+	StaffTier.PART_TIME: {
+		"name": "Part-Time Staff",
+		"cost_per_hole": 5,
+		"condition_modifier": 0.85,
+		"satisfaction_modifier": 0.90,
+		"description": "Basic maintenance, limited availability"
+	},
+	StaffTier.FULL_TIME: {
+		"name": "Full-Time Staff",
+		"cost_per_hole": 10,
+		"condition_modifier": 1.0,
+		"satisfaction_modifier": 1.0,
+		"description": "Standard professional maintenance"
+	},
+	StaffTier.PREMIUM: {
+		"name": "Premium Staff",
+		"cost_per_hole": 20,
+		"condition_modifier": 1.15,
+		"satisfaction_modifier": 1.10,
+		"description": "Expert greenskeepers, exceptional service"
+	}
+}
+
+var current_staff_tier: int = StaffTier.FULL_TIME
+
 # Reference to terrain grid (set by main scene)
 var terrain_grid: TerrainGrid = null
 
@@ -156,6 +188,16 @@ func modify_money(amount: int) -> void:
 	var old_money = money
 	money += amount
 	EventBus.money_changed.emit(old_money, money)
+
+func can_afford(cost: int) -> bool:
+	"""Check if a purchase is allowed (not blocked by bankruptcy threshold)."""
+	if cost <= 0:
+		return true  # Not a purchase
+	return money - cost >= BANKRUPTCY_THRESHOLD
+
+func is_bankrupt() -> bool:
+	"""Check if spending is blocked due to low balance."""
+	return money < BANKRUPTCY_THRESHOLD
 
 func modify_reputation(amount: float) -> void:
 	var old_rep = reputation
@@ -402,6 +444,7 @@ class DailyStatistics:
 	var terrain_maintenance: int = 0  # Cost from terrain upkeep
 	var base_operating_cost: int = 0  # Fixed daily cost based on course size
 	var staff_wages: int = 0  # Staff costs based on number of holes
+	var building_operating_costs: int = 0  # Daily costs from buildings
 
 	# Building revenue from amenities
 	var building_revenue: int = 0
@@ -428,6 +471,7 @@ class DailyStatistics:
 		terrain_maintenance = 0
 		base_operating_cost = 0
 		staff_wages = 0
+		building_operating_costs = 0
 		tier_counts = {
 			GolferTier.Tier.BEGINNER: 0,
 			GolferTier.Tier.CASUAL: 0,
@@ -438,18 +482,24 @@ class DailyStatistics:
 	## Calculate operating costs based on terrain and course size
 	## terrain_cost: total maintenance cost from terrain grid
 	## hole_count: number of holes on the course
-	func calculate_operating_costs(terrain_cost: int, hole_count: int) -> void:
+	## building_costs: total operating costs from all buildings
+	func calculate_operating_costs(terrain_cost: int, hole_count: int, building_costs: int = 0) -> void:
 		# Terrain maintenance from actual tiles
 		terrain_maintenance = terrain_cost
 
 		# Base operating cost: $50 + $25 per hole
 		base_operating_cost = 50 + (hole_count * 25)
 
-		# Staff wages: $10 per hole
-		staff_wages = hole_count * 10
+		# Staff wages based on tier
+		var tier_data = GameManager.STAFF_TIER_DATA.get(GameManager.current_staff_tier, {})
+		var cost_per_hole = tier_data.get("cost_per_hole", 10)
+		staff_wages = hole_count * cost_per_hole
+
+		# Building operating costs (daily upkeep for amenities)
+		building_operating_costs = building_costs
 
 		# Total
-		operating_costs = terrain_maintenance + base_operating_cost + staff_wages
+		operating_costs = terrain_maintenance + base_operating_cost + staff_wages + building_operating_costs
 
 	func get_profit() -> int:
 		return revenue + building_revenue - operating_costs

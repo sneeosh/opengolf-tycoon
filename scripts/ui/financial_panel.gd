@@ -108,6 +108,9 @@ func update_display() -> void:
 	if stats.staff_wages > 0:
 		var staff_row = _create_stat_row("  Staff:", "-$%d" % stats.staff_wages, dim_color)
 		_content_vbox.add_child(staff_row)
+	if stats.building_operating_costs > 0:
+		var building_row = _create_stat_row("  Buildings:", "-$%d" % stats.building_operating_costs, dim_color)
+		_content_vbox.add_child(building_row)
 
 	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % stats.operating_costs, Color(0.9, 0.5, 0.5))
 	_content_vbox.add_child(total_costs_row)
@@ -172,6 +175,52 @@ func update_display() -> void:
 
 	var golfers_row = _create_stat_row("Golfers Today:", "%d" % stats.golfers_served, Color.WHITE)
 	_content_vbox.add_child(golfers_row)
+
+	# Course Ratings (Official Handicap/Slope)
+	var rating = GameManager.course_rating
+	if rating and rating.has("slope"):
+		_content_vbox.add_child(HSeparator.new())
+
+		var rating_label = Label.new()
+		rating_label.text = "Official Ratings"
+		rating_label.add_theme_font_size_override("font_size", 14)
+		_content_vbox.add_child(rating_label)
+
+		# Hole count for context
+		var hole_count = 0
+		if GameManager.current_course:
+			for hole in GameManager.current_course.holes:
+				if hole.is_open:
+					hole_count += 1
+		var holes_row = _create_stat_row("Holes:", "%d" % hole_count, Color.WHITE)
+		_content_vbox.add_child(holes_row)
+
+		# Slope Rating (55-155)
+		var slope = rating.get("slope", 113)
+		var slope_color = Color(0.7, 0.8, 1.0)
+		if slope >= 130:
+			slope_color = Color(0.9, 0.6, 0.3)  # Championship difficulty
+		elif slope <= 90:
+			slope_color = Color(0.5, 0.9, 0.5)  # Beginner friendly
+		var slope_text = "%d (%s)" % [slope, CourseRatingSystem.get_slope_text(slope)]
+		var slope_row = _create_stat_row("Slope:", slope_text, slope_color)
+		_content_vbox.add_child(slope_row)
+
+		# Course Rating (expected scratch golfer score, scales by holes)
+		var course_rtg = rating.get("course_rating", 72.0)
+		var cr_row = _create_stat_row("Course Rating:", "%.1f" % course_rtg, Color.WHITE)
+		_content_vbox.add_child(cr_row)
+
+		# Difficulty
+		var difficulty = rating.get("difficulty", 5.0)
+		var diff_color = Color(0.5, 0.9, 0.5)
+		if difficulty >= 7.0:
+			diff_color = Color(0.9, 0.5, 0.5)
+		elif difficulty >= 5.0:
+			diff_color = Color(0.9, 0.9, 0.5)
+		var diff_text = "%.1f (%s)" % [difficulty, CourseRatingSystem.get_difficulty_text(difficulty)]
+		var diff_row = _create_stat_row("Difficulty:", diff_text, diff_color)
+		_content_vbox.add_child(diff_row)
 
 func _create_stat_row(label_text: String, value_text: String, value_color: Color = Color.WHITE) -> HBoxContainer:
 	var row = HBoxContainer.new()
