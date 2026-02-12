@@ -1,0 +1,144 @@
+name: Export Game
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      godot_version:
+        description: "Godot version override (e.g. 4.6)"
+        required: false
+        default: ""
+
+env:
+  GODOT_VERSION: "4.6"
+  GODOT_STATUS: "stable"
+  PROJECT_NAME: "OpenGolfTycoon"
+
+jobs:
+  export:
+    name: Export ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            preset: "Windows Desktop"
+            output_dir: build/windows
+            artifact_name: windows
+          - name: macOS
+            preset: "macOS"
+            output_dir: build/macos
+            artifact_name: macos
+          - name: Linux
+            preset: "Linux"
+            output_dir: build/linux
+            artifact_name: linux
+          - name: Web
+            preset: "Web"
+            output_dir: build/web
+            artifact_name: web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve Godot version
+        run: |
+          if [ -n "${{ github.event.inputs.godot_version }}" ]; then
+            echo "GODOT_VERSION=${{ github.event.inputs.godot_version }}" >> $GITHUB_ENV
+          fi
+
+      - name: Install Godot
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip"
+          unzip "Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip"
+          sudo mv "Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+
+      - name: Install export templates
+        run: |
+          TEMPLATES_DIR="${HOME}/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}"
+          mkdir -p "${TEMPLATES_DIR}"
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz"
+          unzip "Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz"
+          mv templates/* "${TEMPLATES_DIR}/"
+
+      - name: Import project
+        run: |
+          # Run editor in headless mode to trigger resource import
+          timeout 120 godot --headless --import 2>&1 || true
+
+      - name: Export ${{ matrix.name }}
+        run: |
+          mkdir -p "${{ matrix.output_dir }}"
+          godot --headless --export-release "${{ matrix.preset }}" 2>&1
+
+      - name: Add Cloudflare headers for cross-origin isolation
+        if: matrix.artifact_name == 'web'
+        run: |
+          cat > "${{ matrix.output_dir }}/_headers" << 'HEADERS'
+          /*
+            Cross-Origin-Opener-Policy: same-origin
+            Cross-Origin-Embedder-Policy: require-corp
+          HEADERS
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ env.PROJECT_NAME }}-${{ matrix.artifact_name }}"
+          path: ${{ matrix.output_dir }}
+          if-no-files-found: error
+
+  deploy-web:
+    name: Deploy to Cloudflare Pages
+    needs: export
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Download web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: "${{ env.PROJECT_NAME }}-web"
+          path: web
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy web --project-name=opengolf-tycoon
+
+  release:
+    name: Create Release
+    needs: export
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Package release archives
+        run: |
+          cd artifacts
+          for dir in */; do
+            name="${dir%/}"
+            (cd "$name" && zip -r "../../${name}.zip" .)
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.zip"
+          generate_release_notes: true
+          draft: false
