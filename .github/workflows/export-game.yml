@@ -76,15 +76,6 @@ jobs:
           mkdir -p "${{ matrix.output_dir }}"
           godot --headless --export-release "${{ matrix.preset }}" 2>&1
 
-      - name: Add Cloudflare headers for cross-origin isolation
-        if: matrix.artifact_name == 'web'
-        run: |
-          cat > "${{ matrix.output_dir }}/_headers" << 'HEADERS'
-          /*
-            Cross-Origin-Opener-Policy: same-origin
-            Cross-Origin-Embedder-Policy: require-corp
-          HEADERS
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -93,7 +84,7 @@ jobs:
           if-no-files-found: error
 
   deploy-web:
-    name: Deploy to Cloudflare Pages
+    name: Deploy to Cloudflare Workers
     needs: export
     runs-on: ubuntu-24.04
     permissions:
@@ -101,18 +92,21 @@ jobs:
       deployments: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download web artifact
         uses: actions/download-artifact@v4
         with:
           name: "${{ env.PROJECT_NAME }}-web"
-          path: web
+          path: build/web
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy web --project-name=opengolf-tycoon
+          command: deploy
 
   release:
     name: Create Release

@@ -39,6 +39,10 @@ Thumbs.db
 # Log files
 *.log
 
+# Node.js (wrangler)
+node_modules/
+package-lock.json
+
 # Local development
 .env
 .env.local
