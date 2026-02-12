@@ -119,6 +119,7 @@ func _ready() -> void:
 	_create_green_fee_controls()
 	_create_wind_indicator()
 	_create_weather_indicator()
+	_create_zoom_hint()
 	_setup_rain_overlay()
 	_create_selection_indicator()
 	_create_save_load_button()
@@ -305,6 +306,15 @@ func _create_weather_indicator() -> void:
 	# Set initial weather state
 	if weather_system:
 		weather_indicator.set_weather(weather_system.weather_type, weather_system.intensity)
+
+func _create_zoom_hint() -> void:
+	var bottom_bar = $UI/HUD/BottomBar
+	var zoom_label = Label.new()
+	zoom_label.name = "ZoomHint"
+	zoom_label.text = "Zoom: [ - ] +"
+	zoom_label.add_theme_font_size_override("font_size", 12)
+	zoom_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	bottom_bar.add_child(zoom_label)
 
 func _setup_rain_overlay() -> void:
 	rain_overlay = RainOverlay.new()
