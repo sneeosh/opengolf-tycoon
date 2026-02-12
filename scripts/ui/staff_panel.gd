@@ -14,17 +14,17 @@ func _ready() -> void:
 	hide()
 
 func _build_ui() -> void:
-	custom_minimum_size = Vector2(320, 280)
+	custom_minimum_size = Vector2(280, 200)
 
 	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 12)
-	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
 	add_child(margin)
 
 	var main_vbox = VBoxContainer.new()
-	main_vbox.add_theme_constant_override("separation", 8)
+	main_vbox.add_theme_constant_override("separation", 4)
 	margin.add_child(main_vbox)
 
 	# Title row with close button
@@ -33,13 +33,13 @@ func _build_ui() -> void:
 
 	var title = Label.new()
 	title.text = "Staff Management"
-	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_font_size_override("font_size", 16)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title)
 
 	var close_btn = Button.new()
 	close_btn.text = "X"
-	close_btn.custom_minimum_size = Vector2(30, 30)
+	close_btn.custom_minimum_size = Vector2(24, 24)
 	close_btn.pressed.connect(_on_close_pressed)
 	title_row.add_child(close_btn)
 
@@ -47,15 +47,9 @@ func _build_ui() -> void:
 
 	# Content area
 	_content_vbox = VBoxContainer.new()
-	_content_vbox.add_theme_constant_override("separation", 6)
+	_content_vbox.add_theme_constant_override("separation", 4)
 	_content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	main_vbox.add_child(_content_vbox)
-
-	# Tier selection section
-	var tier_label = Label.new()
-	tier_label.text = "Select Staff Tier"
-	tier_label.add_theme_font_size_override("font_size", 14)
-	_content_vbox.add_child(tier_label)
 
 	# Tier selection buttons
 	for tier in GameManager.STAFF_TIER_DATA.keys():
