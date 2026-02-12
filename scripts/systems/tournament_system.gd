@@ -142,6 +142,11 @@ static func generate_tournament_results(tier: TournamentTier, course_data, cours
 	var course_par = _get_course_par(course_data)
 	var difficulty = course_rating.get("difficulty", 5.0)
 
+	# Guard against division by zero
+	if participant_count <= 0:
+		push_warning("Tournament has no participants")
+		return {"winner_name": "N/A", "winning_score": 0, "par": course_par, "scores": []}
+
 	# Generate scores for all participants
 	var scores = []
 	for i in range(participant_count):

@@ -38,6 +38,10 @@ window/size/viewport_height=1000
 window/size/mode=2
 window/stretch/mode="viewport"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gut/plugin.cfg")
+
 [input]
 
 camera_pan_up={
@@ -93,10 +97,6 @@ rotate_camera={
 2d_physics/layer_3="golfers"
 2d_physics/layer_4="golf_balls"
 2d_physics/layer_5="ui_interaction"
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
 [rendering]
 

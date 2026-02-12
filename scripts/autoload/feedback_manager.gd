@@ -97,3 +97,10 @@ func get_daily_summary() -> Dictionary:
 		"top_complaint": get_top_complaint(),
 		"top_compliment": get_top_compliment(),
 	}
+
+func _exit_tree() -> void:
+	# Disconnect signals to prevent memory leaks on reload
+	if EventBus.golfer_thought.is_connected(_on_golfer_thought):
+		EventBus.golfer_thought.disconnect(_on_golfer_thought)
+	if EventBus.day_changed.is_connected(_on_day_changed):
+		EventBus.day_changed.disconnect(_on_day_changed)

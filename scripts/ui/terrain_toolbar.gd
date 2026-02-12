@@ -48,10 +48,10 @@ const TOOL_SECTIONS = {
 		]
 	},
 	"Elevation": {
-		"icon": "[+-]",
+		"icon": "[+]",
 		"tools": [
-			{"type": "raise", "name": "Raise +", "icon": "[+]", "hotkey": "+", "desc": "Raise terrain elevation"},
-			{"type": "lower", "name": "Lower -", "icon": "[-]", "hotkey": "-", "desc": "Lower terrain elevation"},
+			{"type": "raise", "name": "Raise", "icon": "[+]", "hotkey": "+", "desc": "Raise terrain elevation"},
+			{"type": "lower", "name": "Lower", "icon": "[-]", "hotkey": "-", "desc": "Lower terrain elevation"},
 		]
 	},
 	"Structures": {
@@ -238,6 +238,19 @@ func _toggle_section(section_name: String) -> void:
 	var prefix = "> " if section["collapsed"] else "v "
 	section["header"].text = "%s%s  %s" % [prefix, icon, section_name]
 
+func _expand_section(section_name: String) -> void:
+	var section = _sections.get(section_name)
+	if not section or not section["collapsed"]:
+		return
+
+	section["collapsed"] = false
+	section["content"].visible = true
+
+	# Update header text
+	var section_data = TOOL_SECTIONS.get(section_name, {})
+	var icon = section_data.get("icon", "")
+	section["header"].text = "v %s  %s" % [icon, section_name]
+
 func _on_tool_button_pressed(tool_type) -> void:
 	if tool_type is int:
 		_current_tool = tool_type
@@ -287,8 +300,30 @@ func _input(event: InputEvent) -> void:
 		if event.is_command_or_control_pressed():
 			return
 
+		# Check for section toggle hotkeys (with shift for symbols)
+		if event.shift_pressed:
+			match event.keycode:
+				KEY_1:  # Shift+1 = !
+					_toggle_section("Hazards")
+					get_viewport().set_input_as_handled()
+					return
+				KEY_EQUAL:  # Shift+= = +
+					_on_tool_button_pressed("raise")
+					get_viewport().set_input_as_handled()
+					return
+				KEY_MINUS:  # Shift+- = _
+					_on_tool_button_pressed("lower")
+					get_viewport().set_input_as_handled()
+					return
+
 		# Check for tool hotkeys
 		match event.keycode:
+			KEY_EQUAL:  # = for Course Terrain
+				_toggle_section("Course Terrain")
+			KEY_PERIOD:  # . for Paths & Decor
+				_toggle_section("Paths & Decor")
+			KEY_MINUS:  # - for lower elevation
+				_on_tool_button_pressed("lower")
 			KEY_1:
 				_on_tool_button_pressed(TerrainTypes.Type.FAIRWAY)
 			KEY_2:
@@ -312,11 +347,8 @@ func _input(event: InputEvent) -> void:
 			KEY_B:
 				_on_tool_button_pressed("building")
 			KEY_H:
+				_expand_section("Hole Tools")
 				_on_tool_button_pressed("create_hole")
-			KEY_EQUAL, KEY_KP_ADD:  # + key
-				_on_tool_button_pressed("raise")
-			KEY_MINUS, KEY_KP_SUBTRACT:  # - key
-				_on_tool_button_pressed("lower")
 			KEY_X:
 				_on_tool_button_pressed("bulldozer")
 			KEY_P:

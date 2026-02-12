@@ -117,11 +117,11 @@ func upgrade() -> bool:
 
 	upgrade_level += 1
 
-	# Refresh visuals
+	# Refresh visuals - use call_deferred to avoid race with queue_free
 	for child in get_children():
 		if child.name == "Visual":
 			child.queue_free()
-	_update_visuals()
+	call_deferred("_update_visuals")
 
 	EventBus.building_upgraded.emit(self, upgrade_level)
 	return true

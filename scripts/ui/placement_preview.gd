@@ -143,7 +143,7 @@ func _is_tile_valid_for_placement(grid_pos: Vector2i) -> bool:
 	if not terrain_grid.is_valid_position(grid_pos):
 		return false
 
-	var terrain_type = terrain_grid.get_terrain_at(grid_pos)
+	var terrain_type = terrain_grid.get_tile(grid_pos)
 
 	match placement_manager.placement_mode:
 		PlacementManager.PlacementMode.TREE:
@@ -162,7 +162,7 @@ func _is_tile_valid_for_placement(grid_pos: Vector2i) -> bool:
 				TerrainTypes.Type.HEAVY_ROUGH
 			]
 		PlacementManager.PlacementMode.BUILDING:
-			var building_data = placement_manager.building_data
+			var building_data = placement_manager.current_placement_data
 			if building_data and building_data.get("placeable_on_course", false):
 				return terrain_type in [
 					TerrainTypes.Type.GRASS,

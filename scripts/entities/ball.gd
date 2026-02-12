@@ -26,6 +26,7 @@ var wind_visual_offset: Vector2 = Vector2.ZERO  # Visual wind drift during fligh
 signal ball_landed(landing_pos: Vector2i)
 signal ball_state_changed(old_state: BallState, new_state: BallState)
 signal ball_landed_in_bunker(landing_pos: Vector2i)
+signal ball_landed_in_water(landing_pos: Vector2i)
 
 func _ready() -> void:
 	z_index = 100  # Render above terrain and entities
@@ -184,6 +185,7 @@ func _land_ball() -> void:
 	match terrain_type:
 		TerrainTypes.Type.WATER:
 			_change_state(BallState.IN_WATER)
+			ball_landed_in_water.emit(grid_position)
 		TerrainTypes.Type.OUT_OF_BOUNDS:
 			_change_state(BallState.OUT_OF_BOUNDS)
 		TerrainTypes.Type.BUNKER:

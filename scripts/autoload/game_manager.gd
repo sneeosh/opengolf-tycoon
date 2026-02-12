@@ -385,6 +385,15 @@ func get_time_string() -> String:
 	if display_hour == 0: display_hour = 12
 	return "%d:%02d %s" % [display_hour, minute_int, am_pm]
 
+func _exit_tree() -> void:
+	# Disconnect signals to prevent memory leaks and double-callbacks on reload
+	if EventBus.green_fee_paid.is_connected(_on_green_fee_paid_for_stats):
+		EventBus.green_fee_paid.disconnect(_on_green_fee_paid_for_stats)
+	if EventBus.golfer_finished_hole.is_connected(_on_golfer_finished_hole_for_stats):
+		EventBus.golfer_finished_hole.disconnect(_on_golfer_finished_hole_for_stats)
+	if EventBus.golfer_finished_round.is_connected(_on_golfer_finished_round_for_stats):
+		EventBus.golfer_finished_round.disconnect(_on_golfer_finished_round_for_stats)
+
 class CourseData:
 	var name: String = "New Course"
 	var holes: Array = []

@@ -59,6 +59,11 @@ func _update_line() -> void:
 
 func _create_flag() -> void:
 	if flag:
+		# Disconnect signals before freeing to prevent leaks
+		if flag.flag_selected.is_connected(_on_flag_selected):
+			flag.flag_selected.disconnect(_on_flag_selected)
+		if flag.flag_moved.is_connected(_on_flag_moved):
+			flag.flag_moved.disconnect(_on_flag_moved)
 		flag.queue_free()
 
 	flag = Flag.new()

@@ -27,6 +27,9 @@ var entity_layer: EntityLayer = null
 var golfer_manager: Node = null
 var ball_manager: Node = null
 
+## Flag to prevent autosave during load operations
+var _is_loading: bool = false
+
 func _ready() -> void:
 	_ensure_save_directory()
 	EventBus.day_changed.connect(_on_day_changed)
@@ -85,7 +88,11 @@ func load_game(save_name: String) -> bool:
 		EventBus.notify("Corrupt save file!", "error")
 		return false
 
+	# Prevent autosave during load
+	_is_loading = true
 	_apply_save_data(save_data)
+	_is_loading = false
+
 	EventBus.load_completed.emit(true)
 	EventBus.notify("Game loaded: " + save_name, "success")
 	return true
@@ -306,4 +313,7 @@ func _read_save_metadata(path: String) -> Dictionary:
 
 ## Auto-save at end of each day
 func _on_day_changed(_new_day: int) -> void:
+	# Don't autosave while loading a game (would overwrite with partial state)
+	if _is_loading:
+		return
 	save_game("autosave")

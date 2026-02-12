@@ -403,7 +403,7 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 			# Immediately walk to the next tee to clear the green
 			# Don't wait for turn - golfers should move off the green right away
-			if GameManager.terrain_grid:
+			if GameManager.terrain_grid and golfer.current_hole < course_data.holes.size():
 				var next_hole_data = course_data.holes[golfer.current_hole]
 				# Update ball position to next tee immediately to prevent visual glitch
 				# where ball briefly appears at old hole position while walking

@@ -836,6 +836,10 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 		elif new_distance > 0.25:
 			# Short putt miss that ended up unreasonably far — cap it
 			landing = hole_pos + (landing - hole_pos).normalized() * 0.20
+		else:
+			# Very short putt that somehow didn't progress — force minimum advance
+			var min_advance = 0.05 + putting_skill * 0.05
+			landing = from_precise + direction * max(distance * 0.5, min_advance)
 
 	# Snap to hole if very close (simulates ball dropping in)
 	if landing.distance_to(hole_pos) < 0.07:
@@ -1102,6 +1106,7 @@ func _handle_hazard_penalty(previous_position: Vector2i) -> bool:
 		EventBus.hazard_penalty.emit(golfer_id, "water", drop_position)
 		show_thought(FeedbackTriggers.TriggerType.HAZARD_WATER)
 		ball_position = drop_position
+		ball_position_precise = Vector2(drop_position)
 		return true
 
 	elif landing_terrain == TerrainTypes.Type.OUT_OF_BOUNDS:
@@ -1110,6 +1115,7 @@ func _handle_hazard_penalty(previous_position: Vector2i) -> bool:
 		print("%s: Ball out of bounds! Penalty stroke. Replaying from previous position. Now on stroke %d" % [golfer_name, current_strokes])
 		EventBus.hazard_penalty.emit(golfer_id, "ob", previous_position)
 		ball_position = previous_position
+		ball_position_precise = Vector2(previous_position)
 		return true
 
 	return false

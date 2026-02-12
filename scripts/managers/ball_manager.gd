@@ -65,6 +65,7 @@ func get_or_create_ball(golfer_id: int) -> Ball:
 	ball.ball_landed.connect(_on_ball_landed_at_position.bind(golfer_id))
 	ball.ball_state_changed.connect(_on_ball_state_changed.bind(golfer_id))
 	ball.ball_landed_in_bunker.connect(_on_ball_landed_in_bunker.bind(golfer_id))
+	ball.ball_landed_in_water.connect(_on_ball_landed_in_water.bind(golfer_id))
 
 	ball_created.emit(golfer_id, ball)
 	return ball
@@ -77,6 +78,7 @@ func remove_ball(golfer_id: int) -> void:
 	var ball = active_balls[golfer_id]
 	ball.destroy()
 	active_balls.erase(golfer_id)
+	_last_shot_frame.erase(golfer_id)  # Clean up debounce tracking
 
 ## Clear all balls (used when loading saves)
 func clear_all_balls() -> void:
@@ -225,6 +227,14 @@ func _on_hazard_penalty(golfer_id: int, hazard_type: String, reset_position: Vec
 	if not ball:
 		return
 
+	# Wait to show the splash/hazard visual before resetting
+	await get_tree().create_timer(1.5).timeout
+
+	# Re-fetch ball after await - it may have been freed during the delay
+	ball = get_ball(golfer_id)
+	if not ball or not is_instance_valid(ball):
+		return
+
 	# Reset ball to the drop/previous position
 	ball.set_position_in_grid(reset_position)
 	ball.ball_state = Ball.BallState.AT_REST
@@ -244,6 +254,12 @@ func _on_ball_landed_in_bunker(landing_pos: Vector2i, golfer_id: int) -> void:
 	var ball = get_ball(golfer_id)
 	if ball:
 		SandSprayEffect.create_at(ball.get_parent(), ball.global_position)
+
+func _on_ball_landed_in_water(landing_pos: Vector2i, golfer_id: int) -> void:
+	var ball = get_ball(golfer_id)
+	if ball:
+		WaterSplashEffect.create_at(ball.get_parent(), ball.global_position)
+		ball.visible = false  # Hide ball after splash (it's in the water)
 
 func _on_golfer_started_hole(golfer_id: int, hole_number: int) -> void:
 	# Golfer started a new hole - ball will be placed when they take their first shot

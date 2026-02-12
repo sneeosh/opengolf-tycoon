@@ -109,16 +109,8 @@ func _apply_styles() -> void:
 		add_theme_stylebox_override("pressed", _style_pressed)
 
 func _update_button() -> void:
-	# Build button text: [icon] Name [hotkey]
-	var parts: Array[String] = []
-
-	if not tool_icon.is_empty():
-		parts.append(tool_icon)
-
-	if not tool_name.is_empty():
-		parts.append(tool_name)
-
-	text = " ".join(parts)
+	# Build button text: Name [hotkey]
+	text = tool_name
 
 	if not hotkey.is_empty():
 		text += "  [%s]" % hotkey

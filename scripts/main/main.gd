@@ -175,7 +175,7 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_Y:
 				_perform_redo()
 				get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_T:
+		elif event.keycode == KEY_U:
 			_toggle_tournament_panel()
 			get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_F3:
@@ -183,6 +183,10 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Only process painting input in BUILDING mode
+	if GameManager.current_mode != GameManager.GameMode.BUILDING:
+		return
+
 	if event.is_action_pressed("select"):
 		_start_painting()
 	elif event.is_action_released("select"):
@@ -1475,7 +1479,7 @@ func _setup_tournament_panel() -> void:
 	var tournament_btn = Button.new()
 	tournament_btn.name = "TournamentBtn"
 	tournament_btn.text = "Tournament"
-	tournament_btn.tooltip_text = "Host tournaments (T)"
+	tournament_btn.tooltip_text = "Host tournaments (U)"
 	tournament_btn.pressed.connect(_toggle_tournament_panel)
 	bottom_bar.add_child(tournament_btn)
 
@@ -1495,3 +1499,25 @@ func _toggle_terrain_debug_overlay() -> void:
 	"""Toggle the terrain debug overlay (F3)."""
 	if terrain_grid:
 		terrain_grid.toggle_debug_overlay()
+
+func _exit_tree() -> void:
+	"""Disconnect all signals to prevent memory leaks on scene unload."""
+	# EventBus signal cleanup
+	if EventBus.money_changed.is_connected(_on_money_changed):
+		EventBus.money_changed.disconnect(_on_money_changed)
+	if EventBus.day_changed.is_connected(_on_day_changed):
+		EventBus.day_changed.disconnect(_on_day_changed)
+	if EventBus.hole_created.is_connected(_on_hole_created):
+		EventBus.hole_created.disconnect(_on_hole_created)
+	if EventBus.hole_deleted.is_connected(_on_hole_deleted):
+		EventBus.hole_deleted.disconnect(_on_hole_deleted)
+	if EventBus.hole_toggled.is_connected(_on_hole_toggled):
+		EventBus.hole_toggled.disconnect(_on_hole_toggled)
+	if EventBus.green_fee_changed.is_connected(_on_green_fee_changed):
+		EventBus.green_fee_changed.disconnect(_on_green_fee_changed)
+	if EventBus.end_of_day.is_connected(_on_end_of_day):
+		EventBus.end_of_day.disconnect(_on_end_of_day)
+	if EventBus.load_completed.is_connected(_on_load_completed):
+		EventBus.load_completed.disconnect(_on_load_completed)
+	if EventBus.new_game_started.is_connected(_on_new_game_started):
+		EventBus.new_game_started.disconnect(_on_new_game_started)
