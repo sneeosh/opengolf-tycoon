@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://q8q0lftfutsn" path="res://scripts/managers/golfer_manager.gd" id="5_golfer_manager"]
 [ext_resource type="Script" uid="uid://cya5ceakmh8n2" path="res://scripts/managers/ball_manager.gd" id="6_ball_manager"]
 [ext_resource type="Script" uid="uid://cs6h2r5udole0" path="res://scripts/managers/hole_manager.gd" id="7_hole_manager"]
+[ext_resource type="Theme" uid="uid://c6xth2qvp8yxk" path="res://assets/themes/game_theme.tres" id="8_theme"]
 
 [node name="Main" type="Node2D" unique_id=1113796788]
 script = ExtResource("1_main")
@@ -52,6 +53,7 @@ offset_bottom = -6.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+theme = ExtResource("8_theme")
 
 [node name="TopBar" type="HBoxContainer" parent="UI/HUD" unique_id=93667985]
 layout_mode = 1
