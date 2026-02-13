@@ -56,6 +56,12 @@ var selected_rock_size: String = "medium"
 var bulldozer_mode: bool = false
 var placement_preview: PlacementPreview = null
 
+# Player golf mode
+var player_controller: PlayerGolferController = null
+var player_golfer: Golfer = null
+var golf_hud: GolfHUD = null
+var shot_aim_overlay: ShotAimOverlay = null
+
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
 	GameManager.terrain_grid = terrain_grid
@@ -1199,6 +1205,15 @@ func _create_save_load_button() -> void:
 	end_day_btn.pressed.connect(_on_end_day_pressed)
 	bottom_bar.add_child(end_day_btn)
 
+	# Play Course button
+	var play_btn_course = Button.new()
+	play_btn_course.name = "PlayCourseBtn"
+	play_btn_course.text = "Play Course"
+	play_btn_course.custom_minimum_size = Vector2(90, 30)
+	play_btn_course.tooltip_text = "Play your course as a golfer"
+	play_btn_course.pressed.connect(_on_play_course_pressed)
+	bottom_bar.add_child(play_btn_course)
+
 func _on_end_day_pressed() -> void:
 	GameManager.force_end_day()
 
@@ -1550,3 +1565,112 @@ func _exit_tree() -> void:
 		EventBus.load_completed.disconnect(_on_load_completed)
 	if EventBus.new_game_started.is_connected(_on_new_game_started):
 		EventBus.new_game_started.disconnect(_on_new_game_started)
+
+# --- Player Golf Mode ---
+
+func _on_play_course_pressed() -> void:
+	"""Enter player-controlled golf mode."""
+	if GameManager.current_mode == GameManager.GameMode.PLAYING:
+		_exit_player_mode()
+		return
+
+	# Must be in simulation mode first (or start it)
+	if GameManager.current_mode == GameManager.GameMode.BUILDING:
+		if not GameManager.start_simulation():
+			return
+
+	_enter_player_mode()
+
+func _enter_player_mode() -> void:
+	"""Set up player golf mode with a player-controlled golfer."""
+	if not GameManager.start_player_mode():
+		return
+
+	# Spawn a player golfer
+	var golfer_scene = preload("res://scenes/entities/golfer.tscn")
+	player_golfer = golfer_scene.instantiate() as Golfer
+	player_golfer.golfer_id = 9999
+	player_golfer.golfer_name = "Player"
+	player_golfer.group_id = 9999
+	player_golfer.driving_skill = 0.7
+	player_golfer.accuracy_skill = 0.6
+	player_golfer.putting_skill = 0.65
+	player_golfer.recovery_skill = 0.55
+
+	var golfers_container = $Entities/Golfers
+	golfers_container.add_child(player_golfer)
+
+	# Process green fee
+	GameManager.process_green_fee_payment(player_golfer.golfer_id, "Player")
+
+	# Set up controller
+	player_controller = PlayerGolferController.new()
+	player_controller.name = "PlayerGolferController"
+	add_child(player_controller)
+	player_controller.setup(player_golfer, terrain_grid)
+	player_controller.player_shot_taken.connect(_on_player_shot_taken)
+
+	# Set up aim overlay
+	shot_aim_overlay = ShotAimOverlay.new()
+	shot_aim_overlay.name = "ShotAimOverlay"
+	add_child(shot_aim_overlay)
+	shot_aim_overlay.setup(player_controller, player_golfer, terrain_grid)
+
+	# Set up golf HUD
+	golf_hud = GolfHUD.new()
+	golf_hud.name = "GolfHUD"
+	add_child(golf_hud)
+	golf_hud.setup(player_controller, player_golfer)
+	golf_hud.exit_player_mode.connect(_exit_player_mode)
+
+	# Start player golfer on hole 1
+	if GameManager.current_course and not GameManager.current_course.holes.is_empty():
+		var first_hole = GameManager.current_course.holes[0]
+		player_golfer.start_hole(0, first_hole.tee_position)
+
+		# Move camera to player
+		var tee_screen = terrain_grid.grid_to_screen_center(first_hole.tee_position)
+		camera.focus_on(tee_screen, false)
+
+	# Hide management UI
+	$UI/HUD.visible = false
+
+	EventBus.player_mode_entered.emit()
+	EventBus.notify("Playing your course! Aim with mouse, Space to swing.", "success")
+
+func _exit_player_mode() -> void:
+	"""Clean up player golf mode and return to management."""
+	# Remove player golfer
+	if player_golfer:
+		player_golfer.queue_free()
+		player_golfer = null
+
+	# Remove controller
+	if player_controller:
+		player_controller.queue_free()
+		player_controller = null
+
+	# Remove aim overlay
+	if shot_aim_overlay:
+		shot_aim_overlay.queue_free()
+		shot_aim_overlay = null
+
+	# Remove golf HUD
+	if golf_hud:
+		golf_hud.queue_free()
+		golf_hud = null
+
+	# Show management UI
+	$UI/HUD.visible = true
+
+	GameManager.stop_player_mode()
+	EventBus.player_mode_exited.emit()
+
+func _on_player_shot_taken() -> void:
+	"""Follow the player's ball after a shot."""
+	if player_golfer and terrain_grid:
+		# Follow the ball to its landing position
+		await get_tree().create_timer(0.5).timeout
+		if player_golfer:
+			var ball_screen = terrain_grid.grid_to_screen_precise(player_golfer.ball_position_precise)
+			camera.focus_on(ball_screen, false)

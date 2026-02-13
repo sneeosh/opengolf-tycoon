@@ -151,6 +151,10 @@ func _ready() -> void:
 	# Apply randomized colors to visual components
 	_apply_appearance()
 
+	# Add visual enhancements (outlines for cleaner look)
+	if visual:
+		GolferSpriteEnhancer.add_outlines(visual)
+
 	# Set up labels
 	if name_label:
 		name_label.text = golfer_name
@@ -260,6 +264,10 @@ func initialize_from_tier(tier: int) -> void:
 	aggression = personality.aggression
 	patience = personality.patience
 
+	# Apply tier badge to info display
+	var info_container = $InfoContainer if has_node("InfoContainer") else null
+	GolferSpriteEnhancer.apply_tier_badge(info_container, tier)
+
 func _process(delta: float) -> void:
 	match current_state:
 		State.WALKING:
@@ -296,6 +304,10 @@ func _process_walking(delta: float) -> void:
 	velocity = direction * effective_speed
 	move_and_slide()
 
+	# Update facing direction based on movement
+	if visual:
+		GolferSpriteEnhancer.update_facing(visual, direction)
+
 	# Check for building proximity (revenue/satisfaction effects)
 	_check_building_proximity()
 
@@ -312,6 +324,10 @@ func _process_walking(delta: float) -> void:
 		hands.rotation = swing_amount
 
 func _process_preparing_shot(delta: float) -> void:
+	# Player-controlled golfers wait for input instead of AI auto-shot
+	if has_meta("is_player_controlled") and get_meta("is_player_controlled"):
+		return  # PlayerGolferController handles shot timing
+
 	# AI thinks about the shot
 	preparation_time += delta
 

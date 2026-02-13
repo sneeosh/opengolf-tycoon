@@ -377,6 +377,21 @@ func stop_simulation() -> void:
 	set_speed(GameSpeed.PAUSED)
 	EventBus.notify("Returned to building mode", "info")
 
+func start_player_mode() -> bool:
+	"""Enter player-controlled golf mode"""
+	if not can_start_playing():
+		EventBus.notify("Need at least one hole to play!", "error")
+		return false
+	set_mode(GameMode.PLAYING)
+	set_speed(GameSpeed.NORMAL)
+	EventBus.notify("Player golf mode - play your course!", "success")
+	return true
+
+func stop_player_mode() -> void:
+	"""Exit player golf mode and return to simulation"""
+	set_mode(GameMode.SIMULATING)
+	EventBus.notify("Returned to management mode", "info")
+
 func get_time_string() -> String:
 	var hour_int = int(current_hour)
 	var minute_int = int((current_hour - hour_int) * 60)
