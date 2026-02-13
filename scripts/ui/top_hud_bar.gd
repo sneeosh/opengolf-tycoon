@@ -260,7 +260,8 @@ func _update_day_time() -> void:
 	if display_hour == 0:
 		display_hour = 12
 
-	_day_time_label.text = "Day %d - %d:%02d %s" % [day, display_hour, minute, am_pm]
+	var date_str = SeasonalCalendar.get_short_date(day)
+	_day_time_label.text = "%s - %d:%02d %s" % [date_str, display_hour, minute, am_pm]
 
 func _update_reputation() -> void:
 	if not has_node("/root/GameManager"):

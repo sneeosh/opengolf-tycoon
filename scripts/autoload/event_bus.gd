@@ -83,6 +83,12 @@ signal selection_cleared()
 signal end_of_day(day_number: int)
 signal course_closing()
 
+# Seasonal Calendar Signals
+signal season_changed(new_season: int)
+signal month_changed(new_month: int)
+signal holiday_started(event_name: String)
+signal holiday_ended(event_name: String)
+
 # Tournament Signals
 signal tournament_scheduled(tier: int, start_day: int)
 signal tournament_started(tier: int)

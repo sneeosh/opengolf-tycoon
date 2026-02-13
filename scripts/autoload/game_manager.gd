@@ -344,6 +344,9 @@ func advance_to_next_day() -> void:
 	# Reset daily statistics for the new day
 	daily_stats.reset()
 
+	var old_season = SeasonalCalendar.get_season(current_day)
+	var old_month = SeasonalCalendar.get_month(current_day)
+
 	current_day += 1
 	current_hour = COURSE_OPEN_HOUR
 	_closing_announced = false
@@ -352,7 +355,26 @@ func advance_to_next_day() -> void:
 	EventBus.day_changed.emit(current_day)
 	if wind_system:
 		wind_system.generate_daily_wind()
-	EventBus.notify("Day %d — Course is open!" % current_day, "info")
+
+	# Check season/month transitions
+	var new_season = SeasonalCalendar.get_season(current_day)
+	var new_month = SeasonalCalendar.get_month(current_day)
+	if new_season != old_season:
+		EventBus.season_changed.emit(new_season)
+		EventBus.notify("%s has arrived!" % SeasonalCalendar.SEASON_NAMES[new_season], "info")
+	if new_month != old_month:
+		EventBus.month_changed.emit(new_month)
+
+	# Check holiday events
+	var holiday = SeasonalCalendar.get_active_holiday(current_day)
+	var prev_holiday = SeasonalCalendar.get_active_holiday(current_day - 1)
+	if not holiday.is_empty() and prev_holiday.is_empty():
+		EventBus.holiday_started.emit(holiday.name)
+		EventBus.notify("Holiday event: %s!" % holiday.name, "success")
+	elif holiday.is_empty() and not prev_holiday.is_empty():
+		EventBus.holiday_ended.emit(prev_holiday.name)
+
+	EventBus.notify("%s — Course is open!" % SeasonalCalendar.get_date_string(current_day), "info")
 
 func can_start_playing() -> bool:
 	"""Check if the course is ready to start playing (has at least one open hole)"""

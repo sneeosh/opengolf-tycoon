@@ -17,6 +17,7 @@ var terrain_toolbar: TerrainToolbar = null
 
 # New UI components
 var top_hud_bar: TopHUDBar = null
+var calendar_widget: CalendarWidget = null
 
 # Legacy references (kept for compatibility, now managed by TopHUDBar)
 var money_label: Label = null
@@ -280,6 +281,19 @@ func _setup_top_hud_bar() -> void:
 	# Add to HUD as first child
 	hud.add_child(top_hud_bar)
 	hud.move_child(top_hud_bar, 0)
+
+	# Add Calendar Widget to the HUD (top-right area)
+	calendar_widget = CalendarWidget.new()
+	calendar_widget.name = "CalendarWidget"
+	calendar_widget.anchor_left = 1.0
+	calendar_widget.anchor_right = 1.0
+	calendar_widget.anchor_top = 0.0
+	calendar_widget.anchor_bottom = 0.0
+	calendar_widget.offset_left = -190
+	calendar_widget.offset_right = -10
+	calendar_widget.offset_top = UIConstants.TOP_HUD_HEIGHT + 4
+	calendar_widget.offset_bottom = UIConstants.TOP_HUD_HEIGHT + 54
+	hud.add_child(calendar_widget)
 
 	# Create "Build Mode" button to return from simulation
 	build_mode_btn = Button.new()
@@ -1148,7 +1162,9 @@ func _on_end_of_day(day_number: int) -> void:
 	var building_costs = _calculate_building_operating_costs()
 	GameManager.daily_stats.calculate_operating_costs(terrain_cost, hole_count, building_costs)
 
-	var total_cost = GameManager.daily_stats.operating_costs
+	# Apply seasonal maintenance multiplier
+	var seasonal_mult = SeasonalCalendar.get_maintenance_multiplier(GameManager.current_day)
+	var total_cost = int(GameManager.daily_stats.operating_costs * seasonal_mult)
 	if total_cost > 0:
 		GameManager.modify_money(-total_cost)
 		EventBus.log_transaction("Daily operating costs", -total_cost)

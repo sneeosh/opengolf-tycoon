@@ -38,26 +38,20 @@ func generate_daily_weather() -> void:
 	_generate_daily_weather()
 
 func _generate_daily_weather() -> void:
-	# Weight towards good weather (70% chance of sunny/partly cloudy)
+	# Use seasonal weather probability tables
+	var probs = SeasonalCalendar.get_weather_probabilities(GameManager.current_day)
 	var roll = randf()
-	if roll < 0.40:
-		weather_type = WeatherType.SUNNY
-		intensity = 0.0
-	elif roll < 0.70:
-		weather_type = WeatherType.PARTLY_CLOUDY
-		intensity = 0.1
-	elif roll < 0.85:
-		weather_type = WeatherType.CLOUDY
-		intensity = 0.25
-	elif roll < 0.93:
-		weather_type = WeatherType.LIGHT_RAIN
-		intensity = 0.4
-	elif roll < 0.98:
-		weather_type = WeatherType.RAIN
-		intensity = 0.6
-	else:
-		weather_type = WeatherType.HEAVY_RAIN
-		intensity = 0.85
+	var cumulative = 0.0
+	var selected_type = WeatherType.SUNNY
+
+	for i in range(probs.size()):
+		cumulative += probs[i]
+		if roll <= cumulative:
+			selected_type = i as WeatherType
+			break
+
+	weather_type = selected_type
+	intensity = _get_base_intensity(selected_type)
 
 	_target_weather = weather_type
 	_transition_progress = 1.0

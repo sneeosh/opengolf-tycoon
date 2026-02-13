@@ -57,6 +57,10 @@ func get_spawn_rate_modifier() -> float:
 		var weather_modifier = GameManager.weather_system.get_spawn_rate_modifier()
 		base_modifier *= weather_modifier
 
+	# Apply seasonal modifier (summer = more golfers, winter = fewer)
+	var seasonal_modifier = SeasonalCalendar.get_total_spawn_modifier(GameManager.current_day)
+	base_modifier *= seasonal_modifier
+
 	return base_modifier
 
 func get_effective_spawn_cooldown() -> float:
