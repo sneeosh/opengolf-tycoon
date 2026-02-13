@@ -21,6 +21,7 @@ tile_set = ExtResource("4_tileset")
 [node name="Entities" type="Node2D" parent="." unique_id=1526930307]
 
 [node name="Golfers" type="Node2D" parent="Entities" unique_id=1588679359]
+y_sort_enabled = true
 
 [node name="Balls" type="Node2D" parent="Entities" unique_id=879523313]
 

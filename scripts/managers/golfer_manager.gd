@@ -119,6 +119,10 @@ func _update_golfers(_delta: float) -> void:
 	for group_id in sorted_group_ids:
 		_update_group(groups[group_id])
 
+	# Update visual offsets and active golfer highlights
+	_update_visual_offsets()
+	_update_active_golfer_highlights()
+
 func _update_group(group: Array) -> void:
 	"""Update a single group - determine and advance the next golfer to play."""
 	# Block if anyone is mid-shot (preparing, swinging, or watching ball)
@@ -616,3 +620,59 @@ func deserialize_golfers(golfers_data: Array) -> void:
 
 	next_golfer_id = max_id + 1
 	next_group_id = max_group + 1
+
+## ============================================================================
+## VISUAL OFFSET & ACTIVE GOLFER SYSTEMS
+## ============================================================================
+
+const CO_LOCATION_RADIUS: float = 20.0  # Screen pixels — golfers closer than this get offset
+const OFFSET_DISTANCE: float = 10.0     # Pixels to spread co-located golfers apart
+
+func _update_visual_offsets() -> void:
+	"""Assign small visual offsets to golfers occupying the same tile area,
+	so they fan out instead of stacking on top of each other."""
+	# Reset all offsets first
+	for golfer in active_golfers:
+		golfer.visual_offset = Vector2.ZERO
+
+	# Group golfers by proximity (screen position)
+	var clusters: Array[Array] = []
+	var assigned: Dictionary = {}  # golfer_id -> true
+
+	for i in range(active_golfers.size()):
+		var golfer_a = active_golfers[i]
+		if golfer_a.golfer_id in assigned:
+			continue
+
+		var cluster: Array = [golfer_a]
+		assigned[golfer_a.golfer_id] = true
+
+		for j in range(i + 1, active_golfers.size()):
+			var golfer_b = active_golfers[j]
+			if golfer_b.golfer_id in assigned:
+				continue
+			if golfer_a.global_position.distance_to(golfer_b.global_position) < CO_LOCATION_RADIUS:
+				cluster.append(golfer_b)
+				assigned[golfer_b.golfer_id] = true
+
+		if cluster.size() > 1:
+			clusters.append(cluster)
+
+	# Apply fan-out offsets to each cluster
+	for cluster in clusters:
+		var count = cluster.size()
+		for idx in range(count):
+			# Arrange in a semicircle arc around the shared position
+			var angle = PI * 0.3 + (PI * 0.4 / max(count - 1, 1)) * idx
+			var offset = Vector2(cos(angle), sin(angle) * 0.5) * OFFSET_DISTANCE
+			cluster[idx].visual_offset = offset
+
+func _update_active_golfer_highlights() -> void:
+	"""Mark the golfer who is currently taking their shot so they get a highlight ring."""
+	for golfer in active_golfers:
+		var is_active = golfer.current_state in [
+			Golfer.State.PREPARING_SHOT,
+			Golfer.State.SWINGING,
+			Golfer.State.WATCHING
+		]
+		golfer.is_active_golfer = is_active

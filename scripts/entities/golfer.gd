@@ -98,8 +98,13 @@ var path_index: int = 0
 ## Building interaction tracking (for proximity-based revenue)
 var _visited_buildings: Dictionary = {}  # instance_id -> true
 
+## Z-ordering and co-location visual offset
+var visual_offset: Vector2 = Vector2.ZERO  # Applied by GolferManager to prevent stacking
+var is_active_golfer: bool = false  # True when this golfer is currently taking their shot
+
 ## Visual components
 @onready var visual: Node2D = $Visual if has_node("Visual") else null
+@onready var info_container: VBoxContainer = $InfoContainer if has_node("InfoContainer") else null
 @onready var name_label: Label = $InfoContainer/NameLabel if has_node("InfoContainer/NameLabel") else null
 @onready var score_label: Label = $InfoContainer/ScoreLabel if has_node("InfoContainer/ScoreLabel") else null
 @onready var head: Polygon2D = $Visual/Head if has_node("Visual/Head") else null
@@ -154,6 +159,9 @@ func _ready() -> void:
 	# Set up labels
 	if name_label:
 		name_label.text = golfer_name
+
+	# Create active golfer highlight ring (drawn below visual)
+	_create_highlight_ring()
 
 	# Connect to green fee payment signal
 	EventBus.green_fee_paid.connect(_on_green_fee_paid)
@@ -261,6 +269,7 @@ func initialize_from_tier(tier: int) -> void:
 	patience = personality.patience
 
 func _process(delta: float) -> void:
+	_update_highlight_ring()
 	match current_state:
 		State.WALKING:
 			_process_walking(delta)
@@ -299,10 +308,10 @@ func _process_walking(delta: float) -> void:
 	# Check for building proximity (revenue/satisfaction effects)
 	_check_building_proximity()
 
-	# Simple walking animation - bob up and down
+	# Simple walking animation - bob up and down, preserving visual offset
 	if visual:
 		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * 1.5
-		visual.position.y = bob_amount
+		visual.position = visual_offset + Vector2(0, bob_amount)
 
 	# Swing arms while walking
 	var swing_amount = sin(Time.get_ticks_msec() / 200.0) * 0.15
@@ -1404,13 +1413,40 @@ func _adjust_mood(amount: float) -> void:
 	if abs(old_mood - current_mood) > 0.05:
 		EventBus.golfer_mood_changed.emit(golfer_id, current_mood)
 
+## Create highlight ring node for active golfer indication
+var _highlight_ring: Polygon2D = null
+
+func _create_highlight_ring() -> void:
+	_highlight_ring = Polygon2D.new()
+	_highlight_ring.name = "HighlightRing"
+	# Draw an ellipse at the golfer's feet
+	var points = PackedVector2Array()
+	for i in range(24):
+		var angle = (i / 24.0) * TAU
+		points.append(Vector2(cos(angle) * 12, sin(angle) * 6 + 14))
+	_highlight_ring.polygon = points
+	_highlight_ring.color = Color(1.0, 0.95, 0.3, 0.35)  # Soft yellow glow
+	_highlight_ring.z_index = -2  # Below shadow
+	_highlight_ring.visible = false
+	add_child(_highlight_ring)
+
+## Update highlight ring visibility and info container offset
+func _update_highlight_ring() -> void:
+	if _highlight_ring:
+		_highlight_ring.visible = is_active_golfer
+		# Apply visual offset to highlight ring too
+		_highlight_ring.position = visual_offset
+	# Stagger info labels to match visual offset so names don't overlap
+	if info_container:
+		info_container.position.x = -40 + visual_offset.x
+
 ## Update visual representation
 func _update_visual() -> void:
 	if not visual:
 		return
 
-	# Reset to default pose
-	visual.position = Vector2.ZERO
+	# Reset to default pose — apply visual offset for co-location separation
+	visual.position = visual_offset
 	if arms:
 		arms.rotation = 0
 	if hands:
