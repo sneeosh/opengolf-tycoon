@@ -9,6 +9,7 @@ extends Node
 ## - [x] Wind (direction, speed)
 ## - [ ] Golfers - NOT persisted; cleared on load, respawn naturally when simulation resumes
 ##       (See DEVELOPMENT_MILESTONES.md for future full mid-action state persistence)
+## - [x] Economy managers (land parcels, staff, marketing campaigns)
 ## - [ ] TODO: Add new entity types here as they're implemented
 ##
 ## When adding a new saveable entity:
@@ -178,6 +179,14 @@ func _build_save_data() -> Dictionary:
 	# Course Records
 	data["course_records"] = CourseRecords.serialize_records(GameManager.course_records)
 
+	# Economy managers
+	if GameManager.land_manager:
+		data["land"] = GameManager.land_manager.serialize()
+	if GameManager.staff_manager:
+		data["staff"] = GameManager.staff_manager.serialize()
+	if GameManager.marketing_manager:
+		data["marketing"] = GameManager.marketing_manager.serialize()
+
 	return data
 
 ## Serialize hole data to plain dictionaries
@@ -252,6 +261,14 @@ func _apply_save_data(data: Dictionary) -> void:
 		GameManager.course_records = CourseRecords.deserialize_records(data["course_records"])
 	else:
 		GameManager.course_records = CourseRecords.create_empty_records()
+
+	# Economy managers
+	if GameManager.land_manager and data.has("land"):
+		GameManager.land_manager.deserialize(data["land"])
+	if GameManager.staff_manager and data.has("staff"):
+		GameManager.staff_manager.deserialize(data["staff"])
+	if GameManager.marketing_manager and data.has("marketing"):
+		GameManager.marketing_manager.deserialize(data["marketing"])
 
 	# Golfers: Always clear on load - they will respawn naturally when the user
 	# switches to simulation mode. This avoids complex mid-action state restoration.

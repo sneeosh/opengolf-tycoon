@@ -67,6 +67,11 @@ var tournament_manager: TournamentManager = null
 # Reference to entity layer for building queries (set by main scene)
 var entity_layer = null
 
+# Economy system references (set by main scene)
+var land_manager: LandManager = null
+var staff_manager: StaffManager = null
+var marketing_manager: MarketingManager = null
+
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
 var yesterday_stats: DailyStatistics = null  # Previous day's stats for comparison

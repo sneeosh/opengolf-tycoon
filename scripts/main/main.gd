@@ -113,6 +113,22 @@ func _ready() -> void:
 	add_child(tournament_manager)
 	GameManager.tournament_manager = tournament_manager
 
+	# Set up economy managers
+	var land_mgr = LandManager.new()
+	land_mgr.name = "LandManager"
+	add_child(land_mgr)
+	GameManager.land_manager = land_mgr
+
+	var staff_mgr = StaffManager.new()
+	staff_mgr.name = "StaffManager"
+	add_child(staff_mgr)
+	GameManager.staff_manager = staff_mgr
+
+	var marketing_mgr = MarketingManager.new()
+	marketing_mgr.name = "MarketingManager"
+	add_child(marketing_mgr)
+	GameManager.marketing_manager = marketing_mgr
+
 	# Set up save manager references
 	SaveManager.set_references(terrain_grid, entity_layer, golfer_manager, ball_manager)
 
@@ -1146,9 +1162,21 @@ func _on_end_of_day(day_number: int) -> void:
 	var terrain_cost = terrain_grid.get_total_maintenance_cost()
 	var hole_count = GameManager.current_course.holes.size() if GameManager.current_course else 0
 	var building_costs = _calculate_building_operating_costs()
+
+	# Staff payroll
+	var staff_payroll: int = 0
+	if GameManager.staff_manager:
+		staff_payroll = GameManager.staff_manager.get_daily_payroll()
+		GameManager.staff_manager.process_daily_maintenance()
+
+	# Marketing costs
+	var marketing_cost: int = 0
+	if GameManager.marketing_manager:
+		marketing_cost = GameManager.marketing_manager.process_daily()
+
 	GameManager.daily_stats.calculate_operating_costs(terrain_cost, hole_count, building_costs)
 
-	var total_cost = GameManager.daily_stats.operating_costs
+	var total_cost = GameManager.daily_stats.operating_costs + staff_payroll + marketing_cost
 	if total_cost > 0:
 		GameManager.modify_money(-total_cost)
 		EventBus.log_transaction("Daily operating costs", -total_cost)
