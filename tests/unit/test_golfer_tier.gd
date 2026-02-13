@@ -141,12 +141,26 @@ func test_generate_skills_within_range() -> void:
 		assert_true(skills.has("accuracy"), "Should have accuracy skill")
 		assert_true(skills.has("putting"), "Should have putting skill")
 		assert_true(skills.has("recovery"), "Should have recovery skill")
+		assert_true(skills.has("miss_tendency"), "Should have miss_tendency")
 
-		for skill_name in skills:
+		for skill_name in ["driving", "accuracy", "putting", "recovery"]:
 			assert_gte(skills[skill_name], data.skill_range[0],
 				"%s skill for tier %d should be >= min" % [skill_name, tier])
 			assert_lte(skills[skill_name], data.skill_range[1],
 				"%s skill for tier %d should be <= max" % [skill_name, tier])
+
+func test_generate_skills_miss_tendency_within_range() -> void:
+	for tier in GolferTier.TIER_DATA.keys():
+		var data = GolferTier.TIER_DATA[tier]
+		var tendency_range = data.tendency_range
+		for _i in range(10):
+			var skills = GolferTier.generate_skills(tier)
+			var tendency = skills.miss_tendency
+			# Magnitude should be within tendency_range, sign can be positive or negative
+			assert_gte(absf(tendency), tendency_range[0],
+				"miss_tendency magnitude for tier %d should be >= min" % tier)
+			assert_lte(absf(tendency), tendency_range[1],
+				"miss_tendency magnitude for tier %d should be <= max" % tier)
 
 
 # --- Tier Utility Functions ---

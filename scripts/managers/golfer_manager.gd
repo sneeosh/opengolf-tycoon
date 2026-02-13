@@ -446,6 +446,10 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	golfer.putting_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
 	golfer.recovery_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
 
+	# Set miss tendency: lower skill = stronger bias, random hook vs slice
+	var tendency_magnitude = (1.0 - skill_level) * randf_range(0.2, 0.7)
+	golfer.miss_tendency = tendency_magnitude * (1.0 if randf() > 0.5 else -1.0)
+
 	# Set personality traits (independent of skill)
 	golfer.aggression = randf_range(0.2, 0.9)  # Range from cautious to aggressive
 	golfer.patience = randf_range(0.3, 0.8)    # Range from impatient to patient

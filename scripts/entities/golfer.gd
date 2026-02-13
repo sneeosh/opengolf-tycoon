@@ -71,6 +71,10 @@ var golfer_tier: int = GolferTier.Tier.CASUAL
 @export_range(0.0, 1.0) var aggression: float = 0.5  # 0.0 = cautious, 1.0 = aggressive/risky
 @export_range(0.0, 1.0) var patience: float = 0.5    # 0.0 = impatient, 1.0 = patient
 
+## Shot shape tendency: -1.0 = strong hook bias, +1.0 = strong slice bias, 0.0 = neutral
+## Beginners have stronger tendencies; pros are more neutral
+var miss_tendency: float = 0.0
+
 ## Current state
 var current_state: State = State.IDLE
 var current_mood: float = 0.5  # 0.0 = angry, 1.0 = happy
@@ -254,6 +258,7 @@ func initialize_from_tier(tier: int) -> void:
 	accuracy_skill = skills.accuracy
 	putting_skill = skills.putting
 	recovery_skill = skills.recovery
+	miss_tendency = skills.miss_tendency
 
 	# Set personality based on tier
 	var personality = GolferTier.get_personality(tier)
@@ -975,31 +980,51 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	var intended_distance = Vector2(from).distance_to(Vector2(target))
 	var actual_distance = intended_distance * distance_modifier
 
-	# Add directional error - mishits go sideways or short, never long
-	# Real golf: you can slice/hook (lateral) or mis-hit (short), but you can't
-	# accidentally hit it farther than your swing allows
-	# Error multiplier scaled for 22 yards/tile (was 10.0 at 15 yards/tile)
-	var error_range = (1.0 - total_accuracy) * 7.0
+	# Angular dispersion model - realistic miss patterns (hooks, slices, shanks)
+	# Instead of uniform random offset, we rotate the shot direction by an error
+	# angle sampled from a bell curve. This means:
+	#   - Most shots land near the target line (small angular miss)
+	#   - Occasional big hooks/slices (tail of the distribution)
+	#   - Misses scale naturally with distance (same angle = more yards off at range)
+	#   - Each golfer has a consistent miss tendency (slice or hook bias)
 	var direction = Vector2(target - from).normalized()
-	var landing_point = Vector2(from) + (direction * actual_distance)
 
-	# Lateral error (slice/hook) - primary miss pattern, can go either direction
-	var perpendicular = Vector2(-direction.y, direction.x)
-	var lateral_multiplier = 1.5
-	# Reduce lateral error for short wedge shots - these are controlled swings
-	# Full swing = more lateral miss potential, partial swing = tighter dispersion
+	# Max angular spread based on inaccuracy (degrees)
+	# Worst case ~18° = severe slice/hook, pro-level ~2° = tight dispersion
+	var max_spread_deg = (1.0 - total_accuracy) * 18.0
+	var spread_std_dev = max_spread_deg / 2.5  # ~95% of shots within max_spread
+
+	# Reduce spread for controlled partial swings (short wedges)
 	if club == Club.WEDGE:
 		var wedge_distance_ratio = clamp(actual_distance / float(club_stats["max_distance"]), 0.0, 1.0)
-		# Scale lateral error: 0.4x for very short shots, 1.2x for full wedge
-		lateral_multiplier = lerpf(0.4, 1.2, wedge_distance_ratio)
-	var lateral_error = randf_range(-1.0, 1.0) * error_range * lateral_multiplier
+		spread_std_dev *= lerpf(0.3, 1.0, wedge_distance_ratio)
 
-	# Longitudinal error - only SHORT, never long (mishits lose distance)
-	# Worse accuracy = more likely to chunk/top it and lose distance
-	var short_error = randf_range(0.0, error_range) * -1.0  # Always negative (shorter)
+	# Sample miss angle from gaussian distribution (bell curve, not uniform)
+	var base_angle_deg = _gaussian_random() * spread_std_dev
 
-	var random_offset = perpendicular * lateral_error + direction * short_error
-	landing_point += random_offset
+	# Apply golfer's natural miss tendency (consistent slice or hook bias)
+	# Lower accuracy amplifies the tendency — skilled players compensate better
+	var tendency_strength = miss_tendency * (1.0 - total_accuracy) * 6.0
+	var miss_angle_deg = base_angle_deg + tendency_strength
+
+	# Rare shank: catastrophic sideways miss (only on full swings, not putts/wedges)
+	# ~5% for worst beginners, <0.5% for pros
+	if club != Club.PUTTER and club != Club.WEDGE:
+		var shank_chance = (1.0 - total_accuracy) * 0.06
+		if randf() < shank_chance:
+			var shank_dir = 1.0 if miss_tendency >= 0.0 else -1.0
+			miss_angle_deg = shank_dir * randf_range(35.0, 55.0)
+			actual_distance *= randf_range(0.3, 0.6)
+
+	# Rotate direction by miss angle
+	var miss_angle_rad = deg_to_rad(miss_angle_deg)
+	var miss_direction = direction.rotated(miss_angle_rad)
+	var landing_point = Vector2(from) + (miss_direction * actual_distance)
+
+	# Distance error: topped/fat shots lose distance (never gain)
+	# Bell curve - most shots near full distance, occasional chunk/top
+	var distance_loss = absf(_gaussian_random()) * (1.0 - total_accuracy) * 0.12
+	landing_point -= miss_direction * (actual_distance * distance_loss)
 
 	# Apply wind displacement
 	if GameManager.wind_system:
@@ -1049,6 +1074,12 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 		"accuracy": total_accuracy,
 		"club": club
 	}
+
+## Approximate gaussian random using Central Limit Theorem (sum of uniform randoms).
+## Returns value with mean ~0 and std dev ~1. Range approximately -3.5 to +3.5.
+## 68% of values within ±1, 95% within ±2, 99.7% within ±3.
+func _gaussian_random() -> float:
+	return (randf() + randf() + randf() + randf() - 2.0) / 0.5774
 
 ## Get lie modifier based on terrain type and club
 func _get_lie_modifier(terrain_type: int, club: Club) -> float:
@@ -1656,6 +1687,7 @@ func serialize() -> Dictionary:
 		"accuracy_skill": accuracy_skill,
 		"putting_skill": putting_skill,
 		"recovery_skill": recovery_skill,
+		"miss_tendency": miss_tendency,
 		"aggression": aggression,
 		"patience": patience,
 		"current_hole": current_hole,
@@ -1680,6 +1712,7 @@ func deserialize(data: Dictionary) -> void:
 	accuracy_skill = data.get("accuracy_skill", 0.5)
 	putting_skill = data.get("putting_skill", 0.5)
 	recovery_skill = data.get("recovery_skill", 0.5)
+	miss_tendency = data.get("miss_tendency", 0.0)
 	aggression = data.get("aggression", 0.5)
 	patience = data.get("patience", 0.5)
 	current_hole = data.get("current_hole", 0)
