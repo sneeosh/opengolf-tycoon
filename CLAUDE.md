@@ -76,6 +76,17 @@ Main (Node2D) ← main.gd
 - **GolferManager**: Spawns groups based on green fee, max 8 concurrent golfers, spawn rate modified by course rating and weather. 4 tiers: BEGINNER/CASUAL/SERIOUS/PRO.
 - **Ball**: Parabolic flight animation, terrain-based rolling distances, wind visual offset. Signals: `ball_landed`, `ball_state_changed`.
 
+#### Shot Accuracy — Angular Dispersion Model
+Shot error uses an **angular dispersion** model rather than absolute tile offsets. The shot direction is rotated by a miss angle sampled from a **gaussian (bell curve) distribution**, so most shots land near the target line with occasional big hooks/slices in the tails. Key properties:
+
+- **`miss_tendency`** (per-golfer, -1.0 to +1.0): Persistent hook/slice bias. Negative = hook, positive = slice. Amplitude set by tier (beginners: 0.4–0.8, pros: 0.0–0.15). Generated in `GolferTier.generate_skills()`.
+- **Angular spread**: `max_spread_deg = (1.0 - total_accuracy) * 18.0`, with `spread_std_dev = max_spread / 2.5`. ~95% of shots land within `max_spread_deg` of target line.
+- **Tendency bias**: `miss_tendency * (1.0 - total_accuracy) * 6.0` degrees added to every shot — lower-skill golfers can't compensate for their natural shot shape.
+- **Shanks**: Rare catastrophic miss (35–55° off-line, 30–60% distance). Probability: `(1.0 - total_accuracy) * 6%`. Only on full swings (not putts/wedges). Direction follows `miss_tendency` sign.
+- **Distance loss**: Topped/fat shots use gaussian distribution: `abs(gaussian) * (1.0 - accuracy) * 12%` max distance loss. Most shots near full distance.
+- **Gaussian helper** (`_gaussian_random()`): Central Limit Theorem approximation using sum of 4 `randf()` calls. Mean ~0, std dev ~1, range ~±3.5.
+- **Accuracy factors**: `total_accuracy = club_accuracy_modifier * skill_accuracy * lie_modifier`, with floors for wedges (0.80–0.96) and putts (skill-scaled). Club modifiers: Driver 0.70, FW 0.78, Iron 0.85, Wedge 0.95, Putter 0.98.
+
 ### Economy
 - Green fee configurable $10-$200. Bankruptcy threshold at -$1000.
 - Buildings: 8 types (Clubhouse, Pro Shop, Restaurant, Snack Bar, Driving Range, Cart Shed, Restroom, Bench). Proximity-based revenue. Clubhouse has 3 upgrade tiers.
