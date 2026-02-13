@@ -97,7 +97,7 @@ func _build_ui() -> void:
 	add_theme_stylebox_override("panel", panel_style)
 
 	# Wider panel for better readability
-	custom_minimum_size = Vector2(260, 500)
+	custom_minimum_size = Vector2(260, 0)
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	# Main container

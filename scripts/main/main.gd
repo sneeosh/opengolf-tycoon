@@ -223,7 +223,12 @@ func _setup_terrain_toolbar() -> void:
 	for child in tool_panel_container.get_children():
 		child.queue_free()
 
-	# Ensure tool panel container expands
+	# Resize tool panel container to fit the wider toolbar and fill vertical space
+	tool_panel_container.anchor_top = 0.0
+	tool_panel_container.anchor_bottom = 1.0
+	tool_panel_container.offset_left = -270
+	tool_panel_container.offset_top = 55   # below top bar
+	tool_panel_container.offset_bottom = -65  # above bottom bar
 	tool_panel_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	# Create and add new toolbar
@@ -1396,8 +1401,7 @@ func _on_staff_pressed() -> void:
 		if staff_panel.visible:
 			# Center the panel on screen using actual size
 			var viewport_size = get_viewport().get_visible_rect().size
-			var panel_size = staff_panel.get_combined_minimum_size()
-			staff_panel.position = (viewport_size - panel_size) / 2
+			staff_panel.position = (viewport_size - staff_panel.size) / 2
 
 func _on_staff_panel_closed() -> void:
 	"""Hide the staff panel."""

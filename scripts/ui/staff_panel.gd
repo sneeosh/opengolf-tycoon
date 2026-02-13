@@ -14,7 +14,8 @@ func _ready() -> void:
 	hide()
 
 func _build_ui() -> void:
-	custom_minimum_size = Vector2(280, 200)
+	custom_minimum_size = Vector2(280, 0)
+	clip_contents = true
 
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 10)
@@ -114,4 +115,6 @@ func toggle() -> void:
 		# Update button states in case tier changed elsewhere
 		for i in range(_tier_buttons.size()):
 			_tier_buttons[i].button_pressed = (i == GameManager.current_staff_tier)
+		# Resize panel to fit content before showing
+		size = get_combined_minimum_size()
 		show()
