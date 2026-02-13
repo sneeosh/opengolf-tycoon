@@ -2,13 +2,13 @@
   "terrain_types": {
     "empty": {"id": 0, "name": "Empty", "playable": false, "placement_cost": 0},
     "grass": {"id": 1, "name": "Natural Grass", "playable": true, "placement_cost": 0},
-    "fairway": {"id": 2, "name": "Fairway", "playable": true, "placement_cost": 10, "maintenance_cost": 5},
-    "rough": {"id": 3, "name": "Rough", "playable": true, "placement_cost": 5, "maintenance_cost": 2},
-    "green": {"id": 5, "name": "Putting Green", "playable": true, "placement_cost": 50, "maintenance_cost": 20},
-    "tee_box": {"id": 6, "name": "Tee Box", "playable": true, "placement_cost": 30, "maintenance_cost": 10},
-    "bunker": {"id": 7, "name": "Sand Bunker", "playable": true, "placement_cost": 25, "is_hazard": true},
-    "water": {"id": 8, "name": "Water Hazard", "playable": false, "placement_cost": 40, "is_hazard": true, "penalty_strokes": 1},
-    "path": {"id": 9, "name": "Cart Path", "playable": true, "placement_cost": 15},
-    "trees": {"id": 11, "name": "Trees", "playable": true, "placement_cost": 20, "blocks_shots": true}
+    "fairway": {"id": 2, "name": "Fairway", "playable": true, "placement_cost": 5, "maintenance_cost": 1},
+    "rough": {"id": 3, "name": "Rough", "playable": true, "placement_cost": 2, "maintenance_cost": 0},
+    "green": {"id": 5, "name": "Putting Green", "playable": true, "placement_cost": 20, "maintenance_cost": 3},
+    "tee_box": {"id": 6, "name": "Tee Box", "playable": true, "placement_cost": 12, "maintenance_cost": 2},
+    "bunker": {"id": 7, "name": "Sand Bunker", "playable": true, "placement_cost": 10, "is_hazard": true},
+    "water": {"id": 8, "name": "Water Hazard", "playable": false, "placement_cost": 20, "is_hazard": true, "penalty_strokes": 1},
+    "path": {"id": 9, "name": "Cart Path", "playable": true, "placement_cost": 8},
+    "trees": {"id": 11, "name": "Trees", "playable": true, "placement_cost": 10, "blocks_shots": true}
   }
 }
