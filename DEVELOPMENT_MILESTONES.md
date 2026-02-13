@@ -522,6 +522,184 @@ _Moved to Future Ideas - low priority until core features complete_
 
 ---
 
+## Priority 10 Development Plan
+
+_This plan breaks Priority 10's 10 features into 5 sequential phases, ordered by dependencies, foundational impact, and risk. Each phase builds on the previous one._
+
+### Dependency Analysis
+
+```
+Phase 1: Bug Fixes & Visual Foundation
+  ├── Fix Golfer Overlap / Z-Ordering  (no dependencies, improves all future work)
+  └── Improved Elevation Contour Visuals (no dependencies, contained refactor)
+
+Phase 2: Theming & UI Infrastructure
+  ├── Course Type / Theme System  (foundation for sprites, land costs, seasons)
+  └── Menu & UI Overhaul           (main menu needed for theme selection; UI theme
+  │                                  needed for all new panels in later phases)
+  └── depends on: nothing, but all later UI-heavy features benefit from this
+
+Phase 3: Progression & Economy Systems
+  ├── Land Purchase & Course Size Progression  (depends on: theme for land pricing)
+  ├── Staff & Grounds Maintenance System       (depends on: UI for staff panel)
+  └── Marketing & Advertising System           (depends on: UI for marketing panel)
+
+Phase 4: Time & Events
+  └── Seasonal Calendar & Event System  (depends on: theme for seasonal modifiers,
+                                          staff for seasonal maintenance costs,
+                                          marketing for seasonal campaigns)
+
+Phase 5: Major Gameplay & Art
+  ├── Player-Controlled Golfer Mode       (largely independent, but benefits from
+  │                                        UI overhaul for golf HUD)
+  └── Improved Golfer & Natural Object Sprites  (depends on: theme system for
+                                                  per-theme sprite variants)
+```
+
+### Phase 1 — Bug Fixes & Visual Polish (2 features)
+
+**Why first:** These are self-contained improvements with no dependencies. Fixing Z-ordering eliminates a visual bug that would compound as more features add on-screen entities. Elevation contours improve the existing build-mode experience immediately.
+
+| # | Feature | Scope | Key Files |
+|---|---------|-------|-----------|
+| 1 | Fix Golfer Overlap / Z-Ordering | Small-Medium | `golfer_manager.gd`, `golfer.gd` |
+| 2 | Improved Elevation Contour Visuals | Medium | `elevation_overlay.gd` |
+
+**Deliverables:**
+- Isometric Y-sort on golfer parent node
+- Positional offsets for co-located golfers (tee box fan-out, green semicircle)
+- Name label collision avoidance
+- Active golfer highlight ring
+- Marching-squares contour interpolation
+- Gradient elevation shading with hillshade effect
+- Cached overlay texture (regenerate only on elevation change)
+
+---
+
+### Phase 2 — Theming & UI Infrastructure (2 features)
+
+**Why second:** The theme system is the single most foundational feature in Priority 10 — sprites, land pricing, seasonal modifiers, and natural object distribution all depend on it. The UI overhaul provides the main menu (needed for theme selection) and establishes the visual language for every panel added in later phases.
+
+| # | Feature | Scope | Key Files |
+|---|---------|-------|-----------|
+| 3 | Course Type / Theme System | Large | New `CourseTheme` resource, `tileset_generator.gd`, all 14 overlays, `game_manager.gd`, `terrain_types.json` |
+| 4 | Menu & UI Overhaul | Large | New `main_menu.tscn`, new Godot `Theme` resource, `top_bar`, `tool_panel`, all existing UI scripts |
+
+**Recommended order within phase:** Theme system first (provides content for the new-game screen), then UI overhaul (integrates the theme selection into the main menu).
+
+**Deliverables:**
+- `CourseTheme` enum/resource with 6 themes (Parkland, Desert, Links, Mountain, City, Resort)
+- Per-theme color palettes fed into `TilesetGenerator`
+- Per-theme overlay tinting (tree types, rock styles, rough color)
+- Per-theme gameplay modifiers (wind, distance, costs)
+- Theme selection screen (6 cards with preview, name, description)
+- Theme stored in `GameManager` and serialized in saves
+- Procedural natural object scattering on new-game start
+- Main menu with New Game / Load / Settings / Quit
+- Custom Godot `Theme` resource (buttons, panels, labels, scrollbars)
+- Redesigned top bar with segmented sections and icons
+- Tabbed toolbar with icon grid and tooltips
+- Settings menu (graphics, gameplay, controls)
+- Toast notification system
+
+---
+
+### Phase 3 — Progression & Economy Systems (3 features)
+
+**Why third:** These add management depth and spending decisions, which are the core tycoon loop. They all require UI panels (benefiting from the Phase 2 UI overhaul) and interact with the theme system for cost balancing.
+
+| # | Feature | Scope | Key Files |
+|---|---------|-------|-----------|
+| 5 | Land Purchase & Course Size Progression | Medium-Large | `terrain_grid.gd`, `game_manager.gd`, new land panel UI |
+| 6 | Staff & Grounds Maintenance System | Medium-Large | New `staff_manager.gd`, `terrain_grid.gd` (condition tracking), staff panel UI |
+| 7 | Marketing & Advertising System | Medium | New `marketing_manager.gd`, `golfer_manager.gd` (spawn modifiers), marketing panel UI |
+
+**These three can be developed in parallel** since they have minimal inter-dependencies. Suggested priority order if done sequentially: Land → Staff → Marketing (land affects buildable area which is most fundamental; staff adds a persistent management layer; marketing is the most self-contained).
+
+**Deliverables:**
+- 40x40 starting plot with parcel grid overlay
+- Purchasable adjacent parcels with progressive pricing
+- Dark tint on unowned land, highlight on purchasable parcels
+- Boundary enforcement on all build tools
+- Land ownership serialized in saves
+- 4 staff types (Groundskeeper, Marshal, Cart Operator, Pro Shop)
+- Hire/fire UI with skill levels and salaries
+- Per-tile course condition tracking with daily degradation/restoration
+- Condition affects gameplay (green speed, fairway lies)
+- Payroll as separate line item in financials
+- 5 marketing channels with duration, cost, and effect
+- Campaign management UI with ROI tracking
+- Spawn rate modifiers from active campaigns
+- Diminishing returns on stacked campaigns
+
+---
+
+### Phase 4 — Time & Events (1 feature)
+
+**Why fourth:** Seasons affect weather tables, spawn rates, maintenance costs, and marketing effectiveness — all systems that should already exist before layering seasonal variation on top.
+
+| # | Feature | Scope | Key Files |
+|---|---------|-------|-----------|
+| 8 | Seasonal Calendar & Event System | Medium | `game_manager.gd`, `weather_system.gd`, `golfer_manager.gd`, calendar UI |
+
+**Deliverables:**
+- 360-day year with 4 seasons (Spring/Summer/Fall/Winter)
+- Per-season weather probability tables
+- Per-season spawn rate and maintenance cost multipliers
+- Green fee tolerance varies by season
+- Calendar UI widget showing current month/season
+- Holiday bonus traffic events with advance notice
+- Theme-aware seasonal modifiers (Desert/Resort less affected by winter)
+
+---
+
+### Phase 5 — Major Gameplay & Art (2 features)
+
+**Why last:** These are the largest individual features and benefit from every prior system being in place. Player-controlled golf needs the UI overhaul for its HUD. Sprite upgrades need the theme system to know which variants to create. Neither blocks other features, so deferring them reduces risk to the earlier phases.
+
+| # | Feature | Scope | Key Files |
+|---|---------|-------|-----------|
+| 9 | Player-Controlled Golfer Mode | Very Large | New `player_golfer.gd` or mode in `golfer.gd`, new golf HUD, `ball.gd`, `camera` |
+| 10 | Improved Golfer & Natural Object Sprites | Very Large (art-heavy) | `golfer.gd` (render pipeline), all overlay classes, new `assets/sprites/` directory |
+
+**Player-Controlled Golfer can be split into two sub-phases:**
+- **Phase 5a — Core shot mechanics:** Club selection bar, click-drag aim with landing zone preview, power meter, shot execution reusing existing ball physics. Scorecard UI.
+- **Phase 5b — Full experience:** Putting interface with slope grid, course flyover, player customization, AI playing partners.
+
+**Sprite upgrades can be split into two sub-phases:**
+- **Phase 5a — Golfer sprites:** Replace `Polygon2D` rendering with `AnimatedSprite2D` + sprite sheets. 4-direction walk/swing/putt animations.
+- **Phase 5b — Environment sprites:** Per-theme tree, rock, and building sprite sets.
+
+---
+
+### Risk Factors & Recommendations
+
+1. **Theme system is the critical path.** It touches the most files (tileset generator + 14 overlays + game manager + save system). Prototype one theme (Desert) end-to-end before building all six.
+
+2. **UI overhaul has high surface area.** Refactoring every panel is time-consuming. Consider doing it incrementally: main menu + theme resource first, then migrate existing panels one at a time rather than a big-bang rewrite.
+
+3. **Player-controlled golfer is the highest-risk feature.** It introduces a fundamentally different input mode and requires a new camera system, shot UI, and game-time management. Build the simplest possible prototype (aim + shoot with existing physics) before investing in the full experience.
+
+4. **Sprite art is a bottleneck.** If hand-drawn sprites aren't feasible, the "Enhanced Procedural" fallback (better shading/outlines on existing `Polygon2D` rendering) ships faster and still improves visual quality meaningfully.
+
+5. **Test coverage matters.** The existing GUT tests cover core systems. Each phase should add tests for new managers (StaffManager, MarketingManager) and data structures (CourseTheme, LandParcel) to prevent regressions.
+
+---
+
+### Summary
+
+| Phase | Features | Estimated Complexity |
+|-------|----------|---------------------|
+| 1 | Z-Ordering Fix + Elevation Contours | Small-Medium |
+| 2 | Theme System + UI Overhaul | Large |
+| 3 | Land Purchase + Staff + Marketing | Large (parallelizable) |
+| 4 | Seasonal Calendar & Events | Medium |
+| 5 | Player Golf Mode + Sprite Upgrade | Very Large |
+
+**Total: 10 features across 5 phases, ordered to maximize foundational value and minimize rework.**
+
+---
+
 ## PRIORITY 10: Course Theming, Visuals & Gameplay Expansion
 
 ### [] Course Type / Theme System
