@@ -55,6 +55,7 @@ var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 var bulldozer_mode: bool = false
 var placement_preview: PlacementPreview = null
+var main_menu: MainMenu = null
 
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
@@ -246,7 +247,29 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.staff_pressed.connect(_on_staff_pressed)
 
 func _initialize_game() -> void:
-	GameManager.new_game("My Golf Course")
+	# Show main menu instead of auto-starting
+	_show_main_menu()
+
+func _show_main_menu() -> void:
+	main_menu = MainMenu.new()
+	main_menu.name = "MainMenu"
+	main_menu.new_game_requested.connect(_on_main_menu_new_game)
+	main_menu.load_game_requested.connect(_on_main_menu_load)
+	$UI/HUD.add_child(main_menu)
+	# Hide gameplay UI while in menu
+	_set_gameplay_ui_visible(false)
+
+func _on_main_menu_new_game(course_name: String, theme_type: int) -> void:
+	if main_menu:
+		main_menu.queue_free()
+		main_menu = null
+	_set_gameplay_ui_visible(true)
+
+	GameManager.new_game(course_name, theme_type)
+
+	# Regenerate tileset with theme colors
+	terrain_grid.regenerate_tileset()
+
 	# Center camera on the middle of the grid
 	var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
 	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
@@ -255,6 +278,21 @@ func _initialize_game() -> void:
 	if placement_preview:
 		placement_preview.set_terrain_tool(current_tool)
 		placement_preview.set_terrain_painting_enabled(true)
+
+func _on_main_menu_load() -> void:
+	if main_menu:
+		main_menu.queue_free()
+		main_menu = null
+	_set_gameplay_ui_visible(true)
+	# Show save/load panel
+	_on_menu_pressed()
+
+func _set_gameplay_ui_visible(visible_flag: bool) -> void:
+	# Toggle visibility of gameplay HUD elements
+	var hud = $UI/HUD
+	for child in hud.get_children():
+		if child != main_menu and child.name != "MainMenu":
+			child.visible = visible_flag
 
 func _setup_top_hud_bar() -> void:
 	"""Replace old TopBar with new TopHUDBar component"""

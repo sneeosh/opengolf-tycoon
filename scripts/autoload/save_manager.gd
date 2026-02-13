@@ -138,6 +138,7 @@ func _build_save_data() -> Dictionary:
 			"current_day": GameManager.current_day,
 			"current_hour": GameManager.current_hour,
 			"green_fee": GameManager.green_fee,
+			"theme": CourseTheme.to_string_name(GameManager.current_theme),
 		},
 	}
 
@@ -212,6 +213,11 @@ func _apply_save_data(data: Dictionary) -> void:
 	GameManager.current_day = int(game.get("current_day", 1))
 	GameManager.current_hour = float(game.get("current_hour", 6.0))
 	GameManager.green_fee = int(game.get("green_fee", 30))
+
+	# Restore theme (defaults to parkland for saves without theme)
+	var theme_name = game.get("theme", "parkland")
+	GameManager.current_theme = CourseTheme.from_string(theme_name)
+	TilesetGenerator.set_theme_colors(CourseTheme.get_terrain_colors(GameManager.current_theme))
 
 	# Terrain
 	if terrain_grid and data.has("terrain"):

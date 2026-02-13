@@ -80,6 +80,14 @@ func _generate_tileset() -> void:
 	tileset.add_source(source)
 	tile_map.tile_set = tileset
 
+## Regenerate the tileset (e.g. after theme change)
+func regenerate_tileset() -> void:
+	_generate_tileset()
+	# Re-render all existing tiles
+	queue_redraw()
+	if tile_map:
+		tile_map.queue_redraw()
+
 func _apply_variation_shader() -> void:
 	if not tile_map:
 		return

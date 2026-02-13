@@ -10,6 +10,7 @@ signal game_mode_changed(old_mode: int, new_mode: int)
 signal game_speed_changed(new_speed: int)
 signal pause_toggled(is_paused: bool)
 signal new_game_started()
+signal theme_changed(theme_type: int)
 
 # Time Signals
 signal day_changed(new_day: int)

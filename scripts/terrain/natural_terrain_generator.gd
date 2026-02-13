@@ -2,15 +2,15 @@ extends RefCounted
 class_name NaturalTerrainGenerator
 ## NaturalTerrainGenerator - Generates natural terrain features for new courses
 
-const TREE_TYPES = ["oak", "pine", "maple", "birch"]
+const DEFAULT_TREE_TYPES = ["oak", "pine", "maple", "birch"]
 const ROCK_SIZES = ["small", "medium", "large"]
 
-## Generate natural terrain for a new course
+## Generate natural terrain for a new course, using theme parameters
 static func generate(terrain_grid: TerrainGrid, entity_layer: EntityLayer, seed_value: int = 0) -> void:
 	var rng = RandomNumberGenerator.new()
 	rng.seed = seed_value if seed_value != 0 else int(Time.get_unix_time_from_system())
 
-	print("Generating natural terrain with seed: %d" % rng.seed)
+	print("Generating natural terrain with seed: %d (theme: %s)" % [rng.seed, CourseTheme.get_name(GameManager.current_theme)])
 
 	# Generate elevation first (hills and valleys)
 	_generate_elevation(terrain_grid, rng)
@@ -38,14 +38,17 @@ static func _generate_elevation(terrain_grid: TerrainGrid, rng: RandomNumberGene
 	noise.frequency = 0.02  # Controls hill size (lower = larger hills)
 	noise.fractal_octaves = 3  # Adds detail variation
 
+	# Theme-aware elevation range
+	var params = CourseTheme.get_generation_params(GameManager.current_theme)
+	var elev_range = params.get("elevation_range", 3)
+
 	# Apply noise-based elevation across the entire map
 	for x in range(width):
 		for y in range(height):
 			var pos = Vector2i(x, y)
-			# Get noise value (-1 to 1) and scale to elevation range (-3 to 3)
 			var noise_value = noise.get_noise_2d(float(x), float(y))
-			var elevation = roundi(noise_value * 3.5)
-			elevation = clampi(elevation, -3, 3)
+			var elevation = roundi(noise_value * (elev_range + 0.5))
+			elevation = clampi(elevation, -elev_range, elev_range)
 
 			if elevation != 0:
 				terrain_grid.set_elevation(pos, elevation)
@@ -55,8 +58,10 @@ static func _generate_water(terrain_grid: TerrainGrid, rng: RandomNumberGenerato
 	var width = terrain_grid.grid_width
 	var height = terrain_grid.grid_height
 
-	# Create 1-3 ponds
-	var pond_count = rng.randi_range(1, 3)
+	# Theme-aware pond count
+	var params = CourseTheme.get_generation_params(GameManager.current_theme)
+	var pond_range: Vector2i = params.get("water_ponds", Vector2i(1, 3))
+	var pond_count = rng.randi_range(pond_range.x, pond_range.y)
 
 	for i in range(pond_count):
 		# Pond center - avoid edges
@@ -91,16 +96,19 @@ static func _generate_trees(terrain_grid: TerrainGrid, entity_layer: EntityLayer
 	var width = terrain_grid.grid_width
 	var height = terrain_grid.grid_height
 
-	# Create tree clusters (forests)
-	var cluster_count = rng.randi_range(5, 10)
+	# Theme-aware tree generation
+	var params = CourseTheme.get_generation_params(GameManager.current_theme)
+	var tree_types = CourseTheme.get_tree_types(GameManager.current_theme)
+	var cluster_range: Vector2i = params.get("tree_clusters", Vector2i(5, 10))
+	var cluster_count = rng.randi_range(cluster_range.x, cluster_range.y)
 
 	for i in range(cluster_count):
 		var cluster_center = Vector2(rng.randf_range(10, width - 10), rng.randf_range(10, height - 10))
 		var cluster_radius = rng.randf_range(8, 20)
 		var tree_density = rng.randf_range(0.15, 0.35)  # Percentage of tiles with trees
 
-		# Determine dominant tree type for this cluster
-		var dominant_type = TREE_TYPES[rng.randi_range(0, TREE_TYPES.size() - 1)]
+		# Determine dominant tree type for this cluster (theme-aware)
+		var dominant_type = tree_types[rng.randi_range(0, tree_types.size() - 1)]
 
 		for x in range(int(cluster_center.x - cluster_radius), int(cluster_center.x + cluster_radius)):
 			for y in range(int(cluster_center.y - cluster_radius), int(cluster_center.y + cluster_radius)):
@@ -128,12 +136,13 @@ static func _generate_trees(terrain_grid: TerrainGrid, entity_layer: EntityLayer
 					# 70% chance of dominant type, 30% chance of other types
 					var tree_type = dominant_type
 					if rng.randf() < 0.3:
-						tree_type = TREE_TYPES[rng.randi_range(0, TREE_TYPES.size() - 1)]
+						tree_type = tree_types[rng.randi_range(0, tree_types.size() - 1)]
 
 					entity_layer.place_tree(pos, tree_type)
 
-	# Add some scattered individual trees
-	var scattered_count = rng.randi_range(30, 60)
+	# Add some scattered individual trees (theme-aware count)
+	var scatter_range: Vector2i = params.get("scattered_trees", Vector2i(30, 60))
+	var scattered_count = rng.randi_range(scatter_range.x, scatter_range.y)
 	for i in range(scattered_count):
 		var x = rng.randi_range(5, width - 5)
 		var y = rng.randi_range(5, height - 5)
@@ -146,7 +155,7 @@ static func _generate_trees(terrain_grid: TerrainGrid, entity_layer: EntityLayer
 		if entity_layer.get_tree_at(pos) != null or entity_layer.get_rock_at(pos) != null:
 			continue
 
-		var tree_type = TREE_TYPES[rng.randi_range(0, TREE_TYPES.size() - 1)]
+		var tree_type = tree_types[rng.randi_range(0, tree_types.size() - 1)]
 		entity_layer.place_tree(pos, tree_type)
 
 static func _generate_rocks(terrain_grid: TerrainGrid, entity_layer: EntityLayer, rng: RandomNumberGenerator) -> void:
@@ -154,8 +163,10 @@ static func _generate_rocks(terrain_grid: TerrainGrid, entity_layer: EntityLayer
 	var width = terrain_grid.grid_width
 	var height = terrain_grid.grid_height
 
-	# Scatter rocks, with higher chance near elevation changes
-	var rock_count = rng.randi_range(40, 80)
+	# Theme-aware rock count
+	var params = CourseTheme.get_generation_params(GameManager.current_theme)
+	var rock_range: Vector2i = params.get("rocks", Vector2i(40, 80))
+	var rock_count = rng.randi_range(rock_range.x, rock_range.y)
 	var attempts = 0
 	var placed = 0
 

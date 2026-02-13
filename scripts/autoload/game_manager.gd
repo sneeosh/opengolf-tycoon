@@ -10,6 +10,7 @@ var is_paused: bool = false
 
 var current_course: CourseData = null
 var course_name: String = "New Course"
+var current_theme: int = CourseTheme.Type.PARKLAND
 var money: int = 50000
 var reputation: float = 50.0
 var current_day: int = 1
@@ -272,13 +273,18 @@ func check_round_record(golfer_name: String, total_strokes: int) -> bool:
 func reset_course_records() -> void:
 	course_records = CourseRecords.create_empty_records()
 
-func new_game(course_name_input: String = "New Course") -> void:
+func new_game(course_name_input: String = "New Course", theme: int = CourseTheme.Type.PARKLAND) -> void:
 	course_name = course_name_input
+	current_theme = theme
 	money = 50000
 	reputation = 50.0
 	current_day = 1
 	current_hour = COURSE_OPEN_HOUR
-	green_fee = 30  # Reset to default
+
+	# Apply theme gameplay modifiers
+	var modifiers = CourseTheme.get_gameplay_modifiers(theme)
+	green_fee = modifiers.get("green_fee_baseline", 30)
+
 	_closing_announced = false
 	_end_of_day_triggered = false
 	_end_of_day_emitted = false
@@ -287,6 +293,10 @@ func new_game(course_name_input: String = "New Course") -> void:
 	yesterday_stats = null  # No yesterday on day 1
 	hole_statistics.clear()  # Clear per-hole stats for new game
 	reset_course_records()  # Clear records for new game
+
+	# Apply theme colors to tileset generator
+	TilesetGenerator.set_theme_colors(CourseTheme.get_terrain_colors(theme))
+
 	set_mode(GameMode.BUILDING)
 	EventBus.new_game_started.emit()
 
