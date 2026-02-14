@@ -89,6 +89,7 @@ var previous_hole_strokes: int = 0  # Strokes on last completed hole (for honor 
 var ball_position: Vector2i = Vector2i.ZERO
 var ball_position_precise: Vector2 = Vector2.ZERO  # Sub-tile precision for putting
 var target_position: Vector2i = Vector2i.ZERO
+var last_shot_was_putt: bool = false  # Track shot type for gimme distance calculation
 
 ## Shot preparation
 var preparation_time: float = 0.0
@@ -101,6 +102,13 @@ var path_index: int = 0
 
 ## Building interaction tracking (for proximity-based revenue)
 var _visited_buildings: Dictionary = {}  # instance_id -> true
+
+## Z-ordering: visual offset to prevent stacking when golfers share a tile
+var visual_offset: Vector2 = Vector2.ZERO
+
+## Active golfer highlight (shows who is currently taking their shot)
+var is_active_golfer: bool = false
+var _highlight_ring: Polygon2D = null
 
 ## Visual components
 @onready var visual: Node2D = $Visual if has_node("Visual") else null
@@ -158,6 +166,9 @@ func _ready() -> void:
 	# Set up labels
 	if name_label:
 		name_label.text = golfer_name
+
+	# Create highlight ring for active golfer indication
+	_create_highlight_ring()
 
 	# Connect to green fee payment signal
 	EventBus.green_fee_paid.connect(_on_green_fee_paid)
@@ -266,6 +277,7 @@ func initialize_from_tier(tier: int) -> void:
 	patience = personality.patience
 
 func _process(delta: float) -> void:
+	_update_highlight_ring()
 	match current_state:
 		State.WALKING:
 			_process_walking(delta)
@@ -304,10 +316,10 @@ func _process_walking(delta: float) -> void:
 	# Check for building proximity (revenue/satisfaction effects)
 	_check_building_proximity()
 
-	# Simple walking animation - bob up and down
+	# Simple walking animation - bob up and down, preserving visual offset
 	if visual:
 		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * 1.5
-		visual.position.y = bob_amount
+		visual.position = visual_offset + Vector2(0, bob_amount)
 
 	# Swing arms while walking
 	var swing_amount = sin(Time.get_ticks_msec() / 200.0) * 0.15
@@ -379,6 +391,7 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	current_strokes = 0
 	ball_position = tee_position
 	ball_position_precise = Vector2(tee_position)
+	last_shot_was_putt = false  # Tee shots are never putts
 
 	# Clear visited buildings at start of round
 	if hole_number == 0:
@@ -425,6 +438,7 @@ func take_shot(target: Vector2i) -> void:
 	var terrain_check_pos = Vector2i(ball_position_precise.round()) if terrain_grid else ball_position
 	var current_terrain = terrain_grid.get_tile(terrain_check_pos) if terrain_grid else -1
 	var is_putt = current_terrain == TerrainTypes.Type.GREEN
+	last_shot_was_putt = is_putt  # Track for gimme distance calculation in _advance_golfer
 
 	# Save position before shot for OB stroke-and-distance penalty
 	var previous_position = ball_position
@@ -450,19 +464,31 @@ func take_shot(target: Vector2i) -> void:
 		ball_position = shot_result.landing_position
 		ball_position_precise = shot_result.landing_position_precise
 
+		# Check if this is a chip-in before emitting animation
+		var hole_data_for_anim = GameManager.course_data.holes[current_hole]
+		var dist_for_chipin = ball_position_precise.distance_to(Vector2(hole_data_for_anim.hole_position))
+		var is_chip_in = dist_for_chipin < 0.01  # Same threshold as gimme_distance for non-putts
+
+		# For chip-ins, snap ball position to hole (like putts do)
+		if is_chip_in:
+			ball_position = hole_data_for_anim.hole_position
+			ball_position_precise = Vector2(hole_data_for_anim.hole_position)
+
 		# Emit precise ball landed signal for sub-tile flight animation
 		if terrain_grid:
 			var from_screen = terrain_grid.grid_to_screen_precise(from_precise)
-			var to_screen = terrain_grid.grid_to_screen_precise(shot_result.landing_position_precise)
+			# For chip-ins, animate the ball to the hole position so it visually goes in
+			var anim_target = Vector2(hole_data_for_anim.hole_position) if is_chip_in else shot_result.landing_position_precise
+			var to_screen = terrain_grid.grid_to_screen_precise(anim_target)
 			EventBus.ball_shot_landed_precise.emit(golfer_id, from_screen, to_screen, shot_result.distance)
 
 	# Debug output
 	var club_name = CLUB_STATS[shot_result.club]["name"]
 	var putt_detail = ""
 	if is_putt:
-		var hole_data = GameManager.course_data.holes[current_hole]
-		var dist_to_hole = ball_position_precise.distance_to(Vector2(hole_data.hole_position))
-		putt_detail = " (%.1fft to hole)" % (dist_to_hole * 22.0 * 3.0)  # tiles -> yards -> feet
+		var hole_pos = GameManager.course_data.holes[current_hole].hole_position
+		var dist_to_hole_debug = ball_position_precise.distance_to(Vector2(hole_pos))
+		putt_detail = " (%.1fft to hole)" % (dist_to_hole_debug * 22.0 * 3.0)  # tiles -> yards -> feet
 	print("%s (ID:%d) - Hole %d, Stroke %d: %s shot, %d yards, %.1f%% accuracy%s" % [
 		golfer_name,
 		golfer_id,
@@ -478,16 +504,40 @@ func take_shot(target: Vector2i) -> void:
 	EventBus.shot_taken.emit(golfer_id, current_hole, current_strokes)
 	shot_completed.emit(shot_result.distance, shot_result.accuracy)
 
+	# Check if ball will land in the hole - schedule hide for when animation completes
+	var hole_data = GameManager.course_data.holes[current_hole]
+	var dist_to_hole = ball_position_precise.distance_to(Vector2(hole_data.hole_position))
+	# Putt gimme: 0.25 tiles (~5.5 yards) - automatic tap-in range
+	# Chip-in: 0.01 tiles (~8 inches) - must land nearly in the hole (real hole is 4.25" diameter)
+	var gimme_distance = 0.25 if is_putt else 0.01
+	var ball_holed = dist_to_hole < gimme_distance
+
+	if ball_holed:
+		# Calculate animation duration to match BallManager's putt/shot animation
+		var anim_duration: float
+		if is_putt:
+			anim_duration = 0.3 + (shot_result.distance / 100.0) * 0.7
+			anim_duration = clampf(anim_duration, 0.3, 1.5)
+		else:
+			anim_duration = 1.0 + (shot_result.distance / 300.0) * 1.5
+			anim_duration = clampf(anim_duration, 0.5, 3.0)
+		# Hide ball when animation reaches the hole
+		var hole_num = hole_data.hole_number
+		var gid = golfer_id
+		get_tree().create_timer(anim_duration).timeout.connect(
+			func(): EventBus.ball_in_hole.emit(gid, hole_num)
+		)
+
 	# Watch the ball fly before walking to it
 	_change_state(State.WATCHING)
 	var flight_time = _estimate_flight_duration(shot_result.distance)
 	await get_tree().create_timer(flight_time + 0.5).timeout
 
-	# Check for hazards at landing position and apply penalties
-	if _handle_hazard_penalty(previous_position):
+	# Check for hazards at landing position and apply penalties (skip if ball holed)
+	if not ball_holed and _handle_hazard_penalty(previous_position):
 		await get_tree().create_timer(1.0).timeout
 
-	# Now walk to the ball
+	# Walk to the ball (or to the hole to grab it if holed)
 	_walk_to_ball()
 
 ## Finish current hole
@@ -1435,13 +1485,34 @@ func _adjust_mood(amount: float) -> void:
 	if abs(old_mood - current_mood) > 0.05:
 		EventBus.golfer_mood_changed.emit(golfer_id, current_mood)
 
+## Create highlight ring node for active golfer indication
+func _create_highlight_ring() -> void:
+	_highlight_ring = Polygon2D.new()
+	_highlight_ring.name = "HighlightRing"
+	# Draw a larger ellipse at the golfer's feet for better visibility
+	var points = PackedVector2Array()
+	for i in range(24):
+		var angle = (i / 24.0) * TAU
+		points.append(Vector2(cos(angle) * 16, sin(angle) * 8 + 12))
+	_highlight_ring.polygon = points
+	_highlight_ring.color = Color(1.0, 0.9, 0.2, 0.6)  # Brighter yellow, more opaque
+	_highlight_ring.z_index = -1  # Just below golfer body
+	_highlight_ring.visible = false
+	add_child(_highlight_ring)
+
+## Update highlight ring visibility based on active golfer state
+func _update_highlight_ring() -> void:
+	if _highlight_ring:
+		_highlight_ring.visible = is_active_golfer
+		_highlight_ring.position = visual_offset
+
 ## Update visual representation
 func _update_visual() -> void:
 	if not visual:
 		return
 
-	# Reset to default pose
-	visual.position = Vector2.ZERO
+	# Reset to default pose — apply visual offset for co-location separation
+	visual.position = visual_offset
 	if arms:
 		arms.rotation = 0
 	if hands:
