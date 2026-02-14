@@ -27,4 +27,4 @@ npm run deploy
 
 echo ""
 echo "=== Deployment complete! ==="
-echo "URL: https://opengolf-tycoon.kennyatx1.workers.dev"
+echo "URL: https://golf.kennyatx.com"
