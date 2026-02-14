@@ -15,6 +15,15 @@ func setup(terrain_grid: TerrainGrid) -> void:
 	_terrain_grid = terrain_grid
 	_regenerate_grass()
 	terrain_grid.tile_changed.connect(_on_tile_changed)
+	EventBus.load_completed.connect(_on_load_completed)
+
+func _exit_tree() -> void:
+	if EventBus.load_completed.is_connected(_on_load_completed):
+		EventBus.load_completed.disconnect(_on_load_completed)
+
+func _on_load_completed(_success: bool) -> void:
+	_regenerate_grass()
+	queue_redraw()
 
 func _on_tile_changed(pos: Vector2i, _old_type: int, new_type: int) -> void:
 	if new_type in GRASS_TYPES:

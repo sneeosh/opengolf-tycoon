@@ -23,6 +23,7 @@ func _ready() -> void:
 	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole)
 	EventBus.golfer_finished_round.connect(_on_golfer_finished_round)
 	EventBus.hazard_penalty.connect(_on_hazard_penalty)
+	EventBus.ball_in_hole.connect(_on_ball_in_hole)
 
 func _exit_tree() -> void:
 	if EventBus.shot_taken.is_connected(_on_shot_taken):
@@ -41,6 +42,8 @@ func _exit_tree() -> void:
 		EventBus.golfer_finished_round.disconnect(_on_golfer_finished_round)
 	if EventBus.hazard_penalty.is_connected(_on_hazard_penalty):
 		EventBus.hazard_penalty.disconnect(_on_hazard_penalty)
+	if EventBus.ball_in_hole.is_connected(_on_ball_in_hole):
+		EventBus.ball_in_hole.disconnect(_on_ball_in_hole)
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -261,13 +264,17 @@ func _on_ball_landed_in_water(landing_pos: Vector2i, golfer_id: int) -> void:
 		WaterSplashEffect.create_at(ball.get_parent(), ball.global_position)
 		ball.visible = false  # Hide ball after splash (it's in the water)
 
-func _on_golfer_started_hole(golfer_id: int, hole_number: int) -> void:
+func _on_golfer_started_hole(_golfer_id: int, _hole_number: int) -> void:
 	# Golfer started a new hole - ball will be placed when they take their first shot
-	# Make sure ball is visible for new hole
-	show_ball(golfer_id)
+	# Don't show ball here - the shot handlers will make it visible at the correct tee position
+	pass
 
 func _on_golfer_finished_hole(golfer_id: int, hole_number: int, strokes: int, par: int) -> void:
 	# Golfer finished the hole - hide the ball until next hole
+	hide_ball(golfer_id)
+
+func _on_ball_in_hole(golfer_id: int, _hole_number: int) -> void:
+	# Ball went in the hole - hide it immediately for visual feedback
 	hide_ball(golfer_id)
 
 func _on_ball_putt_precise(golfer_id: int, from_screen: Vector2, to_screen: Vector2, distance_yards: int) -> void:

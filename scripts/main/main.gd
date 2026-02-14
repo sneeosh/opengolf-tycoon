@@ -184,6 +184,11 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Cancel action should always work regardless of game mode
+	if event.is_action_pressed("cancel"):
+		_cancel_action()
+		return
+
 	# Allow building/tree/rock placement in any mode
 	var in_placement_mode = placement_manager.placement_mode != PlacementManager.PlacementMode.NONE
 
@@ -195,8 +200,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_start_painting()
 	elif event.is_action_released("select"):
 		_stop_painting()
-	if event.is_action_pressed("cancel"):
-		_cancel_action()
 	if is_painting and event is InputEventMouseMotion:
 		if elevation_tool.is_active():
 			_paint_elevation_at_mouse()
@@ -286,6 +289,8 @@ func _setup_top_hud_bar() -> void:
 
 	# Connect money click to financial panel
 	top_hud_bar.money_clicked.connect(_on_money_clicked)
+	# Connect reputation click to financial panel (shows course rating details)
+	top_hud_bar.reputation_clicked.connect(_on_money_clicked)
 
 	# Add to HUD as first child
 	hud.add_child(top_hud_bar)

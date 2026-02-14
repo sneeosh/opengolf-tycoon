@@ -20,10 +20,17 @@ func initialize(grid: TerrainGrid) -> void:
 	z_index = 10  # Render well above terrain tiles
 	_scan_flower_tiles()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
+	EventBus.load_completed.connect(_on_load_completed)
 
 func _exit_tree() -> void:
 	if EventBus.terrain_tile_changed.is_connected(_on_terrain_tile_changed):
 		EventBus.terrain_tile_changed.disconnect(_on_terrain_tile_changed)
+	if EventBus.load_completed.is_connected(_on_load_completed):
+		EventBus.load_completed.disconnect(_on_load_completed)
+
+func _on_load_completed(_success: bool) -> void:
+	_scan_flower_tiles()
+	queue_redraw()
 
 func _scan_flower_tiles() -> void:
 	_flower_positions.clear()

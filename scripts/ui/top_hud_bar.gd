@@ -3,6 +3,7 @@ class_name TopHUDBar
 ## TopHUDBar - Redesigned top status bar with icons and improved typography
 
 signal money_clicked()
+signal reputation_clicked()
 
 # UI References
 var _game_mode_icon: Label
@@ -10,7 +11,7 @@ var _game_mode_label: Label
 var _money_button: Button
 var _money_trend: Label
 var _day_time_label: Label
-var _reputation_label: Label
+var _reputation_button: Button
 var _weather_icon: Label
 var _weather_label: Label
 var _wind_label: Label
@@ -113,9 +114,12 @@ func _build_ui() -> void:
 	rep_icon.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
 	rep_container.add_child(rep_icon)
 
-	_reputation_label = Label.new()
-	_reputation_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
-	rep_container.add_child(_reputation_label)
+	_reputation_button = Button.new()
+	_reputation_button.flat = true
+	_reputation_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
+	_reputation_button.pressed.connect(_on_reputation_pressed)
+	_reputation_button.tooltip_text = "Click to view course rating details"
+	rep_container.add_child(_reputation_button)
 
 	# Vertical separator
 	stats_container.add_child(_create_vseparator())
@@ -270,15 +274,15 @@ func _update_reputation() -> void:
 	if rep == null:
 		rep = 50.0
 
-	_reputation_label.text = "%d%%" % int(rep)
+	_reputation_button.text = "%d%%" % int(rep)
 
 	# Color based on reputation
 	if rep >= 75:
-		_reputation_label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
+		_reputation_button.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
 	elif rep >= 40:
-		_reputation_label.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
+		_reputation_button.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
 	else:
-		_reputation_label.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
+		_reputation_button.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
 
 func _update_weather() -> void:
 	if not has_node("/root/GameManager"):
@@ -361,6 +365,9 @@ func _format_number(num: int) -> String:
 # Signal handlers
 func _on_money_pressed() -> void:
 	money_clicked.emit()
+
+func _on_reputation_pressed() -> void:
+	reputation_clicked.emit()
 
 func _on_money_changed(old_amount: int, new_amount: int) -> void:
 	_money_trend_value = new_amount - old_amount

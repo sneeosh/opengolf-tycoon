@@ -10,10 +10,16 @@ func initialize(grid: TerrainGrid) -> void:
 	z_index = 2  # Render above terrain overlays
 	_calculate_boundaries()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
+	EventBus.load_completed.connect(_on_load_completed)
 
 func _exit_tree() -> void:
 	if EventBus.terrain_tile_changed.is_connected(_on_terrain_tile_changed):
 		EventBus.terrain_tile_changed.disconnect(_on_terrain_tile_changed)
+	if EventBus.load_completed.is_connected(_on_load_completed):
+		EventBus.load_completed.disconnect(_on_load_completed)
+
+func _on_load_completed(_success: bool) -> void:
+	_calculate_boundaries()
 
 func _calculate_boundaries() -> void:
 	_boundary_positions.clear()
