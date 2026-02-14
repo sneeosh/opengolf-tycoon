@@ -300,6 +300,11 @@ func _input(event: InputEvent) -> void:
 		if event.is_command_or_control_pressed():
 			return
 
+		# Don't process hotkeys when a text field has focus (e.g., save dialog)
+		var focused = get_viewport().gui_get_focus_owner()
+		if focused is LineEdit or focused is TextEdit:
+			return
+
 		# Check for section toggle hotkeys (with shift for symbols)
 		if event.shift_pressed:
 			match event.keycode:
