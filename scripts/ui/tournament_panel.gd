@@ -1,4 +1,4 @@
-extends PanelContainer
+extends CenteredPanel
 class_name TournamentPanel
 ## TournamentPanel - UI for viewing and hosting tournaments
 
@@ -10,9 +10,7 @@ var _status_label: Label = null
 var _title_label: Label = null
 
 func _ready() -> void:
-	_build_ui()
-	hide()
-
+	super._ready()
 	# Connect to tournament events
 	EventBus.tournament_scheduled.connect(_on_tournament_scheduled)
 	EventBus.tournament_started.connect(_on_tournament_started)
@@ -78,7 +76,7 @@ func toggle() -> void:
 		hide()
 	else:
 		_refresh_display()
-		show()
+		show_centered()
 
 func _refresh_display() -> void:
 	if not _tournament_manager:

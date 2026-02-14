@@ -1,4 +1,4 @@
-extends PanelContainer
+extends CenteredPanel
 class_name BuildingInfoPanel
 ## BuildingInfoPanel - Shows building info and upgrade options when clicked
 
@@ -8,10 +8,6 @@ signal close_requested
 var _building: Building = null
 var _vbox: VBoxContainer = null
 var _upgrade_btn: Button = null
-
-func _ready() -> void:
-	_build_ui()
-	hide()
 
 func _build_ui() -> void:
 	custom_minimum_size = Vector2(280, 200)
@@ -30,7 +26,7 @@ func _build_ui() -> void:
 func show_for_building(building: Building) -> void:
 	_building = building
 	_update_display()
-	show()
+	show_centered()
 
 func _update_display() -> void:
 	# Clear existing content

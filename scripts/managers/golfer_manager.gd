@@ -3,6 +3,7 @@ class_name GolferManager
 ## GolferManager - Spawns and manages AI golfers on the course
 
 const GOLFER_SCENE = preload("res://scenes/entities/golfer.tscn")
+const TerrainTypes = preload("res://scripts/terrain/terrain_types.gd")
 
 @export var max_concurrent_golfers: int = 8
 @export var min_spawn_cooldown_seconds: float = 10.0  # Minimum cooldown between group spawns
@@ -367,8 +368,24 @@ func _advance_golfer(golfer: Golfer) -> void:
 			golfer.ball_position_precise = Vector2(hole_position)
 			distance_to_hole = 0.0
 
-		if distance_to_hole < 0.25:
-			# Close enough to hole out (gimme putt ~3.75 yards)
+		# Check if ball is on the green (last shot was a putt/chip)
+		var ball_terrain = GameManager.terrain_grid.get_tile(golfer.ball_position) if GameManager.terrain_grid else -1
+		var is_on_green = ball_terrain == TerrainTypes.Type.GREEN
+
+		# Gimme distance depends on whether this was a putt or approach shot
+		# Putts: 0.25 tiles (~5.5 yards) - standard gimme distance
+		# Approach shots: must land essentially in the hole (0.05 tiles ~1 yard)
+		# with a tiny chance of holing out from farther (hole-in-one magic)
+		var gimme_distance = 0.25 if is_on_green else 0.05
+
+		# Rare hole-out from approach: ~1 in 3000 chance if within 0.25 tiles
+		# (Real golf hole-in-one odds are ~1 in 12,500 for amateurs)
+		if not is_on_green and distance_to_hole < 0.25 and distance_to_hole >= 0.05:
+			if randf() < 0.0003:  # 0.03% chance
+				gimme_distance = 0.25  # Allow the hole-out
+
+		if distance_to_hole < gimme_distance:
+			# Close enough to hole out
 			var score_diff = golfer.current_strokes - hole_data.par
 			var score_name = ""
 			if golfer.current_strokes == 1:

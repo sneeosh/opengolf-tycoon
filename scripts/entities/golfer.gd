@@ -990,8 +990,8 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	var direction = Vector2(target - from).normalized()
 
 	# Max angular spread based on inaccuracy (degrees)
-	# Worst case ~18° = severe slice/hook, pro-level ~2° = tight dispersion
-	var max_spread_deg = (1.0 - total_accuracy) * 18.0
+	# Worst case ~12° = severe slice/hook, pro-level ~1.2° = tight dispersion
+	var max_spread_deg = (1.0 - total_accuracy) * 12.0
 	var spread_std_dev = max_spread_deg / 2.5  # ~95% of shots within max_spread
 
 	# Reduce spread for controlled partial swings (short wedges)

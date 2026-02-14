@@ -1,4 +1,4 @@
-extends PanelContainer
+extends CenteredPanel
 class_name EndOfDaySummaryPanel
 ## EndOfDaySummaryPanel - Shows daily statistics at end of each day
 
@@ -10,7 +10,9 @@ func _init(day_number: int = 1) -> void:
 	_day_number = day_number
 
 func _ready() -> void:
-	_build_ui()
+	super._ready()
+	# Show centered immediately (this panel auto-shows on creation)
+	show_centered()
 
 func _build_ui() -> void:
 	# Get viewport height to set appropriate panel size

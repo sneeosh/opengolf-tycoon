@@ -80,7 +80,7 @@ Main (Node2D) ← main.gd
 Shot error uses an **angular dispersion** model rather than absolute tile offsets. The shot direction is rotated by a miss angle sampled from a **gaussian (bell curve) distribution**, so most shots land near the target line with occasional big hooks/slices in the tails. Key properties:
 
 - **`miss_tendency`** (per-golfer, -1.0 to +1.0): Persistent hook/slice bias. Negative = hook, positive = slice. Amplitude set by tier (beginners: 0.4–0.8, pros: 0.0–0.15). Generated in `GolferTier.generate_skills()`.
-- **Angular spread**: `max_spread_deg = (1.0 - total_accuracy) * 18.0`, with `spread_std_dev = max_spread / 2.5`. ~95% of shots land within `max_spread_deg` of target line.
+- **Angular spread**: `max_spread_deg = (1.0 - total_accuracy) * 12.0`, with `spread_std_dev = max_spread / 2.5`. ~95% of shots land within `max_spread_deg` of target line.
 - **Tendency bias**: `miss_tendency * (1.0 - total_accuracy) * 6.0` degrees added to every shot — lower-skill golfers can't compensate for their natural shot shape.
 - **Shanks**: Rare catastrophic miss (35–55° off-line, 30–60% distance). Probability: `(1.0 - total_accuracy) * 6%`. Only on full swings (not putts/wedges). Direction follows `miss_tendency` sign.
 - **Distance loss**: Topped/fat shots use gaussian distribution: `abs(gaussian) * (1.0 - accuracy) * 12%` max distance loss. Most shots near full distance.
@@ -117,6 +117,25 @@ Shot error uses an **angular dispersion** model rather than absolute tile offset
 - **Export vars**: `@export` for tunable gameplay constants (max_concurrent_golfers, spawn cooldowns, grid dimensions).
 - **Performance**: Transaction history capped at 1000 entries. Object pooling for balls. Weather transitions smooth over time.
 
+### UI Patterns
+
+- **CenteredPanel base class** (`scripts/ui/centered_panel.gd`): Extend this for panels that need to be centered on screen. Provides `show_centered()` (shows offscreen, waits for layout, then centers) and `toggle()` methods. Handles Godot's layout timing issues where `get_combined_minimum_size()` returns wrong values before first frame.
+
+- **AcceptDialog with hotkey toggle**: For popup selection menus (trees, rocks, buildings) that open via hotkey, implement toggle behavior so pressing the same key closes the dialog:
+  1. Store dialog reference as instance variable (e.g., `var _tree_dialog: AcceptDialog = null`)
+  2. Keep dialog modal (default `exclusive = true`) so it captures keyboard input
+  3. Connect to `window_input` signal to detect the hotkey and close:
+     ```gdscript
+     _tree_dialog.window_input.connect(_on_tree_dialog_input)
+
+     func _on_tree_dialog_input(event: InputEvent) -> void:
+         if event is InputEventKey and event.pressed and not event.echo:
+             if event.keycode == KEY_T:
+                 _on_tree_dialog_closed()
+     ```
+  4. Connect `canceled` and `confirmed` signals to cleanup function that frees dialog and sets reference to null
+  5. In selection callbacks, also free dialog and set reference to null
+
 ## Build & Export
 
 - **4 export targets** in `export_presets.cfg`: Windows, macOS, Linux, Web
@@ -135,6 +154,8 @@ make test          # Using Makefile
 **Test coverage:** GameManager, SaveManager, CourseRatingSystem, CourseRecords, DailyStatistics, GolferTier.
 
 **Override Godot path:** `make test GODOT=/path/to/godot` or `GODOT=/path/to/godot ./test.sh`
+
+**User preference:** Run Godot tests manually via the editor (faster execution than CLI).
 
 ## Development Notes
 

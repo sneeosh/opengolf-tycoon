@@ -1,4 +1,4 @@
-extends PanelContainer
+extends CenteredPanel
 class_name FinancialPanel
 ## FinancialPanel - Detailed financial breakdown toggled by clicking money display
 
@@ -6,10 +6,6 @@ signal close_requested
 
 var _content_vbox: VBoxContainer = null
 var _scroll: ScrollContainer = null
-
-func _ready() -> void:
-	_build_ui()
-	hide()
 
 func _build_ui() -> void:
 	custom_minimum_size = Vector2(320, 450)
@@ -247,4 +243,4 @@ func toggle() -> void:
 		hide()
 	else:
 		update_display()
-		show()
+		show_centered()

@@ -1,4 +1,4 @@
-extends PanelContainer
+extends CenteredPanel
 class_name SaveLoadPanel
 ## SaveLoadPanel - Simple save/load UI overlay
 
@@ -8,8 +8,10 @@ var _save_list_container: VBoxContainer = null
 var _save_name_input: LineEdit = null
 
 func _ready() -> void:
-	_build_ui()
+	super._ready()
 	_refresh_save_list()
+	# Show centered immediately (this panel auto-shows on creation)
+	show_centered()
 
 func _build_ui() -> void:
 	custom_minimum_size = Vector2(400, 350)

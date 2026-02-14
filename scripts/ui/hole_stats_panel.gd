@@ -1,4 +1,4 @@
-extends PanelContainer
+extends CenteredPanel
 class_name HoleStatsPanel
 ## HoleStatsPanel - Shows detailed statistics for a selected hole
 
@@ -8,10 +8,6 @@ signal hole_selected(hole_number: int)
 var _hole_data = null  # GameManager.HoleData
 var _content_vbox: VBoxContainer = null
 var _title_label: Label = null
-
-func _ready() -> void:
-	_build_ui()
-	hide()
 
 func _build_ui() -> void:
 	custom_minimum_size = Vector2(300, 420)
@@ -60,7 +56,7 @@ func _build_ui() -> void:
 func show_for_hole(hole_data) -> void:
 	_hole_data = hole_data
 	_update_display()
-	show()
+	await show_centered()
 	hole_selected.emit(hole_data.hole_number)
 
 func _update_display() -> void:
