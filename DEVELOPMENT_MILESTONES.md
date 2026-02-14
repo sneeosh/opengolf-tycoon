@@ -38,6 +38,8 @@ The game currently supports:
 33. **Hole statistics panel** - Per-hole stats including average score, best score, score distribution
 34. **Selection indicator** - Bottom bar shows currently selected tool with color coding
 35. **Weather system** - Dynamic weather (sunny to heavy rain) with rain overlay, affects golfer spawn rates, sky tinting, HUD indicator
+36. **Angular dispersion shot model** - Realistic shot accuracy using bell-curve angular deviation instead of uniform random. Each golfer has persistent miss tendency (slice/hook bias) based on tier. Includes rare shank mechanic for dramatic misses.
+37. **CenteredPanel UI system** - Base class for centered panels with proper layout timing. All popup dialogs (trees/rocks/buildings) support toggle behavior via hotkeys.
 
 ---
 
@@ -138,6 +140,10 @@ The game currently supports:
 - ✅ Putt accuracy floor: short putts 95% minimum, long putts 75% minimum (prevents wildly missed short putts)
 - ✅ Double par pickup rule: golfers pick up after 2x par strokes to prevent infinite loops
 - ✅ Wind effects on ball flight (implemented in P3)
+- ✅ **Angular dispersion shot model**: Replaces uniform random error with realistic bell-curve (gaussian) angular dispersion. Shots rotate by miss angle sampled from normal distribution, so most shots land near target line with occasional big hooks/slices in the tails
+- ✅ **Miss tendency per golfer**: Each golfer has persistent `miss_tendency` (-1.0 to +1.0) for slice/hook bias. Beginners have strong tendencies (±0.4-0.8), pros are nearly neutral (±0.0-0.15). Generated in `GolferTier.generate_skills()`
+- ✅ **Shank mechanic**: Rare catastrophic miss (35-55° off-line, 30-60% distance) with probability `(1.0 - accuracy) * 6%`. Only on full swings, direction follows miss_tendency
+- ✅ **Gaussian distance loss**: Topped/fat shots use bell curve distribution for distance loss, so most shots are near full distance with occasional chunks
 
 ### [X] Golfer AI & Path Finding
 **STATUS: COMPLETE** - Intelligent shot selection and terrain-aware navigation:
@@ -435,6 +441,17 @@ _Deferred until core gameplay loop is complete. Currently, golfers are cleared o
 - ✅ End-of-day summary with scroll container, fixed title/button
 - ✅ Hole stats panel with scroll container and close button
 - ✅ Window display scaling fixed (viewport stretch mode)
+- ✅ Staff panel overflow fixed with proper sizing
+
+### [X] CenteredPanel Base Class & Toggle Behavior
+**STATUS: COMPLETE** - Centralized panel behavior and hotkey toggle support:
+- ✅ `CenteredPanel` base class (`scripts/ui/centered_panel.gd`) for panels that need centering
+- ✅ Handles Godot layout timing issues (show offscreen → await frame → resize/center)
+- ✅ Provides `show_centered()` and `toggle()` methods
+- ✅ Refactored panels to extend CenteredPanel: StaffPanel, FinancialPanel, TournamentPanel, BuildingInfoPanel, HoleStatsPanel, SaveLoadPanel, EndOfDaySummary
+- ✅ Tree/Rock/Building selection dialogs (T/R/B keys) now toggle closed when pressed again
+- ✅ Uses `window_input` signal on AcceptDialog to capture hotkey while modal dialog is open
+- ✅ UI patterns documented in CLAUDE.md
 
 ### [X] Undo Improvements
 **STATUS: COMPLETE** - Better undo grouping for complex operations:
