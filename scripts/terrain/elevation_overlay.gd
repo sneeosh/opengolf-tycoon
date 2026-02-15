@@ -5,13 +5,11 @@ class_name ElevationOverlay
 ## Renders elevation as:
 ## - Always-visible subtle hillshade and gradient shading (passive mode)
 ## - More prominent contour lines and elevation numbers when elevation tool active
-## - Cached as ImageTexture and only regenerated when elevations change
+## - Only redraws when elevation data changes
 
 var terrain_grid: TerrainGrid
 var _elevation_active: bool = false  # More prominent when elevation tool is selected
 var _needs_redraw: bool = true       # Track when elevation data changes
-var _cached_texture: ImageTexture = null
-var _cached_sprite: Sprite2D = null
 
 ## Hillshade light direction (NW light source, conventional for maps)
 const LIGHT_DIR: Vector2 = Vector2(-0.7, -0.7)  # Normalized NW direction
@@ -42,8 +40,9 @@ func _on_elevation_changed(_pos: Vector2i, _old: int, _new: int) -> void:
 	_needs_redraw = true
 
 func _process(_delta: float) -> void:
-	if _needs_redraw:
-		queue_redraw()
+	# Always redraw - viewport culling handles performance
+	# This ensures elevation shows correctly when camera pans
+	queue_redraw()
 
 func _draw() -> void:
 	if not terrain_grid:
