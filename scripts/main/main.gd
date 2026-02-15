@@ -56,10 +56,10 @@ var selected_rock_size: String = "medium"
 var bulldozer_mode: bool = false
 var placement_preview: PlacementPreview = null
 
-# Dialog references for toggle behavior
-var _tree_dialog: AcceptDialog = null
-var _rock_dialog: AcceptDialog = null
-var _building_dialog: AcceptDialog = null
+# Selector dialogs for entity placement (see SelectorDialog)
+var _tree_selector: SelectorDialog = null
+var _rock_selector: SelectorDialog = null
+var _building_selector: SelectorDialog = null
 
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
@@ -123,6 +123,9 @@ func _ready() -> void:
 
 	_connect_signals()
 	_connect_ui_buttons()
+	_tree_selector = SelectorDialog.new(self, KEY_T)
+	_rock_selector = SelectorDialog.new(self, KEY_R)
+	_building_selector = SelectorDialog.new(self, KEY_B)
 	_setup_top_hud_bar()
 	_create_green_fee_controls()
 	_create_zoom_hint()
@@ -772,49 +775,22 @@ func _on_tree_placement_pressed() -> void:
 	if terrain_toolbar:
 		terrain_toolbar.clear_selection()
 
-	# Create tree selection dialog
-	_tree_dialog = AcceptDialog.new()
-	_tree_dialog.title = "Select Tree Type"
-	_tree_dialog.size = Vector2i(350, 250)
+	var items = [
+		{"id": "oak", "label": "Oak Tree ($20)"},
+		{"id": "pine", "label": "Pine Tree ($18)"},
+		{"id": "maple", "label": "Maple Tree ($25)"},
+		{"id": "birch", "label": "Birch Tree ($22)"},
+	]
+	_tree_selector.show_items("Select Tree Type", items, _on_tree_type_selected)
 
-	var vbox = VBoxContainer.new()
-
-	# Add button for each tree type
-	var tree_types = {
-		"oak": {"name": "Oak Tree", "cost": 20},
-		"pine": {"name": "Pine Tree", "cost": 18},
-		"maple": {"name": "Maple Tree", "cost": 25},
-		"birch": {"name": "Birch Tree", "cost": 22}
-	}
-
-	for tree_type in tree_types.keys():
-		var tree_data = tree_types[tree_type]
-		var btn = Button.new()
-		btn.text = "%s ($%d)" % [tree_data["name"], tree_data["cost"]]
-		btn.custom_minimum_size = Vector2(300, 40)
-		btn.pressed.connect(_on_tree_type_selected.bind(tree_type, _tree_dialog))
-		vbox.add_child(btn)
-
-	_tree_dialog.add_child(vbox)
-	_tree_dialog.canceled.connect(_on_tree_dialog_closed)
-	_tree_dialog.confirmed.connect(_on_tree_dialog_closed)
-	_tree_dialog.window_input.connect(_on_tree_dialog_input)
-	get_tree().root.add_child(_tree_dialog)
-	_tree_dialog.popup_centered_ratio(0.3)
-
-func _on_tree_dialog_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_T:
-			_on_tree_dialog_closed()
-
-func _on_tree_dialog_closed() -> void:
-	if is_instance_valid(_tree_dialog):
-		_tree_dialog.queue_free()
-	_tree_dialog = null
+func _on_tree_type_selected(tree_type: String) -> void:
+	"""Handle tree type selection"""
+	selected_tree_type = tree_type
+	placement_manager.start_tree_placement(tree_type)
+	print("Tree placement mode: %s" % tree_type)
 
 func _on_building_placement_pressed() -> void:
 	"""Show building selection menu and start building placement"""
-	print("Building button pressed!")
 	hole_tool.cancel_placement()
 	_cancel_elevation_mode()
 	_cancel_bulldozer_mode()
@@ -824,84 +800,29 @@ func _on_building_placement_pressed() -> void:
 		terrain_toolbar.clear_selection()
 
 	if building_registry.is_empty():
-		print("ERROR: Building registry is empty!")
 		EventBus.notify("Building system not initialized!", "error")
 		return
 
-	# Get building names from dictionary
-	var building_names = building_registry.keys()
-	print("Available buildings: ", building_names)
-	if building_names.is_empty():
-		EventBus.notify("No buildings available!", "error")
-		return
-
-	# Create a simple dialog with building options
-	_building_dialog = AcceptDialog.new()
-	_building_dialog.title = "Select Building"
-	_building_dialog.size = Vector2i(400, 300)
-
-	# Create scroll container for many buildings
-	var scroll = ScrollContainer.new()
-	var vbox = VBoxContainer.new()
-
-	for building_type in building_names:
+	var items = []
+	for building_type in building_registry.keys():
 		var building_data = building_registry[building_type]
 		var name_text = building_data.get("name", building_type)
 		var cost = building_data.get("cost", 0)
-
-		var btn = Button.new()
-		btn.text = "%s ($%d)" % [name_text, cost]
-		btn.custom_minimum_size = Vector2(350, 30)
-
-		# Disable button for unique buildings that are already placed
 		var is_unique = building_data.get("required", false)
-		if is_unique and entity_layer.has_building_of_type(building_type):
-			btn.disabled = true
-			btn.text = "%s (Already placed)" % name_text
-		else:
-			btn.pressed.connect(_on_building_type_selected.bind(building_type, _building_dialog))
+		var already_placed = is_unique and entity_layer.has_building_of_type(building_type)
+		items.append({
+			"id": building_type,
+			"label": "%s (Already placed)" % name_text if already_placed else "%s ($%d)" % [name_text, cost],
+			"disabled": already_placed,
+		})
+	_building_selector.show_items("Select Building", items, _on_building_type_selected, Vector2i(400, 300), 0.4)
 
-		vbox.add_child(btn)
-
-	scroll.add_child(vbox)
-	_building_dialog.add_child(scroll)
-	_building_dialog.canceled.connect(_on_building_dialog_closed)
-	_building_dialog.confirmed.connect(_on_building_dialog_closed)
-	_building_dialog.window_input.connect(_on_building_dialog_input)
-	get_tree().root.add_child(_building_dialog)
-	_building_dialog.popup_centered_ratio(0.4)
-
-func _on_building_dialog_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_B:
-			_on_building_dialog_closed()
-
-func _on_building_dialog_closed() -> void:
-	if is_instance_valid(_building_dialog):
-		_building_dialog.queue_free()
-	_building_dialog = null
-
-func _on_building_type_selected(building_type: String, dialog: AcceptDialog) -> void:
+func _on_building_type_selected(building_type: String) -> void:
 	"""Handle building type selection"""
-	print("Selected building: %s" % building_type)
-	dialog.queue_free()
-	_building_dialog = null
-
 	if building_type in building_registry:
 		var building_data = building_registry[building_type]
 		placement_manager.start_building_placement(building_type, building_data)
 		print("Building placement mode: %s" % building_type)
-	else:
-		print("ERROR: Building type not found: %s" % building_type)
-
-func _on_tree_type_selected(tree_type: String, dialog: AcceptDialog) -> void:
-	"""Handle tree type selection"""
-	print("Selected tree: %s" % tree_type)
-	dialog.queue_free()
-	_tree_dialog = null
-	selected_tree_type = tree_type
-	placement_manager.start_tree_placement(tree_type)
-	print("Tree placement mode: %s" % tree_type)
 
 func _on_rock_placement_pressed() -> void:
 	"""Show rock size selection menu and start rock placement mode"""
@@ -913,50 +834,15 @@ func _on_rock_placement_pressed() -> void:
 	if terrain_toolbar:
 		terrain_toolbar.clear_selection()
 
-	# Create rock selection dialog
-	_rock_dialog = AcceptDialog.new()
-	_rock_dialog.title = "Select Rock Size"
-	_rock_dialog.size = Vector2i(350, 200)
+	var items = [
+		{"id": "small", "label": "Small Rock ($10)"},
+		{"id": "medium", "label": "Medium Rock ($15)"},
+		{"id": "large", "label": "Large Rock ($20)"},
+	]
+	_rock_selector.show_items("Select Rock Size", items, _on_rock_size_selected, Vector2i(350, 200))
 
-	var vbox = VBoxContainer.new()
-
-	# Add button for each rock size
-	var rock_sizes = {
-		"small": {"name": "Small Rock", "cost": 10},
-		"medium": {"name": "Medium Rock", "cost": 15},
-		"large": {"name": "Large Rock", "cost": 20}
-	}
-
-	for rock_size in rock_sizes.keys():
-		var rock_data = rock_sizes[rock_size]
-		var btn = Button.new()
-		btn.text = "%s ($%d)" % [rock_data["name"], rock_data["cost"]]
-		btn.custom_minimum_size = Vector2(300, 40)
-		btn.pressed.connect(_on_rock_size_selected.bind(rock_size, _rock_dialog))
-		vbox.add_child(btn)
-
-	_rock_dialog.add_child(vbox)
-	_rock_dialog.canceled.connect(_on_rock_dialog_closed)
-	_rock_dialog.confirmed.connect(_on_rock_dialog_closed)
-	_rock_dialog.window_input.connect(_on_rock_dialog_input)
-	get_tree().root.add_child(_rock_dialog)
-	_rock_dialog.popup_centered_ratio(0.3)
-
-func _on_rock_dialog_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_R:
-			_on_rock_dialog_closed()
-
-func _on_rock_dialog_closed() -> void:
-	if is_instance_valid(_rock_dialog):
-		_rock_dialog.queue_free()
-	_rock_dialog = null
-
-func _on_rock_size_selected(rock_size: String, dialog: AcceptDialog) -> void:
+func _on_rock_size_selected(rock_size: String) -> void:
 	"""Handle rock size selection"""
-	print("Selected rock size: %s" % rock_size)
-	dialog.queue_free()
-	_rock_dialog = null
 	selected_rock_size = rock_size
 	placement_manager.start_rock_placement(rock_size)
 	print("Rock placement mode: %s" % rock_size)

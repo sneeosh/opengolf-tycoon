@@ -121,20 +121,18 @@ Shot error uses an **angular dispersion** model rather than absolute tile offset
 
 - **CenteredPanel base class** (`scripts/ui/centered_panel.gd`): Extend this for panels that need to be centered on screen. Provides `show_centered()` (shows offscreen, waits for layout, then centers) and `toggle()` methods. Handles Godot's layout timing issues where `get_combined_minimum_size()` returns wrong values before first frame.
 
-- **AcceptDialog with hotkey toggle**: For popup selection menus (trees, rocks, buildings) that open via hotkey, implement toggle behavior so pressing the same key closes the dialog:
-  1. Store dialog reference as instance variable (e.g., `var _tree_dialog: AcceptDialog = null`)
-  2. Keep dialog modal (default `exclusive = true`) so it captures keyboard input
-  3. Connect to `window_input` signal to detect the hotkey and close:
-     ```gdscript
-     _tree_dialog.window_input.connect(_on_tree_dialog_input)
+- **SelectorDialog utility** (`scripts/ui/selector_dialog.gd`): Reusable `RefCounted` class for popup selection menus (trees, rocks, buildings). Handles AcceptDialog creation, hotkey toggle, and cleanup in one place. Usage:
+  ```gdscript
+  # Declare once (e.g., in _ready):
+  var _tree_selector = SelectorDialog.new(self, KEY_T)
 
-     func _on_tree_dialog_input(event: InputEvent) -> void:
-         if event is InputEventKey and event.pressed and not event.echo:
-             if event.keycode == KEY_T:
-                 _on_tree_dialog_closed()
-     ```
-  4. Connect `canceled` and `confirmed` signals to cleanup function that frees dialog and sets reference to null
-  5. In selection callbacks, also free dialog and set reference to null
+  # Show with items — pressing T again closes (toggle behavior):
+  var items = [{"id": "oak", "label": "Oak Tree ($20)"}, ...]
+  _tree_selector.show_items("Select Tree", items, _on_tree_selected)
+
+  # Items support {"id": String, "label": String, "disabled": bool}
+  ```
+  Each instance manages one dialog's lifecycle. Modal behavior and hotkey interception are handled internally.
 
 ## Build & Export
 
