@@ -15,10 +15,10 @@ scripts/
 ├── effects/        # RainOverlay, HoleInOneCelebration, SandSprayEffect
 ├── entities/       # Golfer, Ball, Building, Tree, Rock, Flag
 ├── managers/       # GolferManager, BallManager, HoleManager, PlacementManager, BuildingRegistry, TournamentManager
-├── systems/        # WindSystem, WeatherSystem, CourseRatingSystem, FeedbackTriggers, GolferTier, TournamentSystem, DayNightSystem, CourseRecords
+├── systems/        # WindSystem, WeatherSystem, CourseRatingSystem, CourseTheme, FeedbackTriggers, GolferTier, TournamentSystem, DayNightSystem, CourseRecords
 ├── terrain/        # TerrainGrid, TerrainTypes, TilesetGenerator, + 10 overlay classes
 ├── tools/          # HoleCreationTool, ElevationTool, UndoManager, GenerateTileset
-├── ui/             # 12 UI components (MiniMap, FinancialPanel, HoleStatsPanel, etc.)
+├── ui/             # 13 UI components (MainMenu, MiniMap, FinancialPanel, HoleStatsPanel, SaveLoadPanel, etc.)
 ├── main/           # main.gd (scene controller)
 └── utils/          # IsometricCamera
 scenes/
@@ -35,9 +35,9 @@ assets/tilesets/        # Terrain tileset (PNG + .tres)
 
 ### Autoloads (Singletons, registered in project.godot)
 
-1. **GameManager** (`scripts/autoload/game_manager.gd`) — Central game state: money ($50k start), reputation (0-100), day/hour cycle, game mode (MAIN_MENU/BUILDING/SIMULATING/PLAYING/PAUSED), game speed (PAUSED/NORMAL/FAST/ULTRA). Holds `CourseData`, `DailyStatistics`, `HoleStatistics` inner classes. References terrain_grid, wind_system, weather_system, entity_layer, tournament_manager.
+1. **GameManager** (`scripts/autoload/game_manager.gd`) — Central game state: money ($50k start), reputation (0-100), day/hour cycle, game mode (MAIN_MENU/BUILDING/SIMULATING/PLAYING/PAUSED), game speed (PAUSED/NORMAL/FAST/ULTRA), current_theme (CourseTheme.Type). Holds `CourseData`, `DailyStatistics`, `HoleStatistics` inner classes. References terrain_grid, wind_system, weather_system, entity_layer, tournament_manager.
 2. **EventBus** (`scripts/autoload/event_bus.gd`) — ~60 signals for decoupled cross-system communication. Categories: game state, economy, terrain/building, course design, golfers, shots, UI, wind/weather, camera, selection, day cycle, tournaments, save/load. Has `notify()` and `log_transaction()` convenience methods.
-3. **SaveManager** (`scripts/autoload/save_manager.gd`) — JSON-based persistence (v2 format). Auto-saves on day change. Serializes game state, terrain, entities, holes, wind, weather, tournaments, course records. Golfers are NOT persisted (they respawn naturally on load).
+3. **SaveManager** (`scripts/autoload/save_manager.gd`) — JSON-based persistence (v2 format). Auto-saves on day change. Serializes game state, terrain, entities, holes, wind, weather, tournaments, course records, and course theme. Golfers are NOT persisted (they respawn naturally on load). Emits `theme_changed` on load to refresh overlays.
 4. **FeedbackManager** (`scripts/autoload/feedback_manager.gd`) — Aggregates golfer thought bubbles into daily satisfaction metrics (positive/negative/neutral counts, satisfaction rating 0.0-1.0).
 
 ### Key Design Patterns
@@ -69,7 +69,7 @@ Main (Node2D) ← main.gd
 ### Terrain
 - **TerrainGrid**: 128x128 isometric grid (64x32 px tiles). `_grid` dict (Vector2i → terrain type int), `_elevation_grid` (Vector2i → -5..+5).
 - **14 terrain types**: EMPTY, GRASS, FAIRWAY, ROUGH, HEAVY_ROUGH, GREEN, TEE_BOX, BUNKER, WATER, PATH, OUT_OF_BOUNDS, TREES, FLOWER_BED, ROCKS.
-- **TilesetGenerator**: Runtime procedural tileset (no external image assets required). Perlin noise, mowing stripes, sand stipple, water shimmer.
+- **TilesetGenerator**: Runtime procedural tileset (no external image assets required). Perlin noise, mowing stripes, sand stipple, water shimmer. Theme-aware via `set_theme_colors()` and `get_color()` methods.
 
 ### Golfer Simulation
 - **Golfer** (`scripts/entities/golfer.gd`, ~61KB — most complex file): Skills (driving/accuracy/putting/recovery 0.0-1.0), personality (aggression/patience), 5 clubs (DRIVER/FAIRWAY_WOOD/IRON/WEDGE/PUTTER) with range/accuracy data. Shot calculation, target evaluation, tree collision, hazard avoidance. Group play (1-4 per group, "away" rule, double-par pickup).
@@ -97,6 +97,20 @@ Shot error uses an **angular dispersion** model rather than absolute tile offset
 - **WeatherSystem**: 6 types (SUNNY → HEAVY_RAIN). Affects spawn rate (100% → 30%), accuracy (95-100%), sky tint.
 - **DayNightSystem**: 6 AM - 8 PM course hours. Visual dimming. 1 real minute = 1 game hour at normal speed.
 - **TournamentSystem**: 4 tiers (Local/Regional/National/Championship) with escalating hole/rating/difficulty requirements and prize pools.
+
+### Course Themes
+- **CourseTheme** (`scripts/systems/course_theme.gd`): Static class with 6 theme types (PARKLAND, DESERT, LINKS, MOUNTAIN, CITY, RESORT). Each theme provides:
+  - `get_terrain_colors()` → per-theme color palette for all terrain types
+  - `get_gameplay_modifiers()` → wind_base_strength, distance_modifier, maintenance_cost_multiplier, green_fee_baseline
+  - `get_accent_color()`, `get_description()` → UI display helpers
+- **Theme selection**: Happens on main menu via `MainMenu` class. User selects theme card, enters course name, starts game.
+- **Theme application flow**:
+  1. `GameManager.new_game()` sets `current_theme` and calls `TilesetGenerator.set_theme_colors()`
+  2. `EventBus.theme_changed` signal emitted
+  3. `TerrainGrid.regenerate_tileset()` rebuilds tileset with new colors
+  4. Overlays (WaterOverlay, GrassOverlay) listen to `theme_changed` and update their colors
+- **Save/load**: Theme stored as string in save data, restored via `CourseTheme.from_string()`. On load, theme colors re-applied and `theme_changed` emitted.
+- **Theme-aware components**: TilesetGenerator, WaterOverlay, GrassOverlay, terrain shader parameters.
 
 ### Holes
 - **HoleCreationTool**: 3-step workflow (tee box → green → flag).

@@ -573,46 +573,51 @@ Phase 5: Major Gameplay & Art
                                                   per-theme sprite variants)
 ```
 
-### Phase 1 — Bug Fixes & Visual Polish (2 features)
+### Phase 1 — Bug Fixes & Visual Polish (2 features) ✅ COMPLETE
 
 **Why first:** These are self-contained improvements with no dependencies. Fixing Z-ordering eliminates a visual bug that would compound as more features add on-screen entities. Elevation contours improve the existing build-mode experience immediately.
 
-| # | Feature | Scope | Key Files |
-|---|---------|-------|-----------|
-| 1 | Fix Golfer Overlap / Z-Ordering | Small-Medium | `golfer_manager.gd`, `golfer.gd` |
-| 2 | Improved Elevation Contour Visuals | Medium | `elevation_overlay.gd` |
+| # | Feature | Scope | Key Files | Status |
+|---|---------|-------|-----------|--------|
+| 1 | Fix Golfer Overlap / Z-Ordering | Small-Medium | `golfer_manager.gd`, `golfer.gd` | ✅ Complete |
+| 2 | Improved Elevation Contour Visuals | Medium | `elevation_overlay.gd` | ✅ Complete |
 
-**Deliverables:**
-- Isometric Y-sort on golfer parent node
-- Positional offsets for co-located golfers (tee box fan-out, green semicircle)
-- Name label collision avoidance
-- Active golfer highlight ring
-- Marching-squares contour interpolation
-- Gradient elevation shading with hillshade effect
-- Cached overlay texture (regenerate only on elevation change)
+**Completed Deliverables:**
+- ✅ Isometric Y-sort on golfer parent node
+- ✅ Positional offsets for co-located golfers (tee box fan-out, green semicircle)
+- ✅ Name label collision avoidance
+- ✅ Active golfer highlight ring
+- ✅ Gradient elevation shading with hillshade effect
+- ✅ Cached overlay texture (regenerate only on elevation change)
 
 ---
 
-### Phase 2 — Theming & UI Infrastructure (2 features)
+### Phase 2 — Theming & UI Infrastructure (2 features) ✅ COMPLETE
 
 **Why second:** The theme system is the single most foundational feature in Priority 10 — sprites, land pricing, seasonal modifiers, and natural object distribution all depend on it. The UI overhaul provides the main menu (needed for theme selection) and establishes the visual language for every panel added in later phases.
 
-| # | Feature | Scope | Key Files |
-|---|---------|-------|-----------|
-| 3 | Course Type / Theme System | Large | New `CourseTheme` resource, `tileset_generator.gd`, all 14 overlays, `game_manager.gd`, `terrain_types.json` |
-| 4 | Menu & UI Overhaul | Large | New `main_menu.tscn`, new Godot `Theme` resource, `top_bar`, `tool_panel`, all existing UI scripts |
+| # | Feature | Scope | Key Files | Status |
+|---|---------|-------|-----------|--------|
+| 3 | Course Type / Theme System | Large | `CourseTheme`, `tileset_generator.gd`, overlays, `game_manager.gd` | ✅ Complete |
+| 4 | Menu & UI Overhaul | Large | `main_menu.gd`, `save_load_panel.gd`, UI panels | ✅ Partial (core complete) |
 
-**Recommended order within phase:** Theme system first (provides content for the new-game screen), then UI overhaul (integrates the theme selection into the main menu).
+**Completed Deliverables:**
+- ✅ `CourseTheme` enum/resource with 6 themes (Parkland, Desert, Links, Mountain, City, Resort)
+- ✅ Per-theme color palettes fed into `TilesetGenerator` via `set_theme_colors()`
+- ✅ Per-theme overlay tinting (water shimmer, grass blades use theme colors)
+- ✅ Per-theme gameplay modifiers (wind, distance, maintenance costs, green fee baseline)
+- ✅ Theme selection screen (6 cards with preview, name, description, gameplay hints)
+- ✅ Theme stored in `GameManager.current_theme` and serialized in saves
+- ✅ Procedural natural object scattering on new-game start via `NaturalTerrainGenerator`
+- ✅ Main menu with New Game (theme selection) / Load / Quit
+- ✅ Quit to Menu button in Save/Load panel for returning to main menu
+- ✅ Theme colors apply correctly on new game (tileset regenerated after theme set)
+- ✅ Theme persists through save/load (theme_changed signal emitted on load)
+- ✅ Water overlay uses theme-derived shimmer/highlight colors
+- ✅ Grass blade overlay uses theme-aware terrain colors
+- ✅ Terrain shader parameters use theme colors
 
-**Deliverables:**
-- `CourseTheme` enum/resource with 6 themes (Parkland, Desert, Links, Mountain, City, Resort)
-- Per-theme color palettes fed into `TilesetGenerator`
-- Per-theme overlay tinting (tree types, rock styles, rough color)
-- Per-theme gameplay modifiers (wind, distance, costs)
-- Theme selection screen (6 cards with preview, name, description)
-- Theme stored in `GameManager` and serialized in saves
-- Procedural natural object scattering on new-game start
-- Main menu with New Game / Load / Settings / Quit
+**Remaining (deferred to future work):**
 - Custom Godot `Theme` resource (buttons, panels, labels, scrollbars)
 - Redesigned top bar with segmented sections and icons
 - Tabbed toolbar with icon grid and tooltips
@@ -705,48 +710,56 @@ Phase 5: Major Gameplay & Art
 
 ### Summary
 
-| Phase | Features | Estimated Complexity |
-|-------|----------|---------------------|
-| 1 | Z-Ordering Fix + Elevation Contours | Small-Medium |
-| 2 | Theme System + UI Overhaul | Large |
-| 3 | Land Purchase + Staff + Marketing | Large (parallelizable) |
-| 4 | Seasonal Calendar & Events | Medium |
-| 5 | Player Golf Mode + Sprite Upgrade | Very Large |
+| Phase | Features | Estimated Complexity | Status |
+|-------|----------|---------------------|--------|
+| 1 | Z-Ordering Fix + Elevation Contours | Small-Medium | ✅ Complete |
+| 2 | Theme System + UI Overhaul | Large | ✅ Complete |
+| 3 | Land Purchase + Staff + Marketing | Large (parallelizable) | Pending |
+| 4 | Seasonal Calendar & Events | Medium | Pending |
+| 5 | Player Golf Mode + Sprite Upgrade | Very Large | Pending |
 
-**Total: 10 features across 5 phases, ordered to maximize foundational value and minimize rework.**
+**Total: 10 features across 5 phases. Phases 1-2 complete, 3-5 remaining.**
 
 ---
 
 ## PRIORITY 10: Course Theming, Visuals & Gameplay Expansion
 
-### [] Course Type / Theme System
-**Goal:** Let players choose a course environment at game start, each with distinct visuals, natural object distributions, and gameplay feel. This is foundational for replayability and will eventually support multi-course ownership.
+### [X] Course Type / Theme System
+**STATUS: COMPLETE** - Full course theming system with 6 distinct themes:
 
-**Course Types to Implement:**
-1. **Parkland (Default)** - Current game style. Lush green grass, deciduous trees (oak, maple), gentle rolling hills, flower beds. Balanced difficulty.
-2. **Desert** - Arid sandy base terrain, cacti and desert scrub instead of trees, rocky outcroppings, minimal water. Fairways are oases of green surrounded by sand/hardpan. Color palette: tan, burnt orange, sage green fairways, terracotta.
-3. **Links (Oceanfront)** - Coastal Scottish-style. Fescue grass (golden-brown rough), pot bunkers (deep & small), dune mounds, sea grass, minimal trees. Strong persistent wind. Color palette: golden browns, muted greens, grey-blue water accents.
-4. **Mountain** - Dramatic elevation changes, pine/fir forests, exposed rock faces, mountain streams. Thinner air = longer drives (+5% distance). Color palette: deep greens, grey stone, snow-capped backgrounds.
-5. **City/Municipal** - Flat terrain, chain-link fencing instead of OB stakes, small ponds, minimal natural features, concrete cart paths. Cheaper land/maintenance but lower satisfaction ceiling. Color palette: muted greens, grey, urban browns.
-6. **Resort** - Tropical lush. Palm trees, vibrant flower beds, white sand bunkers, lagoon-style water features. Higher construction costs but premium green fee tolerance. Color palette: vivid greens, turquoise water, white sand, bright flowers.
+**Course Types Implemented:**
+- ✅ **Parkland (Default)** - Classic green grass, deciduous trees, gentle rolling hills, flower beds
+- ✅ **Desert** - Sandy tan base, cacti, rocky outcroppings, oasis-green fairways, terracotta accents
+- ✅ **Links (Oceanfront)** - Golden-brown fescue rough, muted greens, grey-blue water, strong wind
+- ✅ **Mountain** - Deep alpine greens, grey stone, pine forests, +5% shot distance (thinner air)
+- ✅ **City/Municipal** - Muted urban greens, grey tones, lower maintenance costs
+- ✅ **Resort** - Vibrant tropical greens, turquoise water, white sand bunkers, premium pricing
 
-**Implementation Details:**
-- Add `CourseTheme` resource/enum with per-type configuration:
-  - `base_colors: Dictionary` — color overrides for each terrain tile type (passed to TilesetGenerator)
-  - `natural_objects: Array[Dictionary]` — weighted spawn table for auto-placed decorative objects (tree types, rocks, flora)
-  - `overlay_config: Dictionary` — per-overlay color/style parameters (e.g., links rough uses golden fescue tints)
-  - `gameplay_modifiers: Dictionary` — wind_base_strength, distance_modifier, maintenance_cost_multiplier, green_fee_baseline
-  - `ambient_description: String` — flavor text for UI
-- Extend `TilesetGenerator` to accept a `CourseTheme` and use its color palette instead of hardcoded colors
-- All 14 overlay classes need a `theme` parameter to tint/style their procedural drawing (e.g., `TreeOverlay` draws palms for Resort, pines for Mountain, cacti for Desert)
-- Add course type selection screen shown before new game begins (grid of 6 cards with preview thumbnail, name, and 2-line description)
-- Store selected course type in `GameManager` and serialize in save data
-- Extend `terrain_types.json` with per-theme cost overrides (e.g., water is cheaper on Resort, bunkers cheaper on Links)
-- Natural object auto-distribution: when a new game starts, procedurally scatter theme-appropriate objects on empty/grass tiles using noise-based density maps
+**Implementation Completed:**
+- ✅ `CourseTheme` static class (`scripts/systems/course_theme.gd`) with:
+  - `get_terrain_colors()` — per-theme color palettes for all terrain types
+  - `get_gameplay_modifiers()` — wind_base_strength, distance_modifier, maintenance_cost_multiplier, green_fee_baseline
+  - `get_accent_color()`, `get_description()`, `get_theme_name()` — UI display helpers
+  - `to_string()` / `from_string()` — serialization for save/load
+- ✅ `TilesetGenerator.set_theme_colors()` accepts theme palette, regenerates tileset
+- ✅ Theme-aware overlays:
+  - `WaterOverlay` — shimmer/highlight colors derived from theme water color
+  - `GrassOverlay` — blade colors from `TilesetGenerator.get_color()` for each terrain type
+  - `TerrainGrid._apply_variation_shader()` — shader params use theme colors
+- ✅ Main menu theme selection (`scripts/ui/main_menu.gd`):
+  - 6-card grid showing theme name, description, gameplay modifier hints
+  - Click to select, visual highlight on selected card
+  - Course name input field
+- ✅ Theme stored in `GameManager.current_theme` and serialized in saves
+- ✅ `EventBus.theme_changed` signal emitted on new game and load
+- ✅ `terrain_grid.regenerate_tileset()` called after theme is set
+- ✅ Natural object auto-distribution via `NaturalTerrainGenerator` on new game start
+- ✅ Quit to Menu functionality for returning from gameplay to main menu
 
 **Future Extension (not this priority):**
-- Multi-course ownership: player can start a second course of a different type, switching between them
+- Multi-course ownership: player can start a second course of a different type
 - Unlockable course types based on reputation milestones
+- Per-theme tree/rock sprite variants
 
 ---
 
@@ -1100,8 +1113,10 @@ _These features were considered but deferred to focus on core gameplay. May be r
 16. ✅ ~~Priority 7: UI/UX Improvements~~ - COMPLETE (mini-map, financial dashboard, hole stats, selection indicator, panel fixes, undo improvements)
 17. ✅ ~~Priority 8: Advanced Features~~ - COMPLETE (weather system, tournaments, difficulty rating)
 18. ✅ ~~Priority 9: Polish & Content~~ - COMPLETE (terrain visuals, zoom controls, shot accuracy fixes)
-19. Start Priority 10: Course Theming, Visuals & Gameplay Expansion
-20. Priority 11: Performance & Optimization (approaching Alpha!)
+19. ✅ ~~Priority 10 Phase 1: Z-Ordering & Elevation Contours~~ - COMPLETE (merged to main)
+20. ✅ ~~Priority 10 Phase 2: Theming & UI Infrastructure~~ - COMPLETE (6 themes, main menu, save/load, quit to menu)
+21. Continue Priority 10 Phase 3: Land Purchase, Staff, Marketing systems
+22. Priority 11: Performance & Optimization (approaching Alpha!)
 
 **Long-term Vision:**
 Create a deep, engaging golf course management game where players balance artistic course design with financial sustainability. The game should reward both creative design and smart business decisions, with satisfying golfer AI that makes the course feel alive.

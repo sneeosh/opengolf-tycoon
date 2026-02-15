@@ -13,6 +13,19 @@ OpenGolf Tycoon is a spiritual successor to the classic SimGolf (2002). Design a
 
 ## Current Features
 
+### Course Themes
+
+Choose from 6 distinct course environments, each with unique terrain colors, gameplay modifiers, and visual style:
+
+- **Parkland** — Classic lush green grass, deciduous trees, balanced gameplay
+- **Desert** — Sandy tan terrain, oasis-green fairways, cacti and rocky outcroppings
+- **Links** — Coastal Scottish-style with golden-brown fescue, strong persistent wind (+20%)
+- **Mountain** — Deep alpine greens, pine forests, +5% shot distance (thinner air)
+- **City/Municipal** — Muted urban greens, lower maintenance costs
+- **Resort** — Vibrant tropical colors, turquoise water, white sand bunkers, premium pricing
+
+Theme selection happens on the main menu before starting a new game. Themes affect terrain colors, water/grass overlay rendering, and gameplay modifiers (wind strength, shot distance, maintenance costs, green fee baseline).
+
 ### Course Designer
 
 - **Terrain painting** — 11 terrain types: fairway, rough, green, tee box, bunker, water, path, trees, and more
@@ -80,7 +93,7 @@ OpenGolf Tycoon is a spiritual successor to the classic SimGolf (2002). Design a
 
 ### Save / Load
 
-Saved state includes: terrain tiles, elevation, entity positions, hole configurations, economy state (money, reputation, green fee), day/hour, wind, weather, and course records. Auto-saves at day end; manual save with named slots.
+Saved state includes: terrain tiles, elevation, entity positions, hole configurations, economy state (money, reputation, green fee), day/hour, wind, weather, course theme, and course records. Auto-saves at day end; manual save with named slots. Quit to Menu option available from save/load panel.
 
 ---
 
