@@ -262,8 +262,7 @@ func _update_group(group: Array) -> void:
 		var hole_pos = Vector2(hole_data.hole_position)
 		for golfer in group:
 			if golfer.current_state == Golfer.State.IDLE and golfer.current_hole == min_hole:
-				var dist_to_hole = golfer.ball_position_precise.distance_to(hole_pos)
-				if dist_to_hole < 0.25 and golfer.current_strokes > 0:
+				if HoleManager.is_ball_holed(golfer.ball_position_precise, hole_pos) and golfer.current_strokes > 0:
 					# This golfer has holed out - process them to send to next tee
 					_advance_golfer(golfer)
 					return  # Only process one golfer per frame
@@ -500,7 +499,6 @@ func _advance_golfer(golfer: Golfer) -> void:
 		# Already hit at least one shot
 		# Check if close enough to hole it (use sub-tile precision for putting accuracy)
 		var hole_position = hole_data.hole_position
-		var distance_to_hole = golfer.ball_position_precise.distance_to(Vector2(hole_position))
 
 		# Max stroke limit: double par pickup rule (standard in casual golf)
 		var max_strokes = hole_data.par * 2
@@ -508,15 +506,8 @@ func _advance_golfer(golfer: Golfer) -> void:
 			print("%s picking up on hole %d (max %d strokes)" % [golfer.golfer_name, golfer.current_hole + 1, max_strokes])
 			golfer.ball_position = hole_position
 			golfer.ball_position_precise = Vector2(hole_position)
-			distance_to_hole = 0.0
 
-		# Gimme distance depends on whether this was a putt or approach shot
-		# Use the golfer's tracked shot type (where shot was TAKEN from, not where it landed)
-		# Putts: 0.25 tiles (~5.5 yards) - automatic tap-in range
-		# Approach shots: 0.01 tiles (~8 inches) - must land nearly in the hole
-		var gimme_distance = 0.25 if golfer.last_shot_was_putt else 0.01
-
-		if distance_to_hole < gimme_distance:
+		if HoleManager.is_ball_holed(golfer.ball_position_precise, Vector2(hole_position)):
 			# Close enough to hole out
 			var score_diff = golfer.current_strokes - hole_data.par
 			var score_name = ""

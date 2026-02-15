@@ -89,7 +89,6 @@ var previous_hole_strokes: int = 0  # Strokes on last completed hole (for honor 
 var ball_position: Vector2i = Vector2i.ZERO
 var ball_position_precise: Vector2 = Vector2.ZERO  # Sub-tile precision for putting
 var target_position: Vector2i = Vector2i.ZERO
-var last_shot_was_putt: bool = false  # Track shot type for gimme distance calculation
 
 ## Shot preparation
 var preparation_time: float = 0.0
@@ -391,8 +390,6 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	current_strokes = 0
 	ball_position = tee_position
 	ball_position_precise = Vector2(tee_position)
-	last_shot_was_putt = false  # Tee shots are never putts
-
 	# Clear visited buildings at start of round
 	if hole_number == 0:
 		_visited_buildings.clear()
@@ -438,7 +435,6 @@ func take_shot(target: Vector2i) -> void:
 	var terrain_check_pos = Vector2i(ball_position_precise.round()) if terrain_grid else ball_position
 	var current_terrain = terrain_grid.get_tile(terrain_check_pos) if terrain_grid else -1
 	var is_putt = current_terrain == TerrainTypes.Type.GREEN
-	last_shot_was_putt = is_putt  # Track for gimme distance calculation in _advance_golfer
 
 	# Save position before shot for OB stroke-and-distance penalty
 	var previous_position = ball_position
@@ -458,27 +454,25 @@ func take_shot(target: Vector2i) -> void:
 			EventBus.ball_putt_landed_precise.emit(golfer_id, from_screen, to_screen, shot_result.distance)
 	else:
 		# Standard shot calculation
-		var from_pos = ball_position
 		var from_precise = ball_position_precise
 		shot_result = _calculate_shot(ball_position, target)
 		ball_position = shot_result.landing_position
 		ball_position_precise = shot_result.landing_position_precise
 
-		# Check if this is a chip-in before emitting animation
+		# Check if this is a chip-in using unified hole detection
 		var hole_data_for_anim = GameManager.course_data.holes[current_hole]
-		var dist_for_chipin = ball_position_precise.distance_to(Vector2(hole_data_for_anim.hole_position))
-		var is_chip_in = dist_for_chipin < 0.01  # Same threshold as gimme_distance for non-putts
+		var hole_pos_vec = Vector2(hole_data_for_anim.hole_position)
+		var is_chip_in = HoleManager.is_ball_holed(ball_position_precise, hole_pos_vec)
 
 		# For chip-ins, snap ball position to hole (like putts do)
 		if is_chip_in:
 			ball_position = hole_data_for_anim.hole_position
-			ball_position_precise = Vector2(hole_data_for_anim.hole_position)
+			ball_position_precise = hole_pos_vec
 
 		# Emit precise ball landed signal for sub-tile flight animation
 		if terrain_grid:
 			var from_screen = terrain_grid.grid_to_screen_precise(from_precise)
-			# For chip-ins, animate the ball to the hole position so it visually goes in
-			var anim_target = Vector2(hole_data_for_anim.hole_position) if is_chip_in else shot_result.landing_position_precise
+			var anim_target = hole_pos_vec if is_chip_in else shot_result.landing_position_precise
 			var to_screen = terrain_grid.grid_to_screen_precise(anim_target)
 			EventBus.ball_shot_landed_precise.emit(golfer_id, from_screen, to_screen, shot_result.distance)
 
@@ -506,11 +500,7 @@ func take_shot(target: Vector2i) -> void:
 
 	# Check if ball will land in the hole - schedule hide for when animation completes
 	var hole_data = GameManager.course_data.holes[current_hole]
-	var dist_to_hole = ball_position_precise.distance_to(Vector2(hole_data.hole_position))
-	# Putt gimme: 0.25 tiles (~5.5 yards) - automatic tap-in range
-	# Chip-in: 0.01 tiles (~8 inches) - must land nearly in the hole (real hole is 4.25" diameter)
-	var gimme_distance = 0.25 if is_putt else 0.01
-	var ball_holed = dist_to_hole < gimme_distance
+	var ball_holed = HoleManager.is_ball_holed(ball_position_precise, Vector2(hole_data.hole_position))
 
 	if ball_holed:
 		# Calculate animation duration to match BallManager's putt/shot animation
@@ -831,43 +821,29 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 	var landing: Vector2
 
 	# Distances in tiles (1 tile = 22 yards = 66 feet):
-	#   0.07 tiles =  ~5 feet  (tap-in gimme)
-	#   0.15 tiles = ~10 feet  (short putt)
-	#   0.33 tiles = ~22 feet  (mid-range)
-	#   0.50 tiles = ~33 feet  (challenging)
-	#   1.00 tiles = ~66 feet  (long putt / lag putt)
+	#   CUP_RADIUS  = ~10 feet  (automatic tap-in)
+	#   0.33 tiles  = ~22 feet  (mid-range)
+	#   0.50 tiles  = ~33 feet  (challenging)
+	#   1.00 tiles  = ~66 feet  (long putt / lag putt)
 
-	if distance < 0.07:
-		# Tap-in gimme — automatic hole-out
+	if distance < HoleManager.CUP_RADIUS:
+		# Tap-in — ball is already within the cup radius
 		landing = hole_pos
 
 	elif distance < 0.33:
-		# Short putt (3-15 feet): high make chance, very small lateral miss
-		var normalized_dist = (distance - 0.07) / 0.26
-		var skill_factor = 0.6 + putting_skill * 0.4
-		var make_chance = lerpf(0.75, 0.15, normalized_dist) * skill_factor
-		if randf() < make_chance:
-			landing = hole_pos
-		else:
-			# Missed — ball rolls just past the hole with slight lateral deviation
-			var overshoot = randf_range(0.03, 0.15) * (1.2 - putting_skill * 0.4)
-			var lateral = randf_range(-0.1, 0.1) * (1.0 - putting_skill * 0.5)
-			landing = hole_pos + direction * overshoot + perpendicular * lateral
+		# Short putt: ball rolls just past the hole with slight lateral deviation
+		# Proximity to CUP_RADIUS determines whether it drops in
+		var overshoot = randf_range(0.03, 0.15) * (1.2 - putting_skill * 0.4)
+		var lateral = randf_range(-0.1, 0.1) * (1.0 - putting_skill * 0.5)
+		landing = hole_pos + direction * overshoot + perpendicular * lateral
 
 	elif distance < 1.0:
-		# Medium putt (15-45 feet): mostly about distance control, some make chance
-		var normalized_dist = (distance - 0.33) / 0.67
+		# Medium putt (15-45 feet): mostly about distance control
 		var skill_factor = 0.85 + putting_skill * 0.15
-		# Aim to roll the ball to the hole distance, with some error
 		var progress_ratio = randf_range(0.80, 1.08) * skill_factor
 		progress_ratio = clampf(progress_ratio, 0.60, 1.15)
 		var lateral = randf_range(-0.2, 0.2) * (1.0 - putting_skill * 0.3)
 		landing = from_precise + direction * distance * progress_ratio + perpendicular * lateral
-
-		# Small chance of holing a medium-length putt
-		var hole_chance = lerpf(0.10, 0.02, normalized_dist) * (0.5 + putting_skill * 0.5)
-		if randf() < hole_chance:
-			landing = hole_pos
 
 	else:
 		# Long putt / lag putt (45+ feet): goal is to get close, not hole it
@@ -875,11 +851,6 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 		var progress_ratio = randf_range(0.60, 0.90) * skill_factor
 		var lateral = randf_range(-0.35, 0.35) * (1.0 - putting_skill * 0.2)
 		landing = from_precise + direction * distance * progress_ratio + perpendicular * lateral
-
-		# Very small chance of holing a long putt
-		var hole_chance = 0.005 * (0.5 + putting_skill * 0.5)
-		if randf() < hole_chance:
-			landing = hole_pos
 
 	# CRITICAL: Guarantee every putt makes meaningful progress toward the hole
 	var new_distance = landing.distance_to(hole_pos)
@@ -896,8 +867,8 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 			var min_advance = 0.05 + putting_skill * 0.05
 			landing = from_precise + direction * max(distance * 0.5, min_advance)
 
-	# Snap to hole if very close (simulates ball dropping in)
-	if landing.distance_to(hole_pos) < 0.07:
+	# Snap to hole if ball lands within cup radius
+	if HoleManager.is_ball_holed(landing, hole_pos):
 		landing = hole_pos
 
 	# Ensure landing stays on green terrain

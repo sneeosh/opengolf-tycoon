@@ -2,6 +2,13 @@ extends Node
 class_name HoleManager
 ## HoleManager - Manages all hole visualizations on the course
 
+## Cup radius in tiles — ball is considered holed if within this distance of the hole.
+## 0.15 tiles ≈ 10 feet. Generous enough for tap-ins, tight enough for realism.
+const CUP_RADIUS: float = 0.15
+
+static func is_ball_holed(ball_pos: Vector2, hole_pos: Vector2) -> bool:
+	return ball_pos.distance_to(hole_pos) < CUP_RADIUS
+
 var terrain_grid: TerrainGrid
 var hole_visualizers: Dictionary = {}  # key: hole_number, value: HoleVisualizer
 
