@@ -296,6 +296,7 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 
 	# Apply theme colors to tileset generator
 	TilesetGenerator.set_theme_colors(CourseTheme.get_terrain_colors(theme))
+	EventBus.theme_changed.emit(theme)
 
 	set_mode(GameMode.BUILDING)
 	EventBus.new_game_started.emit()

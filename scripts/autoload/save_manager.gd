@@ -218,6 +218,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	var theme_name = game.get("theme", "parkland")
 	GameManager.current_theme = CourseTheme.from_string(theme_name)
 	TilesetGenerator.set_theme_colors(CourseTheme.get_terrain_colors(GameManager.current_theme))
+	EventBus.theme_changed.emit(GameManager.current_theme)
 
 	# Terrain
 	if terrain_grid and data.has("terrain"):

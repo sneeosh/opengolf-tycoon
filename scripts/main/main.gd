@@ -159,6 +159,14 @@ func _process(_delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	# Keyboard shortcuts - handled in _input so UI controls don't swallow them
 	if event is InputEventKey and event.pressed and not event.echo:
+		# Don't process any gameplay hotkeys while in main menu
+		if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+			return
+
+		# Skip non-modifier hotkeys if a text input has focus
+		var focused = get_viewport().gui_get_focus_owner()
+		var text_input_focused = focused is LineEdit or focused is TextEdit
+
 		if event.is_command_or_control_pressed():
 			if event.keycode == KEY_S:
 				SaveManager.save_game("quicksave")
@@ -172,12 +180,14 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_Y:
 				_perform_redo()
 				get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_U:
-			_toggle_tournament_panel()
-			get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_F3:
-			_toggle_terrain_debug_overlay()
-			get_viewport().set_input_as_handled()
+		elif not text_input_focused:
+			# Only process single-key hotkeys when not typing in a text field
+			if event.keycode == KEY_U:
+				_toggle_tournament_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_F3:
+				_toggle_terrain_debug_overlay()
+				get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Allow building/tree/rock placement in any mode
@@ -289,9 +299,11 @@ func _on_main_menu_load() -> void:
 
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
+	# Exclude popup panels that should remain hidden until explicitly toggled
+	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
-		if child != main_menu and child.name != "MainMenu":
+		if child.name not in popup_panels:
 			child.visible = visible_flag
 
 func _setup_top_hud_bar() -> void:
@@ -993,6 +1005,10 @@ func _disable_terrain_painting_preview() -> void:
 
 func _on_new_game_started() -> void:
 	"""Generate natural terrain when a new game starts"""
+	# Regenerate tileset with the selected theme colors
+	if terrain_grid:
+		terrain_grid.regenerate_tileset()
+
 	# Generate natural terrain features
 	NaturalTerrainGenerator.generate(terrain_grid, entity_layer)
 	print("Natural terrain generated for new course")
@@ -1251,11 +1267,21 @@ func _on_menu_pressed() -> void:
 	panel.name = "SaveLoadPanel"
 	panel.anchors_preset = Control.PRESET_CENTER
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.quit_to_menu_requested.connect(_on_quit_to_menu)
 	hud.add_child(panel)
+
+func _on_quit_to_menu() -> void:
+	# Return to main menu by reloading the scene
+	# This resets all game state cleanly
+	GameManager.set_mode(GameManager.GameMode.MAIN_MENU)
+	get_tree().reload_current_scene()
 
 func _on_load_completed(_success: bool) -> void:
 	if _success:
 		_rebuild_hole_list()
+		# Regenerate tileset with loaded theme colors
+		if terrain_grid:
+			terrain_grid.regenerate_tileset()
 
 # --- Undo/Redo System ---
 
@@ -1369,6 +1395,7 @@ func _execute_redo_action(action: Dictionary) -> void:
 func _setup_building_info_panel() -> void:
 	"""Add building info panel to the HUD."""
 	var hud = $UI/HUD
+	building_info_panel.name = "BuildingInfoPanel"
 	hud.add_child(building_info_panel)
 	building_info_panel.hide()
 

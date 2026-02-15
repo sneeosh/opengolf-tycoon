@@ -272,7 +272,8 @@ static func _draw_fairway_variant(image: Image, col: int, row: int, edge_mask: i
 			var blend = _get_edge_blend_factor(local_x, local_y, edge_mask)
 			if blend > 0:
 				# Edges lose the stripe pattern and blend to rough
-				var edge_base = Color(0.38, 0.68, 0.38)  # Intermediate color
+				# Derive intermediate color from theme (between fairway and rough)
+				var edge_base = light.lerp(edge_color, 0.4)
 				base_color = base_color.lerp(edge_base, blend * 0.5)
 				base_color = base_color.lerp(edge_color, blend * 0.4)
 
@@ -289,7 +290,9 @@ static func _draw_green_variant(image: Image, col: int, row: int, edge_mask: int
 	var light = get_color("green_light")
 	var dark = get_color("green_dark")
 	var fringe_color = get_color("fringe")
-	var outer_fringe = Color(0.38, 0.70, 0.38)  # Darker outer fringe blending to fairway
+	# Derive outer fringe from theme (between fringe and fairway colors)
+	var fairway_color = get_color("fairway_light")
+	var outer_fringe = fringe_color.lerp(fairway_color, 0.5).darkened(0.08)
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 67890 + edge_mask * 1000
@@ -441,11 +444,12 @@ static func _draw_water_variant(image: Image, col: int, row: int, edge_mask: int
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 90123 + edge_mask * 1000
 
-	# Multi-zone shoreline colors
-	var shallow_water = Color(0.35, 0.60, 0.80)  # Lighter blue
-	var wet_sand = Color(0.50, 0.45, 0.35)       # Dark wet sand
-	var dry_sand = Color(0.65, 0.58, 0.45)       # Lighter dry sand
-	var grass_edge = Color(0.42, 0.55, 0.35)     # Grass-like edge
+	# Multi-zone shoreline colors - derived from theme colors
+	var shallow_water = base.lightened(0.15)  # Lighter version of theme water
+	var bunker_color = get_color("bunker")
+	var wet_sand = bunker_color.darkened(0.25)  # Wet sand from theme bunker
+	var dry_sand = bunker_color.darkened(0.10)  # Dry sand lighter
+	var grass_edge = get_color("grass")  # Use theme grass
 
 	for x in range(rect.position.x, rect.position.x + rect.size.x):
 		for y in range(rect.position.y, rect.position.y + rect.size.y):

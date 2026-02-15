@@ -5,16 +5,28 @@ class_name WaterOverlay
 var terrain_grid: TerrainGrid
 var _water_positions: Array = []
 var _time: float = 0.0
+var _water_color: Color = Color(0.25, 0.55, 0.85)  # Default, updated by theme
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 1  # Render just above terrain tiles
 	_scan_water_tiles()
+	_update_water_color()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
+	EventBus.theme_changed.connect(_on_theme_changed)
+
+func _on_theme_changed(_theme_type: int) -> void:
+	_update_water_color()
+	queue_redraw()
+
+func _update_water_color() -> void:
+	_water_color = TilesetGenerator.get_color("water")
 
 func _exit_tree() -> void:
 	if EventBus.terrain_tile_changed.is_connected(_on_terrain_tile_changed):
 		EventBus.terrain_tile_changed.disconnect(_on_terrain_tile_changed)
+	if EventBus.theme_changed.is_connected(_on_theme_changed):
+		EventBus.theme_changed.disconnect(_on_theme_changed)
 
 func _scan_water_tiles() -> void:
 	_water_positions.clear()
@@ -65,8 +77,14 @@ func _draw() -> void:
 		# Draw shimmer rectangle covering the tile
 		var tile_rect = Rect2(local_pos, Vector2(terrain_grid.tile_width, terrain_grid.tile_height))
 
-		# Base wave tint - subtle blue shimmer
-		draw_rect(tile_rect, Color(0.5, 0.75, 1.0, alpha))
+		# Base wave tint - derive shimmer color from theme water color
+		var shimmer_color = Color(
+			minf(_water_color.r + 0.25, 1.0),
+			minf(_water_color.g + 0.20, 1.0),
+			minf(_water_color.b + 0.15, 1.0),
+			alpha
+		)
+		draw_rect(tile_rect, shimmer_color)
 
 		# Multiple highlight streaks for more dynamic water
 		var streak_y1 = local_pos.y + terrain_grid.tile_height * 0.25 + sin(_time * 1.5 + wave_offset) * 3.0
@@ -74,14 +92,21 @@ func _draw() -> void:
 			Vector2(local_pos.x + 6, streak_y1),
 			Vector2(terrain_grid.tile_width * 0.5, 2)
 		)
-		draw_rect(streak_rect1, Color(0.85, 0.95, 1.0, highlight_alpha))
+		# Lighter highlight derived from theme water
+		var highlight_color = Color(
+			minf(_water_color.r + 0.55, 1.0),
+			minf(_water_color.g + 0.40, 1.0),
+			minf(_water_color.b + 0.15, 1.0),
+			highlight_alpha
+		)
+		draw_rect(streak_rect1, highlight_color)
 
 		var streak_y2 = local_pos.y + terrain_grid.tile_height * 0.6 + sin(_time * 1.2 + wave_offset + 2.0) * 4.0
 		var streak_rect2 = Rect2(
 			Vector2(local_pos.x + terrain_grid.tile_width * 0.3, streak_y2),
 			Vector2(terrain_grid.tile_width * 0.4, 2)
 		)
-		draw_rect(streak_rect2, Color(0.9, 0.95, 1.0, highlight_alpha * 0.8))
+		draw_rect(streak_rect2, Color(highlight_color.r, highlight_color.g, highlight_color.b, highlight_alpha * 0.8))
 
 		# Small sparkle dots
 		var sparkle_alpha = 0.3 + 0.3 * sin(_time * 4.0 + wave_offset * 2.0)

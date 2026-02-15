@@ -146,7 +146,7 @@ func _create_theme_card(theme_type: int) -> PanelContainer:
 	# Theme name with accent color
 	var accent = CourseTheme.get_accent_color(theme_type)
 	var name_label = Label.new()
-	name_label.text = CourseTheme.get_name(theme_type)
+	name_label.text = CourseTheme.get_theme_name(theme_type)
 	name_label.add_theme_font_size_override("font_size", 16)
 	name_label.add_theme_color_override("font_color", accent)
 	vbox.add_child(name_label)

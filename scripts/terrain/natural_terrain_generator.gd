@@ -10,7 +10,7 @@ static func generate(terrain_grid: TerrainGrid, entity_layer: EntityLayer, seed_
 	var rng = RandomNumberGenerator.new()
 	rng.seed = seed_value if seed_value != 0 else int(Time.get_unix_time_from_system())
 
-	print("Generating natural terrain with seed: %d (theme: %s)" % [rng.seed, CourseTheme.get_name(GameManager.current_theme)])
+	print("Generating natural terrain with seed: %d (theme: %s)" % [rng.seed, CourseTheme.get_theme_name(GameManager.current_theme)])
 
 	# Generate elevation first (hills and valleys)
 	_generate_elevation(terrain_grid, rng)

@@ -12,7 +12,7 @@ enum Type {
 }
 
 ## Theme display information
-static func get_name(theme_type: int) -> String:
+static func get_theme_name(theme_type: int) -> String:
 	match theme_type:
 		Type.PARKLAND: return "Parkland"
 		Type.DESERT: return "Desert"

@@ -83,6 +83,7 @@ func _generate_tileset() -> void:
 ## Regenerate the tileset (e.g. after theme change)
 func regenerate_tileset() -> void:
 	_generate_tileset()
+	_apply_variation_shader()  # Re-apply shader with new theme colors
 	# Re-render all existing tiles
 	queue_redraw()
 	if tile_map:
@@ -109,12 +110,18 @@ func _apply_variation_shader() -> void:
 		TilesetGenerator.TILE_HEIGHT * TilesetGenerator.ATLAS_ROWS
 	))
 
-	# Fixed terrain base colors (shader detects terrain type and uses these)
-	material.set_shader_parameter("grass_color", Vector3(0.42, 0.58, 0.32))
-	material.set_shader_parameter("fairway_color", Vector3(0.39, 0.75, 0.39))
-	material.set_shader_parameter("green_color", Vector3(0.36, 0.85, 0.46))
-	material.set_shader_parameter("rough_color", Vector3(0.36, 0.52, 0.30))
-	material.set_shader_parameter("heavy_rough_color", Vector3(0.30, 0.45, 0.26))
+	# Get terrain base colors from theme (shader detects terrain type and uses these)
+	var grass = TilesetGenerator.get_color("grass")
+	var fairway = TilesetGenerator.get_color("fairway_light")
+	var green = TilesetGenerator.get_color("green_light")
+	var rough = TilesetGenerator.get_color("rough")
+	var heavy_rough = TilesetGenerator.get_color("heavy_rough")
+
+	material.set_shader_parameter("grass_color", Vector3(grass.r, grass.g, grass.b))
+	material.set_shader_parameter("fairway_color", Vector3(fairway.r, fairway.g, fairway.b))
+	material.set_shader_parameter("green_color", Vector3(green.r, green.g, green.b))
+	material.set_shader_parameter("rough_color", Vector3(rough.r, rough.g, rough.b))
+	material.set_shader_parameter("heavy_rough_color", Vector3(heavy_rough.r, heavy_rough.g, heavy_rough.b))
 
 	# Procedural variation amounts
 	material.set_shader_parameter("hue_variation", 0.04)

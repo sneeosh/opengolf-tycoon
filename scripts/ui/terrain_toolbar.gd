@@ -295,9 +295,18 @@ func _input(event: InputEvent) -> void:
 	if not is_visible_in_tree():
 		return
 
+	# Don't process any gameplay hotkeys while in main menu
+	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+		return
+
 	if event is InputEventKey and event.pressed and not event.echo:
 		# Don't process if Ctrl/Cmd is held (those are for undo/save)
 		if event.is_command_or_control_pressed():
+			return
+
+		# Don't process hotkeys if a text input has focus
+		var focused = get_viewport().gui_get_focus_owner()
+		if focused is LineEdit or focused is TextEdit:
 			return
 
 		# Check for section toggle hotkeys (with shift for symbols)
