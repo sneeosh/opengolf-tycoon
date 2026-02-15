@@ -55,11 +55,7 @@ var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 var bulldozer_mode: bool = false
 var placement_preview: PlacementPreview = null
-
-# Dialog references for toggle behavior
-var _tree_dialog: AcceptDialog = null
-var _rock_dialog: AcceptDialog = null
-var _building_dialog: AcceptDialog = null
+var main_menu: MainMenu = null
 
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
@@ -163,6 +159,14 @@ func _process(_delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	# Keyboard shortcuts - handled in _input so UI controls don't swallow them
 	if event is InputEventKey and event.pressed and not event.echo:
+		# Don't process any gameplay hotkeys while in main menu
+		if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+			return
+
+		# Skip non-modifier hotkeys if a text input has focus
+		var focused = get_viewport().gui_get_focus_owner()
+		var text_input_focused = focused is LineEdit or focused is TextEdit
+
 		if event.is_command_or_control_pressed():
 			if event.keycode == KEY_S:
 				SaveManager.save_game("quicksave")
@@ -176,19 +180,16 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_Y:
 				_perform_redo()
 				get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_U:
-			_toggle_tournament_panel()
-			get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_F3:
-			_toggle_terrain_debug_overlay()
-			get_viewport().set_input_as_handled()
+		elif not text_input_focused:
+			# Only process single-key hotkeys when not typing in a text field
+			if event.keycode == KEY_U:
+				_toggle_tournament_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_F3:
+				_toggle_terrain_debug_overlay()
+				get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Cancel action should always work regardless of game mode
-	if event.is_action_pressed("cancel"):
-		_cancel_action()
-		return
-
 	# Allow building/tree/rock placement in any mode
 	var in_placement_mode = placement_manager.placement_mode != PlacementManager.PlacementMode.NONE
 
@@ -200,6 +201,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_start_painting()
 	elif event.is_action_released("select"):
 		_stop_painting()
+	if event.is_action_pressed("cancel"):
+		_cancel_action()
 	if is_painting and event is InputEventMouseMotion:
 		if elevation_tool.is_active():
 			_paint_elevation_at_mouse()
@@ -231,12 +234,7 @@ func _setup_terrain_toolbar() -> void:
 	for child in tool_panel_container.get_children():
 		child.queue_free()
 
-	# Resize tool panel container to fit the wider toolbar and fill vertical space
-	tool_panel_container.anchor_top = 0.0
-	tool_panel_container.anchor_bottom = 1.0
-	tool_panel_container.offset_left = -270
-	tool_panel_container.offset_top = 55   # below top bar
-	tool_panel_container.offset_bottom = -65  # above bottom bar
+	# Ensure tool panel container expands
 	tool_panel_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	# Create and add new toolbar
@@ -259,7 +257,29 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.staff_pressed.connect(_on_staff_pressed)
 
 func _initialize_game() -> void:
-	GameManager.new_game("My Golf Course")
+	# Show main menu instead of auto-starting
+	_show_main_menu()
+
+func _show_main_menu() -> void:
+	main_menu = MainMenu.new()
+	main_menu.name = "MainMenu"
+	main_menu.new_game_requested.connect(_on_main_menu_new_game)
+	main_menu.load_game_requested.connect(_on_main_menu_load)
+	$UI/HUD.add_child(main_menu)
+	# Hide gameplay UI while in menu
+	_set_gameplay_ui_visible(false)
+
+func _on_main_menu_new_game(course_name: String, theme_type: int) -> void:
+	if main_menu:
+		main_menu.queue_free()
+		main_menu = null
+	_set_gameplay_ui_visible(true)
+
+	GameManager.new_game(course_name, theme_type)
+
+	# Regenerate tileset with theme colors
+	terrain_grid.regenerate_tileset()
+
 	# Center camera on the middle of the grid
 	var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
 	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
@@ -268,6 +288,23 @@ func _initialize_game() -> void:
 	if placement_preview:
 		placement_preview.set_terrain_tool(current_tool)
 		placement_preview.set_terrain_painting_enabled(true)
+
+func _on_main_menu_load() -> void:
+	if main_menu:
+		main_menu.queue_free()
+		main_menu = null
+	_set_gameplay_ui_visible(true)
+	# Show save/load panel
+	_on_menu_pressed()
+
+func _set_gameplay_ui_visible(visible_flag: bool) -> void:
+	# Toggle visibility of gameplay HUD elements
+	# Exclude popup panels that should remain hidden until explicitly toggled
+	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel"]
+	var hud = $UI/HUD
+	for child in hud.get_children():
+		if child.name not in popup_panels:
+			child.visible = visible_flag
 
 func _setup_top_hud_bar() -> void:
 	"""Replace old TopBar with new TopHUDBar component"""
@@ -289,8 +326,6 @@ func _setup_top_hud_bar() -> void:
 
 	# Connect money click to financial panel
 	top_hud_bar.money_clicked.connect(_on_money_clicked)
-	# Connect reputation click to financial panel (shows course rating details)
-	top_hud_bar.reputation_clicked.connect(_on_money_clicked)
 
 	# Add to HUD as first child
 	hud.add_child(top_hud_bar)
@@ -773,9 +808,9 @@ func _on_tree_placement_pressed() -> void:
 		terrain_toolbar.clear_selection()
 
 	# Create tree selection dialog
-	_tree_dialog = AcceptDialog.new()
-	_tree_dialog.title = "Select Tree Type"
-	_tree_dialog.size = Vector2i(350, 250)
+	var dialog = AcceptDialog.new()
+	dialog.title = "Select Tree Type"
+	dialog.size = Vector2i(350, 250)
 
 	var vbox = VBoxContainer.new()
 
@@ -792,25 +827,12 @@ func _on_tree_placement_pressed() -> void:
 		var btn = Button.new()
 		btn.text = "%s ($%d)" % [tree_data["name"], tree_data["cost"]]
 		btn.custom_minimum_size = Vector2(300, 40)
-		btn.pressed.connect(_on_tree_type_selected.bind(tree_type, _tree_dialog))
+		btn.pressed.connect(_on_tree_type_selected.bind(tree_type, dialog))
 		vbox.add_child(btn)
 
-	_tree_dialog.add_child(vbox)
-	_tree_dialog.canceled.connect(_on_tree_dialog_closed)
-	_tree_dialog.confirmed.connect(_on_tree_dialog_closed)
-	_tree_dialog.window_input.connect(_on_tree_dialog_input)
-	get_tree().root.add_child(_tree_dialog)
-	_tree_dialog.popup_centered_ratio(0.3)
-
-func _on_tree_dialog_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_T:
-			_on_tree_dialog_closed()
-
-func _on_tree_dialog_closed() -> void:
-	if is_instance_valid(_tree_dialog):
-		_tree_dialog.queue_free()
-	_tree_dialog = null
+	dialog.add_child(vbox)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered_ratio(0.3)
 
 func _on_building_placement_pressed() -> void:
 	"""Show building selection menu and start building placement"""
@@ -827,23 +849,23 @@ func _on_building_placement_pressed() -> void:
 		print("ERROR: Building registry is empty!")
 		EventBus.notify("Building system not initialized!", "error")
 		return
-
+	
 	# Get building names from dictionary
 	var building_names = building_registry.keys()
 	print("Available buildings: ", building_names)
 	if building_names.is_empty():
 		EventBus.notify("No buildings available!", "error")
 		return
-
+	
 	# Create a simple dialog with building options
-	_building_dialog = AcceptDialog.new()
-	_building_dialog.title = "Select Building"
-	_building_dialog.size = Vector2i(400, 300)
-
+	var dialog = AcceptDialog.new()
+	dialog.title = "Select Building"
+	dialog.size = Vector2i(400, 300)
+	
 	# Create scroll container for many buildings
 	var scroll = ScrollContainer.new()
 	var vbox = VBoxContainer.new()
-
+	
 	for building_type in building_names:
 		var building_data = building_registry[building_type]
 		var name_text = building_data.get("name", building_type)
@@ -859,33 +881,19 @@ func _on_building_placement_pressed() -> void:
 			btn.disabled = true
 			btn.text = "%s (Already placed)" % name_text
 		else:
-			btn.pressed.connect(_on_building_type_selected.bind(building_type, _building_dialog))
+			btn.pressed.connect(_on_building_type_selected.bind(building_type, dialog))
 
 		vbox.add_child(btn)
-
+	
 	scroll.add_child(vbox)
-	_building_dialog.add_child(scroll)
-	_building_dialog.canceled.connect(_on_building_dialog_closed)
-	_building_dialog.confirmed.connect(_on_building_dialog_closed)
-	_building_dialog.window_input.connect(_on_building_dialog_input)
-	get_tree().root.add_child(_building_dialog)
-	_building_dialog.popup_centered_ratio(0.4)
-
-func _on_building_dialog_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_B:
-			_on_building_dialog_closed()
-
-func _on_building_dialog_closed() -> void:
-	if is_instance_valid(_building_dialog):
-		_building_dialog.queue_free()
-	_building_dialog = null
+	dialog.add_child(scroll)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered_ratio(0.4)
 
 func _on_building_type_selected(building_type: String, dialog: AcceptDialog) -> void:
 	"""Handle building type selection"""
 	print("Selected building: %s" % building_type)
 	dialog.queue_free()
-	_building_dialog = null
 
 	if building_type in building_registry:
 		var building_data = building_registry[building_type]
@@ -898,7 +906,6 @@ func _on_tree_type_selected(tree_type: String, dialog: AcceptDialog) -> void:
 	"""Handle tree type selection"""
 	print("Selected tree: %s" % tree_type)
 	dialog.queue_free()
-	_tree_dialog = null
 	selected_tree_type = tree_type
 	placement_manager.start_tree_placement(tree_type)
 	print("Tree placement mode: %s" % tree_type)
@@ -914,9 +921,9 @@ func _on_rock_placement_pressed() -> void:
 		terrain_toolbar.clear_selection()
 
 	# Create rock selection dialog
-	_rock_dialog = AcceptDialog.new()
-	_rock_dialog.title = "Select Rock Size"
-	_rock_dialog.size = Vector2i(350, 200)
+	var dialog = AcceptDialog.new()
+	dialog.title = "Select Rock Size"
+	dialog.size = Vector2i(350, 200)
 
 	var vbox = VBoxContainer.new()
 
@@ -932,31 +939,17 @@ func _on_rock_placement_pressed() -> void:
 		var btn = Button.new()
 		btn.text = "%s ($%d)" % [rock_data["name"], rock_data["cost"]]
 		btn.custom_minimum_size = Vector2(300, 40)
-		btn.pressed.connect(_on_rock_size_selected.bind(rock_size, _rock_dialog))
+		btn.pressed.connect(_on_rock_size_selected.bind(rock_size, dialog))
 		vbox.add_child(btn)
 
-	_rock_dialog.add_child(vbox)
-	_rock_dialog.canceled.connect(_on_rock_dialog_closed)
-	_rock_dialog.confirmed.connect(_on_rock_dialog_closed)
-	_rock_dialog.window_input.connect(_on_rock_dialog_input)
-	get_tree().root.add_child(_rock_dialog)
-	_rock_dialog.popup_centered_ratio(0.3)
-
-func _on_rock_dialog_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_R:
-			_on_rock_dialog_closed()
-
-func _on_rock_dialog_closed() -> void:
-	if is_instance_valid(_rock_dialog):
-		_rock_dialog.queue_free()
-	_rock_dialog = null
+	dialog.add_child(vbox)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered_ratio(0.3)
 
 func _on_rock_size_selected(rock_size: String, dialog: AcceptDialog) -> void:
 	"""Handle rock size selection"""
 	print("Selected rock size: %s" % rock_size)
 	dialog.queue_free()
-	_rock_dialog = null
 	selected_rock_size = rock_size
 	placement_manager.start_rock_placement(rock_size)
 	print("Rock placement mode: %s" % rock_size)
@@ -1012,6 +1005,10 @@ func _disable_terrain_painting_preview() -> void:
 
 func _on_new_game_started() -> void:
 	"""Generate natural terrain when a new game starts"""
+	# Regenerate tileset with the selected theme colors
+	if terrain_grid:
+		terrain_grid.regenerate_tileset()
+
 	# Generate natural terrain features
 	NaturalTerrainGenerator.generate(terrain_grid, entity_layer)
 	print("Natural terrain generated for new course")
@@ -1228,6 +1225,10 @@ func _on_end_of_day(day_number: int) -> void:
 
 	hud.add_child(summary)
 
+	# Center the panel on screen (use custom_minimum_size since layout happens next frame)
+	var viewport_size = get_viewport().get_visible_rect().size
+	summary.position = (viewport_size - summary.custom_minimum_size) / 2
+
 func _on_summary_continue() -> void:
 	"""Called when player clicks Continue on the end of day summary."""
 	GameManager.is_paused = false
@@ -1264,11 +1265,23 @@ func _on_menu_pressed() -> void:
 		return
 	var panel = SaveLoadPanel.new()
 	panel.name = "SaveLoadPanel"
+	panel.anchors_preset = Control.PRESET_CENTER
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.quit_to_menu_requested.connect(_on_quit_to_menu)
 	hud.add_child(panel)
+
+func _on_quit_to_menu() -> void:
+	# Return to main menu by reloading the scene
+	# This resets all game state cleanly
+	GameManager.set_mode(GameManager.GameMode.MAIN_MENU)
+	get_tree().reload_current_scene()
 
 func _on_load_completed(_success: bool) -> void:
 	if _success:
 		_rebuild_hole_list()
+		# Regenerate tileset with loaded theme colors
+		if terrain_grid:
+			terrain_grid.regenerate_tileset()
 
 # --- Undo/Redo System ---
 
@@ -1382,6 +1395,7 @@ func _execute_redo_action(action: Dictionary) -> void:
 func _setup_building_info_panel() -> void:
 	"""Add building info panel to the HUD."""
 	var hud = $UI/HUD
+	building_info_panel.name = "BuildingInfoPanel"
 	hud.add_child(building_info_panel)
 	building_info_panel.hide()
 
@@ -1421,13 +1435,20 @@ func _setup_financial_panel() -> void:
 	# Create staff panel
 	staff_panel = StaffPanel.new()
 	staff_panel.name = "StaffPanel"
+	staff_panel.close_requested.connect(_on_staff_panel_closed)
 	hud.add_child(staff_panel)
+	staff_panel.hide()
 
 	# Note: Money click is now handled by TopHUDBar.money_clicked signal
 
 func _on_money_clicked() -> void:
 	## Toggle the financial panel when money is clicked.
 	financial_panel.toggle()
+	if financial_panel.visible:
+		# Center the panel on screen using actual size
+		var viewport_size = get_viewport().get_visible_rect().size
+		var panel_size = financial_panel.get_combined_minimum_size()
+		financial_panel.position = (viewport_size - panel_size) / 2
 
 func _on_financial_panel_closed() -> void:
 	"""Hide the financial panel."""
@@ -1437,6 +1458,15 @@ func _on_staff_pressed() -> void:
 	## Toggle staff management panel.
 	if staff_panel:
 		staff_panel.toggle()
+		if staff_panel.visible:
+			# Center the panel on screen using actual size
+			var viewport_size = get_viewport().get_visible_rect().size
+			var panel_size = staff_panel.get_combined_minimum_size()
+			staff_panel.position = (viewport_size - panel_size) / 2
+
+func _on_staff_panel_closed() -> void:
+	"""Hide the staff panel."""
+	staff_panel.hide()
 
 # --- Mini Map ---
 
@@ -1554,6 +1584,10 @@ func _on_tournament_panel_closed() -> void:
 func _toggle_tournament_panel() -> void:
 	"""Toggle the tournament panel visibility."""
 	tournament_panel.toggle()
+	if tournament_panel.visible:
+		# Center the panel on screen
+		var viewport_size = get_viewport().get_visible_rect().size
+		tournament_panel.position = (viewport_size - tournament_panel.custom_minimum_size) / 2
 
 func _toggle_terrain_debug_overlay() -> void:
 	"""Toggle the terrain debug overlay (F3)."""

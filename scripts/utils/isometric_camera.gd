@@ -66,6 +66,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	# Keyboard zoom hotkeys: ] to zoom in, [ to zoom out
 	if event is InputEventKey and event.pressed:
+		# Don't process any gameplay hotkeys while in main menu
+		if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+			return
+		# Don't process hotkeys if a text input has focus
+		var focused = get_viewport().gui_get_focus_owner()
+		if focused is LineEdit or focused is TextEdit:
+			return
 		if event.keycode == KEY_BRACKETRIGHT:
 			_zoom_camera_smooth(-zoom_speed * 2)
 		elif event.keycode == KEY_BRACKETLEFT:

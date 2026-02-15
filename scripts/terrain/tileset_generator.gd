@@ -27,7 +27,10 @@ enum TerrainRow {
 	SINGLES = 7  # TEE_BOX, PATH, OB, TREES, FLOWER_BED, ROCKS, EMPTY
 }
 
-# Base colors for each terrain type
+# Active color palette (set by theme system, falls back to TERRAIN_COLORS)
+static var _active_colors: Dictionary = {}
+
+# Default base colors for each terrain type (Parkland theme)
 const TERRAIN_COLORS = {
 	"grass": Color(0.42, 0.58, 0.32),
 	"fairway_light": Color(0.42, 0.78, 0.42),
@@ -48,6 +51,16 @@ const TERRAIN_COLORS = {
 	"flower_bed": Color(0.45, 0.32, 0.22),
 	"rocks": Color(0.48, 0.46, 0.42),
 }
+
+## Apply a theme's color palette for the next tileset generation
+static func set_theme_colors(colors: Dictionary) -> void:
+	_active_colors = colors
+
+## Get the active color for a terrain key, falling back to default
+static func get_color(key: String) -> Color:
+	if _active_colors.has(key):
+		return _active_colors[key]
+	return TERRAIN_COLORS.get(key, Color.MAGENTA)
 
 # Legacy function for backward compatibility
 static func generate_tileset() -> ImageTexture:
@@ -195,8 +208,8 @@ static func _get_corner_blend(local_x: int, local_y: int, edge_mask: int) -> flo
 # continuous variation, so we only add fine detail here that won't create visible tile seams.
 
 static func _draw_grass_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
-	var base = TERRAIN_COLORS["grass"]
-	var edge_color = TERRAIN_COLORS["rough"]  # Grass edges blend to rough
+	var base = get_color("grass")
+	var edge_color = get_color("rough")  # Grass edges blend to rough
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	# Use edge_mask as part of seed so edge variants look slightly different
@@ -227,9 +240,9 @@ static func _draw_grass_variant(image: Image, col: int, row: int, edge_mask: int
 # ============ FAIRWAY VARIANTS ============
 
 static func _draw_fairway_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
-	var light = TERRAIN_COLORS["fairway_light"]
-	var dark = TERRAIN_COLORS["fairway_dark"]
-	var edge_color = TERRAIN_COLORS["rough"]  # Fairway edges blend to rough
+	var light = get_color("fairway_light")
+	var dark = get_color("fairway_dark")
+	var edge_color = get_color("rough")  # Fairway edges blend to rough
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 34567 + edge_mask * 1000
@@ -259,7 +272,8 @@ static func _draw_fairway_variant(image: Image, col: int, row: int, edge_mask: i
 			var blend = _get_edge_blend_factor(local_x, local_y, edge_mask)
 			if blend > 0:
 				# Edges lose the stripe pattern and blend to rough
-				var edge_base = Color(0.38, 0.68, 0.38)  # Intermediate color
+				# Derive intermediate color from theme (between fairway and rough)
+				var edge_base = light.lerp(edge_color, 0.4)
 				base_color = base_color.lerp(edge_base, blend * 0.5)
 				base_color = base_color.lerp(edge_color, blend * 0.4)
 
@@ -273,10 +287,12 @@ static func smoothstep(edge0: float, edge1: float, x: float) -> float:
 # ============ GREEN VARIANTS (with fringe at edges) ============
 
 static func _draw_green_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
-	var light = TERRAIN_COLORS["green_light"]
-	var dark = TERRAIN_COLORS["green_dark"]
-	var fringe_color = TERRAIN_COLORS["fringe"]
-	var outer_fringe = Color(0.38, 0.70, 0.38)  # Darker outer fringe blending to fairway
+	var light = get_color("green_light")
+	var dark = get_color("green_dark")
+	var fringe_color = get_color("fringe")
+	# Derive outer fringe from theme (between fringe and fairway colors)
+	var fairway_color = get_color("fairway_light")
+	var outer_fringe = fringe_color.lerp(fairway_color, 0.5).darkened(0.08)
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 67890 + edge_mask * 1000
@@ -325,8 +341,8 @@ static func _draw_green_variant(image: Image, col: int, row: int, edge_mask: int
 # ============ ROUGH VARIANTS ============
 
 static func _draw_rough_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
-	var base = TERRAIN_COLORS["rough"]
-	var edge_color = TERRAIN_COLORS["heavy_rough"]
+	var base = get_color("rough")
+	var edge_color = get_color("heavy_rough")
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 45678 + edge_mask * 1000
@@ -359,8 +375,8 @@ static func _draw_rough_variant(image: Image, col: int, row: int, edge_mask: int
 # ============ HEAVY ROUGH VARIANTS ============
 
 static func _draw_heavy_rough_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
-	var base = TERRAIN_COLORS["heavy_rough"]
-	var edge_color = TERRAIN_COLORS["grass"]  # Heavy rough edges blend back to grass
+	var base = get_color("heavy_rough")
+	var edge_color = get_color("grass")  # Heavy rough edges blend back to grass
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 56789 + edge_mask * 1000
@@ -393,8 +409,8 @@ static func _draw_heavy_rough_variant(image: Image, col: int, row: int, edge_mas
 # ============ BUNKER VARIANTS ============
 
 static func _draw_bunker_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
-	var base = TERRAIN_COLORS["bunker"]
-	var edge_color = TERRAIN_COLORS["grass"]  # Sand edges blend to grass (lip)
+	var base = get_color("bunker")
+	var edge_color = get_color("grass")  # Sand edges blend to grass (lip)
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 89012 + edge_mask * 1000
@@ -423,16 +439,17 @@ static func _draw_bunker_variant(image: Image, col: int, row: int, edge_mask: in
 # ============ WATER VARIANTS ============
 
 static func _draw_water_variant(image: Image, col: int, row: int, edge_mask: int) -> void:
-	var base = TERRAIN_COLORS["water"]
+	var base = get_color("water")
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 90123 + edge_mask * 1000
 
-	# Multi-zone shoreline colors
-	var shallow_water = Color(0.35, 0.60, 0.80)  # Lighter blue
-	var wet_sand = Color(0.50, 0.45, 0.35)       # Dark wet sand
-	var dry_sand = Color(0.65, 0.58, 0.45)       # Lighter dry sand
-	var grass_edge = Color(0.42, 0.55, 0.35)     # Grass-like edge
+	# Multi-zone shoreline colors - derived from theme colors
+	var shallow_water = base.lightened(0.15)  # Lighter version of theme water
+	var bunker_color = get_color("bunker")
+	var wet_sand = bunker_color.darkened(0.25)  # Wet sand from theme bunker
+	var dry_sand = bunker_color.darkened(0.10)  # Dry sand lighter
+	var grass_edge = get_color("grass")  # Use theme grass
 
 	for x in range(rect.position.x, rect.position.x + rect.size.x):
 		for y in range(rect.position.y, rect.position.y + rect.size.y):
@@ -475,7 +492,7 @@ static func _draw_water_variant(image: Image, col: int, row: int, edge_mask: int
 # ============ SINGLE TILE TERRAINS (no autotiling) ============
 
 static func _draw_empty_tile(image: Image, col: int, row: int) -> void:
-	var base = TERRAIN_COLORS["empty"]
+	var base = get_color("empty")
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 12345
@@ -486,8 +503,8 @@ static func _draw_empty_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
 
 static func _draw_tee_box_tile(image: Image, col: int, row: int) -> void:
-	var light = TERRAIN_COLORS["tee_box_light"]
-	var dark = TERRAIN_COLORS["tee_box_dark"]
+	var light = get_color("tee_box_light")
+	var dark = get_color("tee_box_dark")
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 78901
@@ -502,7 +519,7 @@ static func _draw_tee_box_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
 
 static func _draw_path_tile(image: Image, col: int, row: int) -> void:
-	var base = TERRAIN_COLORS["path"]
+	var base = get_color("path")
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 1234
@@ -516,7 +533,7 @@ static func _draw_path_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise + pebble, base.g + noise * 0.95 + pebble, base.b + noise * 0.9 + pebble))
 
 static func _draw_oob_tile(image: Image, col: int, row: int) -> void:
-	var base = TERRAIN_COLORS["oob"]
+	var base = get_color("oob")
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 2345
@@ -527,7 +544,7 @@ static func _draw_oob_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
 
 static func _draw_trees_tile(image: Image, col: int, row: int) -> void:
-	var base = TERRAIN_COLORS["trees"]
+	var base = get_color("trees")
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 3456
@@ -539,7 +556,7 @@ static func _draw_trees_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise + dapple, base.g + noise * 1.2 + dapple, base.b + noise * 0.8))
 
 static func _draw_flower_bed_tile(image: Image, col: int, row: int) -> void:
-	var base = TERRAIN_COLORS["flower_bed"]
+	var base = get_color("flower_bed")
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 4567
@@ -553,7 +570,7 @@ static func _draw_flower_bed_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise + mulch, base.g + noise * 0.8 + mulch, base.b + noise * 0.6 + mulch))
 
 static func _draw_rocks_tile(image: Image, col: int, row: int) -> void:
-	var base = TERRAIN_COLORS["rocks"]
+	var base = get_color("rocks")
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 5678

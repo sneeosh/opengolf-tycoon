@@ -15,13 +15,14 @@ func setup(terrain_grid: TerrainGrid) -> void:
 	_terrain_grid = terrain_grid
 	_regenerate_grass()
 	terrain_grid.tile_changed.connect(_on_tile_changed)
-	EventBus.load_completed.connect(_on_load_completed)
+	EventBus.theme_changed.connect(_on_theme_changed)
 
 func _exit_tree() -> void:
-	if EventBus.load_completed.is_connected(_on_load_completed):
-		EventBus.load_completed.disconnect(_on_load_completed)
+	if EventBus.theme_changed.is_connected(_on_theme_changed):
+		EventBus.theme_changed.disconnect(_on_theme_changed)
 
-func _on_load_completed(_success: bool) -> void:
+func _on_theme_changed(_theme_type: int) -> void:
+	# Regenerate grass with new theme colors
 	_regenerate_grass()
 	queue_redraw()
 
@@ -44,6 +45,23 @@ func _regenerate_grass() -> void:
 			if terrain_type in GRASS_TYPES:
 				_generate_grass_for_tile(pos)
 
+func _get_blade_color_for_terrain(terrain_type: int) -> Color:
+	# Get base color from theme via TilesetGenerator
+	var base_color: Color
+	match terrain_type:
+		TerrainTypes.Type.FAIRWAY:
+			base_color = TilesetGenerator.get_color("fairway_light")
+		TerrainTypes.Type.GREEN:
+			base_color = TilesetGenerator.get_color("green_light")
+		TerrainTypes.Type.ROUGH:
+			base_color = TilesetGenerator.get_color("rough")
+		TerrainTypes.Type.HEAVY_ROUGH:
+			base_color = TilesetGenerator.get_color("heavy_rough")
+		_:  # GRASS
+			base_color = TilesetGenerator.get_color("grass")
+	# Add transparency for blade rendering
+	return Color(base_color.r, base_color.g, base_color.b, 0.4)
+
 func _generate_grass_for_tile(pos: Vector2i) -> void:
 	var terrain_type = _terrain_grid.get_tile(pos)
 	var blades: Array = []
@@ -55,29 +73,29 @@ func _generate_grass_for_tile(pos: Vector2i) -> void:
 	# Different grass density based on terrain type
 	var blade_count: int
 	var blade_height_range: Vector2
-	var blade_color_base: Color
+	var blade_color_base: Color = _get_blade_color_for_terrain(terrain_type)
 
 	match terrain_type:
 		TerrainTypes.Type.FAIRWAY:
 			blade_count = rng.randi_range(4, 7)
 			blade_height_range = Vector2(2, 4)
-			blade_color_base = Color(0.35, 0.72, 0.38, 0.4)
+			blade_color_base.a = 0.4
 		TerrainTypes.Type.GREEN:
 			blade_count = rng.randi_range(6, 10)
 			blade_height_range = Vector2(1, 2)
-			blade_color_base = Color(0.3, 0.8, 0.4, 0.35)
+			blade_color_base.a = 0.35
 		TerrainTypes.Type.ROUGH:
 			blade_count = rng.randi_range(6, 10)
 			blade_height_range = Vector2(4, 7)
-			blade_color_base = Color(0.32, 0.5, 0.28, 0.45)
+			blade_color_base.a = 0.45
 		TerrainTypes.Type.HEAVY_ROUGH:
 			blade_count = rng.randi_range(10, 15)
 			blade_height_range = Vector2(6, 10)
-			blade_color_base = Color(0.28, 0.45, 0.25, 0.5)
+			blade_color_base.a = 0.5
 		_:  # GRASS
 			blade_count = rng.randi_range(5, 8)
 			blade_height_range = Vector2(3, 5)
-			blade_color_base = Color(0.4, 0.58, 0.32, 0.4)
+			blade_color_base.a = 0.4
 
 	for i in range(blade_count):
 		var local_x = rng.randf_range(-28, 28)
