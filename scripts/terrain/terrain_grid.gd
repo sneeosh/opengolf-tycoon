@@ -9,6 +9,7 @@ class_name TerrainGrid
 
 var _grid: Dictionary = {}
 var _elevation_grid: Dictionary = {}  # Vector2i -> int (-5 to +5)
+var _player_placed_tiles: Dictionary = {}  # Vector2i -> true for tiles player placed (for maintenance)
 var _elevation_overlay: ElevationOverlay = null
 
 @onready var tile_map: TileMapLayer = $TileMapLayer if has_node("TileMapLayer") else null
@@ -161,16 +162,23 @@ func get_tile(pos: Vector2i) -> int:
 		return TerrainTypes.Type.OUT_OF_BOUNDS
 	return _grid.get(pos, TerrainTypes.Type.EMPTY)
 
-func set_tile(pos: Vector2i, terrain_type: int) -> void:
+func set_tile(pos: Vector2i, terrain_type: int, player_placed: bool = true) -> void:
 	if not is_valid_position(pos):
 		return
 	var old_type = _grid.get(pos, TerrainTypes.Type.EMPTY)
 	if old_type == terrain_type:
 		return
 	_grid[pos] = terrain_type
+	# Track player-placed tiles for maintenance cost calculation
+	if player_placed:
+		_player_placed_tiles[pos] = true
 	_update_tile_with_neighbors(pos)
 	tile_changed.emit(pos, old_type, terrain_type)
 	EventBus.terrain_tile_changed.emit(pos, old_type, terrain_type)
+
+## Set tile without marking as player-placed (for auto-generation)
+func set_tile_natural(pos: Vector2i, terrain_type: int) -> void:
+	set_tile(pos, terrain_type, false)
 
 func _update_tile_with_neighbors(pos: Vector2i) -> void:
 	# Update the tile and all 8 neighbors for seamless autotile transitions
@@ -241,9 +249,11 @@ func calculate_distance_yards(from: Vector2i, to: Vector2i) -> int:
 	return int(distance_tiles * YARDS_PER_TILE)
 
 func get_total_maintenance_cost() -> int:
+	## Only count maintenance for player-placed tiles, not auto-generated terrain
 	var total: int = 0
-	for pos in _grid:
-		total += TerrainTypes.get_maintenance_cost(_grid[pos])
+	for pos in _player_placed_tiles:
+		if _grid.has(pos):
+			total += TerrainTypes.get_maintenance_cost(_grid[pos])
 	return total
 
 func _update_tile_visual(pos: Vector2i) -> void:
@@ -462,6 +472,13 @@ func serialize() -> Dictionary:
 			data["%d,%d" % [pos.x, pos.y]] = _grid[pos]
 	return data
 
+func serialize_player_placed() -> Array:
+	## Serialize player-placed tile positions for maintenance tracking
+	var data: Array = []
+	for pos in _player_placed_tiles:
+		data.append("%d,%d" % [pos.x, pos.y])
+	return data
+
 func serialize_elevation() -> Dictionary:
 	var data: Dictionary = {}
 	for pos in _elevation_grid:
@@ -470,6 +487,7 @@ func serialize_elevation() -> Dictionary:
 
 func deserialize(data: Dictionary) -> void:
 	_initialize_grid()
+	_player_placed_tiles.clear()
 	# First pass: set all terrain types
 	for key in data:
 		var parts = key.split(",")
@@ -481,6 +499,16 @@ func deserialize(data: Dictionary) -> void:
 	for x in range(grid_width):
 		for y in range(grid_height):
 			_update_tile_visual(Vector2i(x, y))
+
+func deserialize_player_placed(data: Array) -> void:
+	## Restore player-placed tile tracking for maintenance
+	_player_placed_tiles.clear()
+	for key in data:
+		var parts = key.split(",")
+		if parts.size() == 2:
+			var pos = Vector2i(int(parts[0]), int(parts[1]))
+			if is_valid_position(pos):
+				_player_placed_tiles[pos] = true
 
 func deserialize_elevation(data: Dictionary) -> void:
 	_elevation_grid.clear()

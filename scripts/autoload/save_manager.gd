@@ -146,6 +146,7 @@ func _build_save_data() -> Dictionary:
 	if terrain_grid:
 		data["terrain"] = terrain_grid.serialize()
 		data["elevation"] = terrain_grid.serialize_elevation()
+		data["player_placed"] = terrain_grid.serialize_player_placed()
 
 	# Entities
 	if entity_layer:
@@ -233,6 +234,8 @@ func _apply_save_data(data: Dictionary) -> void:
 		terrain_grid.deserialize(data["terrain"])
 	if terrain_grid and data.has("elevation"):
 		terrain_grid.deserialize_elevation(data["elevation"])
+	if terrain_grid and data.has("player_placed"):
+		terrain_grid.deserialize_player_placed(data["player_placed"])
 	if terrain_grid:
 		terrain_grid.queue_redraw()
 

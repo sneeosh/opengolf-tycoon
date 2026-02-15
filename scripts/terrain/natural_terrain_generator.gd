@@ -87,7 +87,7 @@ static func _generate_water(terrain_grid: TerrainGrid, rng: RandomNumberGenerato
 				var effective_radius = base_radius + noise_offset
 
 				if dist <= effective_radius:
-					terrain_grid.set_tile(pos, TerrainTypes.Type.WATER)
+					terrain_grid.set_tile_natural(pos, TerrainTypes.Type.WATER)
 					# Ponds are typically in low areas
 					terrain_grid.set_elevation(pos, -1)
 
