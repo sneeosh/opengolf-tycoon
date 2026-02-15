@@ -3,8 +3,10 @@ class_name HoleManager
 ## HoleManager - Manages all hole visualizations on the course
 
 ## Cup radius in tiles — ball is considered holed if within this distance of the hole.
-## 0.15 tiles ≈ 10 feet. Generous enough for tap-ins, tight enough for realism.
-const CUP_RADIUS: float = 0.15
+## 0.01 tiles ≈ 8 inches — represents the physical cup (4.25" diameter).
+## Chip-ins require landing almost exactly in the hole. Putt gimmes are handled
+## separately in _calculate_putt() which snaps close putts to the hole.
+const CUP_RADIUS: float = 0.01
 
 static func is_ball_holed(ball_pos: Vector2, hole_pos: Vector2) -> bool:
 	return ball_pos.distance_to(hole_pos) < CUP_RADIUS

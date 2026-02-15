@@ -821,18 +821,19 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 	var landing: Vector2
 
 	# Distances in tiles (1 tile = 22 yards = 66 feet):
-	#   CUP_RADIUS  = ~10 feet  (automatic tap-in)
+	#   0.07 tiles  = ~5 feet   (tap-in gimme)
 	#   0.33 tiles  = ~22 feet  (mid-range)
 	#   0.50 tiles  = ~33 feet  (challenging)
 	#   1.00 tiles  = ~66 feet  (long putt / lag putt)
+	const PUTT_GIMME: float = 0.07  # ~5 feet - automatic tap-in for putts
 
-	if distance < HoleManager.CUP_RADIUS:
+	if distance < PUTT_GIMME:
 		# Tap-in — ball is already within the cup radius
 		landing = hole_pos
 
 	elif distance < 0.33:
 		# Short putt: ball rolls just past the hole with slight lateral deviation
-		# Proximity to CUP_RADIUS determines whether it drops in
+		# If landing is within PUTT_GIMME (~5 feet), it drops in
 		var overshoot = randf_range(0.03, 0.15) * (1.2 - putting_skill * 0.4)
 		var lateral = randf_range(-0.1, 0.1) * (1.0 - putting_skill * 0.5)
 		landing = hole_pos + direction * overshoot + perpendicular * lateral
@@ -867,8 +868,8 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 			var min_advance = 0.05 + putting_skill * 0.05
 			landing = from_precise + direction * max(distance * 0.5, min_advance)
 
-	# Snap to hole if ball lands within cup radius
-	if HoleManager.is_ball_holed(landing, hole_pos):
+	# Snap to hole if ball lands within putt gimme distance (~5 feet)
+	if landing.distance_to(hole_pos) < PUTT_GIMME:
 		landing = hole_pos
 
 	# Ensure landing stays on green terrain
