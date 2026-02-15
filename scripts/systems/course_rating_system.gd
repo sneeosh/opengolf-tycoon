@@ -177,9 +177,12 @@ static func _calculate_condition_rating(terrain_grid, course_data) -> float:
 	# 0% premium = 1 star, 60%+ premium = 5 stars
 	var base_rating = clampf(1.0 + (ratio / 0.15), 1.0, 5.0)
 
-	# Apply staff tier modifier
-	var tier_data = GameManager.STAFF_TIER_DATA.get(GameManager.current_staff_tier, {})
-	var condition_mod = tier_data.get("condition_modifier", 1.0)
+	# Apply groundskeeper condition modifier (0.0-1.0 from staff_manager)
+	# Poor condition (0.0) reduces rating by up to 50%, pristine (1.0) has no penalty
+	var condition_mod = 1.0
+	if GameManager.staff_manager:
+		var course_condition = GameManager.staff_manager.course_condition
+		condition_mod = 0.5 + (course_condition * 0.5)  # Range: 0.5 to 1.0
 	return clampf(base_rating * condition_mod, 1.0, 5.0)
 
 ## Design rating: variety of hole pars
@@ -236,6 +239,7 @@ static func _calculate_value_rating(green_fee: int, reputation: float) -> float:
 	return clampf(rating, 1.0, 5.0)
 
 ## Pace rating: based on bogeys_or_worse ratio (proxy for slow play)
+## Marshals improve pace by keeping play moving
 static func _calculate_pace_rating(daily_stats) -> float:
 	if not daily_stats:
 		return 3.0
@@ -252,7 +256,15 @@ static func _calculate_pace_rating(daily_stats) -> float:
 
 	var bad_ratio = float(daily_stats.bogeys_or_worse) / float(total_scores)
 	# 0% bad = 5 stars, 50%+ bad = 2 stars
-	var rating = 5.0 - (bad_ratio * 6.0)
+	var base_rating = 5.0 - (bad_ratio * 6.0)
+
+	# Apply marshal pace modifier (0.6-1.0 from staff_manager)
+	# Without marshals (0.6) pace rating is reduced, with marshals (1.0) full rating
+	var pace_mod = 1.0
+	if GameManager.staff_manager:
+		pace_mod = GameManager.staff_manager.get_pace_modifier()
+	var rating = base_rating * pace_mod
+
 	return clampf(rating, 2.0, 5.0)
 
 ## Get a text description of the rating

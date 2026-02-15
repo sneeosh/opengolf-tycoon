@@ -68,6 +68,11 @@ var tournament_manager: TournamentManager = null
 # Reference to entity layer for building queries (set by main scene)
 var entity_layer = null
 
+# Economy system references (set by main scene)
+var land_manager: LandManager = null
+var staff_manager: StaffManager = null
+var marketing_manager: MarketingManager = null
+
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
 var yesterday_stats: DailyStatistics = null  # Previous day's stats for comparison
@@ -227,9 +232,15 @@ func update_course_rating() -> void:
 
 func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
 	"""Process a golfer's green fee payment and return success"""
-	modify_money(green_fee)
-	EventBus.log_transaction("%s paid green fee" % golfer_name, green_fee)
-	EventBus.green_fee_paid.emit(golfer_id, golfer_name, green_fee)
+	var total = green_fee
+
+	# Pro shop staff add bonus revenue per golfer
+	if staff_manager:
+		total += int(staff_manager.get_pro_shop_revenue_bonus())
+
+	modify_money(total)
+	EventBus.log_transaction("%s paid green fee" % golfer_name, total)
+	EventBus.green_fee_paid.emit(golfer_id, golfer_name, total)
 	return true
 
 ## Check and update hole records (call when golfer finishes a hole)

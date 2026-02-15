@@ -46,9 +46,9 @@ func get_group_size_weights() -> Array:
 		return [0.05, 0.15, 0.25, 0.55]  # 5% singles, 15% pairs, 25% threesomes, 55% foursomes
 
 func get_spawn_rate_modifier() -> float:
-	"""Get spawn rate modifier based on course rating and weather.
+	"""Get spawn rate modifier based on course rating, weather, and marketing.
 	1 star = 0.5x (fewer golfers), 3 stars = 1x, 5 stars = 1.5x (more golfers)
-	Bad weather further reduces spawn rate."""
+	Bad weather further reduces spawn rate. Marketing campaigns increase it."""
 	var rating = GameManager.course_rating.get("overall", 3.0)
 	var base_modifier = 0.5 + (rating - 1.0) * 0.25
 
@@ -56,6 +56,11 @@ func get_spawn_rate_modifier() -> float:
 	if GameManager.weather_system:
 		var weather_modifier = GameManager.weather_system.get_spawn_rate_modifier()
 		base_modifier *= weather_modifier
+
+	# Apply marketing bonus (active campaigns attract more golfers)
+	if GameManager.marketing_manager:
+		var marketing_bonus = GameManager.marketing_manager.get_total_spawn_rate_bonus()
+		base_modifier *= (1.0 + marketing_bonus)
 
 	return base_modifier
 
