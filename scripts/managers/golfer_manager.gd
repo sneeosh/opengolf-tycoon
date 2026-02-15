@@ -59,8 +59,8 @@ func get_spawn_rate_modifier() -> float:
 
 	# Apply marketing bonus (active campaigns attract more golfers)
 	if GameManager.marketing_manager:
-		var marketing_bonus = GameManager.marketing_manager.get_total_spawn_rate_bonus()
-		base_modifier *= (1.0 + marketing_bonus)
+		var marketing_modifier = GameManager.marketing_manager.get_spawn_rate_modifier()
+		base_modifier *= marketing_modifier
 
 	return base_modifier
 
