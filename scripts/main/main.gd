@@ -290,6 +290,7 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.lower_elevation_pressed.connect(_on_lower_elevation_pressed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
 	terrain_toolbar.staff_pressed.connect(_on_staff_pressed)
+	terrain_toolbar.brush_size_changed.connect(_on_brush_size_changed)
 
 func _initialize_game() -> void:
 	# Show main menu instead of auto-starting
@@ -705,6 +706,9 @@ func _on_tool_selected(tool_type: int) -> void:
 		placement_preview.set_terrain_tool(tool_type)
 		placement_preview.set_terrain_painting_enabled(true)
 	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
+
+func _on_brush_size_changed(new_size: int) -> void:
+	brush_size = new_size
 
 func _on_create_hole_pressed() -> void:
 	# Cancel any building/tree placement, elevation, bulldozer, or terrain painting

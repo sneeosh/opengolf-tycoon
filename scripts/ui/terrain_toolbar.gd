@@ -12,12 +12,16 @@ signal raise_elevation_pressed
 signal lower_elevation_pressed
 signal bulldozer_pressed
 signal staff_pressed
+signal brush_size_changed(new_size: int)
 
 var _current_tool: int = TerrainTypes.Type.FAIRWAY
 var _tool_buttons: Dictionary = {}  # tool_type -> ToolButton
 var _sections: Dictionary = {}  # section_name -> { header: Button, content: VBoxContainer }
 var _scroll_container: ScrollContainer
 var _content_vbox: VBoxContainer
+var _brush_size: int = 1
+var _brush_label: Label = null
+const BRUSH_SIZES = [1, 3, 5]
 
 const TOOL_SECTIONS = {
 	"Course Terrain": {
@@ -106,11 +110,44 @@ func _build_ui() -> void:
 
 	# Subtitle hint
 	var subtitle = Label.new()
-	subtitle.text = "Click headers to expand"
+	subtitle.text = "Click headers to expand | F1 for help"
 	subtitle.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	subtitle.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_vbox.add_child(subtitle)
+
+	# Brush size control
+	var brush_row = HBoxContainer.new()
+	brush_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	brush_row.add_theme_constant_override("separation", 6)
+
+	var brush_title = Label.new()
+	brush_title.text = "Brush:"
+	brush_title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	brush_title.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+	brush_row.add_child(brush_title)
+
+	var brush_decrease = Button.new()
+	brush_decrease.text = "-"
+	brush_decrease.custom_minimum_size = Vector2(26, 26)
+	brush_decrease.pressed.connect(_on_brush_decrease)
+	brush_row.add_child(brush_decrease)
+
+	_brush_label = Label.new()
+	_brush_label.text = "1x1"
+	_brush_label.custom_minimum_size = Vector2(36, 0)
+	_brush_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_brush_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	_brush_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	brush_row.add_child(_brush_label)
+
+	var brush_increase = Button.new()
+	brush_increase.text = "+"
+	brush_increase.custom_minimum_size = Vector2(26, 26)
+	brush_increase.pressed.connect(_on_brush_increase)
+	brush_row.add_child(brush_increase)
+
+	main_vbox.add_child(brush_row)
 
 	main_vbox.add_child(HSeparator.new())
 
@@ -370,3 +407,24 @@ func clear_selection() -> void:
 func has_selection() -> bool:
 	"""Check if any terrain tool is currently selected"""
 	return _current_tool >= 0 and _current_tool in _tool_buttons
+
+func get_brush_size() -> int:
+	return _brush_size
+
+func _on_brush_decrease() -> void:
+	var idx = BRUSH_SIZES.find(_brush_size)
+	if idx > 0:
+		_brush_size = BRUSH_SIZES[idx - 1]
+		_update_brush_label()
+		brush_size_changed.emit(_brush_size)
+
+func _on_brush_increase() -> void:
+	var idx = BRUSH_SIZES.find(_brush_size)
+	if idx < BRUSH_SIZES.size() - 1:
+		_brush_size = BRUSH_SIZES[idx + 1]
+		_update_brush_label()
+		brush_size_changed.emit(_brush_size)
+
+func _update_brush_label() -> void:
+	if _brush_label:
+		_brush_label.text = "%dx%d" % [_brush_size, _brush_size]
