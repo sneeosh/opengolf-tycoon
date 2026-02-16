@@ -1250,7 +1250,7 @@ func _walk_to_ball() -> void:
 	path_index = 0
 	_change_state(State.WALKING)
 
-## Simple pathfinding with terrain awareness
+## Pathfinding with terrain awareness and obstacle avoidance
 func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
@@ -1262,7 +1262,6 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 	var start_grid = terrain_grid.screen_to_grid(global_position)
 	var end_grid = terrain_grid.screen_to_grid(target_pos)
 
-	# Check if path crosses water or is short enough to go direct
 	var path_distance = Vector2(start_grid).distance_to(Vector2(end_grid))
 
 	if path_distance < 2.5:
@@ -1271,20 +1270,22 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 		result.append(target_pos)
 		return result
 
-	# Try to find a cart path route for speed bonus (only for longer walks)
-	if path_distance >= 5.0:
-		var cart_path_route = _find_cart_path_route(start_grid, end_grid)
-		if not cart_path_route.is_empty():
-			return cart_path_route
+	# Check for obstacles first, then decide routing strategy
+	var has_obstacles = _path_crosses_obstacle(start_grid, end_grid, true)
 
-	if not _path_crosses_obstacle(start_grid, end_grid, true):
-		# No obstacles - go direct
+	if not has_obstacles:
+		# Direct path is clear — optionally use cart path if it's genuinely faster
+		if path_distance >= 5.0:
+			var cart_path_route = _find_cart_path_route(start_grid, end_grid)
+			if not cart_path_route.is_empty():
+				return cart_path_route
+		# Go direct
 		var result: Array[Vector2] = []
 		result.append(target_pos)
 		return result
 
-	# Need to pathfind around water
-	return _find_path_around_water(start_grid, end_grid)
+	# Obstacles detected — use A* to find path around water/OB
+	return _find_path_around_obstacles(start_grid, end_grid)
 
 ## Check if path crosses obstacles (water/OB for walking, trees for flight)
 ## For ball flight, only trees block — and only when the ball is low
@@ -1327,53 +1328,132 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 
 	return false
 
-## Find path around water/OB (waypoint system trying both sides at increasing offsets)
-func _find_path_around_water(start: Vector2i, end: Vector2i) -> Array[Vector2]:
+## A* pathfinding on the terrain grid, avoiding water and OB.
+## Returns simplified waypoints (not every grid cell).
+func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
-	var direction = Vector2(end - start).normalized()
-	var perpendicular = Vector2(-direction.y, direction.x)  # 90° rotation
-	var half_dist = Vector2(start).distance_to(Vector2(end)) / 2.0
+	if not terrain_grid:
+		var result: Array[Vector2] = []
+		result.append(terrain_grid.grid_to_screen_center(end))
+		return result
 
-	# Try increasing perpendicular offsets on both sides
-	for offset in [3, 5, 8, 12]:
-		for side in [1.0, -1.0]:
-			var mid_offset = direction * half_dist + perpendicular * (offset * side)
-			var waypoint = start + Vector2i(mid_offset)
+	# A* with 8-directional movement
+	var open_set: Dictionary = {}  # Vector2i -> f_score
+	var closed_set: Dictionary = {}
+	var came_from: Dictionary = {}
+	var g_score: Dictionary = {}
 
-			if not terrain_grid.is_valid_position(waypoint):
+	g_score[start] = 0.0
+	open_set[start] = _astar_heuristic(start, end)
+
+	var directions: Array[Vector2i] = [
+		Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
+		Vector2i(1, 1), Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1)
+	]
+
+	var max_iterations: int = 5000
+	var iterations: int = 0
+
+	while not open_set.is_empty() and iterations < max_iterations:
+		iterations += 1
+
+		# Find node in open_set with lowest f_score
+		var current: Vector2i = open_set.keys()[0]
+		var current_f: float = open_set[current]
+		for node in open_set:
+			if open_set[node] < current_f:
+				current_f = open_set[node]
+				current = node
+
+		if current == end:
+			# Reconstruct and simplify path into screen-space waypoints
+			var grid_path: Array[Vector2i] = _reconstruct_grid_path(came_from, end)
+			return _simplify_grid_path(grid_path)
+
+		open_set.erase(current)
+		closed_set[current] = true
+
+		for dir in directions:
+			var neighbor: Vector2i = current + dir
+
+			if neighbor in closed_set:
+				continue
+			if not terrain_grid.is_valid_position(neighbor):
 				continue
 
-			var wp_terrain = terrain_grid.get_tile(waypoint)
-			if wp_terrain == TerrainTypes.Type.WATER or wp_terrain == TerrainTypes.Type.OUT_OF_BOUNDS:
+			var terrain_type = terrain_grid.get_tile(neighbor)
+			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS:
 				continue
 
-			# Verify both legs (start→waypoint and waypoint→end) are clear
-			if _path_crosses_obstacle(start, waypoint, true):
-				continue
-			if _path_crosses_obstacle(waypoint, end, true):
-				continue
+			# Diagonal costs sqrt(2), cardinal costs 1
+			var move_cost: float = 1.414 if (dir.x != 0 and dir.y != 0) else 1.0
+			var tentative_g: float = g_score[current] + move_cost
 
-			# Found a clear path through this waypoint
-			var result: Array[Vector2] = []
-			result.append(terrain_grid.grid_to_screen_center(waypoint))
-			result.append(terrain_grid.grid_to_screen_center(end))
-			return result
+			if neighbor not in g_score or tentative_g < g_score[neighbor]:
+				came_from[neighbor] = current
+				g_score[neighbor] = tentative_g
+				open_set[neighbor] = tentative_g + _astar_heuristic(neighbor, end)
 
-	# No single waypoint works — go direct as fallback
+	# A* couldn't reach target (completely walled off) — go direct as last resort
 	var result: Array[Vector2] = []
 	result.append(terrain_grid.grid_to_screen_center(end))
 	return result
 
-## Find a route through nearby cart paths for speed bonus
+## A* heuristic: octile distance (consistent with 8-directional movement)
+func _astar_heuristic(a: Vector2i, b: Vector2i) -> float:
+	var dx: int = abs(a.x - b.x)
+	var dy: int = abs(a.y - b.y)
+	# Octile distance: cardinal cost 1.0, diagonal cost sqrt(2)
+	return 1.0 * (dx + dy) + (1.414 - 2.0) * min(dx, dy)
+
+## Reconstruct grid path from A* came_from map
+func _reconstruct_grid_path(came_from: Dictionary, end: Vector2i) -> Array[Vector2i]:
+	var grid_path: Array[Vector2i] = []
+	var current: Vector2i = end
+	while current in came_from:
+		grid_path.push_front(current)
+		current = came_from[current]
+	grid_path.push_front(current)  # Add start
+	return grid_path
+
+## Simplify a grid-cell path into minimal screen-space waypoints using line-of-sight
+func _simplify_grid_path(grid_path: Array[Vector2i]) -> Array[Vector2]:
+	var terrain_grid = GameManager.terrain_grid
+	var result: Array[Vector2] = []
+
+	if grid_path.size() <= 2:
+		result.append(terrain_grid.grid_to_screen_center(grid_path[grid_path.size() - 1]))
+		return result
+
+	# Line-of-sight simplification: only add waypoints where direct line is blocked
+	var anchor_idx: int = 0
+	while anchor_idx < grid_path.size() - 1:
+		var farthest_visible: int = anchor_idx + 1
+		for i in range(anchor_idx + 2, grid_path.size()):
+			if not _path_crosses_obstacle(grid_path[anchor_idx], grid_path[i], true):
+				farthest_visible = i
+			else:
+				break
+
+		if farthest_visible < grid_path.size() - 1:
+			# Need an intermediate waypoint here
+			result.append(terrain_grid.grid_to_screen_center(grid_path[farthest_visible]))
+		anchor_idx = farthest_visible
+
+	# Always end at the final destination
+	result.append(terrain_grid.grid_to_screen_center(grid_path[grid_path.size() - 1]))
+	return result
+
+## Find a route through nearby cart paths for speed bonus.
+## Only returns a route if it's genuinely faster than walking directly.
 func _find_cart_path_route(start: Vector2i, end: Vector2i) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
 		return []
 
 	# Search for cart path tiles near the direct path
-	var direction = Vector2(end - start).normalized()
 	var distance = Vector2(start).distance_to(Vector2(end))
-	var search_radius: int = 6  # How far from direct path to search
+	var search_radius: int = 4  # How far from direct path to search
 
 	var cart_path_tiles: Array[Vector2i] = []
 
@@ -1412,9 +1492,8 @@ func _find_cart_path_route(start: Vector2i, end: Vector2i) -> Array[Vector2]:
 			min_dist_end = dist_end
 			closest_to_end = tile
 
-	# Only use cart path if it provides a reasonable route
-	# (cart path entry/exit should be close enough to be worth it)
-	if min_dist_start > 10 or min_dist_end > 10:
+	# Entry/exit must be reasonably close to start/end
+	if min_dist_start > 6 or min_dist_end > 6:
 		return []
 
 	# Check that the cart path route doesn't cross obstacles
@@ -1422,6 +1501,17 @@ func _find_cart_path_route(start: Vector2i, end: Vector2i) -> Array[Vector2]:
 		return []
 	if _path_crosses_obstacle(closest_to_end, end, true):
 		return []
+
+	# Compare travel time: cart path route vs direct walk
+	# PATH tiles give 1.5x speed, so time on path = distance / 1.5
+	var direct_time = distance  # direct distance at 1.0x speed
+	var entry_dist = Vector2(start).distance_to(Vector2(closest_to_start))
+	var path_dist = Vector2(closest_to_start).distance_to(Vector2(closest_to_end))
+	var exit_dist = Vector2(closest_to_end).distance_to(Vector2(end))
+	var cart_time = entry_dist + (path_dist / 1.5) + exit_dist
+
+	if cart_time >= direct_time:
+		return []  # Cart path detour is slower than walking directly
 
 	# Build the route: start -> cart path entry -> cart path exit -> end
 	var result: Array[Vector2] = []
