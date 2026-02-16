@@ -632,16 +632,14 @@ func _draw_hole_creation_preview() -> void:
 		var warn_text = "Too short!"
 		draw_string(font, midpoint + Vector2(-30, 30), warn_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 11, Color(1.0, 0.4, 0.4))
 
-	# Draw green hover preview (5x5 area)
+	# Draw green hover preview (single tile — player expands with brush)
 	var pulse = 0.7 + sin(_pulse_time) * 0.3
 	var green_preview_color = Color(0.3, 0.9, 0.5, 0.4 * pulse) if is_valid else Color(0.9, 0.3, 0.3, 0.4 * pulse)
-	var green_tiles = terrain_grid.get_brush_tiles(hover_grid_pos, 2)
-	for tile_pos in green_tiles:
-		if terrain_grid.is_valid_position(tile_pos):
-			var screen_pos = terrain_grid.grid_to_screen(tile_pos)
-			var tw = terrain_grid.tile_width
-			var th = terrain_grid.tile_height
-			draw_rect(Rect2(screen_pos, Vector2(tw, th)), green_preview_color)
+	if terrain_grid.is_valid_position(hover_grid_pos):
+		var screen_pos = terrain_grid.grid_to_screen(hover_grid_pos)
+		var tw = terrain_grid.tile_width
+		var th = terrain_grid.tile_height
+		draw_rect(Rect2(screen_pos, Vector2(tw, th)), green_preview_color)
 
 # =============================================================================
 # PUBLIC API
