@@ -139,8 +139,6 @@ func _ready() -> void:
 	_connect_signals()
 	_connect_ui_buttons()
 	_setup_top_hud_bar()
-	_create_green_fee_controls()
-	_create_zoom_hint()
 	_setup_rain_overlay()
 	_setup_placement_preview()
 	_create_selection_indicator()
@@ -252,7 +250,6 @@ func _connect_signals() -> void:
 	EventBus.hole_created.connect(_on_hole_created)
 	EventBus.hole_deleted.connect(_on_hole_deleted)
 	EventBus.hole_toggled.connect(_on_hole_toggled)
-	EventBus.green_fee_changed.connect(_on_green_fee_changed)
 	EventBus.end_of_day.connect(_on_end_of_day)
 	EventBus.load_completed.connect(_on_load_completed)
 	EventBus.new_game_started.connect(_on_new_game_started)
@@ -379,49 +376,6 @@ func _setup_top_hud_bar() -> void:
 	speed_controls.add_child(build_mode_btn)
 	speed_controls.move_child(build_mode_btn, 0)
 
-func _create_green_fee_controls() -> void:
-	"""Create UI controls for adjusting green fee"""
-	var bottom_bar = $UI/HUD/BottomBar
-
-	# Create container for green fee controls
-	var green_fee_container = HBoxContainer.new()
-	green_fee_container.name = "GreenFeeControls"
-
-	# Create decrease button
-	green_fee_decrease_btn = Button.new()
-	green_fee_decrease_btn.text = "-"
-	green_fee_decrease_btn.custom_minimum_size = Vector2(30, 30)
-	green_fee_decrease_btn.pressed.connect(_on_green_fee_decrease)
-	green_fee_container.add_child(green_fee_decrease_btn)
-
-	# Create label
-	green_fee_label = Label.new()
-	green_fee_label.text = "Fee: $%d" % GameManager.green_fee
-	green_fee_label.custom_minimum_size = Vector2(80, 30)
-	green_fee_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	green_fee_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	green_fee_container.add_child(green_fee_label)
-
-	# Create increase button
-	green_fee_increase_btn = Button.new()
-	green_fee_increase_btn.text = "+"
-	green_fee_increase_btn.custom_minimum_size = Vector2(30, 30)
-	green_fee_increase_btn.pressed.connect(_on_green_fee_increase)
-	green_fee_container.add_child(green_fee_increase_btn)
-
-	# Add to bottom bar (after speed controls)
-	bottom_bar.add_child(green_fee_container)
-	bottom_bar.move_child(green_fee_container, 1)  # Position after SpeedControls
-
-func _create_zoom_hint() -> void:
-	var bottom_bar = $UI/HUD/BottomBar
-	var zoom_label = Label.new()
-	zoom_label.name = "ZoomHint"
-	zoom_label.text = "Zoom: [ - ] +"
-	zoom_label.add_theme_font_size_override("font_size", 12)
-	zoom_label.add_theme_color_override("font_color", Color.WHITE)
-	bottom_bar.add_child(zoom_label)
-
 func _setup_rain_overlay() -> void:
 	rain_overlay = RainOverlay.new()
 	rain_overlay.name = "RainOverlay"
@@ -528,19 +482,6 @@ func _update_selection_indicator() -> void:
 	selection_label.text = text
 	selection_label.add_theme_color_override("font_color", color)
 
-func _on_green_fee_decrease() -> void:
-	"""Decrease green fee by $5"""
-	GameManager.set_green_fee(GameManager.green_fee - 5)
-
-func _on_green_fee_increase() -> void:
-	"""Increase green fee by $5"""
-	GameManager.set_green_fee(GameManager.green_fee + 5)
-
-func _on_green_fee_changed(_old_fee: int, new_fee: int) -> void:
-	"""Update green fee label when fee changes"""
-	if green_fee_label:
-		green_fee_label.text = "Fee: $%d" % new_fee
-
 func _on_mode_toggle_pressed() -> void:
 	"""Toggle between build and simulation modes."""
 	if GameManager.current_mode == GameManager.GameMode.BUILDING:
@@ -590,6 +531,11 @@ func _update_button_states() -> void:
 		fast_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.FAST else Color(1, 1, 1, 1)
 
 func _handle_mouse_hover() -> void:
+	# Only show coordinates when a tool is active (reduces clutter)
+	if not _has_active_tool():
+		coordinate_label.text = ""
+		return
+
 	var mouse_world = camera.get_mouse_world_position()
 	var grid_pos = terrain_grid.screen_to_grid(mouse_world)
 	if terrain_grid.is_valid_position(grid_pos):
@@ -597,11 +543,11 @@ func _handle_mouse_hover() -> void:
 		var elevation = terrain_grid.get_elevation(grid_pos)
 		if elevation != 0:
 			var sign_str = "+" if elevation > 0 else ""
-			coordinate_label.text = "Tile: (%d, %d) - %s [Elev: %s%d]" % [grid_pos.x, grid_pos.y, terrain_name, sign_str, elevation]
+			coordinate_label.text = "(%d, %d) %s [Elev: %s%d]" % [grid_pos.x, grid_pos.y, terrain_name, sign_str, elevation]
 		else:
-			coordinate_label.text = "Tile: (%d, %d) - %s" % [grid_pos.x, grid_pos.y, terrain_name]
+			coordinate_label.text = "(%d, %d) %s" % [grid_pos.x, grid_pos.y, terrain_name]
 	else:
-		coordinate_label.text = "Out of bounds"
+		coordinate_label.text = ""
 
 func _start_painting() -> void:
 	# Check if in null selector state - do nothing, allow clicking buildings/UI
@@ -1761,8 +1707,6 @@ func _exit_tree() -> void:
 		EventBus.hole_deleted.disconnect(_on_hole_deleted)
 	if EventBus.hole_toggled.is_connected(_on_hole_toggled):
 		EventBus.hole_toggled.disconnect(_on_hole_toggled)
-	if EventBus.green_fee_changed.is_connected(_on_green_fee_changed):
-		EventBus.green_fee_changed.disconnect(_on_green_fee_changed)
 	if EventBus.end_of_day.is_connected(_on_end_of_day):
 		EventBus.end_of_day.disconnect(_on_end_of_day)
 	if EventBus.load_completed.is_connected(_on_load_completed):
