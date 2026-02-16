@@ -20,8 +20,8 @@ static func create(parent: Node, from_pos: Vector2, to_pos: Vector2,
 	trail.z_index = 50
 	trail.default_color = trail._get_trail_color(is_putt, landing_terrain)
 	trail._build_arc(from_pos, carry_pos, to_pos, is_putt)
-	trail._start_fade()
 	parent.add_child(trail)
+	trail._start_fade()
 	return trail
 
 func _build_arc(from_pos: Vector2, carry_pos: Vector2, to_pos: Vector2, is_putt: bool) -> void:

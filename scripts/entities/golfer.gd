@@ -166,19 +166,9 @@ func _ready() -> void:
 	# Apply randomized colors to visual components
 	_apply_appearance()
 
-	# Click detection area (mirrors Building pattern)
-	var click_area = Area2D.new()
-	click_area.name = "ClickArea"
-	click_area.input_pickable = true
-	click_area.collision_layer = 0
-	click_area.collision_mask = 0
-	add_child(click_area)
-	var click_shape = CollisionShape2D.new()
-	var shape = CircleShape2D.new()
-	shape.radius = 12.0
-	click_shape.shape = shape
-	click_area.add_child(click_shape)
-	click_area.input_event.connect(_on_click_area_input_event)
+	# Enable click detection on the CharacterBody2D's own collision shape
+	input_pickable = true
+	input_event.connect(_on_click_area_input_event)
 
 	# Set up labels
 	if name_label:

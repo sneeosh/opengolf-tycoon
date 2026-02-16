@@ -60,6 +60,27 @@ func _build_ui() -> void:
 	_content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_content_vbox)
 
+func _ready() -> void:
+	super._ready()
+	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole)
+	EventBus.golfer_left_course.connect(_on_golfer_left)
+
+func _exit_tree() -> void:
+	if EventBus.golfer_finished_hole.is_connected(_on_golfer_finished_hole):
+		EventBus.golfer_finished_hole.disconnect(_on_golfer_finished_hole)
+	if EventBus.golfer_left_course.is_connected(_on_golfer_left):
+		EventBus.golfer_left_course.disconnect(_on_golfer_left)
+
+func _on_golfer_finished_hole(golfer_id: int, _hole: int, _strokes: int, _par: int) -> void:
+	if visible and _golfer and _golfer.golfer_id == golfer_id:
+		_update_display()
+
+func _on_golfer_left(golfer_id: int) -> void:
+	if visible and _golfer and _golfer.golfer_id == golfer_id:
+		_golfer = null
+		hide()
+		close_requested.emit()
+
 func show_for_golfer(golfer: Golfer) -> void:
 	_golfer = golfer
 	_update_display()
