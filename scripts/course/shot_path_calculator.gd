@@ -19,9 +19,11 @@ const AVG_AGGRESSION: float = 0.45
 static func calculate_waypoints(hole_data: GameManager.HoleData, terrain_grid: TerrainGrid) -> Array[Vector2i]:
 	var waypoints: Array[Vector2i] = [hole_data.tee_position]
 
-	# Number of intermediate landing zones = par - 2
-	# Par 3: 0 intermediate, Par 4: 1 intermediate, Par 5: 2 intermediate
-	var num_intermediate: int = hole_data.par - 2
+	# Shots to reach the green = par - 2 putts
+	# Par 3: 1 shot (direct), Par 4: 2 shots, Par 5: 3 shots
+	# Intermediate waypoints = shots_to_green - 1
+	var shots_to_green: int = hole_data.par - 2
+	var num_intermediate: int = shots_to_green - 1
 	if num_intermediate <= 0:
 		waypoints.append(hole_data.hole_position)
 		return waypoints
@@ -29,7 +31,8 @@ static func calculate_waypoints(hole_data: GameManager.HoleData, terrain_grid: T
 	var current_pos: Vector2i = hole_data.tee_position
 
 	for i in range(num_intermediate):
-		var landing: Vector2i = _decide_shot_target(current_pos, hole_data.hole_position, terrain_grid)
+		var shots_left: int = shots_to_green - i  # Including this shot
+		var landing: Vector2i = _decide_shot_target(current_pos, hole_data.hole_position, terrain_grid, shots_left)
 
 		# Safety: don't add same position or positions that don't advance
 		if landing == current_pos:
@@ -48,7 +51,9 @@ static func calculate_waypoints(hole_data: GameManager.HoleData, terrain_grid: T
 
 ## Decide shot target from a position - mirrors Golfer.decide_shot_target()
 ## Evaluates multiple club candidates and picks the one with the best landing zone.
-static func _decide_shot_target(from_pos: Vector2i, hole_position: Vector2i, terrain_grid: TerrainGrid) -> Vector2i:
+## shots_left: how many shots remain to reach the green (including this one).
+## When shots_left > 1, the golfer lays up instead of going for the green.
+static func _decide_shot_target(from_pos: Vector2i, hole_position: Vector2i, terrain_grid: TerrainGrid, shots_left: int = 1) -> Vector2i:
 	var current_terrain: int = terrain_grid.get_tile(from_pos)
 	var distance_to_hole: float = Vector2(from_pos).distance_to(Vector2(hole_position))
 
@@ -62,12 +67,24 @@ static func _decide_shot_target(from_pos: Vector2i, hole_position: Vector2i, ter
 		if is_puttable:
 			return hole_position
 
+	# When multiple shots remain, target an even split of the remaining distance
+	# rather than bombing it as far as possible
+	var max_target_distance: float = INF
+	if shots_left > 1:
+		# Aim for this shot's share of the distance, leaving a good approach
+		var ideal_distance: float = distance_to_hole / float(shots_left)
+		# Allow up to 20% over the ideal to find good landing terrain
+		max_target_distance = ideal_distance * 1.2
+
 	# Evaluate candidate clubs to find the best overall option (enables lay-up)
 	var candidate_clubs: Array = []
 	for club_type in [Golfer.Club.DRIVER, Golfer.Club.FAIRWAY_WOOD, Golfer.Club.IRON, Golfer.Club.WEDGE]:
 		var stats: Dictionary = Golfer.CLUB_STATS[club_type]
 		# Club is a candidate if the hole is within or beyond its min range
 		if distance_to_hole >= stats["min_distance"] * 0.7:
+			# When laying up, skip clubs that overshoot the target distance
+			if max_target_distance < INF and stats["min_distance"] > max_target_distance:
+				continue
 			candidate_clubs.append(club_type)
 
 	if candidate_clubs.is_empty():
@@ -79,6 +96,9 @@ static func _decide_shot_target(from_pos: Vector2i, hole_position: Vector2i, ter
 	for club in candidate_clubs:
 		var stats: Dictionary = Golfer.CLUB_STATS[club]
 		var max_dist: float = stats["max_distance"] * 0.97  # Near-full distance
+		# Cap to layup distance when multiple shots remain
+		if max_target_distance < INF:
+			max_dist = minf(max_dist, max_target_distance)
 		var target: Vector2i = _find_best_landing_zone(from_pos, hole_position, max_dist, club, terrain_grid)
 		var score: float = _evaluate_landing_zone(from_pos, target, hole_position, club, terrain_grid)
 
@@ -139,26 +159,29 @@ static func _evaluate_landing_zone(from_pos: Vector2i, position: Vector2i, hole_
 	var terrain_type: int = terrain_grid.get_tile(position)
 	var score: float = 0.0
 
-	# Score based on terrain type
+	# Score based on terrain type — big gaps so terrain preference isn't
+	# overwhelmed by the distance-to-hole bonus
 	match terrain_type:
 		TerrainTypes.Type.FAIRWAY:
-			score += 100.0
+			score += 150.0
 		TerrainTypes.Type.GREEN:
-			score += 120.0
+			score += 170.0
+		TerrainTypes.Type.TEE_BOX:
+			score += 130.0
 		TerrainTypes.Type.GRASS:
-			score += 80.0
+			score += 40.0   # Natural grass — playable but much worse than fairway
 		TerrainTypes.Type.ROUGH:
-			score += 30.0
-		TerrainTypes.Type.HEAVY_ROUGH:
 			score += 10.0
-		TerrainTypes.Type.BUNKER:
+		TerrainTypes.Type.HEAVY_ROUGH:
 			score -= 20.0
+		TerrainTypes.Type.BUNKER:
+			score -= 50.0
 		TerrainTypes.Type.WATER:
 			score -= 1000.0
 		TerrainTypes.Type.OUT_OF_BOUNDS:
 			score -= 1000.0
 		TerrainTypes.Type.TREES:
-			score -= 50.0
+			score -= 80.0
 
 	# Bonus for getting closer to hole
 	var distance_to_hole: float = Vector2(position).distance_to(Vector2(hole_position))
