@@ -1152,10 +1152,11 @@ func _handle_hazard_penalty(previous_position: Vector2i) -> bool:
 	var landing_terrain = terrain_grid.get_tile(ball_position)
 
 	if landing_terrain == TerrainTypes.Type.WATER:
-		# Water: 1 penalty stroke, drop near the hazard no closer to the hole
+		# Water: 1 penalty stroke, drop at point of entry no closer to the hole
 		current_strokes += 1
-		var drop_position = _find_water_drop_position(ball_position)
-		print("%s: Ball in water! Penalty stroke. Dropping near hazard. Now on stroke %d" % [golfer_name, current_strokes])
+		var entry_point = _find_water_entry_point(previous_position, ball_position)
+		var drop_position = _find_water_drop_position(entry_point)
+		print("%s: Ball in water! Penalty stroke. Dropping at point of entry. Now on stroke %d" % [golfer_name, current_strokes])
 		EventBus.hazard_penalty.emit(golfer_id, "water", drop_position)
 		show_thought(FeedbackTriggers.TriggerType.HAZARD_WATER)
 		ball_position = drop_position
@@ -1173,22 +1174,70 @@ func _handle_hazard_penalty(previous_position: Vector2i) -> bool:
 
 	return false
 
-## Find a valid drop position near a water hazard, no closer to the hole
-func _find_water_drop_position(water_position: Vector2i) -> Vector2i:
+## Trace the ball's trajectory to find where it first entered water (point of entry).
+## Uses Bresenham-style line walk from shot origin to water landing position.
+## Returns the first water tile along the path (the margin crossing point).
+func _find_water_entry_point(from_pos: Vector2i, water_pos: Vector2i) -> Vector2i:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
-		return water_position
+		return water_pos
+
+	# Walk tiles along the line from shot origin to water landing
+	var points = _bresenham_line(from_pos, water_pos)
+
+	# Find the first water tile — that's where the ball crossed the hazard margin
+	for point in points:
+		if not terrain_grid.is_valid_position(point):
+			continue
+		if terrain_grid.get_tile(point) == TerrainTypes.Type.WATER:
+			return point
+
+	# Fallback: if no entry point found along trajectory, use landing position
+	return water_pos
+
+## Bresenham's line algorithm — returns all grid tiles along a line from p0 to p1.
+func _bresenham_line(p0: Vector2i, p1: Vector2i) -> Array[Vector2i]:
+	var points: Array[Vector2i] = []
+	var dx = absi(p1.x - p0.x)
+	var dy = -absi(p1.y - p0.y)
+	var sx = 1 if p0.x < p1.x else -1
+	var sy = 1 if p0.y < p1.y else -1
+	var err = dx + dy
+	var x = p0.x
+	var y = p0.y
+
+	while true:
+		points.append(Vector2i(x, y))
+		if x == p1.x and y == p1.y:
+			break
+		var e2 = 2 * err
+		if e2 >= dy:
+			err += dy
+			x += sx
+		if e2 <= dx:
+			err += dx
+			y += sy
+
+	return points
+
+## Find a valid drop position near the water entry point, no closer to the hole.
+## entry_position is where the ball's trajectory first crossed into the water hazard.
+func _find_water_drop_position(entry_position: Vector2i) -> Vector2i:
+	var terrain_grid = GameManager.terrain_grid
+	if not terrain_grid:
+		return entry_position
 
 	# Get hole position for "no closer to the hole" rule
 	var course_data = GameManager.course_data
-	var hole_position = water_position
+	var hole_position = entry_position
 	if course_data and not course_data.holes.is_empty() and current_hole < course_data.holes.size():
 		hole_position = course_data.holes[current_hole].hole_position
 
-	var water_distance_to_hole = Vector2(water_position).distance_to(Vector2(hole_position))
+	# "No closer to hole" is measured from the point of entry
+	var entry_distance_to_hole = Vector2(entry_position).distance_to(Vector2(hole_position))
 
-	# Search expanding rings around the water landing spot
-	var best_position = water_position
+	# Search expanding rings around the entry point
+	var best_position = entry_position
 	var best_score = -999.0
 
 	for radius in range(1, 6):
@@ -1197,7 +1246,7 @@ func _find_water_drop_position(water_position: Vector2i) -> Vector2i:
 				if abs(dx) != radius and abs(dy) != radius:
 					continue  # Only check the ring edge
 
-				var candidate = water_position + Vector2i(dx, dy)
+				var candidate = entry_position + Vector2i(dx, dy)
 				if not terrain_grid.is_valid_position(candidate):
 					continue
 
@@ -1206,9 +1255,9 @@ func _find_water_drop_position(water_position: Vector2i) -> Vector2i:
 				if candidate_terrain in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS]:
 					continue
 
-				# Must not be closer to the hole than where ball entered water
+				# Must not be closer to the hole than the point of entry
 				var candidate_distance_to_hole = Vector2(candidate).distance_to(Vector2(hole_position))
-				if candidate_distance_to_hole < water_distance_to_hole:
+				if candidate_distance_to_hole < entry_distance_to_hole:
 					continue
 
 				# Score: prefer fairway/grass, penalize rough/trees
@@ -1227,8 +1276,8 @@ func _find_water_drop_position(water_position: Vector2i) -> Vector2i:
 					TerrainTypes.Type.TREES:
 						score = 10.0
 
-				# Prefer closer to the water (shorter walk)
-				score -= Vector2(candidate).distance_to(Vector2(water_position)) * 5.0
+				# Prefer closer to the entry point (shorter walk)
+				score -= Vector2(candidate).distance_to(Vector2(entry_position)) * 5.0
 
 				if score > best_score:
 					best_score = score
