@@ -278,7 +278,6 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.create_hole_pressed.connect(_on_create_hole_pressed)
 	terrain_toolbar.tree_placement_pressed.connect(_on_tree_placement_pressed)
 	terrain_toolbar.rock_placement_pressed.connect(_on_rock_placement_pressed)
-	terrain_toolbar.flower_bed_pressed.connect(_on_flower_bed_placement_pressed)
 	terrain_toolbar.building_placement_pressed.connect(_on_building_placement_pressed)
 	terrain_toolbar.raise_elevation_pressed.connect(_on_raise_elevation_pressed)
 	terrain_toolbar.lower_elevation_pressed.connect(_on_lower_elevation_pressed)
@@ -512,6 +511,8 @@ func _update_selection_indicator() -> void:
 				color = Color(0.7, 0.7, 0.7)  # Gray
 			TerrainTypes.Type.OUT_OF_BOUNDS:
 				color = Color(0.9, 0.4, 0.4)  # Red
+			TerrainTypes.Type.FLOWER_BED:
+				color = Color(0.9, 0.5, 0.7)  # Pink
 
 	selection_label.text = text
 	selection_label.add_theme_color_override("font_color", color)
@@ -848,22 +849,16 @@ func _on_tree_placement_pressed() -> void:
 	# Create tree selection dialog
 	var dialog = AcceptDialog.new()
 	dialog.title = "Select Tree Type"
-	dialog.size = Vector2i(350, 250)
+	dialog.size = Vector2i(350, 50 + CourseTheme.get_tree_types(GameManager.current_theme).size() * 50)
 
 	var vbox = VBoxContainer.new()
 
-	# Add button for each tree type
-	var tree_types = {
-		"oak": {"name": "Oak Tree", "cost": 20},
-		"pine": {"name": "Pine Tree", "cost": 18},
-		"maple": {"name": "Maple Tree", "cost": 25},
-		"birch": {"name": "Birch Tree", "cost": 22}
-	}
-
-	for tree_type in tree_types.keys():
-		var tree_data = tree_types[tree_type]
+	# Add button for each tree type available in the current theme
+	var theme_trees = CourseTheme.get_tree_types(GameManager.current_theme)
+	for tree_type in theme_trees:
+		var tree_data = TreeEntity.TREE_PROPERTIES.get(tree_type, {})
 		var btn = Button.new()
-		btn.text = "%s ($%d)" % [tree_data["name"], tree_data["cost"]]
+		btn.text = "%s ($%d)" % [tree_data.get("name", tree_type.capitalize()), tree_data.get("cost", 20)]
 		btn.custom_minimum_size = Vector2(300, 40)
 		btn.pressed.connect(_on_tree_type_selected.bind(tree_type, dialog))
 		vbox.add_child(btn)
@@ -991,10 +986,6 @@ func _on_rock_size_selected(rock_size: String, dialog: AcceptDialog) -> void:
 	selected_rock_size = rock_size
 	placement_manager.start_rock_placement(rock_size)
 	print("Rock placement mode: %s" % rock_size)
-
-func _on_flower_bed_placement_pressed() -> void:
-	"""Start flower bed painting mode"""
-	_on_tool_selected(TerrainTypes.Type.FLOWER_BED)
 
 func _on_raise_elevation_pressed() -> void:
 	hole_tool.cancel_placement()

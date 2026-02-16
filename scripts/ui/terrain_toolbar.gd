@@ -43,7 +43,7 @@ const TOOL_SECTIONS = {
 			{"type": TerrainTypes.Type.PATH, "name": "Path", "icon": "[.]", "hotkey": "8", "desc": "Walking path for golfers"},
 			{"type": "tree", "name": "Trees", "icon": "[^]", "hotkey": "T", "desc": "Adds beauty and obstacles"},
 			{"type": "rock", "name": "Rocks", "icon": "[*]", "hotkey": "R", "desc": "Decorative rock formations"},
-			{"type": "flower", "name": "Flower Bed", "icon": "[f]", "hotkey": "", "desc": "Colorful landscaping"},
+			{"type": TerrainTypes.Type.FLOWER_BED, "name": "Flower Bed", "icon": "[f]", "hotkey": "", "desc": "Colorful landscaping"},
 			{"type": "bulldozer", "name": "Bulldozer", "icon": "[D]", "hotkey": "X", "desc": "Removes trees, rocks, flowers"},
 		]
 	},
@@ -263,8 +263,6 @@ func _on_tool_button_pressed(tool_type) -> void:
 				tree_placement_pressed.emit()
 			"rock":
 				rock_placement_pressed.emit()
-			"flower":
-				flower_bed_pressed.emit()
 			"building":
 				building_placement_pressed.emit()
 			"create_hole":

@@ -344,9 +344,11 @@ static func _generate_trees(terrain_grid: TerrainGrid, entity_layer: EntityLayer
 	var width = terrain_grid.grid_width
 	var height = terrain_grid.grid_height
 
-	# Theme-aware tree generation
+	# Theme-aware tree generation — exclude waterside-only types from general placement
 	var params = CourseTheme.get_generation_params(GameManager.current_theme)
-	var tree_types = CourseTheme.get_tree_types(GameManager.current_theme)
+	var all_tree_types = CourseTheme.get_tree_types(GameManager.current_theme)
+	var waterside_only: Array = ["cattails"]
+	var tree_types: Array = all_tree_types.filter(func(t): return t not in waterside_only)
 	var cluster_range: Vector2i = params.get("tree_clusters", Vector2i(5, 10))
 	var cluster_count = rng.randi_range(cluster_range.x, cluster_range.y)
 	var radius_range: Vector2 = params.get("tree_cluster_radius", Vector2(8, 20))

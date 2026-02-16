@@ -122,14 +122,8 @@ func _can_place_building(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 
 func get_placement_cost() -> int:
 	if placement_mode == PlacementMode.TREE:
-		# Return cost based on tree type
-		var tree_costs = {
-			"oak": 20,
-			"pine": 18,
-			"maple": 25,
-			"birch": 22
-		}
-		return tree_costs.get(selected_tree_type, 20)
+		var tree_data = TreeEntity.TREE_PROPERTIES.get(selected_tree_type, {})
+		return tree_data.get("cost", 20)
 	elif placement_mode == PlacementMode.ROCK:
 		# Return cost based on rock size
 		var rock_costs = {

@@ -260,21 +260,94 @@ func _draw_entity_ghost(alpha_mod: float) -> void:
 			_draw_building_ghost(top_left, ghost_color)
 
 func _draw_tree_ghost(pos: Vector2, color: Color) -> void:
-	# Draw a simple tree shape
-	var trunk_color = Color(0.4, 0.25, 0.1, color.a)
-	var foliage_color = color
+	var tree_type = placement_manager.selected_tree_type if placement_manager else "oak"
+	var props = TreeEntity.TREE_PROPERTIES.get(tree_type, {})
+	var base_foliage = props.get("color", Color(0.2, 0.5, 0.2))
+	var base_trunk = props.get("trunk_color", Color(0.4, 0.2, 0.1))
 
-	# Trunk
-	var trunk_width = 6.0
-	var trunk_height = 20.0
-	draw_rect(Rect2(pos.x - trunk_width/2, pos.y - trunk_height, trunk_width, trunk_height), trunk_color)
+	# Generate position-based variation to match what the placed tree will look like
+	var var_params = TreeEntity.TREE_VARIATION.get(tree_type, TreeEntity.TREE_VARIATION["oak"])
+	var variation = PropVariation.generate_custom_variation(
+		current_grid_pos, var_params["scale"], var_params["rotation"], var_params["hue"])
 
-	# Foliage (circle shape)
-	var foliage_radius = 18.0
-	draw_circle(pos + Vector2(0, -trunk_height - foliage_radius * 0.7), foliage_radius, foliage_color)
+	var scale_v = variation.scale
+	var visual_h = props.get("visual_height", 48.0) * scale_v
+	var base_w = props.get("base_width", 32.0) * scale_v
 
-	# Smaller top circle
-	draw_circle(pos + Vector2(0, -trunk_height - foliage_radius * 1.5), foliage_radius * 0.7, foliage_color)
+	# Apply color variation then blend with ghost tint
+	var varied_foliage = variation.apply_color_shift(base_foliage)
+	var foliage_color = Color(varied_foliage.r, varied_foliage.g, varied_foliage.b, color.a)
+	var varied_trunk = variation.apply_color_shift(base_trunk)
+	var trunk_color = Color(varied_trunk.r, varied_trunk.g, varied_trunk.b, color.a)
+
+	# Apply rotation around the base point
+	draw_set_transform(pos, variation.rotation)
+	# Draw relative to origin (pos is now the transform origin)
+	var o = Vector2.ZERO
+
+	if tree_type in TreeEntity.TRUNKLESS_TYPES:
+		match tree_type:
+			"cactus":
+				var body_w = base_w * 0.35
+				draw_rect(Rect2(o.x - body_w / 2, o.y - visual_h, body_w, visual_h), foliage_color)
+				draw_rect(Rect2(o.x - base_w * 0.45, o.y - visual_h * 0.7, base_w * 0.25, body_w * 0.6), foliage_color)
+				draw_rect(Rect2(o.x - base_w * 0.45, o.y - visual_h * 0.85, body_w * 0.5, visual_h * 0.2), foliage_color)
+				draw_rect(Rect2(o.x + base_w * 0.2, o.y - visual_h * 0.45, base_w * 0.25, body_w * 0.6), foliage_color)
+				draw_rect(Rect2(o.x + base_w * 0.2, o.y - visual_h * 0.6, body_w * 0.5, visual_h * 0.2), foliage_color)
+			"fescue":
+				for i in range(5):
+					var x_off = (i - 2) * base_w * 0.2
+					draw_line(o + Vector2(x_off, 0), o + Vector2(x_off, -visual_h), foliage_color, 2.0)
+			"cattails":
+				for i in range(3):
+					var x_off = (i - 1) * 5.0 * scale_v
+					draw_line(o + Vector2(x_off, 0), o + Vector2(x_off, -visual_h), foliage_color, 1.5)
+					var head_color = Color(varied_trunk.r, varied_trunk.g, varied_trunk.b, color.a)
+					draw_rect(Rect2(o.x + x_off - 2 * scale_v, o.y - visual_h - 6 * scale_v, 4 * scale_v, 8 * scale_v), head_color)
+			"bush":
+				draw_circle(o + Vector2(0, -visual_h * 0.5), base_w * 0.45, foliage_color)
+			"heather":
+				draw_circle(o + Vector2(0, -visual_h * 0.4), base_w * 0.4, foliage_color)
+				var flower_color = Color(0.6, 0.3, 0.6, color.a)
+				draw_circle(o + Vector2(-4 * scale_v, -visual_h * 0.6), 3 * scale_v, flower_color)
+				draw_circle(o + Vector2(4 * scale_v, -visual_h * 0.5), 2.5 * scale_v, flower_color)
+	else:
+		var trunk_w = 6.0 * scale_v
+		var trunk_h = visual_h * 0.4
+
+		match tree_type:
+			"palm":
+				trunk_w = 5.0 * scale_v
+				trunk_h = visual_h * 0.6
+				draw_rect(Rect2(o.x - trunk_w / 2, o.y - trunk_h, trunk_w, trunk_h), trunk_color)
+				for angle in [0, 60, 120, 180, 240, 300]:
+					var rad = deg_to_rad(angle)
+					var tip = o + Vector2(cos(rad) * base_w * 0.5, -trunk_h + sin(rad) * 10 * scale_v - 8 * scale_v)
+					draw_line(o + Vector2(0, -trunk_h), tip, foliage_color, 2.5)
+			"dead_tree":
+				trunk_w = 8.0 * scale_v
+				trunk_h = visual_h * 0.5
+				draw_rect(Rect2(o.x - trunk_w / 2, o.y - trunk_h, trunk_w, trunk_h), trunk_color)
+				var branch_color = Color(varied_trunk.r * 0.95, varied_trunk.g * 0.94, varied_trunk.b * 0.91, color.a)
+				draw_line(o + Vector2(0, -trunk_h), o + Vector2(-14 * scale_v, -visual_h), branch_color, 2.0)
+				draw_line(o + Vector2(0, -trunk_h), o + Vector2(12 * scale_v, -visual_h * 0.9), branch_color, 2.0)
+				draw_line(o + Vector2(0, -trunk_h * 0.8), o + Vector2(-10 * scale_v, -trunk_h * 1.2), branch_color, 1.5)
+			"pine":
+				draw_rect(Rect2(o.x - trunk_w / 2, o.y - trunk_h, trunk_w, trunk_h), trunk_color)
+				var tri = PackedVector2Array([
+					o + Vector2(0, -visual_h),
+					o + Vector2(-base_w * 0.5, -trunk_h),
+					o + Vector2(base_w * 0.5, -trunk_h)
+				])
+				draw_colored_polygon(tri, foliage_color)
+			_:
+				draw_rect(Rect2(o.x - trunk_w / 2, o.y - trunk_h, trunk_w, trunk_h), trunk_color)
+				var foliage_r = base_w * 0.5
+				draw_circle(o + Vector2(0, -trunk_h - foliage_r * 0.7), foliage_r, foliage_color)
+				draw_circle(o + Vector2(0, -trunk_h - foliage_r * 1.5), foliage_r * 0.7, foliage_color)
+
+	# Reset transform so subsequent draws aren't affected
+	draw_set_transform(Vector2.ZERO, 0.0)
 
 func _draw_rock_ghost(pos: Vector2, color: Color) -> void:
 	# Draw a simple rock shape (irregular polygon)
