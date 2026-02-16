@@ -200,15 +200,16 @@ func _draw_land_boundary() -> void:
 	var parcel_size = lm.PARCEL_SIZE  # 20 tiles per parcel
 	var cols = lm.PARCEL_GRID_COLS    # 6 columns
 	var rows = lm.PARCEL_GRID_ROWS    # 6 rows
+	var offset = lm.GRID_OFFSET       # 4 tiles margin
 
 	# Draw tint on unowned parcels
 	for px in range(cols):
 		for py in range(rows):
 			var parcel_pos = Vector2i(px, py)
-			if not lm.is_parcel_owned(parcel_pos):
-				# Calculate parcel bounds in map pixels
-				var grid_start = Vector2i(px * parcel_size, py * parcel_size)
-				var grid_end = Vector2i((px + 1) * parcel_size, (py + 1) * parcel_size)
+			if not lm.owned_parcels.has(parcel_pos):
+				# Calculate parcel bounds in map pixels (account for grid offset)
+				var grid_start = Vector2i(offset + px * parcel_size, offset + py * parcel_size)
+				var grid_end = Vector2i(offset + (px + 1) * parcel_size, offset + (py + 1) * parcel_size)
 				var map_start = _grid_to_map_pos(grid_start)
 				var map_end = _grid_to_map_pos(grid_end)
 				var rect = Rect2(map_start, map_end - map_start)
@@ -218,17 +219,17 @@ func _draw_land_boundary() -> void:
 	for px in range(cols):
 		for py in range(rows):
 			var parcel_pos = Vector2i(px, py)
-			var is_owned = lm.is_parcel_owned(parcel_pos)
+			var is_owned = lm.owned_parcels.has(parcel_pos)
 			if not is_owned:
 				continue  # Only draw borders from owned side
 
-			var grid_x = px * parcel_size
-			var grid_y = py * parcel_size
+			var grid_x = offset + px * parcel_size
+			var grid_y = offset + py * parcel_size
 
 			# Check right neighbor
 			if px < cols - 1:
 				var right = Vector2i(px + 1, py)
-				if not lm.is_parcel_owned(right):
+				if not lm.owned_parcels.has(right):
 					var start = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y))
 					var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y + parcel_size))
 					draw_line(start, end, BOUNDARY_COLOR, 1.5)
@@ -236,7 +237,7 @@ func _draw_land_boundary() -> void:
 			# Check bottom neighbor
 			if py < rows - 1:
 				var bottom = Vector2i(px, py + 1)
-				if not lm.is_parcel_owned(bottom):
+				if not lm.owned_parcels.has(bottom):
 					var start = _grid_to_map_pos(Vector2i(grid_x, grid_y + parcel_size))
 					var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y + parcel_size))
 					draw_line(start, end, BOUNDARY_COLOR, 1.5)
@@ -244,7 +245,7 @@ func _draw_land_boundary() -> void:
 			# Check left neighbor
 			if px > 0:
 				var left = Vector2i(px - 1, py)
-				if not lm.is_parcel_owned(left):
+				if not lm.owned_parcels.has(left):
 					var start = _grid_to_map_pos(Vector2i(grid_x, grid_y))
 					var end = _grid_to_map_pos(Vector2i(grid_x, grid_y + parcel_size))
 					draw_line(start, end, BOUNDARY_COLOR, 1.5)
@@ -252,7 +253,7 @@ func _draw_land_boundary() -> void:
 			# Check top neighbor
 			if py > 0:
 				var top = Vector2i(px, py - 1)
-				if not lm.is_parcel_owned(top):
+				if not lm.owned_parcels.has(top):
 					var start = _grid_to_map_pos(Vector2i(grid_x, grid_y))
 					var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y))
 					draw_line(start, end, BOUNDARY_COLOR, 1.5)
