@@ -1244,8 +1244,9 @@ func _on_end_of_day(day_number: int) -> void:
 	var summary = EndOfDaySummaryPanel.new(day_number)
 	summary.name = "EndOfDaySummary"
 
-	# Connect the signal BEFORE add_child (ready signal fires during add_child)
+	# Connect signals BEFORE add_child (ready signal fires during add_child)
 	summary.continue_pressed.connect(_on_summary_continue)
+	summary.build_mode_pressed.connect(_on_summary_build_mode)
 
 	hud.add_child(summary)
 
@@ -1257,6 +1258,11 @@ func _on_summary_continue() -> void:
 	"""Called when player clicks Continue on the end of day summary."""
 	GameManager.is_paused = false
 	GameManager.advance_to_next_day()
+
+func _on_summary_build_mode() -> void:
+	"""Called when player clicks Return to Build Mode on the end of day summary."""
+	GameManager.is_paused = false
+	GameManager.stop_simulation()
 
 # --- Save/Load ---
 
