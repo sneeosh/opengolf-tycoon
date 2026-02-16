@@ -61,6 +61,9 @@ const CLUB_STATS = {
 ## Golfer tier (Beginner, Casual, Serious, Pro)
 var golfer_tier: int = GolferTier.Tier.CASUAL
 
+## Per-hole score tracking for scorecard display
+var hole_scores: Array = []  # Array of {hole: int, strokes: int, par: int}
+
 ## Skill stats (0.0 to 1.0, where 1.0 is best)
 @export_range(0.0, 1.0) var driving_skill: float = 0.5
 @export_range(0.0, 1.0) var accuracy_skill: float = 0.5
@@ -139,6 +142,7 @@ const THOUGHT_COOLDOWN: float = 3.0  # Seconds between thoughts (in real time)
 signal state_changed(old_state: State, new_state: State)
 signal shot_completed(distance: int, accuracy: float)
 signal hole_completed(strokes: int, par: int)
+signal golfer_selected(golfer: Golfer)
 
 func _ready() -> void:
 	# Set up collision layers
@@ -161,6 +165,20 @@ func _ready() -> void:
 
 	# Apply randomized colors to visual components
 	_apply_appearance()
+
+	# Click detection area (mirrors Building pattern)
+	var click_area = Area2D.new()
+	click_area.name = "ClickArea"
+	click_area.input_pickable = true
+	click_area.collision_layer = 0
+	click_area.collision_mask = 0
+	add_child(click_area)
+	var click_shape = CollisionShape2D.new()
+	var shape = CircleShape2D.new()
+	shape.radius = 12.0
+	click_shape.shape = shape
+	click_area.add_child(click_shape)
+	click_area.input_event.connect(_on_click_area_input_event)
 
 	# Set up labels
 	if name_label:
@@ -545,6 +563,7 @@ func take_shot(target: Vector2i) -> void:
 
 ## Finish current hole
 func finish_hole(par: int) -> void:
+	hole_scores.append({"hole": current_hole, "strokes": current_strokes, "par": par})
 	total_strokes += current_strokes
 	total_par += par
 	previous_hole_strokes = current_strokes  # Store for honor system on next tee
@@ -2062,6 +2081,11 @@ func show_thought(trigger_type: int) -> void:
 
 	# Notify FeedbackManager for aggregate tracking
 	EventBus.golfer_thought.emit(golfer_id, trigger_type, sentiment_str)
+
+## Click detection handler (mirrors Building pattern)
+func _on_click_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		golfer_selected.emit(self)
 
 ## Serialize golfer state
 func serialize() -> Dictionary:

@@ -16,6 +16,7 @@ var time_since_last_spawn: float = 0.0
 
 signal golfer_spawned(golfer: Golfer)
 signal golfer_removed(golfer_id: int)
+signal golfer_clicked(golfer: Golfer)
 
 func _ready() -> void:
 	# Connect to EventBus
@@ -605,6 +606,7 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 
 	golfers_container.add_child(golfer)
 	active_golfers.append(golfer)
+	golfer.golfer_selected.connect(_on_golfer_selected)
 
 	# Process green fee payment
 	GameManager.process_green_fee_payment(golfer.golfer_id, golfer_name)
@@ -720,6 +722,10 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 ## Get all active golfers
 func get_active_golfers() -> Array[Golfer]:
 	return active_golfers
+
+## Forward golfer click events to main scene
+func _on_golfer_selected(golfer: Golfer) -> void:
+	golfer_clicked.emit(golfer)
 
 ## Get golfer by ID
 func get_golfer(golfer_id: int) -> Golfer:

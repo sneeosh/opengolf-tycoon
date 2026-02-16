@@ -52,6 +52,8 @@ var land_panel: LandPanel = null
 var marketing_panel: MarketingPanel = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
+var golfer_info_popup: GolferInfoPopup = null
+var round_summary_popup: RoundSummaryPopup = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
@@ -153,6 +155,9 @@ func _ready() -> void:
 	_setup_marketing_panel()
 	_setup_hotkey_panel()
 	_setup_weather_debug_panel()
+	_setup_golfer_info_popup()
+	_setup_round_summary_popup()
+	_setup_shot_trails()
 	_setup_audio_controls()
 	_initialize_game()
 	print("Main scene ready")
@@ -375,7 +380,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel"]
+	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "GolferInfoPopup"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -1836,6 +1841,79 @@ func _setup_audio_controls() -> void:
 	var audio_controls = AudioControls.new()
 	audio_controls.name = "AudioControls"
 	bottom_bar.add_child(audio_controls)
+
+# --- Golfer Info Popup ---
+
+func _setup_golfer_info_popup() -> void:
+	var hud = $UI/HUD
+	golfer_info_popup = GolferInfoPopup.new()
+	golfer_info_popup.name = "GolferInfoPopup"
+	golfer_info_popup.close_requested.connect(_on_golfer_info_popup_closed)
+	hud.add_child(golfer_info_popup)
+	golfer_info_popup.hide()
+	golfer_manager.golfer_clicked.connect(_on_golfer_clicked)
+
+func _on_golfer_info_popup_closed() -> void:
+	golfer_info_popup.hide()
+	_active_panel = null
+
+func _on_golfer_clicked(golfer: Golfer) -> void:
+	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
+		return
+	if _active_panel and _active_panel != golfer_info_popup and _active_panel.visible:
+		_active_panel.hide()
+	_active_panel = golfer_info_popup
+	golfer_info_popup.show_for_golfer(golfer)
+
+# --- Round Summary ---
+
+func _setup_round_summary_popup() -> void:
+	round_summary_popup = RoundSummaryPopup.new()
+	round_summary_popup.name = "RoundSummaryPopup"
+	$UI.add_child(round_summary_popup)
+	EventBus.golfer_finished_round.connect(_on_golfer_round_for_summary)
+
+func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int) -> void:
+	var golfer = golfer_manager.get_golfer(golfer_id)
+	if not golfer:
+		return
+	round_summary_popup.queue_notification({
+		"name": golfer.golfer_name,
+		"total_strokes": total_strokes,
+		"total_par": golfer.total_par,
+		"mood": golfer.current_mood,
+		"tier": golfer.golfer_tier,
+		"green_fee": GameManager.green_fee,
+		"holes_played": golfer.hole_scores.size(),
+	})
+
+# --- Shot Trails ---
+
+func _setup_shot_trails() -> void:
+	EventBus.ball_shot_landed_precise.connect(_on_shot_for_trail)
+	EventBus.ball_putt_landed_precise.connect(_on_putt_for_trail)
+
+func _on_shot_for_trail(_golfer_id: int, from_screen: Vector2, to_screen: Vector2,
+		_distance_yards: int, carry_screen: Vector2) -> void:
+	if not _is_screen_visible(from_screen) and not _is_screen_visible(to_screen):
+		return
+	var landing_terrain = terrain_grid.get_tile(terrain_grid.screen_to_grid(to_screen))
+	ShotTrail.create($Entities, from_screen, to_screen, carry_screen, false, landing_terrain)
+
+func _on_putt_for_trail(_golfer_id: int, from_screen: Vector2, to_screen: Vector2,
+		_distance_yards: int) -> void:
+	if not _is_screen_visible(from_screen) and not _is_screen_visible(to_screen):
+		return
+	var terrain_types_ref = preload("res://scripts/terrain/terrain_types.gd")
+	ShotTrail.create($Entities, from_screen, to_screen, to_screen, true, terrain_types_ref.Type.GREEN)
+
+func _is_screen_visible(world_pos: Vector2) -> bool:
+	var vp_size = get_viewport().get_visible_rect().size
+	var cam_pos = camera.global_position
+	var cam_zoom = camera.zoom
+	var half_vp = vp_size / (2.0 * cam_zoom)
+	var margin = 100.0
+	return abs(world_pos.x - cam_pos.x) < half_vp.x + margin and abs(world_pos.y - cam_pos.y) < half_vp.y + margin
 
 func _exit_tree() -> void:
 	"""Disconnect all signals to prevent memory leaks on scene unload."""
