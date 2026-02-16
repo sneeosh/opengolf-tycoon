@@ -328,12 +328,42 @@ func _on_main_menu_new_game(course_name: String, theme_type: int) -> void:
 		placement_preview.set_terrain_painting_enabled(false)
 
 func _on_main_menu_load() -> void:
-	if main_menu:
+	# Show save/load panel overlaid on the main menu (don't dismiss menu yet)
+	var hud = $UI/HUD
+	var existing = hud.get_node_or_null("SaveLoadPanel")
+	if existing:
+		existing.queue_free()
+		return
+
+	var panel = SaveLoadPanel.new()
+	panel.name = "SaveLoadPanel"
+	panel.anchors_preset = Control.PRESET_CENTER
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+
+	# When a save is loaded, dismiss the main menu
+	panel.panel_closed.connect(_on_main_menu_load_panel_closed)
+	panel.quit_to_menu_requested.connect(_on_quit_to_menu)
+	hud.add_child(panel)
+
+	# Connect load_completed to dismiss the menu on successful load
+	if not EventBus.load_completed.is_connected(_on_main_menu_load_completed):
+		EventBus.load_completed.connect(_on_main_menu_load_completed)
+
+func _on_main_menu_load_panel_closed() -> void:
+	"""Save/load panel closed without loading — return to main menu."""
+	_disconnect_main_menu_load_signal()
+
+func _on_main_menu_load_completed(success: bool) -> void:
+	"""A save was loaded from the main menu — dismiss menu and show game."""
+	_disconnect_main_menu_load_signal()
+	if success and main_menu:
 		main_menu.queue_free()
 		main_menu = null
-	_set_gameplay_ui_visible(true)
-	# Show save/load panel
-	_on_menu_pressed()
+		_set_gameplay_ui_visible(true)
+
+func _disconnect_main_menu_load_signal() -> void:
+	if EventBus.load_completed.is_connected(_on_main_menu_load_completed):
+		EventBus.load_completed.disconnect(_on_main_menu_load_completed)
 
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
