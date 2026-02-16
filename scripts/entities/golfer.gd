@@ -80,6 +80,9 @@ var current_state: State = State.IDLE
 var current_mood: float = 0.5  # 0.0 = angry, 1.0 = happy
 var fatigue: float = 0.0       # 0.0 = fresh, 1.0 = exhausted
 
+## Golfer needs (energy, attitude, thirst, hunger, bathroom)
+var needs: GolferNeeds = GolferNeeds.new()
+
 ## Course progress
 var current_hole: int = 0
 var current_strokes: int = 0
@@ -549,10 +552,26 @@ func finish_hole(par: int) -> void:
 	else:                     # Double bogey or worse
 		_adjust_mood(-0.2)
 
-	# Show thought bubble for notable scores
+	# Decay needs per hole
+	needs.decay_per_hole(patience)
+	needs.adjust_attitude_for_score(score_diff)
+
+	# Apply weather effects to needs
+	if GameManager.weather_system:
+		needs.apply_weather_effect(GameManager.weather_system.weather_type)
+
+	# Apply mood penalty from unmet needs
+	var needs_penalty = needs.get_mood_penalty()
+	if needs_penalty < -0.01:
+		_adjust_mood(needs_penalty)
+
+	# Show thought bubble for notable scores (takes priority over need thoughts)
 	var score_trigger = FeedbackTriggers.get_score_trigger(current_strokes, par)
 	if score_trigger != -1:
 		show_thought(score_trigger)
+
+	# Check for critical needs and show thought bubbles (if no score thought shown)
+	_check_critical_needs()
 
 	# Check for records
 	var records = GameManager.check_hole_records(golfer_name, current_hole, current_strokes)
@@ -574,8 +593,14 @@ func finish_round() -> void:
 	# Check for course record
 	GameManager.check_round_record(golfer_name, total_strokes)
 
-	# Apply clubhouse effects (golfer visits clubhouse after round)
+	# Apply clubhouse effects (golfer visits clubhouse after round — replenishes all needs)
 	_apply_clubhouse_effects()
+
+	# Apply final needs-based mood adjustment
+	# Needs satisfaction modifies the golfer's overall impression of the course
+	var needs_satisfaction = needs.get_overall_satisfaction()
+	var needs_mood_shift = (needs_satisfaction - 0.5) * 0.3  # ±0.15 mood swing
+	_adjust_mood(needs_mood_shift)
 
 	# Show course satisfaction feedback
 	var course_trigger = FeedbackTriggers.get_course_trigger(total_strokes, total_par)
@@ -1457,6 +1482,17 @@ func _adjust_mood(amount: float) -> void:
 	if abs(old_mood - current_mood) > 0.05:
 		EventBus.golfer_mood_changed.emit(golfer_id, current_mood)
 
+## Check for critically low needs and show thought bubbles
+func _check_critical_needs() -> void:
+	var lowest_value = needs.get_lowest_need_value()
+	if lowest_value >= GolferNeeds.CRITICAL_THRESHOLD:
+		return
+
+	var critical_need = needs.get_most_critical_need()
+	var need_trigger = FeedbackTriggers.get_need_trigger(critical_need)
+	show_thought(need_trigger)
+	EventBus.golfer_need_critical.emit(golfer_id, critical_need, needs.get_need(critical_need))
+
 ## Create highlight ring node for active golfer indication
 func _create_highlight_ring() -> void:
 	_highlight_ring = Polygon2D.new()
@@ -1621,10 +1657,25 @@ func _check_building_proximity() -> void:
 		if distance <= effect_radius:
 			_visited_buildings[building_id] = true
 
+			# Capture desire BEFORE replenishing (desire = how much they wanted this)
+			var desire = needs.get_building_desire(building.building_type)
+			var had_critical_need = needs.get_lowest_need_value() < GolferNeeds.CRITICAL_THRESHOLD
+
+			# Replenish golfer needs based on building type
+			var restored = needs.apply_building(building.building_type)
+			if not restored.is_empty():
+				EventBus.golfer_need_replenished.emit(golfer_id, building.building_type, restored)
+				# Show refreshed thought if a critical need was just addressed
+				if had_critical_need and needs.get_lowest_need_value() >= GolferNeeds.CRITICAL_THRESHOLD:
+					show_thought(FeedbackTriggers.TriggerType.NEED_REFRESHED)
+
 			# Apply effect based on type
 			# Use building methods to get upgrade-aware values
 			if effect_type == "revenue":
 				var income = building.get_income_per_golfer()
+				# Revenue scales with how much the golfer wanted this building (50%-150%)
+				var desire_multiplier = 0.5 + desire
+				income = int(income * desire_multiplier)
 				if income > 0:
 					GameManager.modify_money(income)
 					GameManager.daily_stats.building_revenue += income
@@ -1674,6 +1725,9 @@ func _apply_clubhouse_effects() -> void:
 
 		# Mark as visited
 		_visited_buildings[building_id] = true
+
+		# Clubhouse replenishes all needs (golfer visits after the round)
+		needs.apply_building("clubhouse")
 
 		# Apply revenue from upgraded clubhouse
 		var income = building.get_income_per_golfer()
@@ -1742,7 +1796,8 @@ func serialize() -> Dictionary:
 		"current_state": current_state,
 		"ball_position": {"x": ball_position.x, "y": ball_position.y},
 		"ball_position_precise": {"x": ball_position_precise.x, "y": ball_position_precise.y},
-		"position": {"x": global_position.x, "y": global_position.y}
+		"position": {"x": global_position.x, "y": global_position.y},
+		"needs": needs.serialize(),
 	}
 
 ## Deserialize golfer state
@@ -1775,6 +1830,10 @@ func deserialize(data: Dictionary) -> void:
 	var ball_precise = data.get("ball_position_precise", {})
 	if ball_precise:
 		ball_position_precise = Vector2(ball_precise.get("x", 0), ball_precise.get("y", 0))
+
+	var needs_data = data.get("needs", {})
+	if not needs_data.is_empty():
+		needs.deserialize(needs_data)
 
 	var pos_data = data.get("position", {})
 	if pos_data:

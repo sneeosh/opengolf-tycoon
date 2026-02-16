@@ -18,6 +18,12 @@ enum TriggerType {
 	HAZARD_BUNKER,
 	GREAT_SHOT,
 	BAD_LIE,
+	NEED_THIRSTY,
+	NEED_HUNGRY,
+	NEED_TIRED,
+	NEED_BATHROOM,
+	NEED_FRUSTRATED,
+	NEED_REFRESHED,
 }
 
 ## Trigger data: messages array and sentiment
@@ -82,6 +88,36 @@ const TRIGGERS: Dictionary = {
 		"sentiment": "neutral",
 		"probability": 0.4,
 	},
+	TriggerType.NEED_THIRSTY: {
+		"messages": ["So thirsty...", "Need a drink", "Parched!", "Where's the cart?"],
+		"sentiment": "negative",
+		"probability": 0.7,
+	},
+	TriggerType.NEED_HUNGRY: {
+		"messages": ["Getting hungry", "Need a snack", "Starving!", "Where's the snack bar?"],
+		"sentiment": "negative",
+		"probability": 0.7,
+	},
+	TriggerType.NEED_TIRED: {
+		"messages": ["Getting tired...", "Need a break", "Exhausted!", "Long walk..."],
+		"sentiment": "negative",
+		"probability": 0.6,
+	},
+	TriggerType.NEED_BATHROOM: {
+		"messages": ["Need a restroom!", "Where's the bathroom?", "Gotta go...", "Hurry up!"],
+		"sentiment": "negative",
+		"probability": 0.7,
+	},
+	TriggerType.NEED_FRUSTRATED: {
+		"messages": ["Not my day...", "Ugh!", "This is rough", "Over it"],
+		"sentiment": "negative",
+		"probability": 0.6,
+	},
+	TriggerType.NEED_REFRESHED: {
+		"messages": ["That hit the spot!", "Much better!", "Refreshed!", "Ready to go!"],
+		"sentiment": "positive",
+		"probability": 0.8,
+	},
 }
 
 ## Get a random message for a trigger type
@@ -133,6 +169,17 @@ static func get_price_trigger(green_fee: int, reputation: float) -> TriggerType:
 	elif green_fee < fair_price * 0.6:
 		return TriggerType.GOOD_VALUE
 	return -1  # No trigger for fair pricing
+
+## Get the trigger type for a critical golfer need
+static func get_need_trigger(need_type: int) -> TriggerType:
+	# GolferNeeds.Need enum: ENERGY=0, ATTITUDE=1, THIRST=2, HUNGER=3, BATHROOM=4
+	match need_type:
+		0: return TriggerType.NEED_TIRED
+		1: return TriggerType.NEED_FRUSTRATED
+		2: return TriggerType.NEED_THIRSTY
+		3: return TriggerType.NEED_HUNGRY
+		4: return TriggerType.NEED_BATHROOM
+	return TriggerType.NEED_FRUSTRATED
 
 ## Determine course satisfaction trigger based on final score
 static func get_course_trigger(total_strokes: int, total_par: int) -> TriggerType:

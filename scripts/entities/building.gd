@@ -200,6 +200,8 @@ func _update_visuals() -> void:
 			_draw_restroom(visual, size_x, size_y)
 		"bench":
 			_draw_bench(visual, size_x, size_y)
+		"drink_cart":
+			_draw_drink_cart(visual, size_x, size_y)
 		_:
 			_draw_generic(visual, size_x, size_y)
 
@@ -1209,6 +1211,75 @@ func _draw_bench(visual: Node2D, width_px: int, height_px: int) -> void:
 			Vector2(width_px * 0.88, y + 6), Vector2(width_px * 0.12, y + 6)
 		])
 		visual.add_child(slat)
+
+func _draw_drink_cart(visual: Node2D, width_px: int, height_px: int) -> void:
+	"""Draw drink cart - mobile beverage station"""
+	# Shadow
+	var shadow = Polygon2D.new()
+	shadow.name = "DropShadow"
+	shadow.color = _get_shadow_color()
+	shadow.polygon = PackedVector2Array([
+		Vector2(width_px * 0.1, height_px * 0.7), Vector2(width_px * 0.9, height_px * 0.7),
+		Vector2(width_px * 0.92, height_px + 2), Vector2(width_px * 0.08, height_px + 2)
+	])
+	shadow.z_index = -1
+	visual.add_child(shadow)
+	_custom_shadow = shadow
+
+	# Cart body
+	var cart_body = Polygon2D.new()
+	cart_body.color = Color(0.95, 0.95, 0.92)
+	cart_body.polygon = PackedVector2Array([
+		Vector2(width_px * 0.1, height_px * 0.3), Vector2(width_px * 0.9, height_px * 0.3),
+		Vector2(width_px * 0.9, height_px * 0.75), Vector2(width_px * 0.1, height_px * 0.75)
+	])
+	visual.add_child(cart_body)
+
+	# Cart roof / umbrella
+	var umbrella = Polygon2D.new()
+	umbrella.color = Color(0.2, 0.5, 0.75)
+	umbrella.polygon = PackedVector2Array([
+		Vector2(width_px * 0.0, height_px * 0.05), Vector2(width_px * 1.0, height_px * 0.05),
+		Vector2(width_px * 0.95, height_px * 0.2), Vector2(width_px * 0.05, height_px * 0.2)
+	])
+	visual.add_child(umbrella)
+
+	# Umbrella pole
+	var pole = Polygon2D.new()
+	pole.color = Color(0.6, 0.6, 0.6)
+	pole.polygon = PackedVector2Array([
+		Vector2(width_px * 0.48, height_px * 0.05), Vector2(width_px * 0.52, height_px * 0.05),
+		Vector2(width_px * 0.52, height_px * 0.35), Vector2(width_px * 0.48, height_px * 0.35)
+	])
+	visual.add_child(pole)
+
+	# Cooler/drink compartment
+	var cooler = Polygon2D.new()
+	cooler.color = Color(0.3, 0.55, 0.8)
+	cooler.polygon = PackedVector2Array([
+		Vector2(width_px * 0.15, height_px * 0.35), Vector2(width_px * 0.85, height_px * 0.35),
+		Vector2(width_px * 0.85, height_px * 0.55), Vector2(width_px * 0.15, height_px * 0.55)
+	])
+	visual.add_child(cooler)
+
+	# Cooler lid highlight
+	var lid = Polygon2D.new()
+	lid.color = Color(0.4, 0.65, 0.9)
+	lid.polygon = PackedVector2Array([
+		Vector2(width_px * 0.15, height_px * 0.35), Vector2(width_px * 0.85, height_px * 0.35),
+		Vector2(width_px * 0.85, height_px * 0.4), Vector2(width_px * 0.15, height_px * 0.4)
+	])
+	visual.add_child(lid)
+
+	# Wheels
+	for wx in [width_px * 0.2, width_px * 0.8]:
+		var wheel = Polygon2D.new()
+		wheel.color = Color(0.2, 0.2, 0.2)
+		wheel.polygon = PackedVector2Array([
+			Vector2(wx - 5, height_px * 0.75), Vector2(wx + 5, height_px * 0.75),
+			Vector2(wx + 5, height_px * 0.9), Vector2(wx - 5, height_px * 0.9)
+		])
+		visual.add_child(wheel)
 
 func _draw_generic(visual: Node2D, width_px: int, height_px: int) -> void:
 	"""Draw generic building - simple but presentable"""

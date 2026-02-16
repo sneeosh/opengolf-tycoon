@@ -42,6 +42,7 @@
     "driving_range": {"id": "driving_range", "name": "Driving Range", "size": [6, 3], "cost": 8000, "operating_cost": 35},
     "cart_shed": {"id": "cart_shed", "name": "Cart Shed", "size": [2, 3], "cost": 4000, "operating_cost": 20, "enables_cart_rental": true},
     "restroom": {"id": "restroom", "name": "Restroom", "size": [1, 1], "cost": 1500, "operating_cost": 10, "placeable_on_course": true, "effect_type": "satisfaction", "satisfaction_bonus": 0.05, "effect_radius": 8},
-    "bench": {"id": "bench", "name": "Bench", "size": [1, 1], "cost": 200, "operating_cost": 0, "placeable_on_course": true, "effect_type": "satisfaction", "satisfaction_bonus": 0.02, "effect_radius": 3}
+    "bench": {"id": "bench", "name": "Bench", "size": [1, 1], "cost": 200, "operating_cost": 0, "placeable_on_course": true, "effect_type": "satisfaction", "satisfaction_bonus": 0.02, "effect_radius": 3},
+    "drink_cart": {"id": "drink_cart", "name": "Drink Cart", "size": [1, 1], "cost": 1000, "operating_cost": 10, "placeable_on_course": true, "income_per_golfer": 4, "effect_type": "revenue", "effect_radius": 6}
   }
 }
