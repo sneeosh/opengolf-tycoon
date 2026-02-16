@@ -31,6 +31,9 @@ static func generate(terrain_grid: TerrainGrid, entity_layer: EntityLayer, seed_
 	# Generate trees (clusters + scattered)
 	_generate_trees(terrain_grid, entity_layer, rng)
 
+	# Generate waterside vegetation (cattails, reeds near water)
+	_generate_waterside_vegetation(terrain_grid, entity_layer, rng)
+
 	# Generate rocks
 	_generate_rocks(terrain_grid, entity_layer, rng)
 
@@ -464,3 +467,52 @@ static func _generate_rocks(terrain_grid: TerrainGrid, entity_layer: EntityLayer
 
 		entity_layer.place_rock(pos, rock_size)
 		placed += 1
+
+static func _generate_waterside_vegetation(terrain_grid: TerrainGrid, entity_layer: EntityLayer, rng: RandomNumberGenerator) -> void:
+	## Place cattails and reeds along the edges of water bodies
+	var width = terrain_grid.grid_width
+	var height = terrain_grid.grid_height
+	var tree_types = CourseTheme.get_tree_types(GameManager.current_theme)
+
+	# Only place waterside vegetation if the theme supports cattails
+	if "cattails" not in tree_types:
+		return
+
+	# Scan for water-adjacent tiles and place cattails along shorelines
+	var placed = 0
+	var max_cattails = rng.randi_range(15, 35)
+
+	for x in range(2, width - 2):
+		for y in range(2, height - 2):
+			if placed >= max_cattails:
+				break
+
+			var pos = Vector2i(x, y)
+			var tile = terrain_grid.get_tile(pos)
+
+			# Must be a non-water tile
+			if tile == TerrainTypes.Type.WATER:
+				continue
+
+			# Check if adjacent to water
+			var adjacent_water = false
+			for offset in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+				var neighbor = pos + offset
+				if terrain_grid.is_valid_position(neighbor) and terrain_grid.get_tile(neighbor) == TerrainTypes.Type.WATER:
+					adjacent_water = true
+					break
+
+			if not adjacent_water:
+				continue
+
+			# Skip if already occupied
+			if entity_layer.get_tree_at(pos) != null or entity_layer.get_rock_at(pos) != null:
+				continue
+
+			# 40% chance to place cattails on any water-adjacent tile
+			if rng.randf() < 0.4:
+				entity_layer.place_tree(pos, "cattails")
+				placed += 1
+
+		if placed >= max_cattails:
+			break
