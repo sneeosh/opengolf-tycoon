@@ -20,6 +20,7 @@ const TIER_DATA: Dictionary = {
 		"spending_modifier": 0.7,        # Prefers budget courses
 		"expectation_tolerance": 0.3,    # Very forgiving
 		"min_course_rating": 1.0,        # Will play anywhere
+		"min_holes": 1,                  # Will play any course
 		"reputation_gain": 1,            # Low reputation boost
 		"spawn_weight_base": 0.35,       # Common at budget courses
 	},
@@ -30,6 +31,7 @@ const TIER_DATA: Dictionary = {
 		"spending_modifier": 1.0,
 		"expectation_tolerance": 0.2,
 		"min_course_rating": 2.0,
+		"min_holes": 4,                  # Wants at least a few holes
 		"reputation_gain": 2,
 		"spawn_weight_base": 0.40,
 	},
@@ -40,6 +42,7 @@ const TIER_DATA: Dictionary = {
 		"spending_modifier": 1.5,        # Willing to pay more
 		"expectation_tolerance": 0.1,    # Less forgiving
 		"min_course_rating": 3.0,        # Wants decent course
+		"min_holes": 9,                  # Expects a full nine
 		"reputation_gain": 4,
 		"spawn_weight_base": 0.20,
 	},
@@ -50,18 +53,19 @@ const TIER_DATA: Dictionary = {
 		"spending_modifier": 2.0,        # Expects premium
 		"expectation_tolerance": 0.05,   # Very demanding
 		"min_course_rating": 4.0,        # Only plays quality courses
+		"min_holes": 9,                  # Expects at least a full nine
 		"reputation_gain": 10,           # Big reputation boost
 		"spawn_weight_base": 0.05,       # Rare
 	},
 }
 
-## Select a tier based on course rating, green fee, and reputation
+## Select a tier based on course rating, green fee, reputation, and hole count
 ## course_rating_data can be a Dictionary (from CourseRatingSystem) or a float (legacy)
-static func select_tier(course_rating_data, green_fee: int, reputation: float) -> Tier:
-	var weights = _calculate_tier_weights(course_rating_data, green_fee, reputation)
+static func select_tier(course_rating_data, green_fee: int, reputation: float, hole_count: int = 18) -> Tier:
+	var weights = _calculate_tier_weights(course_rating_data, green_fee, reputation, hole_count)
 	return _weighted_random_tier(weights)
 
-static func _calculate_tier_weights(course_rating_data, fee: int, reputation: float) -> Dictionary:
+static func _calculate_tier_weights(course_rating_data, fee: int, reputation: float, hole_count: int = 18) -> Dictionary:
 	var weights: Dictionary = {}
 
 	# Extract rating and difficulty from course_rating_data
@@ -80,6 +84,11 @@ static func _calculate_tier_weights(course_rating_data, fee: int, reputation: fl
 		# Rating filter: tiers won't spawn if course rating is too low
 		if rating < data.min_course_rating:
 			weight *= 0.1  # Drastically reduce, don't eliminate
+
+		# Hole count filter: tiers won't come if course has too few holes
+		var min_holes: int = data.get("min_holes", 1)
+		if hole_count < min_holes:
+			weight *= 0.05  # Nearly eliminate — not enough course for this tier
 
 		# High fees attract serious/pro, repel beginners
 		var spending_mod: float = data.spending_modifier

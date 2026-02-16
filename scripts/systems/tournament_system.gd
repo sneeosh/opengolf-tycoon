@@ -34,6 +34,8 @@ const TIER_DATA: Dictionary = {
 		"participant_count": 12,
 		"reputation_reward": 15,
 		"duration_days": 1,
+		"spectator_revenue": 800,       # Gate/concession revenue from spectators
+		"sponsorship_revenue": 500,     # Local sponsor deals
 	},
 	TournamentTier.REGIONAL: {
 		"name": "Regional Championship",
@@ -46,6 +48,8 @@ const TIER_DATA: Dictionary = {
 		"participant_count": 24,
 		"reputation_reward": 40,
 		"duration_days": 2,
+		"spectator_revenue": 4000,      # Regional media attention
+		"sponsorship_revenue": 3000,    # Regional sponsor packages
 	},
 	TournamentTier.NATIONAL: {
 		"name": "National Open",
@@ -58,6 +62,8 @@ const TIER_DATA: Dictionary = {
 		"participant_count": 48,
 		"reputation_reward": 100,
 		"duration_days": 3,
+		"spectator_revenue": 20000,     # National TV coverage
+		"sponsorship_revenue": 15000,   # Major sponsor deals
 	},
 	TournamentTier.CHAMPIONSHIP: {
 		"name": "Grand Championship",
@@ -70,6 +76,8 @@ const TIER_DATA: Dictionary = {
 		"participant_count": 72,
 		"reputation_reward": 300,
 		"duration_days": 4,
+		"spectator_revenue": 80000,     # Massive crowds + TV rights
+		"sponsorship_revenue": 60000,   # Premium global sponsors
 	},
 }
 
@@ -185,15 +193,27 @@ static func _get_course_par(course_data) -> int:
 			total_par += hole.par
 	return max(total_par, 18)
 
+## Get total tournament revenue (spectators + sponsorships)
+static func get_tournament_revenue(tier: TournamentTier) -> int:
+	var data = TIER_DATA.get(tier, {})
+	return data.get("spectator_revenue", 0) + data.get("sponsorship_revenue", 0)
+
+## Get net tournament profit (revenue - entry_cost)
+static func get_net_profit(tier: TournamentTier) -> int:
+	var data = TIER_DATA.get(tier, {})
+	var revenue = data.get("spectator_revenue", 0) + data.get("sponsorship_revenue", 0)
+	return revenue - data.get("entry_cost", 0)
+
 ## Get description text for a tier
 static func get_tier_description(tier: TournamentTier) -> String:
 	var data = TIER_DATA[tier]
-	return "%s\nRequires: %d holes, %.1f★ rating, %d yards\nEntry: $%d | Prize Pool: $%d\nReward: +%d reputation" % [
+	var total_revenue = data.get("spectator_revenue", 0) + data.get("sponsorship_revenue", 0)
+	return "%s\nRequires: %d holes, %.1f★ rating, %d yards\nEntry: $%d | Revenue: $%d\nReward: +%d reputation" % [
 		data.name,
 		data.min_holes,
 		data.min_rating,
 		data.min_yardage,
 		data.entry_cost,
-		data.prize_pool,
+		total_revenue,
 		data.reputation_reward
 	]
