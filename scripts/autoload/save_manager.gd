@@ -32,6 +32,7 @@ var _is_loading: bool = false
 
 func _ready() -> void:
 	_ensure_save_directory()
+	_load_user_settings()
 	EventBus.day_changed.connect(_on_day_changed)
 	print("SaveManager initialized")
 
@@ -343,3 +344,33 @@ func _on_day_changed(_new_day: int) -> void:
 	if _is_loading:
 		return
 	save_game("autosave")
+
+# ─── User Settings (audio, preferences — not per-save) ────────────
+
+func _load_user_settings() -> void:
+	var config := ConfigFile.new()
+	if config.load(SETTINGS_PATH) != OK:
+		return
+	if config.has_section("audio"):
+		# Defer to after SoundManager is ready
+		call_deferred("_apply_audio_settings", config)
+
+func _apply_audio_settings(config: ConfigFile) -> void:
+	if not SoundManager:
+		return
+	SoundManager.load_settings_data({
+		"master_volume": config.get_value("audio", "master_volume", 0.8),
+		"sfx_volume": config.get_value("audio", "sfx_volume", 1.0),
+		"ambient_volume": config.get_value("audio", "ambient_volume", 0.6),
+		"is_muted": config.get_value("audio", "is_muted", false),
+	})
+
+func save_user_settings() -> void:
+	var config := ConfigFile.new()
+	# Load existing to preserve non-audio sections
+	config.load(SETTINGS_PATH)
+	if SoundManager:
+		var audio_data := SoundManager.get_settings_data()
+		for key in audio_data:
+			config.set_value("audio", key, audio_data[key])
+	config.save(SETTINGS_PATH)

@@ -252,15 +252,4 @@ static func apply_screen_shake(camera: Camera2D, intensity: float = 5.0, duratio
 # =============================================================================
 
 static func play_placement_sound(placement_type: String) -> void:
-	# Placeholder for audio system
-	# When audio is added, this will play the appropriate sound
-	match placement_type:
-		"tree":
-			pass  # Play tree placement sound
-		"rock":
-			pass  # Play rock placement sound
-		"building":
-			pass  # Play building placement sound
-		"terrain":
-			pass  # Play terrain brush sound
-	# print("Sound: placement_%s" % placement_type)
+	SoundManager.play_placement_sound(placement_type)
