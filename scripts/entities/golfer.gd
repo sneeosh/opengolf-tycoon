@@ -464,25 +464,37 @@ func take_shot(target: Vector2i) -> void:
 		var hole_pos_vec = Vector2(hole_data_for_anim.hole_position)
 		var is_chip_in = HoleManager.is_ball_holed(ball_position_precise, hole_pos_vec)
 
-		# For chip-ins, snap ball position to hole (like putts do)
+		# For chip-ins, snap ball position to hole (like putts do) and skip rollout
 		if is_chip_in:
 			ball_position = hole_data_for_anim.hole_position
 			ball_position_precise = hole_pos_vec
 
-		# Emit precise ball landed signal for sub-tile flight animation
+		# Emit precise ball landed signal for sub-tile flight + rollout animation
+		# carry_screen = where ball first hits ground (end of flight arc)
+		# to_screen = final resting position (after rollout)
 		if terrain_grid:
 			var from_screen = terrain_grid.grid_to_screen_precise(from_precise)
-			var anim_target = hole_pos_vec if is_chip_in else shot_result.landing_position_precise
-			var to_screen = terrain_grid.grid_to_screen_precise(anim_target)
-			EventBus.ball_shot_landed_precise.emit(golfer_id, from_screen, to_screen, shot_result.distance)
+			var carry_screen: Vector2
+			var to_screen: Vector2
+			if is_chip_in:
+				carry_screen = terrain_grid.grid_to_screen_precise(hole_pos_vec)
+				to_screen = carry_screen
+			else:
+				carry_screen = terrain_grid.grid_to_screen_precise(shot_result.carry_position_precise)
+				to_screen = terrain_grid.grid_to_screen_precise(shot_result.landing_position_precise)
+			EventBus.ball_shot_landed_precise.emit(golfer_id, from_screen, to_screen, shot_result.distance, carry_screen)
 
 	# Debug output
 	var club_name = CLUB_STATS[shot_result.club]["name"]
-	var putt_detail = ""
+	var extra_detail = ""
 	if is_putt:
 		var hole_pos = GameManager.course_data.holes[current_hole].hole_position
 		var dist_to_hole_debug = ball_position_precise.distance_to(Vector2(hole_pos))
-		putt_detail = " (%.1fft to hole)" % (dist_to_hole_debug * 22.0 * 3.0)  # tiles -> yards -> feet
+		extra_detail = " (%.1fft to hole)" % (dist_to_hole_debug * 22.0 * 3.0)  # tiles -> yards -> feet
+	elif shot_result.get("rollout_tiles", 0.0) > 0.0:
+		var roll_yards = shot_result.rollout_tiles * 22.0
+		var spin_label = " BACKSPIN" if shot_result.get("is_backspin", false) else ""
+		extra_detail = " (%.0fyd rollout%s)" % [roll_yards, spin_label]
 	print("%s (ID:%d) - Hole %d, Stroke %d: %s shot, %d yards, %.1f%% accuracy%s" % [
 		golfer_name,
 		golfer_id,
@@ -491,7 +503,7 @@ func take_shot(target: Vector2i) -> void:
 		club_name,
 		shot_result.distance,
 		shot_result.accuracy * 100,
-		putt_detail
+		extra_detail
 	])
 
 	# Emit events
@@ -518,10 +530,11 @@ func take_shot(target: Vector2i) -> void:
 			func(): EventBus.ball_in_hole.emit(gid, hole_num)
 		)
 
-	# Watch the ball fly before walking to it
+	# Watch the ball fly (and roll) before walking to it
 	_change_state(State.WATCHING)
 	var flight_time = _estimate_flight_duration(shot_result.distance)
-	await get_tree().create_timer(flight_time + 0.5).timeout
+	var rollout_time = _estimate_rollout_duration(shot_result.get("rollout_tiles", 0.0))
+	await get_tree().create_timer(flight_time + rollout_time + 0.5).timeout
 
 	# Check for hazards at landing position and apply penalties (skip if ball holed)
 	if not ball_holed and _handle_hazard_penalty(previous_position):
@@ -1054,47 +1067,76 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 		landing_point += wind_displacement
 
 	# Keep sub-tile precision - use round for accurate grid cell
-	var landing_position_precise = landing_point
-	var landing_position = Vector2i(landing_point.round())
+	# This is the CARRY position (where ball first contacts the ground)
+	var carry_position_precise = landing_point
+	var carry_position = Vector2i(landing_point.round())
 
-	# Ensure landing position is valid
-	if not terrain_grid.is_valid_position(landing_position):
-		landing_position = target
-		landing_position_precise = Vector2(target)
+	# Ensure carry position is valid
+	if not terrain_grid.is_valid_position(carry_position):
+		carry_position = target
+		carry_position_precise = Vector2(target)
 
-	# For putts, ensure ball stays on green or goes in hole
+	# For putts, ensure ball stays on green or goes in hole (no rollout on putts)
 	if club == Club.PUTTER:
 		var course_data = GameManager.course_data
 		if course_data and not course_data.holes.is_empty() and current_hole < course_data.holes.size():
 			var hole_data = course_data.holes[current_hole]
 			var hole_position = hole_data.hole_position
-			var distance_to_hole = Vector2(landing_position).distance_to(Vector2(hole_position))
+			var distance_to_hole = Vector2(carry_position).distance_to(Vector2(hole_position))
 
 			# Check if putt landed on the hole tile
 			if distance_to_hole < 1.0:
-				landing_position = hole_position
+				carry_position = hole_position
 			else:
-				var landing_terrain = terrain_grid.get_tile(landing_position)
+				var landing_terrain = terrain_grid.get_tile(carry_position)
 				if landing_terrain != TerrainTypes.Type.GREEN:
 					# Putt went off green - find the last green tile along the path
-					var dir = Vector2(landing_position - from).normalized()
+					var dir = Vector2(carry_position - from).normalized()
 					var edge_pos = from
-					for i in range(1, int(Vector2(from).distance_to(Vector2(landing_position))) + 1):
+					for i in range(1, int(Vector2(from).distance_to(Vector2(carry_position))) + 1):
 						var check = Vector2i((Vector2(from) + dir * i).round())
 						if terrain_grid.is_valid_position(check) and terrain_grid.get_tile(check) == TerrainTypes.Type.GREEN:
 							edge_pos = check
 						else:
 							break
-					landing_position = edge_pos
+					carry_position = edge_pos
 
-	var distance_yards = terrain_grid.calculate_distance_yards(from, landing_position)
+		var distance_yards = terrain_grid.calculate_distance_yards(from, carry_position)
+		return {
+			"landing_position": carry_position,
+			"landing_position_precise": carry_position_precise,
+			"carry_position_precise": carry_position_precise,
+			"distance": distance_yards,
+			"accuracy": total_accuracy,
+			"club": club,
+			"rollout_tiles": 0.0,
+			"is_backspin": false,
+		}
+
+	# --- Rollout calculation ---
+	# Calculate how far the ball rolls after landing based on club, terrain, slope, and skill
+	var rollout = _calculate_rollout(club, carry_position, carry_position_precise,
+		Vector2(from), actual_distance, total_accuracy)
+
+	var final_position_precise = rollout.final_position
+	var final_position = Vector2i(final_position_precise.round())
+
+	# Ensure final position is valid
+	if not terrain_grid.is_valid_position(final_position):
+		final_position = carry_position
+		final_position_precise = carry_position_precise
+
+	var distance_yards = terrain_grid.calculate_distance_yards(from, final_position)
 
 	return {
-		"landing_position": landing_position,
-		"landing_position_precise": landing_position_precise,
+		"landing_position": final_position,
+		"landing_position_precise": final_position_precise,
+		"carry_position_precise": carry_position_precise,
 		"distance": distance_yards,
 		"accuracy": total_accuracy,
-		"club": club
+		"club": club,
+		"rollout_tiles": rollout.rollout_distance,
+		"is_backspin": rollout.is_backspin,
 	}
 
 ## Approximate gaussian random using Central Limit Theorem (sum of uniform randoms).
@@ -1138,10 +1180,187 @@ func _get_terrain_distance_modifier(terrain_type: int) -> float:
 		_:
 			return 1.0   # No penalty
 
+## Calculate rollout after ball lands. Returns Dictionary with final_position,
+## rollout_distance (tiles), and is_backspin flag.
+## Rollout depends on club, landing terrain, slope, and player skill (backspin).
+func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2,
+		shot_origin: Vector2, carry_distance: float, total_accuracy: float) -> Dictionary:
+	var terrain_grid = GameManager.terrain_grid
+	var no_rollout = {
+		"final_position": carry_precise,
+		"rollout_distance": 0.0,
+		"is_backspin": false,
+	}
+	if not terrain_grid:
+		return no_rollout
+
+	var carry_terrain = terrain_grid.get_tile(carry_grid)
+
+	# No rollout if ball lands in water, OB, or bunker (plugs in sand)
+	if carry_terrain in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.BUNKER]:
+		return no_rollout
+
+	# --- Base rollout fraction (proportion of carry distance) ---
+	# Real golf: driver rolls 15-30%, irons 6-15%, wedges 0-10%
+	var rollout_min: float
+	var rollout_max: float
+	var is_wedge_chip = false
+
+	match club:
+		Club.DRIVER:
+			rollout_min = 0.12
+			rollout_max = 0.28
+		Club.FAIRWAY_WOOD:
+			rollout_min = 0.08
+			rollout_max = 0.20
+		Club.IRON:
+			rollout_min = 0.05
+			rollout_max = 0.14
+		Club.WEDGE:
+			# Determine if this is a full wedge or a chip (partial swing)
+			var club_stats = CLUB_STATS[Club.WEDGE]
+			var distance_ratio = carry_distance / float(club_stats["max_distance"])
+			if distance_ratio > 0.65:
+				# Full wedge shot — backspin potential for skilled players
+				rollout_min = -0.04  # Negative = backspin (for skilled players)
+				rollout_max = 0.08
+			else:
+				# Chip shot — always rolls forward, lower trajectory
+				is_wedge_chip = true
+				rollout_min = 0.06
+				rollout_max = 0.18
+		_:
+			return no_rollout
+
+	# Sample rollout fraction with slight variance (gaussian-ish)
+	var roll_t = clampf(randf() * 0.6 + randf() * 0.4, 0.0, 1.0)  # Skewed toward middle
+	var base_rollout_fraction = lerpf(rollout_min, rollout_max, roll_t)
+
+	# --- Backspin for full wedge shots ---
+	var is_backspin = false
+	if club == Club.WEDGE and not is_wedge_chip:
+		# Backspin ability scales with accuracy and recovery skill
+		var spin_skill = (accuracy_skill * 0.6 + recovery_skill * 0.4)
+		# High-skill players (>0.7) can generate backspin; lower skill just reduces roll
+		if spin_skill > 0.7:
+			# Shift rollout toward negative (backspin) based on skill above threshold
+			var spin_bonus = (spin_skill - 0.7) / 0.3  # 0.0 to 1.0 for skill 0.7 to 1.0
+			base_rollout_fraction -= spin_bonus * 0.10
+		# Clamp: even best players can't spin back more than ~4% of carry
+		base_rollout_fraction = maxf(base_rollout_fraction, -0.04)
+
+		if base_rollout_fraction < 0.0:
+			is_backspin = true
+
+	# --- Landing terrain multiplier on rollout ---
+	var terrain_roll_mult = 1.0
+	match carry_terrain:
+		TerrainTypes.Type.GREEN:
+			terrain_roll_mult = 1.3   # Fast, smooth surface — more roll
+		TerrainTypes.Type.FAIRWAY:
+			terrain_roll_mult = 1.0   # Baseline
+		TerrainTypes.Type.GRASS:
+			terrain_roll_mult = 0.8   # Light rough slows ball
+		TerrainTypes.Type.ROUGH:
+			terrain_roll_mult = 0.3   # Rough grabs the ball
+		TerrainTypes.Type.HEAVY_ROUGH:
+			terrain_roll_mult = 0.15  # Ball stops quickly
+		TerrainTypes.Type.TREES:
+			terrain_roll_mult = 0.2   # Dense ground cover
+		TerrainTypes.Type.PATH:
+			terrain_roll_mult = 1.4   # Hard surface — extra bounce/roll
+		_:
+			terrain_roll_mult = 0.5
+
+	# Backspin is less affected by terrain (spin is on the ball, not surface)
+	# But rough does kill spin somewhat
+	if is_backspin:
+		terrain_roll_mult = lerpf(1.0, terrain_roll_mult, 0.4)
+
+	var rollout_fraction = base_rollout_fraction * terrain_roll_mult
+	var rollout_distance = carry_distance * absf(rollout_fraction)
+
+	# Minimum visible rollout threshold (0.15 tiles ≈ 3 yards)
+	if rollout_distance < 0.15:
+		return no_rollout
+
+	# --- Slope influence on rollout ---
+	var slope = terrain_grid.get_slope_direction(carry_grid)
+
+	# Roll direction: continue along shot line, blended with slope
+	var shot_direction = (carry_precise - shot_origin).normalized()
+	var roll_direction: Vector2
+
+	if is_backspin:
+		# Backspin: ball rolls backwards (toward shot origin)
+		roll_direction = -shot_direction
+	else:
+		roll_direction = shot_direction
+
+	# Blend slope into roll direction (slope has more effect on longer rolls)
+	if slope.length() > 0:
+		var slope_influence = clampf(rollout_distance / 3.0, 0.1, 0.5)
+		roll_direction = (roll_direction * (1.0 - slope_influence) + slope * slope_influence).normalized()
+
+	# Slope dot product: positive = rolling downhill, negative = uphill
+	var slope_dot = slope.dot(roll_direction)
+	if slope_dot > 0:
+		rollout_distance *= 1.0 + slope_dot * 0.5   # Downhill: up to +50% roll
+	elif slope_dot < 0:
+		rollout_distance *= maxf(0.2, 1.0 + slope_dot * 0.5)  # Uphill: reduce roll
+
+	# --- Walk rollout path checking for hazards ---
+	var final_position = carry_precise
+	var steps = int(ceilf(rollout_distance * 4.0))  # Check every quarter-tile
+	var step_size = rollout_distance / maxf(steps, 1)
+
+	for i in range(1, steps + 1):
+		var check_point = carry_precise + roll_direction * (step_size * i)
+		var check_grid = Vector2i(check_point.round())
+
+		if not terrain_grid.is_valid_position(check_grid):
+			break  # Stop at map edge
+
+		var check_terrain = terrain_grid.get_tile(check_grid)
+
+		# Ball stops if it rolls into certain terrain
+		if check_terrain == TerrainTypes.Type.WATER:
+			final_position = check_point  # Ball goes in the water
+			break
+		if check_terrain == TerrainTypes.Type.OUT_OF_BOUNDS:
+			final_position = check_point  # Ball goes OB
+			break
+		if check_terrain == TerrainTypes.Type.BUNKER:
+			final_position = check_point  # Ball plugs into bunker
+			break
+
+		# Rough slows progressively — reduce remaining roll
+		if check_terrain == TerrainTypes.Type.ROUGH and carry_terrain != TerrainTypes.Type.ROUGH:
+			# Entering rough from fairway/green — ball decelerates faster
+			rollout_distance *= 0.6
+			steps = int(ceilf(rollout_distance * 4.0))
+
+		final_position = check_point
+
+	return {
+		"final_position": final_position,
+		"rollout_distance": carry_precise.distance_to(final_position),
+		"is_backspin": is_backspin,
+	}
+
 ## Estimate ball flight duration (mirrors BallManager calculation)
 func _estimate_flight_duration(distance_yards: int) -> float:
 	var duration = 1.0 + (distance_yards / 300.0) * 1.5
 	return clampf(duration, 0.5, 3.0)
+
+## Estimate rollout animation duration (mirrors BallManager calculation)
+func _estimate_rollout_duration(rollout_tiles: float) -> float:
+	if rollout_tiles < 0.15:
+		return 0.0
+	# Approximate screen distance from tile distance (tile_width ~64px)
+	var screen_dist = rollout_tiles * 64.0
+	var duration = 0.3 + (screen_dist / 200.0) * 0.8
+	return clampf(duration, 0.2, 1.2)
 
 ## Handle hazard penalties (water or OB). Returns true if a penalty was applied.
 func _handle_hazard_penalty(previous_position: Vector2i) -> bool:

@@ -5,7 +5,7 @@ class_name Ball
 enum BallState {
 	AT_REST,      # Ball is sitting still
 	IN_FLIGHT,    # Ball is flying through the air
-	ROLLING,      # Ball is rolling on ground/green
+	ROLLING,      # Ball is rolling on ground after landing
 	IN_WATER,     # Ball is in water hazard
 	OUT_OF_BOUNDS # Ball is OB
 }
@@ -22,6 +22,13 @@ var flight_progress: float = 0.0
 var flight_duration: float = 1.0
 var flight_max_height: float = 100.0
 var wind_visual_offset: Vector2 = Vector2.ZERO  # Visual wind drift during flight
+
+# Rollout animation properties
+var roll_start_pos: Vector2 = Vector2.ZERO
+var roll_end_pos: Vector2 = Vector2.ZERO
+var roll_progress: float = 0.0
+var roll_duration: float = 0.0
+var _has_pending_rollout: bool = false
 
 signal ball_landed(landing_pos: Vector2i)
 signal ball_state_changed(old_state: BallState, new_state: BallState)
@@ -47,6 +54,14 @@ func set_position_in_grid(pos: Vector2i) -> void:
 		var world_pos = terrain_grid.grid_to_screen_center(pos)
 		global_position = world_pos
 	_update_visual()
+
+## Configure rollout to play after the current flight lands.
+## carry_screen is where the ball first hits ground (should match flight_end_pos).
+## final_screen is where it comes to rest after rolling.
+func set_rollout(final_screen: Vector2, duration: float) -> void:
+	roll_end_pos = final_screen
+	roll_duration = duration
+	_has_pending_rollout = true
 
 ## Start a flight animation from one position to another
 func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5, is_putt: bool = false, wind_offset: Vector2 = Vector2.ZERO) -> void:
@@ -106,15 +121,23 @@ func _process_flight(delta: float) -> void:
 	flight_progress += delta / flight_duration
 
 	if flight_progress >= 1.0:
-		# Flight complete - land the ball
+		# Flight complete - ball hits the ground
 		flight_progress = 1.0
 		global_position = flight_end_pos
 
-		# Update grid position to landing spot
+		# Update grid position to carry spot
 		if terrain_grid:
 			grid_position = terrain_grid.screen_to_grid(flight_end_pos)
 
-		_land_ball()
+		scale = Vector2.ONE  # Reset scale from flight
+
+		# Check if rollout was configured — if so, start rolling instead of landing
+		if _has_pending_rollout and roll_end_pos.distance_to(flight_end_pos) > 1.0:
+			_has_pending_rollout = false
+			_start_rollout()
+		else:
+			_has_pending_rollout = false
+			_land_ball()
 		return
 
 	# Parabolic arc animation
@@ -132,54 +155,43 @@ func _process_flight(delta: float) -> void:
 		var scale_factor = 1.0 + (arc_height / flight_max_height) * 0.5
 		scale = Vector2(scale_factor, scale_factor)
 
-func _process_rolling(_delta: float) -> void:
-	# Roll animation is handled by _simulate_roll
-	pass
+## Begin rollout animation from current position to roll_end_pos
+func _start_rollout() -> void:
+	roll_start_pos = global_position
+	roll_progress = 0.0
+	_change_state(BallState.ROLLING)
 
-## Simulate ball rolling based on terrain
-func _simulate_roll(max_tiles: int, duration: float) -> void:
-	if not terrain_grid:
+func _process_rolling(delta: float) -> void:
+	if roll_duration <= 0.0:
+		_finish_rollout()
 		return
 
-	# Calculate roll direction (continue in same direction as flight)
-	var roll_direction = (flight_end_pos - flight_start_pos).normalized()
+	roll_progress += delta / roll_duration
 
-	# Apply slope influence on roll direction
-	var slope = terrain_grid.get_slope_direction(grid_position)
-	if slope.length() > 0:
-		# Ball breaks toward lower ground - blend slope with roll direction
-		roll_direction = (roll_direction + slope * 0.5).normalized()
+	if roll_progress >= 1.0:
+		roll_progress = 1.0
+		global_position = roll_end_pos
+		_finish_rollout()
+		return
 
-	# Determine how far the ball will actually roll
-	var roll_distance = randi_range(max_tiles / 2, max_tiles)
+	# Ease-out deceleration: ball slows down as it rolls
+	var eased_t = 1.0 - pow(1.0 - roll_progress, 2.0)
+	global_position = roll_start_pos.lerp(roll_end_pos, eased_t)
 
-	# Slope affects roll distance: downhill rolls further, uphill rolls less
-	var slope_dot = slope.dot(roll_direction)
-	if slope_dot > 0:
-		roll_distance = int(roll_distance * 1.3)  # Downhill: 30% more roll
-	elif slope_dot < 0:
-		roll_distance = int(roll_distance * 0.7)  # Uphill: 30% less roll
-
-	var roll_target_pos = global_position + (roll_direction * roll_distance * 16)  # 16 pixels per tile approx
-
-	# Animate the roll
-	var tween = create_tween()
-	tween.set_ease(Tween.EASE_OUT)
-	tween.set_trans(Tween.TRANS_QUAD)
-	tween.tween_property(self, "global_position", roll_target_pos, duration)
-
-	await tween.finished
-
-	# Update grid position after roll
+func _finish_rollout() -> void:
+	global_position = roll_end_pos
 	if terrain_grid:
-		grid_position = terrain_grid.screen_to_grid(global_position)
+		grid_position = terrain_grid.screen_to_grid(roll_end_pos)
+	_land_ball()
 
 func _land_ball() -> void:
 	if not terrain_grid:
 		_change_state(BallState.AT_REST)
+		ball_landed.emit(grid_position)
+		scale = Vector2.ONE
 		return
 
-	# Check terrain type at landing
+	# Check terrain type at final resting position
 	var terrain_type = terrain_grid.get_tile(grid_position)
 
 	match terrain_type:

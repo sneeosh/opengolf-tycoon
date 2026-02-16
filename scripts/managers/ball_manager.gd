@@ -288,8 +288,9 @@ func _on_ball_putt_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 	duration = clamp(duration, 0.3, 1.5)
 	ball.start_flight_screen(from_screen, to_screen, duration, true)
 
-func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vector2, distance_yards: int) -> void:
+func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vector2, distance_yards: int, carry_screen: Vector2) -> void:
 	# Handle precise sub-tile shot animation (non-putt shots with arc)
+	# carry_screen = where ball first hits ground, to_screen = final position after rollout
 	# Debounce: prevent multiple shots for same golfer on same frame
 	var current_frame = Engine.get_process_frames()
 	if _last_shot_frame.get(golfer_id, -1) == current_frame:
@@ -300,8 +301,8 @@ func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 	if not ball:
 		return
 
-	# Prevent duplicate animations - if ball is already in flight, ignore
-	if ball.ball_state == Ball.BallState.IN_FLIGHT:
+	# Prevent duplicate animations - if ball is already in flight or rolling, ignore
+	if ball.ball_state == Ball.BallState.IN_FLIGHT or ball.ball_state == Ball.BallState.ROLLING:
 		return
 
 	ball.visible = true
@@ -312,20 +313,37 @@ func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 		if terrain_grid.get_tile(from_grid) == TerrainTypes.Type.BUNKER:
 			SandSprayEffect.create_at(ball.get_parent(), from_screen)
 
-	# Calculate flight duration based on distance (longer shots take longer)
+	# Calculate flight duration based on distance to carry point (not total with rollout)
+	var carry_distance_yards = distance_yards
+	if carry_screen.distance_to(to_screen) > 1.0:
+		# Estimate carry distance from screen positions
+		var total_screen_dist = from_screen.distance_to(to_screen)
+		var carry_screen_dist = from_screen.distance_to(carry_screen)
+		if total_screen_dist > 0:
+			carry_distance_yards = int(distance_yards * (carry_screen_dist / total_screen_dist))
+
 	var base_duration = 1.0
-	var duration = base_duration + (distance_yards / 300.0) * 1.5
+	var duration = base_duration + (carry_distance_yards / 300.0) * 1.5
 	duration = clamp(duration, 0.5, 3.0)
 
 	# Calculate wind visual offset
 	var wind_offset = Vector2.ZERO
 	if GameManager.wind_system and terrain_grid:
-		var shot_direction = (to_screen - from_screen).normalized()
-		var distance_tiles = from_screen.distance_to(to_screen) / terrain_grid.tile_width
+		var shot_direction = (carry_screen - from_screen).normalized()
+		var distance_tiles = from_screen.distance_to(carry_screen) / terrain_grid.tile_width
 		var wind_tile_disp = GameManager.wind_system.get_wind_displacement(shot_direction, distance_tiles, 1)
 		wind_offset = wind_tile_disp * terrain_grid.tile_width * 0.5
 
-	ball.start_flight_screen_with_arc(from_screen, to_screen, duration, wind_offset)
+	# Configure rollout if carry and final positions differ
+	if carry_screen.distance_to(to_screen) > 1.0:
+		var rollout_screen_dist = carry_screen.distance_to(to_screen)
+		# Rollout duration: ~0.3s base + scaled by distance, feels natural
+		var roll_dur = 0.3 + (rollout_screen_dist / 200.0) * 0.8
+		roll_dur = clamp(roll_dur, 0.2, 1.2)
+		ball.set_rollout(to_screen, roll_dur)
+
+	# Flight goes to the carry position (where ball first hits ground)
+	ball.start_flight_screen_with_arc(from_screen, carry_screen, duration, wind_offset)
 
 func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 	# Remove ball when golfer finishes their round
