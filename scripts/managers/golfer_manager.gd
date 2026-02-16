@@ -81,6 +81,20 @@ func _get_landing_zone_radius(shot_distance: float) -> float:
 	Longer shots have more variance, so larger radius."""
 	return LANDING_ZONE_BASE_RADIUS + (shot_distance * LANDING_ZONE_VARIANCE)
 
+func get_max_concurrent_golfers() -> int:
+	"""Maximum golfers allowed on the course at once. Scales with hole count.
+	1 group (4 golfers) per hole — more holes = more capacity = more revenue."""
+	var holes = GameManager.get_open_hole_count()
+	return max(4, holes * 4)  # Minimum of 4 (one group even with 1 hole)
+
+func _is_at_golfer_cap() -> bool:
+	"""Check if the course has reached its maximum golfer capacity."""
+	var non_finished = 0
+	for golfer in active_golfers:
+		if golfer.current_state != Golfer.State.FINISHED:
+			non_finished += 1
+	return non_finished >= get_max_concurrent_golfers()
+
 func _is_first_tee_clear() -> bool:
 	"""Check if the first tee's landing zone is clear for a new group to spawn.
 	Uses a cone-shaped check in the direction of play, so golfers on other holes
@@ -219,7 +233,9 @@ func _process(delta: float) -> void:
 	if GameManager.is_course_open() and not tournament_active:
 		var effective_cooldown = get_effective_spawn_cooldown()
 		if time_since_last_spawn >= effective_cooldown:
-			if _is_first_tee_clear():
+			if _is_at_golfer_cap():
+				pass  # Course is full — wait for golfers to finish
+			elif _is_first_tee_clear():
 				spawn_initial_group()
 				time_since_last_spawn = 0.0
 
@@ -617,8 +633,9 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 		"Dustin", "Justin", "Bryson", "Jon", "Collin", "Scottie", "Xander"
 	]
 
-	# Select tier based on course quality and difficulty
-	var tier = GolferTier.select_tier(GameManager.course_rating, GameManager.green_fee, GameManager.reputation)
+	# Select tier based on course quality, difficulty, and hole count
+	var hole_count = GameManager.get_open_hole_count()
+	var tier = GolferTier.select_tier(GameManager.course_rating, GameManager.green_fee, GameManager.reputation, hole_count)
 
 	# Build name with tier-appropriate prefix
 	var base_name = names[randi() % names.size()]

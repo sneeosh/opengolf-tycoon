@@ -577,10 +577,15 @@ func finish_round() -> void:
 	# Apply clubhouse effects (golfer visits clubhouse after round)
 	_apply_clubhouse_effects()
 
-	# Show course satisfaction feedback
-	var course_trigger = FeedbackTriggers.get_course_trigger(total_strokes, total_par)
-	if course_trigger != -1:
-		show_thought(course_trigger)
+	# Check if course has too few holes — golfers are disappointed by short courses
+	var open_holes = GameManager.get_open_hole_count()
+	if open_holes < 9 and open_holes > 0:
+		show_thought(FeedbackTriggers.TriggerType.TOO_FEW_HOLES)
+	else:
+		# Show course satisfaction feedback (only if course has enough holes)
+		var course_trigger = FeedbackTriggers.get_course_trigger(total_strokes, total_par)
+		if course_trigger != -1:
+			show_thought(course_trigger)
 
 	EventBus.golfer_finished_round.emit(golfer_id, total_strokes)
 

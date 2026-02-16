@@ -18,6 +18,7 @@ enum TriggerType {
 	HAZARD_BUNKER,
 	GREAT_SHOT,
 	BAD_LIE,
+	TOO_FEW_HOLES,
 }
 
 ## Trigger data: messages array and sentiment
@@ -82,6 +83,11 @@ const TRIGGERS: Dictionary = {
 		"sentiment": "neutral",
 		"probability": 0.4,
 	},
+	TriggerType.TOO_FEW_HOLES: {
+		"messages": ["Too short!", "Only %d holes?", "Not a real course", "Barely got started"],
+		"sentiment": "negative",
+		"probability": 0.8,
+	},
 }
 
 ## Get a random message for a trigger type
@@ -124,13 +130,16 @@ static func get_score_trigger(strokes: int, par: int) -> TriggerType:
 	# Par or bogey - no trigger
 	return -1  # Invalid trigger
 
-## Determine price trigger based on green fee and reputation
-static func get_price_trigger(green_fee: int, reputation: float) -> TriggerType:
-	# Price tolerance: at 50 reputation, $100 is fair. Scale linearly.
-	var fair_price = reputation * 2.0
-	if green_fee > fair_price * 1.5:
+## Determine price trigger based on total round cost and reputation
+static func get_price_trigger(total_round_cost: int, reputation: float) -> TriggerType:
+	# Price tolerance: at 50 reputation with 18 holes, $100 is fair.
+	# Scale by hole count so short courses feel overpriced at lower thresholds.
+	var hole_count = GameManager.get_open_hole_count()
+	var hole_factor = clampf(float(hole_count) / 18.0, 0.15, 1.0)
+	var fair_price = reputation * 2.0 * hole_factor
+	if total_round_cost > fair_price * 1.5:
 		return TriggerType.OVERPRICED
-	elif green_fee < fair_price * 0.6:
+	elif total_round_cost < fair_price * 0.6:
 		return TriggerType.GOOD_VALUE
 	return -1  # No trigger for fair pricing
 

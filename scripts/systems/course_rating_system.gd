@@ -207,30 +207,47 @@ static func _calculate_design_rating(course_data) -> float:
 	if open_holes == 0:
 		return 1.0
 
-	# Good design has variety
-	var variety_score = 2.0  # Base score
+	# Good design has variety — base score starts low and rewards investment
+	var variety_score = 1.5  # Low base — a single hole is not good design
 
 	# Bonus for having par 3s
 	if par_counts[3] > 0:
-		variety_score += 1.0
+		variety_score += 0.75
 
 	# Bonus for having par 5s
 	if par_counts[5] > 0:
-		variety_score += 1.0
+		variety_score += 0.75
 
-	# Bonus for having enough holes (9+ is a full front nine)
-	if open_holes >= 9:
-		variety_score += 1.0
+	# Hole count is the biggest factor in design quality
+	# 18 holes = full credit, fewer holes = significant penalty
+	if open_holes >= 18:
+		variety_score += 2.0   # Full 18-hole course — excellent design
+	elif open_holes >= 9:
+		variety_score += 1.5   # Full front nine — good design
+	elif open_holes >= 6:
+		variety_score += 0.75  # Decent number of holes
 	elif open_holes >= 4:
-		variety_score += 0.5
+		variety_score += 0.25  # Barely enough variety
 
 	return clampf(variety_score, 1.0, 5.0)
 
-## Value rating: green fee vs reputation
+## Value rating: total round cost vs reputation and hole count
+## A $30/hole fee on an 18-hole course ($540 total) is fair at high reputation,
+## but $30/hole on a 1-hole course ($30 total) should still feel overpriced
+## because the "experience" is so short.
 static func _calculate_value_rating(green_fee: int, reputation: float) -> float:
-	# Fair price based on reputation: $2 per reputation point
-	var fair_price = max(reputation * 2.0, 20.0)  # At least $20 is fair
-	var price_ratio = float(green_fee) / fair_price
+	# Total cost of a round = per-hole fee x hole count
+	var hole_count = GameManager.get_open_hole_count()
+	var total_round_cost = green_fee * max(hole_count, 1)
+
+	# Fair total price scales with reputation AND hole count:
+	# At 50 rep with 18 holes: fair = $100 * (18/18) = $100
+	# At 50 rep with 1 hole: fair = $100 * max(1/18, 0.15) = $15
+	# At 100 rep with 18 holes: fair = $200
+	var hole_factor = clampf(float(hole_count) / 18.0, 0.15, 1.0)
+	var fair_price = max(reputation * 2.0, 20.0) * hole_factor
+
+	var price_ratio = float(total_round_cost) / max(fair_price, 1.0)
 
 	# 0.5x fair price = 5 stars (great value)
 	# 1.0x fair price = 3 stars (fair)

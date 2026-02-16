@@ -384,7 +384,7 @@ func _create_green_fee_controls() -> void:
 
 	# Create label
 	green_fee_label = Label.new()
-	green_fee_label.text = "Fee: $%d" % GameManager.green_fee
+	green_fee_label.text = "$%d/hole" % GameManager.green_fee
 	green_fee_label.custom_minimum_size = Vector2(80, 30)
 	green_fee_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	green_fee_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -525,9 +525,9 @@ func _on_green_fee_increase() -> void:
 	GameManager.set_green_fee(GameManager.green_fee + 5)
 
 func _on_green_fee_changed(_old_fee: int, new_fee: int) -> void:
-	"""Update green fee label when fee changes"""
+	"""Update green fee label when fee changes (per-hole pricing)"""
 	if green_fee_label:
-		green_fee_label.text = "Fee: $%d" % new_fee
+		green_fee_label.text = "$%d/hole" % new_fee
 
 func _on_build_mode_pressed() -> void:
 	"""Return to building mode from simulation"""

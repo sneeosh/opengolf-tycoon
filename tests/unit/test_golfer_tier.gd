@@ -43,7 +43,7 @@ func test_tier_reputation_gains_increase() -> void:
 
 func test_weights_low_rating_penalizes_high_tiers() -> void:
 	var rating_data = {"overall": 1.5, "difficulty": 5.0}
-	var weights = GolferTier._calculate_tier_weights(rating_data, 30, 50.0)
+	var weights = GolferTier._calculate_tier_weights(rating_data, 30, 50.0, 18)
 
 	# Pro requires min 4.0 rating, serious requires 3.0
 	# Both should have drastically reduced weights (multiplied by 0.1)
@@ -54,7 +54,7 @@ func test_weights_low_rating_penalizes_high_tiers() -> void:
 
 func test_weights_high_rating_allows_all_tiers() -> void:
 	var rating_data = {"overall": 4.5, "difficulty": 5.0}
-	var weights = GolferTier._calculate_tier_weights(rating_data, 50, 80.0)
+	var weights = GolferTier._calculate_tier_weights(rating_data, 50, 80.0, 18)
 
 	# All tiers should have non-zero weights
 	for tier in weights:
@@ -62,8 +62,8 @@ func test_weights_high_rating_allows_all_tiers() -> void:
 
 func test_weights_expensive_fee_reduces_beginners() -> void:
 	var rating_data = {"overall": 4.0, "difficulty": 5.0}
-	var cheap_weights = GolferTier._calculate_tier_weights(rating_data, 20, 80.0)
-	var expensive_weights = GolferTier._calculate_tier_weights(rating_data, 150, 80.0)
+	var cheap_weights = GolferTier._calculate_tier_weights(rating_data, 20, 80.0, 18)
+	var expensive_weights = GolferTier._calculate_tier_weights(rating_data, 150, 80.0, 18)
 
 	# Beginners have spending_modifier 0.7, so $150 fee / $50 = 3.0, which is > 0.7*1.5=1.05
 	# This should trigger the "too expensive" penalty (0.3x)
@@ -75,8 +75,8 @@ func test_weights_expensive_fee_reduces_beginners() -> void:
 
 func test_weights_low_reputation_reduces_pro() -> void:
 	var rating_data = {"overall": 4.0, "difficulty": 5.0}
-	var low_rep = GolferTier._calculate_tier_weights(rating_data, 50, 30.0)
-	var high_rep = GolferTier._calculate_tier_weights(rating_data, 50, 90.0)
+	var low_rep = GolferTier._calculate_tier_weights(rating_data, 50, 30.0, 18)
+	var high_rep = GolferTier._calculate_tier_weights(rating_data, 50, 90.0, 18)
 
 	assert_gt(
 		high_rep[GolferTier.Tier.PRO],
@@ -87,8 +87,8 @@ func test_weights_low_reputation_reduces_pro() -> void:
 func test_weights_hard_course_attracts_pros() -> void:
 	var easy = {"overall": 4.0, "difficulty": 2.0}
 	var hard = {"overall": 4.0, "difficulty": 8.0}
-	var easy_weights = GolferTier._calculate_tier_weights(easy, 50, 80.0)
-	var hard_weights = GolferTier._calculate_tier_weights(hard, 50, 80.0)
+	var easy_weights = GolferTier._calculate_tier_weights(easy, 50, 80.0, 18)
+	var hard_weights = GolferTier._calculate_tier_weights(hard, 50, 80.0, 18)
 
 	assert_gt(
 		hard_weights[GolferTier.Tier.PRO],
@@ -99,8 +99,8 @@ func test_weights_hard_course_attracts_pros() -> void:
 func test_weights_easy_course_attracts_beginners() -> void:
 	var easy = {"overall": 3.0, "difficulty": 2.0}
 	var hard = {"overall": 3.0, "difficulty": 8.0}
-	var easy_weights = GolferTier._calculate_tier_weights(easy, 30, 50.0)
-	var hard_weights = GolferTier._calculate_tier_weights(hard, 30, 50.0)
+	var easy_weights = GolferTier._calculate_tier_weights(easy, 30, 50.0, 18)
+	var hard_weights = GolferTier._calculate_tier_weights(hard, 30, 50.0, 18)
 
 	assert_gt(
 		easy_weights[GolferTier.Tier.BEGINNER],
@@ -110,11 +110,28 @@ func test_weights_easy_course_attracts_beginners() -> void:
 
 func test_weights_legacy_float_rating() -> void:
 	# Legacy code path: passing a float instead of Dictionary
-	var weights = GolferTier._calculate_tier_weights(3.0, 50, 50.0)
+	var weights = GolferTier._calculate_tier_weights(3.0, 50, 50.0, 18)
 	var total = 0.0
 	for w in weights.values():
 		total += w
 	assert_gt(total, 0.0, "Legacy float rating should produce valid weights")
+
+func test_weights_few_holes_penalizes_serious_and_pro() -> void:
+	var rating_data = {"overall": 4.0, "difficulty": 5.0}
+	# 2 holes: serious (min 9) and pro (min 9) should be nearly eliminated
+	var few_holes = GolferTier._calculate_tier_weights(rating_data, 50, 80.0, 2)
+	var full_course = GolferTier._calculate_tier_weights(rating_data, 50, 80.0, 18)
+
+	assert_gt(
+		full_course[GolferTier.Tier.SERIOUS],
+		few_holes[GolferTier.Tier.SERIOUS],
+		"Few holes should drastically reduce serious golfer weight"
+	)
+	assert_gt(
+		full_course[GolferTier.Tier.PRO],
+		few_holes[GolferTier.Tier.PRO],
+		"Few holes should drastically reduce pro golfer weight"
+	)
 
 
 # --- Tier Selection ---
@@ -122,7 +139,7 @@ func test_weights_legacy_float_rating() -> void:
 func test_select_tier_returns_valid_tier() -> void:
 	var rating_data = {"overall": 3.0, "difficulty": 5.0}
 	for _i in range(20):
-		var tier = GolferTier.select_tier(rating_data, 50, 50.0)
+		var tier = GolferTier.select_tier(rating_data, 50, 50.0, 18)
 		assert_true(
 			tier in [GolferTier.Tier.BEGINNER, GolferTier.Tier.CASUAL,
 					 GolferTier.Tier.SERIOUS, GolferTier.Tier.PRO],
