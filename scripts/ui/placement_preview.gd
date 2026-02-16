@@ -7,6 +7,7 @@ signal placement_confirmed(grid_pos: Vector2i, placement_type: String)
 var terrain_grid: TerrainGrid
 var placement_manager: PlacementManager
 var camera: IsometricCamera
+var hole_tool: HoleCreationTool  # Reference for hole creation preview
 var current_terrain_tool: int = -1  # Current terrain painting tool
 var terrain_painting_enabled: bool = false  # Whether to show terrain preview
 
@@ -37,11 +38,12 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_pulse_time += delta * 3.0
 
-	# Show preview for entity placement OR terrain painting
+	# Show preview for entity placement, terrain painting, OR hole creation
 	var show_entity_preview = placement_manager and placement_manager.placement_mode != PlacementManager.PlacementMode.NONE
 	var show_terrain_preview = terrain_painting_enabled and current_terrain_tool >= 0
+	var show_hole_preview = hole_tool and hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_GREEN
 
-	if show_entity_preview or show_terrain_preview:
+	if show_entity_preview or show_terrain_preview or show_hole_preview:
 		_target_alpha = 1.0
 		_update_preview(delta)
 	else:
@@ -51,7 +53,7 @@ func _process(delta: float) -> void:
 	# Smooth alpha transition
 	_current_alpha = lerp(_current_alpha, _target_alpha, delta * 10.0)
 
-	if _current_alpha > 0.01:
+	if _current_alpha > 0.01 or show_hole_preview:
 		queue_redraw()
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
@@ -68,6 +70,9 @@ func set_terrain_tool(tool_type: int) -> void:
 
 func set_terrain_painting_enabled(enabled: bool) -> void:
 	terrain_painting_enabled = enabled
+
+func set_hole_tool(tool: HoleCreationTool) -> void:
+	hole_tool = tool
 
 func _update_preview(delta: float) -> void:
 	if not terrain_grid or not camera:
@@ -111,7 +116,15 @@ func _get_building_footprint(grid_pos: Vector2i) -> Array:
 	return result
 
 func _draw() -> void:
-	if not terrain_grid or _current_alpha < 0.01:
+	if not terrain_grid:
+		return
+
+	# Check for hole creation preview (always draw regardless of alpha)
+	var is_hole_preview = hole_tool and hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_GREEN
+	if is_hole_preview:
+		_draw_hole_creation_preview()
+
+	if _current_alpha < 0.01:
 		return
 
 	var is_entity_mode = placement_manager and placement_manager.placement_mode != PlacementManager.PlacementMode.NONE
@@ -311,6 +324,97 @@ func _draw_building_ghost(pos: Vector2, color: Color) -> void:
 	# Door
 	var door_color = Color(0.3, 0.2, 0.1, color.a)
 	draw_rect(Rect2(pos.x - 5, pos.y - 15, 10, 15), door_color)
+
+func _draw_hole_creation_preview() -> void:
+	"""Draw preview line and info label during green placement"""
+	if not hole_tool or not camera:
+		return
+
+	var tee_pos = hole_tool.pending_tee_position
+	if tee_pos == Vector2i(-1, -1):
+		return
+
+	# Get current mouse position as potential green position
+	var mouse_world = camera.get_mouse_world_position()
+	var hover_grid_pos = terrain_grid.screen_to_grid(mouse_world)
+
+	if not terrain_grid.is_valid_position(hover_grid_pos):
+		return
+
+	# Calculate positions
+	var tee_screen = terrain_grid.grid_to_screen_center(tee_pos)
+	var hover_screen = terrain_grid.grid_to_screen_center(hover_grid_pos)
+	var midpoint = (tee_screen + hover_screen) / 2.0
+
+	# Calculate distance and par
+	const YARDS_PER_TILE: float = 22.0
+	var distance_tiles = Vector2(hover_grid_pos - tee_pos).length()
+	var distance_yards = int(distance_tiles * YARDS_PER_TILE)
+	var par = HoleCreationTool.calculate_par(distance_yards)
+
+	# Check if distance is valid (minimum 5 tiles / 110 yards)
+	var is_valid = distance_tiles >= 5
+
+	# Draw connection line
+	var line_color = Color(0.3, 1.0, 0.3, 0.7) if is_valid else Color(1.0, 0.3, 0.3, 0.7)
+	draw_line(tee_screen, hover_screen, line_color, 3.0, true)
+
+	# Draw dashed effect on the line
+	var line_length = tee_screen.distance_to(hover_screen)
+	var dash_length = 10.0
+	var direction = (hover_screen - tee_screen).normalized()
+	var dash_color = Color(1.0, 1.0, 1.0, 0.4)
+	var current_dist = 0.0
+	var dash_on = true
+	while current_dist < line_length:
+		if dash_on:
+			var start = tee_screen + direction * current_dist
+			var end_dist = min(current_dist + dash_length, line_length)
+			var end = tee_screen + direction * end_dist
+			draw_line(start, end, dash_color, 1.5, true)
+		dash_on = not dash_on
+		current_dist += dash_length
+
+	# Draw info box at midpoint
+	var box_width = 90.0
+	var box_height = 50.0
+	var box_pos = midpoint - Vector2(box_width / 2, box_height / 2)
+
+	# Background with rounded corners effect
+	var bg_color = Color(0.1, 0.1, 0.1, 0.85)
+	var border_color = line_color
+	draw_rect(Rect2(box_pos, Vector2(box_width, box_height)), bg_color)
+	draw_rect(Rect2(box_pos, Vector2(box_width, box_height)), border_color, false, 2.0)
+
+	# Draw text using draw_string
+	var font = ThemeDB.fallback_font
+	var font_size = 14
+
+	# Par text
+	var par_text = "Par %d" % par
+	var par_color = Color.WHITE
+	draw_string(font, midpoint + Vector2(-20, -8), par_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, par_color)
+
+	# Distance text
+	var dist_text = "%d yds" % distance_yards
+	var dist_color = Color(0.8, 0.8, 0.8) if is_valid else Color(1.0, 0.5, 0.5)
+	draw_string(font, midpoint + Vector2(-22, 12), dist_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, dist_color)
+
+	# Show warning if too short
+	if not is_valid:
+		var warn_text = "Too short!"
+		draw_string(font, midpoint + Vector2(-30, 30), warn_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 11, Color(1.0, 0.4, 0.4))
+
+	# Draw green hover preview (5x5 area)
+	var pulse = 0.7 + sin(_pulse_time) * 0.3
+	var green_preview_color = Color(0.3, 0.9, 0.5, 0.4 * pulse) if is_valid else Color(0.9, 0.3, 0.3, 0.4 * pulse)
+	var green_tiles = terrain_grid.get_brush_tiles(hover_grid_pos, 2)
+	for tile_pos in green_tiles:
+		if terrain_grid.is_valid_position(tile_pos):
+			var screen_pos = terrain_grid.grid_to_screen(tile_pos)
+			var tw = terrain_grid.tile_width
+			var th = terrain_grid.tile_height
+			draw_rect(Rect2(screen_pos, Vector2(tw, th)), green_preview_color)
 
 # =============================================================================
 # PUBLIC API

@@ -51,6 +51,8 @@ var mini_map: MiniMap = null
 var hole_stats_panel: HoleStatsPanel = null
 var tournament_manager: TournamentManager = null
 var tournament_panel: TournamentPanel = null
+var land_panel: LandPanel = null
+var marketing_panel: MarketingPanel = null
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 var bulldozer_mode: bool = false
@@ -147,6 +149,8 @@ func _ready() -> void:
 	_setup_mini_map()
 	_setup_hole_stats_panel()
 	_setup_tournament_panel()
+	_setup_land_panel()
+	_setup_marketing_panel()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -201,11 +205,22 @@ func _input(event: InputEvent) -> void:
 			if event.keycode == KEY_U:
 				_toggle_tournament_panel()
 				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_L:
+				_toggle_land_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_M:
+				_toggle_marketing_panel()
+				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
 				get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Cancel action (ESC/right-click) should always work to deselect tools
+	if event.is_action_pressed("cancel"):
+		_cancel_action()
+		return
+
 	# Allow building/tree/rock placement in any mode
 	var in_placement_mode = placement_manager.placement_mode != PlacementManager.PlacementMode.NONE
 
@@ -217,8 +232,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_start_painting()
 	elif event.is_action_released("select"):
 		_stop_painting()
-	if event.is_action_pressed("cancel"):
-		_cancel_action()
 	if is_painting and event is InputEventMouseMotion:
 		if elevation_tool.is_active():
 			_paint_elevation_at_mouse()
@@ -316,7 +329,7 @@ func _on_main_menu_load() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel"]
+	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -412,6 +425,7 @@ func _setup_placement_preview() -> void:
 	placement_preview.set_terrain_grid(terrain_grid)
 	placement_preview.set_placement_manager(placement_manager)
 	placement_preview.set_camera(camera)
+	placement_preview.set_hole_tool(hole_tool)
 	# Add as child of main scene so it renders above terrain
 	add_child(placement_preview)
 
@@ -630,13 +644,21 @@ func _paint_at_mouse() -> void:
 
 	var tiles_to_paint = [grid_pos] if brush_size <= 1 else terrain_grid.get_brush_tiles(grid_pos, brush_size)
 	var total_cost = 0
+	var blocked_by_land = false
 	for tile_pos in tiles_to_paint:
+		# Check land ownership first
+		if GameManager.land_manager and not GameManager.land_manager.is_tile_owned(tile_pos):
+			blocked_by_land = true
+			continue
 		# Skip tiles occupied by buildings
 		if entity_layer and entity_layer.is_tile_occupied_by_building(tile_pos):
 			continue
 		if terrain_grid.get_tile(tile_pos) != current_tool:
 			terrain_grid.set_tile(tile_pos, current_tool)
 			total_cost += cost
+
+	if blocked_by_land and total_cost == 0:
+		EventBus.notify("You don't own this land! Press L to buy parcels.", "error")
 	
 	if total_cost > 0:
 		GameManager.modify_money(-total_cost)
@@ -1049,10 +1071,15 @@ func _paint_elevation_at_mouse() -> void:
 
 func _handle_placement_click(grid_pos: Vector2i) -> void:
 	"""Handle clicking during building/tree placement"""
+	# Check land ownership first
+	if GameManager.land_manager and not GameManager.land_manager.is_tile_owned(grid_pos):
+		EventBus.notify("You don't own this land! Press L to buy parcels.", "error")
+		return
+
 	if not placement_manager.can_place_at(grid_pos, terrain_grid):
 		EventBus.notify("Cannot place here!", "error")
 		return
-	
+
 	var cost = placement_manager.get_placement_cost()
 	if cost > 0 and not GameManager.can_afford(cost):
 		if GameManager.is_bankrupt():
@@ -1621,6 +1648,74 @@ func _toggle_terrain_debug_overlay() -> void:
 	"""Toggle the terrain debug overlay (F3)."""
 	if terrain_grid:
 		terrain_grid.toggle_debug_overlay()
+
+# --- Land Panel ---
+
+func _setup_land_panel() -> void:
+	"""Add land panel to the HUD."""
+	var hud = $UI/HUD
+
+	land_panel = LandPanel.new()
+	land_panel.name = "LandPanel"
+	land_panel.close_requested.connect(_on_land_panel_closed)
+	hud.add_child(land_panel)
+	land_panel.hide()
+
+	# Add land button to bottom bar
+	var bottom_bar = $UI/HUD/BottomBar
+	var land_btn = Button.new()
+	land_btn.name = "LandBtn"
+	land_btn.text = "Land"
+	land_btn.tooltip_text = "Buy land parcels (L)"
+	land_btn.pressed.connect(_toggle_land_panel)
+	bottom_bar.add_child(land_btn)
+
+func _on_land_panel_closed() -> void:
+	"""Hide the land panel."""
+	land_panel.hide()
+
+func _toggle_land_panel() -> void:
+	"""Toggle the land panel visibility."""
+	if land_panel:
+		land_panel.toggle()
+		if land_panel.visible:
+			var viewport_size = get_viewport().get_visible_rect().size
+			var panel_size = land_panel.get_combined_minimum_size()
+			land_panel.position = (viewport_size - panel_size) / 2
+
+# --- Marketing Panel ---
+
+func _setup_marketing_panel() -> void:
+	"""Add marketing panel to the HUD."""
+	var hud = $UI/HUD
+
+	marketing_panel = MarketingPanel.new()
+	marketing_panel.name = "MarketingPanel"
+	marketing_panel.close_requested.connect(_on_marketing_panel_closed)
+	hud.add_child(marketing_panel)
+	marketing_panel.hide()
+
+	# Add marketing button to bottom bar
+	var bottom_bar = $UI/HUD/BottomBar
+	var marketing_btn = Button.new()
+	marketing_btn.name = "MarketingBtn"
+	marketing_btn.text = "Marketing"
+	marketing_btn.tooltip_text = "Marketing campaigns (M)"
+	marketing_btn.pressed.connect(_toggle_marketing_panel)
+	bottom_bar.add_child(marketing_btn)
+
+func _on_marketing_panel_closed() -> void:
+	"""Hide the marketing panel."""
+	marketing_panel.hide()
+
+func _toggle_marketing_panel() -> void:
+	"""Toggle the marketing panel visibility."""
+	if marketing_panel:
+		marketing_panel.toggle()
+		if marketing_panel.visible:
+			var viewport_size = get_viewport().get_visible_rect().size
+			var panel_size = marketing_panel.get_combined_minimum_size()
+			marketing_panel.position = (viewport_size - panel_size) / 2
 
 func _exit_tree() -> void:
 	"""Disconnect all signals to prevent memory leaks on scene unload."""

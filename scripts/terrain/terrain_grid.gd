@@ -28,6 +28,7 @@ var _flower_overlay: FlowerOverlay = null
 var _path_overlay: PathOverlay = null
 var _debug_overlay: TerrainDebugOverlay = null
 var _noise_overlay: TerrainNoiseOverlay = null
+var _land_boundary_overlay: LandBoundaryOverlay = null
 
 func _ready() -> void:
 	_generate_tileset()
@@ -45,6 +46,7 @@ func _ready() -> void:
 	_setup_elevation_overlay()
 	_setup_debug_overlay()
 	_setup_noise_overlay()
+	_setup_land_boundary_overlay()
 
 	# Force a complete redraw after one frame to ensure shader is fully applied
 	# This fixes the issue where initial tiles don't get shader variation
@@ -336,6 +338,12 @@ func _setup_noise_overlay() -> void:
 	# Disabled - noise overlay doesn't help with tile boundary visibility
 	# The terrain_variation shader handles all variation
 	pass
+
+func _setup_land_boundary_overlay() -> void:
+	_land_boundary_overlay = LandBoundaryOverlay.new()
+	_land_boundary_overlay.name = "LandBoundaryOverlay"
+	add_child(_land_boundary_overlay)
+	_land_boundary_overlay.initialize(self)
 
 ## Toggle debug overlay visibility
 func toggle_debug_overlay() -> void:
