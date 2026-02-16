@@ -9,6 +9,7 @@ var flag: Flag
 # Visual components
 var line: Line2D
 var info_label: Label
+var waypoint_markers: Array[Node2D] = []
 
 signal hole_selected(hole_number: int)
 
@@ -22,7 +23,7 @@ func initialize(hole: GameManager.HoleData, grid: TerrainGrid) -> void:
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 
 func _create_visuals() -> void:
-	# Create line connecting tee to green
+	# Create shot path line (routed through golfer AI waypoints)
 	_create_connection_line()
 
 	# Create flag at hole position
@@ -49,13 +50,58 @@ func _update_line() -> void:
 	if not line or not terrain_grid or not hole_data:
 		return
 
-	var tee_screen = terrain_grid.grid_to_screen_center(hole_data.tee_position)
-	var green_screen = terrain_grid.grid_to_screen_center(hole_data.green_position)
+	# Calculate shot path waypoints using golfer AI logic
+	var waypoints: Array[Vector2i] = ShotPathCalculator.calculate_waypoints(hole_data, terrain_grid)
 
-	# Convert to local coordinates
+	# Draw line through all waypoints
 	line.clear_points()
-	line.add_point(to_local(tee_screen))
-	line.add_point(to_local(green_screen))
+	for wp in waypoints:
+		var screen_pos: Vector2 = terrain_grid.grid_to_screen_center(wp)
+		line.add_point(to_local(screen_pos))
+
+	# Update landing zone markers at intermediate waypoints
+	_update_waypoint_markers(waypoints)
+
+func _update_waypoint_markers(waypoints: Array[Vector2i]) -> void:
+	# Clear existing markers
+	for marker in waypoint_markers:
+		if is_instance_valid(marker):
+			marker.queue_free()
+	waypoint_markers.clear()
+
+	# Create markers at intermediate waypoints (skip first=tee and last=flag)
+	for i in range(1, waypoints.size() - 1):
+		var marker: Node2D = _create_waypoint_marker(waypoints[i])
+		add_child(marker)
+		waypoint_markers.append(marker)
+
+func _create_waypoint_marker(grid_pos: Vector2i) -> Node2D:
+	var marker := Node2D.new()
+	var screen_pos: Vector2 = terrain_grid.grid_to_screen_center(grid_pos)
+	marker.position = to_local(screen_pos)
+	marker.z_index = -1
+
+	# Outer ring (dark outline for contrast)
+	var outer_ring := Polygon2D.new()
+	var outer_points := PackedVector2Array()
+	for i in range(12):
+		var angle: float = (i / 12.0) * TAU
+		outer_points.append(Vector2(cos(angle) * 5.0, sin(angle) * 5.0))
+	outer_ring.polygon = outer_points
+	outer_ring.color = Color(0.0, 0.0, 0.0, 0.5)
+	marker.add_child(outer_ring)
+
+	# Inner filled circle (landing zone indicator)
+	var inner_circle := Polygon2D.new()
+	var inner_points := PackedVector2Array()
+	for i in range(12):
+		var angle: float = (i / 12.0) * TAU
+		inner_points.append(Vector2(cos(angle) * 3.5, sin(angle) * 3.5))
+	inner_circle.polygon = inner_points
+	inner_circle.color = Color(0.5, 0.85, 1.0, 0.7)  # Light blue
+	marker.add_child(inner_circle)
+
+	return marker
 
 func _create_flag() -> void:
 	if flag:
@@ -125,9 +171,19 @@ func highlight(enabled: bool) -> void:
 	if enabled:
 		line.default_color = Color(1, 1, 0, 0.7)  # Yellow when highlighted
 		line.width = 3.0
+		for marker in waypoint_markers:
+			if is_instance_valid(marker):
+				var inner: Polygon2D = marker.get_child(1) if marker.get_child_count() > 1 else null
+				if inner:
+					inner.color = Color(1.0, 1.0, 0.3, 0.8)  # Yellow to match line
 	else:
 		line.default_color = Color(1, 1, 1, 0.4)  # Normal white
 		line.width = 2.0
+		for marker in waypoint_markers:
+			if is_instance_valid(marker):
+				var inner: Polygon2D = marker.get_child(1) if marker.get_child_count() > 1 else null
+				if inner:
+					inner.color = Color(0.5, 0.85, 1.0, 0.7)  # Normal light blue
 
 func _on_flag_selected(selected_flag: Flag) -> void:
 	hole_selected.emit(hole_data.hole_number)
@@ -146,7 +202,7 @@ func _on_flag_moved(old_position: Vector2i, new_position: Vector2i) -> void:
 	# Recalculate difficulty
 	hole_data.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole_data, terrain_grid)
 
-	# Update visuals
+	# Update visuals (shot path recalculates based on new flag position)
 	_update_line()
 	_update_info_label()
 
@@ -160,6 +216,9 @@ func _on_terrain_tile_changed(_position: Vector2i, _old_type: int, _new_type: in
 			hole_data.difficulty_rating = new_difficulty
 			_update_info_label()
 			EventBus.hole_difficulty_changed.emit(hole_data.hole_number, new_difficulty)
+
+		# Recalculate shot path (terrain changes affect golfer routing)
+		_update_line()
 
 func update_visualization() -> void:
 	_update_line()
