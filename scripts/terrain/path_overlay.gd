@@ -4,7 +4,6 @@ class_name PathOverlay
 
 var terrain_grid: TerrainGrid
 var _path_positions: Dictionary = {}  # pos -> pebble data
-
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 1
@@ -61,18 +60,8 @@ func _draw() -> void:
 	if not terrain_grid or _path_positions.is_empty():
 		return
 
-	var canvas_transform = get_canvas_transform()
-	var viewport_rect = get_viewport_rect()
-	var visible_rect = Rect2(
-		-canvas_transform.origin / canvas_transform.get_scale(),
-		viewport_rect.size / canvas_transform.get_scale()
-	)
-
 	for pos in _path_positions:
 		var screen_pos = terrain_grid.grid_to_screen(pos)
-		if not visible_rect.has_point(screen_pos):
-			continue
-
 		var local_pos = to_local(screen_pos)
 		var pebbles = _path_positions[pos]
 

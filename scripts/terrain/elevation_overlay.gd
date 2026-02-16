@@ -38,10 +38,6 @@ func set_elevation_mode_active(active: bool) -> void:
 
 func _on_elevation_changed(_pos: Vector2i, _old: int, _new: int) -> void:
 	_needs_redraw = true
-
-func _process(_delta: float) -> void:
-	# Always redraw - viewport culling handles performance
-	# This ensures elevation shows correctly when camera pans
 	queue_redraw()
 
 func _draw() -> void:
@@ -49,14 +45,6 @@ func _draw() -> void:
 		return
 
 	_needs_redraw = false
-
-	# Viewport culling
-	var canvas_transform = get_canvas_transform()
-	var viewport_rect = get_viewport_rect()
-	var visible_rect = Rect2(
-		-canvas_transform.origin / canvas_transform.get_scale(),
-		viewport_rect.size / canvas_transform.get_scale()
-	).grow(100)  # Small margin to avoid popping
 
 	var base_alpha = ACTIVE_ALPHA if _elevation_active else PASSIVE_ALPHA
 	var tw = terrain_grid.tile_width
@@ -66,11 +54,7 @@ func _draw() -> void:
 		for y in range(terrain_grid.grid_height):
 			var pos = Vector2i(x, y)
 			var elevation = terrain_grid.get_elevation(pos)
-
 			var screen_pos = terrain_grid.grid_to_screen(pos)
-			if not visible_rect.has_point(screen_pos):
-				continue
-
 			var local_pos = to_local(screen_pos)
 
 			# --- Gradient elevation shading (always drawn if non-zero) ---

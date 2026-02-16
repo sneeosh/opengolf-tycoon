@@ -485,6 +485,9 @@ func _update_selection_indicator() -> void:
 		var building_name = placement_manager.selected_building_type.capitalize().replace("_", " ")
 		text += "Building (%s)" % building_name
 		color = Color(0.8, 0.6, 0.4)  # Brown
+	elif bulldozer_mode:
+		text += "Bulldozer"
+		color = Color(1.0, 0.5, 0.3)  # Orange
 	elif elevation_tool.is_active():
 		if elevation_tool.elevation_mode == ElevationTool.ElevationMode.RAISING:
 			text += "Raise Elevation"

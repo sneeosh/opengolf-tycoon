@@ -53,7 +53,7 @@ const TOOL_SECTIONS = {
 		]
 	},
 	"Elevation": {
-		"icon": "[+]",
+		"icon": "[E]",
 		"tools": [
 			{"type": "raise", "name": "Raise", "icon": "[+]", "hotkey": "+", "desc": "Raise terrain elevation"},
 			{"type": "lower", "name": "Lower", "icon": "[-]", "hotkey": "-", "desc": "Lower terrain elevation"},
@@ -278,7 +278,19 @@ func _expand_section(section_name: String) -> void:
 	var icon = section_data.get("icon", "")
 	section["header"].text = "v %s  %s" % [icon, section_name]
 
+func _find_section_for_tool(tool_type) -> String:
+	for section_name in TOOL_SECTIONS:
+		for tool_data in TOOL_SECTIONS[section_name]["tools"]:
+			if typeof(tool_data["type"]) == typeof(tool_type) and tool_data["type"] == tool_type:
+				return section_name
+	return ""
+
 func _on_tool_button_pressed(tool_type) -> void:
+	# Expand the parent section so the selected tool is visible
+	var section_name = _find_section_for_tool(tool_type)
+	if section_name != "":
+		_expand_section(section_name)
+
 	if tool_type is int:
 		_current_tool = tool_type
 		_update_selection_highlight()
@@ -356,6 +368,8 @@ func _input(event: InputEvent) -> void:
 				_toggle_section("Course Terrain")
 			KEY_PERIOD:  # . for Objects & Decor
 				_toggle_section("Objects & Decor")
+			KEY_E:  # E for Elevation
+				_toggle_section("Elevation")
 			KEY_MINUS:  # - for lower elevation
 				_on_tool_button_pressed("lower")
 			KEY_1:
