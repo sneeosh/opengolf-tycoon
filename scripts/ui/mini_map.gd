@@ -198,11 +198,12 @@ func _draw_land_boundary() -> void:
 
 	var lm = GameManager.land_manager
 	var parcel_size = lm.PARCEL_SIZE  # 20 tiles per parcel
-	var parcels_per_side = lm.PARCELS_PER_SIDE  # 6x6 parcels
+	var cols = lm.PARCEL_GRID_COLS    # 6 columns
+	var rows = lm.PARCEL_GRID_ROWS    # 6 rows
 
 	# Draw tint on unowned parcels
-	for px in range(parcels_per_side):
-		for py in range(parcels_per_side):
+	for px in range(cols):
+		for py in range(rows):
 			var parcel_pos = Vector2i(px, py)
 			if not lm.is_parcel_owned(parcel_pos):
 				# Calculate parcel bounds in map pixels
@@ -214,8 +215,8 @@ func _draw_land_boundary() -> void:
 				draw_rect(rect, UNOWNED_TINT)
 
 	# Draw property lines at parcel boundaries
-	for px in range(parcels_per_side):
-		for py in range(parcels_per_side):
+	for px in range(cols):
+		for py in range(rows):
 			var parcel_pos = Vector2i(px, py)
 			var is_owned = lm.is_parcel_owned(parcel_pos)
 			if not is_owned:
@@ -225,7 +226,7 @@ func _draw_land_boundary() -> void:
 			var grid_y = py * parcel_size
 
 			# Check right neighbor
-			if px < parcels_per_side - 1:
+			if px < cols - 1:
 				var right = Vector2i(px + 1, py)
 				if not lm.is_parcel_owned(right):
 					var start = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y))
@@ -233,7 +234,7 @@ func _draw_land_boundary() -> void:
 					draw_line(start, end, BOUNDARY_COLOR, 1.5)
 
 			# Check bottom neighbor
-			if py < parcels_per_side - 1:
+			if py < rows - 1:
 				var bottom = Vector2i(px, py + 1)
 				if not lm.is_parcel_owned(bottom):
 					var start = _grid_to_map_pos(Vector2i(grid_x, grid_y + parcel_size))
@@ -265,11 +266,11 @@ func _draw_land_boundary() -> void:
 				var start = _grid_to_map_pos(Vector2i(grid_x, grid_y))
 				var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y))
 				draw_line(start, end, BOUNDARY_COLOR, 1.5)
-			if px == parcels_per_side - 1:
+			if px == cols - 1:
 				var start = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y))
 				var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y + parcel_size))
 				draw_line(start, end, BOUNDARY_COLOR, 1.5)
-			if py == parcels_per_side - 1:
+			if py == rows - 1:
 				var start = _grid_to_map_pos(Vector2i(grid_x, grid_y + parcel_size))
 				var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y + parcel_size))
 				draw_line(start, end, BOUNDARY_COLOR, 1.5)
