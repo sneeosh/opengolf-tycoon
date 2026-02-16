@@ -53,6 +53,7 @@ var tournament_manager: TournamentManager = null
 var tournament_panel: TournamentPanel = null
 var land_panel: LandPanel = null
 var marketing_panel: MarketingPanel = null
+var hotkey_panel: HotkeyPanel = null
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 var bulldozer_mode: bool = false
@@ -151,6 +152,7 @@ func _ready() -> void:
 	_setup_tournament_panel()
 	_setup_land_panel()
 	_setup_marketing_panel()
+	_setup_hotkey_panel()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -186,6 +188,12 @@ func _input(event: InputEvent) -> void:
 		# Skip non-modifier hotkeys if a text input has focus
 		var focused = get_viewport().gui_get_focus_owner()
 		var text_input_focused = focused is LineEdit or focused is TextEdit
+
+		# F1 help works in any mode (including main menu)
+		if event.keycode == KEY_F1:
+			_toggle_hotkey_panel()
+			get_viewport().set_input_as_handled()
+			return
 
 		if event.is_command_or_control_pressed():
 			if event.keycode == KEY_S:
@@ -329,7 +337,7 @@ func _on_main_menu_load() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel"]
+	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -1707,6 +1715,22 @@ func _setup_marketing_panel() -> void:
 func _on_marketing_panel_closed() -> void:
 	"""Hide the marketing panel."""
 	marketing_panel.hide()
+
+# --- Hotkey Panel ---
+
+func _setup_hotkey_panel() -> void:
+	"""Add hotkey reference panel to the HUD."""
+	var hud = $UI/HUD
+
+	hotkey_panel = HotkeyPanel.new()
+	hotkey_panel.name = "HotkeyPanel"
+	hud.add_child(hotkey_panel)
+	hotkey_panel.hide()
+
+func _toggle_hotkey_panel() -> void:
+	"""Toggle the hotkey reference panel."""
+	if hotkey_panel:
+		hotkey_panel.toggle()
 
 func _toggle_marketing_panel() -> void:
 	"""Toggle the marketing panel visibility."""
