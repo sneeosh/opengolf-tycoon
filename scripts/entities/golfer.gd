@@ -1196,8 +1196,9 @@ func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2
 
 	var carry_terrain = terrain_grid.get_tile(carry_grid)
 
-	# No rollout if ball lands in water, OB, or bunker (plugs in sand)
-	if carry_terrain in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.BUNKER]:
+	# No rollout if ball lands in water, OB, bunker (plugs in sand), or flower beds
+	if carry_terrain in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS,
+			TerrainTypes.Type.BUNKER, TerrainTypes.Type.FLOWER_BED]:
 		return no_rollout
 
 	# --- Base rollout fraction (proportion of carry distance) ---
@@ -1259,18 +1260,22 @@ func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2
 			terrain_roll_mult = 1.3   # Fast, smooth surface — more roll
 		TerrainTypes.Type.FAIRWAY:
 			terrain_roll_mult = 1.0   # Baseline
+		TerrainTypes.Type.TEE_BOX:
+			terrain_roll_mult = 1.0   # Mowed short like fairway
 		TerrainTypes.Type.GRASS:
-			terrain_roll_mult = 0.8   # Light rough slows ball
+			terrain_roll_mult = 0.35  # Natural grass — slightly better than rough
 		TerrainTypes.Type.ROUGH:
 			terrain_roll_mult = 0.3   # Rough grabs the ball
 		TerrainTypes.Type.HEAVY_ROUGH:
-			terrain_roll_mult = 0.15  # Ball stops quickly
+			terrain_roll_mult = 0.12  # Thick stuff — ball stops fast
 		TerrainTypes.Type.TREES:
 			terrain_roll_mult = 0.2   # Dense ground cover
+		TerrainTypes.Type.ROCKS:
+			terrain_roll_mult = 0.15  # Rocky ground kills momentum
 		TerrainTypes.Type.PATH:
 			terrain_roll_mult = 1.4   # Hard surface — extra bounce/roll
 		_:
-			terrain_roll_mult = 0.5
+			terrain_roll_mult = 0.3   # Unknown terrain — conservative
 
 	# Backspin is less affected by terrain (spin is on the ball, not surface)
 	# But rough does kill spin somewhat

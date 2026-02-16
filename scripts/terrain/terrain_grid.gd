@@ -87,10 +87,29 @@ func _generate_tileset() -> void:
 func regenerate_tileset() -> void:
 	_generate_tileset()
 	_apply_variation_shader()  # Re-apply shader with new theme colors
-	# Re-render all existing tiles
+	# Re-render all existing tiles and overlays
 	queue_redraw()
 	if tile_map:
 		tile_map.queue_redraw()
+	_redraw_all_overlays()
+
+func _redraw_all_overlays() -> void:
+	if _water_overlay:
+		_water_overlay.queue_redraw()
+	if _bunker_overlay:
+		_bunker_overlay.queue_redraw()
+	if _grass_overlay:
+		_grass_overlay.queue_redraw()
+	if _fairway_overlay:
+		_fairway_overlay.queue_redraw()
+	if _tree_overlay:
+		_tree_overlay.queue_redraw()
+	if _rock_overlay:
+		_rock_overlay.queue_redraw()
+	if _flower_overlay:
+		_flower_overlay.queue_redraw()
+	if _path_overlay:
+		_path_overlay.queue_redraw()
 
 func _apply_variation_shader() -> void:
 	if not tile_map:
