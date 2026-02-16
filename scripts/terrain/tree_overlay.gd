@@ -4,7 +4,6 @@ class_name TreeOverlay
 
 var terrain_grid: TerrainGrid
 var _tree_positions: Dictionary = {}  # pos -> tree data
-
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 10  # Render well above terrain tiles
@@ -64,18 +63,8 @@ func _draw() -> void:
 	if not terrain_grid or _tree_positions.is_empty():
 		return
 
-	var canvas_transform = get_canvas_transform()
-	var viewport_rect = get_viewport_rect()
-	var visible_rect = Rect2(
-		-canvas_transform.origin / canvas_transform.get_scale(),
-		viewport_rect.size / canvas_transform.get_scale()
-	)
-
 	for pos in _tree_positions:
 		var screen_pos = terrain_grid.grid_to_screen(pos)
-		if not visible_rect.has_point(screen_pos):
-			continue
-
 		var tree_data = _tree_positions[pos]
 		var local_pos = to_local(screen_pos)
 		var center = local_pos + Vector2(terrain_grid.tile_width / 2.0 + tree_data.offset_x,

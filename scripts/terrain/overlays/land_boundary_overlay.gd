@@ -43,10 +43,6 @@ func _on_land_changed(_parcel = null) -> void:
 	_needs_recalculate = true
 	queue_redraw()
 
-func _process(_delta: float) -> void:
-	# Redraw each frame for camera panning (viewport culling handles performance)
-	queue_redraw()
-
 func _draw() -> void:
 	if not terrain_grid:
 		return
@@ -58,41 +54,23 @@ func _draw() -> void:
 		_calculate_boundary_edges()
 		_needs_recalculate = false
 
-	# Viewport culling
-	var canvas_transform = get_canvas_transform()
-	var viewport_rect = get_viewport_rect()
-	var visible_rect = Rect2(
-		-canvas_transform.origin / canvas_transform.get_scale(),
-		viewport_rect.size / canvas_transform.get_scale()
-	).grow(100)
-
 	var tw = terrain_grid.tile_width
 	var th = terrain_grid.tile_height
 	var lm = GameManager.land_manager
 
-	# Draw tint on unowned tiles (only visible portion)
-	var start_x = max(0, int((visible_rect.position.x - 100) / tw))
-	var end_x = min(terrain_grid.grid_width, int((visible_rect.end.x + 100) / tw) + 1)
-	var start_y = max(0, int((visible_rect.position.y - 100) / th))
-	var end_y = min(terrain_grid.grid_height, int((visible_rect.end.y + 100) / th) + 1)
-
-	for x in range(start_x, end_x):
-		for y in range(start_y, end_y):
+	# Draw tint on unowned tiles
+	for x in range(terrain_grid.grid_width):
+		for y in range(terrain_grid.grid_height):
 			var pos = Vector2i(x, y)
 			if not lm.is_tile_owned(pos):
 				var screen_pos = terrain_grid.grid_to_screen(pos)
-				if visible_rect.has_point(screen_pos):
-					var local_pos = to_local(screen_pos)
-					draw_rect(Rect2(local_pos, Vector2(tw, th)), UNOWNED_TINT)
+				var local_pos = to_local(screen_pos)
+				draw_rect(Rect2(local_pos, Vector2(tw, th)), UNOWNED_TINT)
 
 	# Draw property line borders
 	for edge in _boundary_edges:
 		var start_screen = terrain_grid.grid_to_screen(edge.start_tile) + edge.start_offset
 		var end_screen = terrain_grid.grid_to_screen(edge.end_tile) + edge.end_offset
-
-		if not visible_rect.has_point(start_screen) and not visible_rect.has_point(end_screen):
-			continue
-
 		var local_start = to_local(start_screen)
 		var local_end = to_local(end_screen)
 		draw_line(local_start, local_end, BOUNDARY_COLOR, BOUNDARY_WIDTH, true)

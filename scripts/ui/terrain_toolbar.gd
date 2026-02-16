@@ -12,12 +12,16 @@ signal raise_elevation_pressed
 signal lower_elevation_pressed
 signal bulldozer_pressed
 signal staff_pressed
+signal brush_size_changed(new_size: int)
 
 var _current_tool: int = TerrainTypes.Type.FAIRWAY
 var _tool_buttons: Dictionary = {}  # tool_type -> ToolButton
 var _sections: Dictionary = {}  # section_name -> { header: Button, content: VBoxContainer }
 var _scroll_container: ScrollContainer
 var _content_vbox: VBoxContainer
+var _brush_size: int = 1
+var _brush_label: Label = null
+const BRUSH_SIZES = [1, 3, 5]
 
 const TOOL_SECTIONS = {
 	"Course Terrain": {
@@ -37,38 +41,28 @@ const TOOL_SECTIONS = {
 			{"type": TerrainTypes.Type.OUT_OF_BOUNDS, "name": "Out of Bounds", "icon": "[X]", "hotkey": "7", "desc": "Boundary area with stroke penalty"},
 		]
 	},
-	"Paths & Decor": {
+	"Objects & Decor": {
 		"icon": "[.]",
 		"tools": [
 			{"type": TerrainTypes.Type.PATH, "name": "Path", "icon": "[.]", "hotkey": "8", "desc": "Walking path for golfers"},
 			{"type": "tree", "name": "Trees", "icon": "[^]", "hotkey": "T", "desc": "Adds beauty and obstacles"},
 			{"type": "rock", "name": "Rocks", "icon": "[*]", "hotkey": "R", "desc": "Decorative rock formations"},
-			{"type": TerrainTypes.Type.FLOWER_BED, "name": "Flower Bed", "icon": "[f]", "hotkey": "", "desc": "Colorful landscaping"},
+			{"type": TerrainTypes.Type.FLOWER_BED, "name": "Flower Bed", "icon": "[f]", "hotkey": "F", "desc": "Colorful landscaping"},
+			{"type": "building", "name": "Buildings", "icon": "[B]", "hotkey": "B", "desc": "Place amenity buildings"},
 			{"type": "bulldozer", "name": "Bulldozer", "icon": "[D]", "hotkey": "X", "desc": "Removes trees, rocks, flowers"},
 		]
 	},
 	"Elevation": {
-		"icon": "[+]",
+		"icon": "[E]",
 		"tools": [
 			{"type": "raise", "name": "Raise", "icon": "[+]", "hotkey": "+", "desc": "Raise terrain elevation"},
 			{"type": "lower", "name": "Lower", "icon": "[-]", "hotkey": "-", "desc": "Lower terrain elevation"},
 		]
 	},
-	"Structures": {
-		"icon": "[B]",
-		"tools": [
-			{"type": "building", "name": "Buildings", "icon": "[B]", "hotkey": "B", "desc": "Place amenity buildings"},
-		]
-	},
-	"Hole Tools": {
+	"Course": {
 		"icon": "[H]",
 		"tools": [
 			{"type": "create_hole", "name": "Create Hole", "icon": "[H]", "hotkey": "H", "desc": "Define tee box, green, and flag"},
-		]
-	},
-	"Management": {
-		"icon": "[P]",
-		"tools": [
 			{"type": "staff", "name": "Staff", "icon": "[P]", "hotkey": "P", "desc": "Manage course maintenance staff"},
 		]
 	},
@@ -116,11 +110,44 @@ func _build_ui() -> void:
 
 	# Subtitle hint
 	var subtitle = Label.new()
-	subtitle.text = "Click headers to expand"
+	subtitle.text = "Click headers to expand | F1 for help"
 	subtitle.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	subtitle.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_vbox.add_child(subtitle)
+
+	# Brush size control
+	var brush_row = HBoxContainer.new()
+	brush_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	brush_row.add_theme_constant_override("separation", 6)
+
+	var brush_title = Label.new()
+	brush_title.text = "Brush:"
+	brush_title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	brush_title.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+	brush_row.add_child(brush_title)
+
+	var brush_decrease = Button.new()
+	brush_decrease.text = "-"
+	brush_decrease.custom_minimum_size = Vector2(26, 26)
+	brush_decrease.pressed.connect(_on_brush_decrease)
+	brush_row.add_child(brush_decrease)
+
+	_brush_label = Label.new()
+	_brush_label.text = "1x1"
+	_brush_label.custom_minimum_size = Vector2(36, 0)
+	_brush_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_brush_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	_brush_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	brush_row.add_child(_brush_label)
+
+	var brush_increase = Button.new()
+	brush_increase.text = "+"
+	brush_increase.custom_minimum_size = Vector2(26, 26)
+	brush_increase.pressed.connect(_on_brush_increase)
+	brush_row.add_child(brush_increase)
+
+	main_vbox.add_child(brush_row)
 
 	main_vbox.add_child(HSeparator.new())
 
@@ -251,7 +278,19 @@ func _expand_section(section_name: String) -> void:
 	var icon = section_data.get("icon", "")
 	section["header"].text = "v %s  %s" % [icon, section_name]
 
+func _find_section_for_tool(tool_type) -> String:
+	for section_name in TOOL_SECTIONS:
+		for tool_data in TOOL_SECTIONS[section_name]["tools"]:
+			if typeof(tool_data["type"]) == typeof(tool_type) and tool_data["type"] == tool_type:
+				return section_name
+	return ""
+
 func _on_tool_button_pressed(tool_type) -> void:
+	# Expand the parent section so the selected tool is visible
+	var section_name = _find_section_for_tool(tool_type)
+	if section_name != "":
+		_expand_section(section_name)
+
 	if tool_type is int:
 		_current_tool = tool_type
 		_update_selection_highlight()
@@ -327,8 +366,10 @@ func _input(event: InputEvent) -> void:
 		match event.keycode:
 			KEY_EQUAL:  # = for Course Terrain
 				_toggle_section("Course Terrain")
-			KEY_PERIOD:  # . for Paths & Decor
-				_toggle_section("Paths & Decor")
+			KEY_PERIOD:  # . for Objects & Decor
+				_toggle_section("Objects & Decor")
+			KEY_E:  # E for Elevation
+				_toggle_section("Elevation")
 			KEY_MINUS:  # - for lower elevation
 				_on_tool_button_pressed("lower")
 			KEY_1:
@@ -351,10 +392,12 @@ func _input(event: InputEvent) -> void:
 				_on_tool_button_pressed("tree")
 			KEY_R:
 				_on_tool_button_pressed("rock")
+			KEY_F:
+				_on_tool_button_pressed(TerrainTypes.Type.FLOWER_BED)
 			KEY_B:
 				_on_tool_button_pressed("building")
 			KEY_H:
-				_expand_section("Hole Tools")
+				_expand_section("Course")
 				_on_tool_button_pressed("create_hole")
 			KEY_X:
 				_on_tool_button_pressed("bulldozer")
@@ -376,3 +419,24 @@ func clear_selection() -> void:
 func has_selection() -> bool:
 	"""Check if any terrain tool is currently selected"""
 	return _current_tool >= 0 and _current_tool in _tool_buttons
+
+func get_brush_size() -> int:
+	return _brush_size
+
+func _on_brush_decrease() -> void:
+	var idx = BRUSH_SIZES.find(_brush_size)
+	if idx > 0:
+		_brush_size = BRUSH_SIZES[idx - 1]
+		_update_brush_label()
+		brush_size_changed.emit(_brush_size)
+
+func _on_brush_increase() -> void:
+	var idx = BRUSH_SIZES.find(_brush_size)
+	if idx < BRUSH_SIZES.size() - 1:
+		_brush_size = BRUSH_SIZES[idx + 1]
+		_update_brush_label()
+		brush_size_changed.emit(_brush_size)
+
+func _update_brush_label() -> void:
+	if _brush_label:
+		_brush_label.text = "%dx%d" % [_brush_size, _brush_size]

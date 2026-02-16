@@ -4,7 +4,6 @@ class_name OBMarkersOverlay
 
 var terrain_grid: TerrainGrid
 var _boundary_positions: Array = []
-
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 2  # Render above terrain overlays
@@ -58,19 +57,8 @@ func _draw() -> void:
 	if not terrain_grid or _boundary_positions.is_empty():
 		return
 
-	# Only draw stakes visible in the viewport
-	var canvas_transform = get_canvas_transform()
-	var viewport_rect = get_viewport_rect()
-	var visible_rect = Rect2(
-		-canvas_transform.origin / canvas_transform.get_scale(),
-		viewport_rect.size / canvas_transform.get_scale()
-	)
-
 	for pos in _boundary_positions:
 		var screen_pos = terrain_grid.grid_to_screen(pos)
-		if not visible_rect.has_point(screen_pos):
-			continue
-
 		var local_pos = to_local(screen_pos)
 		# Center the stake in the tile
 		var stake_x = local_pos.x + terrain_grid.tile_width * 0.5

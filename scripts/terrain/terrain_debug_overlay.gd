@@ -41,16 +41,6 @@ func _draw() -> void:
 	if not _enabled or not terrain_grid:
 		return
 
-	# Get viewport bounds for culling
-	var canvas_transform = get_canvas_transform()
-	var viewport_rect = get_viewport_rect()
-	var visible_rect = Rect2(
-		-canvas_transform.origin / canvas_transform.get_scale(),
-		viewport_rect.size / canvas_transform.get_scale()
-	)
-	# Expand slightly to avoid pop-in at edges
-	visible_rect = visible_rect.grow(terrain_grid.tile_width * 2)
-
 	var tile_width = terrain_grid.tile_width
 	var tile_height = terrain_grid.tile_height
 
@@ -58,11 +48,6 @@ func _draw() -> void:
 		for y in range(terrain_grid.grid_height):
 			var pos = Vector2i(x, y)
 			var screen_pos = terrain_grid.grid_to_screen(pos)
-
-			# Viewport culling
-			if not visible_rect.has_point(screen_pos):
-				continue
-
 			var local_pos = to_local(screen_pos)
 			var terrain_type = terrain_grid.get_tile(pos)
 			var color = TYPE_COLORS.get(terrain_type, Color.MAGENTA)

@@ -67,6 +67,35 @@ func update_display() -> void:
 	var balance_row = _create_stat_row("Cash:", "$%d" % GameManager.money, Color(1.0, 1.0, 1.0))
 	_content_vbox.add_child(balance_row)
 
+	# Green Fee control
+	var fee_row = HBoxContainer.new()
+	var fee_label = Label.new()
+	fee_label.text = "Green Fee:"
+	fee_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fee_row.add_child(fee_label)
+
+	var fee_decrease = Button.new()
+	fee_decrease.text = "-"
+	fee_decrease.custom_minimum_size = Vector2(28, 28)
+	fee_decrease.pressed.connect(func(): GameManager.set_green_fee(GameManager.green_fee - 5))
+	fee_row.add_child(fee_decrease)
+
+	var fee_value = Label.new()
+	fee_value.text = "$%d" % GameManager.green_fee
+	fee_value.custom_minimum_size = Vector2(50, 0)
+	fee_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	fee_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	fee_value.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	fee_row.add_child(fee_value)
+
+	var fee_increase = Button.new()
+	fee_increase.text = "+"
+	fee_increase.custom_minimum_size = Vector2(28, 28)
+	fee_increase.pressed.connect(func(): GameManager.set_green_fee(GameManager.green_fee + 5))
+	fee_row.add_child(fee_increase)
+
+	_content_vbox.add_child(fee_row)
+
 	_content_vbox.add_child(HSeparator.new())
 
 	# Today's Revenue

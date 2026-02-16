@@ -3,6 +3,7 @@ class_name EndOfDaySummaryPanel
 ## EndOfDaySummaryPanel - Shows daily statistics at end of each day
 
 signal continue_pressed
+signal build_mode_pressed
 
 var _day_number: int = 1
 
@@ -72,9 +73,14 @@ func _build_ui() -> void:
 		var building_row = _create_stat_row("  Amenities:", "$%d" % stats.building_revenue, dim_green)
 		vbox.add_child(building_row)
 
-	# Total revenue
+	# Total revenue with trend
 	var total_rev = stats.get_total_revenue()
-	var total_rev_row = _create_stat_row("Total Revenue:", "$%d" % total_rev, Color(0.4, 0.9, 0.4))
+	var rev_text = "$%d" % total_rev
+	var yesterday = GameManager.yesterday_stats
+	if yesterday:
+		var yest_rev = yesterday.get_total_revenue()
+		rev_text += " %s" % _trend_arrow(total_rev, yest_rev)
+	var total_rev_row = _create_stat_row("Total Revenue:", rev_text, Color(0.4, 0.9, 0.4))
 	vbox.add_child(total_rev_row)
 
 	# Operating costs breakdown
@@ -101,10 +107,13 @@ func _build_ui() -> void:
 	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % stats.operating_costs, Color(0.9, 0.5, 0.5))
 	vbox.add_child(total_costs_row)
 
-	# Profit/Loss
+	# Profit/Loss with trend
 	var profit = stats.get_profit()
 	var profit_color = Color(0.4, 0.9, 0.4) if profit >= 0 else Color(0.9, 0.4, 0.4)
 	var profit_text = "+$%d" % profit if profit >= 0 else "-$%d" % abs(profit)
+	if yesterday:
+		var yest_profit = yesterday.get_profit()
+		profit_text += " %s" % _trend_arrow(profit, yest_profit)
 	var profit_row = _create_stat_row("Daily Profit:", profit_text, profit_color)
 	vbox.add_child(profit_row)
 
@@ -176,8 +185,11 @@ func _build_ui() -> void:
 
 	vbox.add_child(HSeparator.new())
 
-	# Golfers served
-	var golfers_row = _create_stat_row("Golfers Served:", "%d" % stats.golfers_served)
+	# Golfers served with trend
+	var golfers_text = "%d" % stats.golfers_served
+	if yesterday:
+		golfers_text += " %s" % _trend_arrow(stats.golfers_served, yesterday.golfers_served)
+	var golfers_row = _create_stat_row("Golfers Served:", golfers_text)
 	vbox.add_child(golfers_row)
 
 	# Golfer tier breakdown
@@ -292,14 +304,24 @@ func _build_ui() -> void:
 		no_feedback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(no_feedback)
 
-	# Continue button (fixed at bottom, outside scroll area)
+	# Action buttons (fixed at bottom, outside scroll area)
 	main_vbox.add_child(HSeparator.new())
+
+	var btn_row = VBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 6)
+	main_vbox.add_child(btn_row)
 
 	var continue_btn = Button.new()
 	continue_btn.text = "Continue to Day %d" % (_day_number + 1)
-	continue_btn.custom_minimum_size = Vector2(200, 40)
+	continue_btn.custom_minimum_size = Vector2(200, 38)
 	continue_btn.pressed.connect(_on_continue_pressed)
-	main_vbox.add_child(continue_btn)
+	btn_row.add_child(continue_btn)
+
+	var build_btn = Button.new()
+	build_btn.text = "Return to Build Mode"
+	build_btn.custom_minimum_size = Vector2(200, 38)
+	build_btn.pressed.connect(_on_build_mode_pressed)
+	btn_row.add_child(build_btn)
 
 func _create_stat_row(label_text: String, value_text: String, value_color: Color = Color.WHITE) -> HBoxContainer:
 	var row = HBoxContainer.new()
@@ -339,3 +361,14 @@ func _create_notable_badge(label_text: String, count: int, color: Color) -> VBox
 func _on_continue_pressed() -> void:
 	continue_pressed.emit()
 	queue_free()
+
+func _on_build_mode_pressed() -> void:
+	build_mode_pressed.emit()
+	queue_free()
+
+static func _trend_arrow(current: float, previous: float) -> String:
+	if current > previous:
+		return "^"
+	elif current < previous:
+		return "v"
+	return "="

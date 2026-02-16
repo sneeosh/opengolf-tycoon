@@ -54,19 +54,8 @@ func _draw() -> void:
 	if not terrain_grid or _water_positions.is_empty():
 		return
 
-	# Only draw water tiles visible in the viewport
-	var canvas_transform = get_canvas_transform()
-	var viewport_rect = get_viewport_rect()
-	var visible_rect = Rect2(
-		-canvas_transform.origin / canvas_transform.get_scale(),
-		viewport_rect.size / canvas_transform.get_scale()
-	)
-
 	for pos in _water_positions:
 		var screen_pos = terrain_grid.grid_to_screen(pos)
-		if not visible_rect.has_point(screen_pos):
-			continue
-
 		var local_pos = to_local(screen_pos)
 
 		# Animated shimmer using sine waves with position-based offset

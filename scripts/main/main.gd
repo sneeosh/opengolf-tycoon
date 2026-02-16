@@ -29,7 +29,7 @@ var green_fee_decrease_btn: Button = null
 var green_fee_increase_btn: Button = null
 var selection_label: Label = null
 
-var current_tool: int = TerrainTypes.Type.FAIRWAY
+var current_tool: int = -1  # Start with no tool selected
 var brush_size: int = 1
 var is_painting: bool = false
 var last_paint_pos: Vector2i = Vector2i(-1, -1)
@@ -53,6 +53,8 @@ var tournament_manager: TournamentManager = null
 var tournament_panel: TournamentPanel = null
 var land_panel: LandPanel = null
 var marketing_panel: MarketingPanel = null
+var hotkey_panel: HotkeyPanel = null
+var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 var bulldozer_mode: bool = false
@@ -138,8 +140,6 @@ func _ready() -> void:
 	_connect_signals()
 	_connect_ui_buttons()
 	_setup_top_hud_bar()
-	_create_green_fee_controls()
-	_create_zoom_hint()
 	_setup_rain_overlay()
 	_setup_placement_preview()
 	_create_selection_indicator()
@@ -151,6 +151,7 @@ func _ready() -> void:
 	_setup_tournament_panel()
 	_setup_land_panel()
 	_setup_marketing_panel()
+	_setup_hotkey_panel()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -186,6 +187,12 @@ func _input(event: InputEvent) -> void:
 		# Skip non-modifier hotkeys if a text input has focus
 		var focused = get_viewport().gui_get_focus_owner()
 		var text_input_focused = focused is LineEdit or focused is TextEdit
+
+		# F1 help works in any mode (including main menu)
+		if event.keycode == KEY_F1:
+			_toggle_hotkey_panel()
+			get_viewport().set_input_as_handled()
+			return
 
 		if event.is_command_or_control_pressed():
 			if event.keycode == KEY_S:
@@ -244,7 +251,6 @@ func _connect_signals() -> void:
 	EventBus.hole_created.connect(_on_hole_created)
 	EventBus.hole_deleted.connect(_on_hole_deleted)
 	EventBus.hole_toggled.connect(_on_hole_toggled)
-	EventBus.green_fee_changed.connect(_on_green_fee_changed)
 	EventBus.end_of_day.connect(_on_end_of_day)
 	EventBus.load_completed.connect(_on_load_completed)
 	EventBus.new_game_started.connect(_on_new_game_started)
@@ -283,6 +289,7 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.lower_elevation_pressed.connect(_on_lower_elevation_pressed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
 	terrain_toolbar.staff_pressed.connect(_on_staff_pressed)
+	terrain_toolbar.brush_size_changed.connect(_on_brush_size_changed)
 
 func _initialize_game() -> void:
 	# Show main menu instead of auto-starting
@@ -312,23 +319,55 @@ func _on_main_menu_new_game(course_name: String, theme_type: int) -> void:
 	var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
 	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
 	camera.focus_on(Vector2(center_x, center_y), true)
-	# Initialize terrain painting preview with default tool
+	# Start with no tool selected — player chooses their first action
+	current_tool = -1
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
 	if placement_preview:
-		placement_preview.set_terrain_tool(current_tool)
-		placement_preview.set_terrain_painting_enabled(true)
+		placement_preview.set_terrain_painting_enabled(false)
 
 func _on_main_menu_load() -> void:
-	if main_menu:
+	# Show save/load panel overlaid on the main menu (don't dismiss menu yet)
+	var hud = $UI/HUD
+	var existing = hud.get_node_or_null("SaveLoadPanel")
+	if existing:
+		existing.queue_free()
+		return
+
+	var panel = SaveLoadPanel.new()
+	panel.name = "SaveLoadPanel"
+	panel.anchors_preset = Control.PRESET_CENTER
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+
+	# When a save is loaded, dismiss the main menu
+	panel.panel_closed.connect(_on_main_menu_load_panel_closed)
+	panel.quit_to_menu_requested.connect(_on_quit_to_menu)
+	hud.add_child(panel)
+
+	# Connect load_completed to dismiss the menu on successful load
+	if not EventBus.load_completed.is_connected(_on_main_menu_load_completed):
+		EventBus.load_completed.connect(_on_main_menu_load_completed)
+
+func _on_main_menu_load_panel_closed() -> void:
+	"""Save/load panel closed without loading — return to main menu."""
+	_disconnect_main_menu_load_signal()
+
+func _on_main_menu_load_completed(success: bool) -> void:
+	"""A save was loaded from the main menu — dismiss menu and show game."""
+	_disconnect_main_menu_load_signal()
+	if success and main_menu:
 		main_menu.queue_free()
 		main_menu = null
-	_set_gameplay_ui_visible(true)
-	# Show save/load panel
-	_on_menu_pressed()
+		_set_gameplay_ui_visible(true)
+
+func _disconnect_main_menu_load_signal() -> void:
+	if EventBus.load_completed.is_connected(_on_main_menu_load_completed):
+		EventBus.load_completed.disconnect(_on_main_menu_load_completed)
 
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel"]
+	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -359,55 +398,14 @@ func _setup_top_hud_bar() -> void:
 	hud.add_child(top_hud_bar)
 	hud.move_child(top_hud_bar, 0)
 
-	# Create "Build Mode" button to return from simulation
+	# Create mode toggle button (Start Day / Stop & Edit)
 	build_mode_btn = Button.new()
-	build_mode_btn.name = "BuildModeBtn"
-	build_mode_btn.text = "# Build"
-	build_mode_btn.pressed.connect(_on_build_mode_pressed)
+	build_mode_btn.name = "ModeToggleBtn"
+	build_mode_btn.text = "Start Day"
+	build_mode_btn.custom_minimum_size = Vector2(120, 34)
+	build_mode_btn.pressed.connect(_on_mode_toggle_pressed)
 	speed_controls.add_child(build_mode_btn)
-
-func _create_green_fee_controls() -> void:
-	"""Create UI controls for adjusting green fee"""
-	var bottom_bar = $UI/HUD/BottomBar
-
-	# Create container for green fee controls
-	var green_fee_container = HBoxContainer.new()
-	green_fee_container.name = "GreenFeeControls"
-
-	# Create decrease button
-	green_fee_decrease_btn = Button.new()
-	green_fee_decrease_btn.text = "-"
-	green_fee_decrease_btn.custom_minimum_size = Vector2(30, 30)
-	green_fee_decrease_btn.pressed.connect(_on_green_fee_decrease)
-	green_fee_container.add_child(green_fee_decrease_btn)
-
-	# Create label
-	green_fee_label = Label.new()
-	green_fee_label.text = "Fee: $%d" % GameManager.green_fee
-	green_fee_label.custom_minimum_size = Vector2(80, 30)
-	green_fee_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	green_fee_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	green_fee_container.add_child(green_fee_label)
-
-	# Create increase button
-	green_fee_increase_btn = Button.new()
-	green_fee_increase_btn.text = "+"
-	green_fee_increase_btn.custom_minimum_size = Vector2(30, 30)
-	green_fee_increase_btn.pressed.connect(_on_green_fee_increase)
-	green_fee_container.add_child(green_fee_increase_btn)
-
-	# Add to bottom bar (after speed controls)
-	bottom_bar.add_child(green_fee_container)
-	bottom_bar.move_child(green_fee_container, 1)  # Position after SpeedControls
-
-func _create_zoom_hint() -> void:
-	var bottom_bar = $UI/HUD/BottomBar
-	var zoom_label = Label.new()
-	zoom_label.name = "ZoomHint"
-	zoom_label.text = "Zoom: [ - ] +"
-	zoom_label.add_theme_font_size_override("font_size", 12)
-	zoom_label.add_theme_color_override("font_color", Color.WHITE)
-	bottom_bar.add_child(zoom_label)
+	speed_controls.move_child(build_mode_btn, 0)
 
 func _setup_rain_overlay() -> void:
 	rain_overlay = RainOverlay.new()
@@ -487,6 +485,9 @@ func _update_selection_indicator() -> void:
 		var building_name = placement_manager.selected_building_type.capitalize().replace("_", " ")
 		text += "Building (%s)" % building_name
 		color = Color(0.8, 0.6, 0.4)  # Brown
+	elif bulldozer_mode:
+		text += "Bulldozer"
+		color = Color(1.0, 0.5, 0.3)  # Orange
 	elif elevation_tool.is_active():
 		if elevation_tool.elevation_mode == ElevationTool.ElevationMode.RAISING:
 			text += "Raise Elevation"
@@ -517,24 +518,26 @@ func _update_selection_indicator() -> void:
 	selection_label.text = text
 	selection_label.add_theme_color_override("font_color", color)
 
-func _on_green_fee_decrease() -> void:
-	"""Decrease green fee by $5"""
-	GameManager.set_green_fee(GameManager.green_fee - 5)
+func _toggle_panel(panel: CenteredPanel) -> void:
+	"""Toggle a panel with mutual exclusion — opening one closes the previous."""
+	if panel == _active_panel and panel.visible:
+		panel.hide()
+		_active_panel = null
+		return
+	# Close the currently open panel (if different)
+	if _active_panel and _active_panel != panel and _active_panel.visible:
+		_active_panel.hide()
+	_active_panel = panel
+	panel.toggle()
 
-func _on_green_fee_increase() -> void:
-	"""Increase green fee by $5"""
-	GameManager.set_green_fee(GameManager.green_fee + 5)
-
-func _on_green_fee_changed(_old_fee: int, new_fee: int) -> void:
-	"""Update green fee label when fee changes"""
-	if green_fee_label:
-		green_fee_label.text = "Fee: $%d" % new_fee
-
-func _on_build_mode_pressed() -> void:
-	"""Return to building mode from simulation"""
-	if GameManager.current_mode == GameManager.GameMode.SIMULATING:
+func _on_mode_toggle_pressed() -> void:
+	"""Toggle between build and simulation modes."""
+	if GameManager.current_mode == GameManager.GameMode.BUILDING:
+		# Start simulation
+		if GameManager.start_simulation():
+			golfer_manager.spawn_initial_group()
+	elif GameManager.current_mode == GameManager.GameMode.SIMULATING:
 		GameManager.stop_simulation()
-		print("Returned to building mode")
 
 func _update_ui() -> void:
 	# TopHUDBar now handles money/day/reputation/weather/wind updates via signals
@@ -544,25 +547,31 @@ func _update_ui() -> void:
 func _update_button_states() -> void:
 	"""Update button appearance based on game mode and speed"""
 	if GameManager.current_mode == GameManager.GameMode.BUILDING:
-		# In building mode, only play button is relevant
-		pause_btn.disabled = true
-		play_btn.disabled = false
-		fast_btn.disabled = true
-		play_btn.text = "▶ Start"
+		# In building mode, hide speed controls and show Start Day button
+		pause_btn.visible = false
+		play_btn.visible = false
+		fast_btn.visible = false
 
-		# Hide build mode button when in building mode
 		if build_mode_btn:
-			build_mode_btn.visible = false
+			build_mode_btn.visible = true
+			build_mode_btn.text = "Start Day"
+			build_mode_btn.modulate = Color(0.5, 1.0, 0.5)  # Green tint
 	else:
-		# In simulation mode, all buttons are enabled
+		# In simulation mode, show speed controls and Stop & Edit button
+		pause_btn.visible = true
+		play_btn.visible = true
+		fast_btn.visible = true
 		pause_btn.disabled = false
 		play_btn.disabled = false
 		fast_btn.disabled = false
-		play_btn.text = "▶"
+		play_btn.text = ">"
+		pause_btn.text = "||"
+		fast_btn.text = ">>"
 
-		# Show build mode button in simulation
 		if build_mode_btn:
 			build_mode_btn.visible = true
+			build_mode_btn.text = "Stop & Edit"
+			build_mode_btn.modulate = Color(1.0, 0.8, 0.4)  # Orange tint
 
 		# Highlight active speed button
 		pause_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.PAUSED else Color(1, 1, 1, 1)
@@ -570,6 +579,11 @@ func _update_button_states() -> void:
 		fast_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.FAST else Color(1, 1, 1, 1)
 
 func _handle_mouse_hover() -> void:
+	# Only show coordinates when a tool is active (reduces clutter)
+	if not _has_active_tool():
+		coordinate_label.text = ""
+		return
+
 	var mouse_world = camera.get_mouse_world_position()
 	var grid_pos = terrain_grid.screen_to_grid(mouse_world)
 	if terrain_grid.is_valid_position(grid_pos):
@@ -577,11 +591,11 @@ func _handle_mouse_hover() -> void:
 		var elevation = terrain_grid.get_elevation(grid_pos)
 		if elevation != 0:
 			var sign_str = "+" if elevation > 0 else ""
-			coordinate_label.text = "Tile: (%d, %d) - %s [Elev: %s%d]" % [grid_pos.x, grid_pos.y, terrain_name, sign_str, elevation]
+			coordinate_label.text = "(%d, %d) %s [Elev: %s%d]" % [grid_pos.x, grid_pos.y, terrain_name, sign_str, elevation]
 		else:
-			coordinate_label.text = "Tile: (%d, %d) - %s" % [grid_pos.x, grid_pos.y, terrain_name]
+			coordinate_label.text = "(%d, %d) %s" % [grid_pos.x, grid_pos.y, terrain_name]
 	else:
-		coordinate_label.text = "Out of bounds"
+		coordinate_label.text = ""
 
 func _start_painting() -> void:
 	# Check if in null selector state - do nothing, allow clicking buildings/UI
@@ -668,23 +682,32 @@ func _paint_at_mouse() -> void:
 func _cancel_action() -> void:
 	is_painting = false
 	last_paint_pos = Vector2i(-1, -1)
+
+	# Two-tier cancel: first ESC cancels the active operation, second deselects tool
+	var had_active_operation = false
+
 	if bulldozer_mode:
 		_cancel_bulldozer_mode()
-		print("Cancelled bulldozer mode")
+		had_active_operation = true
 	if elevation_tool.is_active():
 		_cancel_elevation_mode()
-		print("Cancelled elevation mode")
+		had_active_operation = true
 	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
 		placement_manager.cancel_placement()
-		print("Cancelled placement mode")
+		had_active_operation = true
 	if hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
 		hole_tool.cancel_placement()
-		print("Cancelled hole placement")
-	# Enter null selector state - deselect terrain tool
-	if terrain_toolbar:
+		had_active_operation = true
+
+	if had_active_operation:
+		# First ESC: cancelled the active operation, keep terrain tool selected
+		return
+
+	# Second ESC (or no active operation): deselect terrain tool entirely
+	if terrain_toolbar and terrain_toolbar.has_selection():
 		terrain_toolbar.clear_selection()
-	_disable_terrain_painting_preview()
-	print("Deselected all tools (null selector mode)")
+		_disable_terrain_painting_preview()
+		return
 
 func _has_active_tool() -> bool:
 	"""Check if any tool is currently active (not in null selector state)"""
@@ -718,6 +741,9 @@ func _on_tool_selected(tool_type: int) -> void:
 		placement_preview.set_terrain_painting_enabled(true)
 	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
 
+func _on_brush_size_changed(new_size: int) -> void:
+	brush_size = new_size
+
 func _on_create_hole_pressed() -> void:
 	# Cancel any building/tree placement, elevation, bulldozer, or terrain painting
 	placement_manager.cancel_placement()
@@ -730,26 +756,11 @@ func _on_create_hole_pressed() -> void:
 	hole_tool.start_tee_placement()
 
 func _on_speed_selected(speed: int) -> void:
-	# Handle transition from building mode to simulation
-	if GameManager.current_mode == GameManager.GameMode.BUILDING:
-		# Only allow transition if trying to play (not pause)
-		if speed == GameManager.GameSpeed.PAUSED:
-			EventBus.notify("Course is in building mode", "info")
-			return
-
-		# Validate and start simulation
-		if GameManager.start_simulation():
-			print("Started simulation mode")
-			# Spawn initial group of golfers
-			golfer_manager.spawn_initial_group()
+	# Speed buttons only work during simulation
+	if GameManager.current_mode != GameManager.GameMode.SIMULATING:
 		return
 
-	# Handle normal speed changes during simulation
-	if GameManager.current_mode == GameManager.GameMode.SIMULATING:
-		GameManager.set_speed(speed)
-
-		var speed_name = "Paused" if speed == GameManager.GameSpeed.PAUSED else ("Fast" if speed == GameManager.GameSpeed.FAST else "Normal")
-		print("Game speed: %s" % speed_name)
+	GameManager.set_speed(speed)
 
 func _on_money_changed(_old: int, _new: int) -> void:
 	pass
@@ -1266,8 +1277,9 @@ func _on_end_of_day(day_number: int) -> void:
 	var summary = EndOfDaySummaryPanel.new(day_number)
 	summary.name = "EndOfDaySummary"
 
-	# Connect the signal BEFORE add_child (ready signal fires during add_child)
+	# Connect signals BEFORE add_child (ready signal fires during add_child)
 	summary.continue_pressed.connect(_on_summary_continue)
+	summary.build_mode_pressed.connect(_on_summary_build_mode)
 
 	hud.add_child(summary)
 
@@ -1279,6 +1291,11 @@ func _on_summary_continue() -> void:
 	"""Called when player clicks Continue on the end of day summary."""
 	GameManager.is_paused = false
 	GameManager.advance_to_next_day()
+
+func _on_summary_build_mode() -> void:
+	"""Called when player clicks Return to Build Mode on the end of day summary."""
+	GameManager.is_paused = false
+	GameManager.stop_simulation()
 
 # --- Save/Load ---
 
@@ -1489,30 +1506,24 @@ func _setup_financial_panel() -> void:
 
 func _on_money_clicked() -> void:
 	## Toggle the financial panel when money is clicked.
-	financial_panel.toggle()
-	if financial_panel.visible:
-		# Center the panel on screen using actual size
-		var viewport_size = get_viewport().get_visible_rect().size
-		var panel_size = financial_panel.get_combined_minimum_size()
-		financial_panel.position = (viewport_size - panel_size) / 2
+	_toggle_panel(financial_panel)
 
 func _on_financial_panel_closed() -> void:
 	"""Hide the financial panel."""
 	financial_panel.hide()
+	if _active_panel == financial_panel:
+		_active_panel = null
 
 func _on_staff_pressed() -> void:
 	## Toggle staff management panel.
 	if staff_panel:
-		staff_panel.toggle()
-		if staff_panel.visible:
-			# Center the panel on screen using actual size
-			var viewport_size = get_viewport().get_visible_rect().size
-			var panel_size = staff_panel.get_combined_minimum_size()
-			staff_panel.position = (viewport_size - panel_size) / 2
+		_toggle_panel(staff_panel)
 
 func _on_staff_panel_closed() -> void:
 	"""Hide the staff panel."""
 	staff_panel.hide()
+	if _active_panel == staff_panel:
+		_active_panel = null
 
 # --- Mini Map ---
 
@@ -1574,6 +1585,8 @@ func _setup_hole_stats_panel() -> void:
 func _on_hole_stats_panel_closed() -> void:
 	"""Hide the hole stats panel."""
 	hole_stats_panel.hide()
+	if _active_panel == hole_stats_panel:
+		_active_panel = null
 
 func _on_hole_stats_selected(hole_number: int) -> void:
 	"""Highlight hole on course and move camera to it."""
@@ -1596,10 +1609,11 @@ func _show_hole_stats(hole_number: int) -> void:
 
 	for hole in GameManager.current_course.holes:
 		if hole.hole_number == hole_number:
+			# Close any active panel first
+			if _active_panel and _active_panel.visible:
+				_active_panel.hide()
 			hole_stats_panel.show_for_hole(hole)
-			# Center the panel on screen
-			var viewport_size = get_viewport().get_visible_rect().size
-			hole_stats_panel.position = (viewport_size - hole_stats_panel.custom_minimum_size) / 2
+			_active_panel = hole_stats_panel
 			break
 
 # --- Tournament Panel ---
@@ -1626,14 +1640,12 @@ func _setup_tournament_panel() -> void:
 func _on_tournament_panel_closed() -> void:
 	"""Hide the tournament panel."""
 	tournament_panel.hide()
+	if _active_panel == tournament_panel:
+		_active_panel = null
 
 func _toggle_tournament_panel() -> void:
 	"""Toggle the tournament panel visibility."""
-	tournament_panel.toggle()
-	if tournament_panel.visible:
-		# Center the panel on screen
-		var viewport_size = get_viewport().get_visible_rect().size
-		tournament_panel.position = (viewport_size - tournament_panel.custom_minimum_size) / 2
+	_toggle_panel(tournament_panel)
 
 func _toggle_terrain_debug_overlay() -> void:
 	"""Toggle the terrain debug overlay (F3)."""
@@ -1664,15 +1676,13 @@ func _setup_land_panel() -> void:
 func _on_land_panel_closed() -> void:
 	"""Hide the land panel."""
 	land_panel.hide()
+	if _active_panel == land_panel:
+		_active_panel = null
 
 func _toggle_land_panel() -> void:
 	"""Toggle the land panel visibility."""
 	if land_panel:
-		land_panel.toggle()
-		if land_panel.visible:
-			var viewport_size = get_viewport().get_visible_rect().size
-			var panel_size = land_panel.get_combined_minimum_size()
-			land_panel.position = (viewport_size - panel_size) / 2
+		_toggle_panel(land_panel)
 
 # --- Marketing Panel ---
 
@@ -1698,15 +1708,29 @@ func _setup_marketing_panel() -> void:
 func _on_marketing_panel_closed() -> void:
 	"""Hide the marketing panel."""
 	marketing_panel.hide()
+	if _active_panel == marketing_panel:
+		_active_panel = null
+
+# --- Hotkey Panel ---
+
+func _setup_hotkey_panel() -> void:
+	"""Add hotkey reference panel to the HUD."""
+	var hud = $UI/HUD
+
+	hotkey_panel = HotkeyPanel.new()
+	hotkey_panel.name = "HotkeyPanel"
+	hud.add_child(hotkey_panel)
+	hotkey_panel.hide()
+
+func _toggle_hotkey_panel() -> void:
+	"""Toggle the hotkey reference panel."""
+	if hotkey_panel:
+		_toggle_panel(hotkey_panel)
 
 func _toggle_marketing_panel() -> void:
 	"""Toggle the marketing panel visibility."""
 	if marketing_panel:
-		marketing_panel.toggle()
-		if marketing_panel.visible:
-			var viewport_size = get_viewport().get_visible_rect().size
-			var panel_size = marketing_panel.get_combined_minimum_size()
-			marketing_panel.position = (viewport_size - panel_size) / 2
+		_toggle_panel(marketing_panel)
 
 func _exit_tree() -> void:
 	"""Disconnect all signals to prevent memory leaks on scene unload."""
@@ -1721,8 +1745,6 @@ func _exit_tree() -> void:
 		EventBus.hole_deleted.disconnect(_on_hole_deleted)
 	if EventBus.hole_toggled.is_connected(_on_hole_toggled):
 		EventBus.hole_toggled.disconnect(_on_hole_toggled)
-	if EventBus.green_fee_changed.is_connected(_on_green_fee_changed):
-		EventBus.green_fee_changed.disconnect(_on_green_fee_changed)
 	if EventBus.end_of_day.is_connected(_on_end_of_day):
 		EventBus.end_of_day.disconnect(_on_end_of_day)
 	if EventBus.load_completed.is_connected(_on_load_completed):
