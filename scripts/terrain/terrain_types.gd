@@ -20,7 +20,7 @@ const PROPERTIES: Dictionary = {
 	Type.BUNKER: {"name": "Bunker", "color": Color(0.95, 0.88, 0.65), "playable": true, "placement_cost": 10, "maintenance_cost": 1, "shot_difficulty": 0.6, "is_hazard": true},
 	Type.WATER: {"name": "Water", "color": Color(0.25, 0.55, 0.85), "playable": false, "placement_cost": 20, "maintenance_cost": 2, "is_hazard": true, "penalty_strokes": 1},
 	Type.PATH: {"name": "Cart Path", "color": Color(0.78, 0.75, 0.68), "playable": true, "placement_cost": 8, "maintenance_cost": 0, "shot_difficulty": 0.1, "speed_modifier": 1.5},
-	Type.OUT_OF_BOUNDS: {"name": "Out of Bounds", "color": Color(0.42, 0.35, 0.32), "playable": false, "placement_cost": 0, "maintenance_cost": 0, "penalty_strokes": 2},
+	Type.OUT_OF_BOUNDS: {"name": "Out of Bounds", "color": Color(0.42, 0.35, 0.32), "playable": false, "placement_cost": 0, "maintenance_cost": 0, "penalty_strokes": 1},
 	Type.TREES: {"name": "Trees", "color": Color(0.22, 0.45, 0.22), "playable": true, "placement_cost": 10, "maintenance_cost": 1, "shot_difficulty": 0.7, "blocks_shots": true},
 	Type.FLOWER_BED: {"name": "Flower Bed", "color": Color(0.85, 0.5, 0.6), "playable": false, "placement_cost": 15, "maintenance_cost": 2, "beauty_bonus": 5},
 	Type.ROCKS: {"name": "Rocks", "color": Color(0.55, 0.52, 0.48), "playable": true, "placement_cost": 8, "maintenance_cost": 0, "shot_difficulty": 0.8},

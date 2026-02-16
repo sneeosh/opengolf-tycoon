@@ -544,15 +544,12 @@ class DailyStatistics:
 		return float(total_strokes_today - total_par_today) / float(golfers_served) if golfers_served > 0 else 0.0
 
 	func record_hole_score(strokes: int, par: int) -> void:
-		var score_to_par = strokes - par
-		if strokes == 1:
-			holes_in_one += 1
-		elif score_to_par <= -2:
-			eagles += 1
-		elif score_to_par == -1:
-			birdies += 1
-		elif score_to_par >= 1:
-			bogeys_or_worse += 1
+		var classification = GolfRules.classify_score(strokes, par)
+		match classification:
+			"hole_in_one": holes_in_one += 1
+			"eagle": eagles += 1
+			"birdie": birdies += 1
+			"bogey", "double_bogey_plus": bogeys_or_worse += 1
 
 	func record_round_finished(total_strokes: int, total_par: int) -> void:
 		golfers_served += 1
@@ -586,21 +583,16 @@ class HoleStatistics:
 	func record_score(strokes: int, par: int, golfer_name: String = "") -> void:
 		total_rounds += 1
 		total_strokes += strokes
-		var diff = strokes - par
-
-		if strokes == 1:
-			holes_in_one += 1
-			eagles += 1  # Hole in one counts as eagle or better
-		elif diff <= -2:
-			eagles += 1
-		elif diff == -1:
-			birdies += 1
-		elif diff == 0:
-			pars += 1
-		elif diff == 1:
-			bogeys += 1
-		else:
-			double_bogeys_plus += 1
+		var classification = GolfRules.classify_score(strokes, par)
+		match classification:
+			"hole_in_one":
+				holes_in_one += 1
+				eagles += 1  # Hole-in-one counts as eagle or better
+			"eagle": eagles += 1
+			"birdie": birdies += 1
+			"par": pars += 1
+			"bogey": bogeys += 1
+			"double_bogey_plus": double_bogeys_plus += 1
 
 		# Track best score
 		if best_score < 0 or strokes < best_score:

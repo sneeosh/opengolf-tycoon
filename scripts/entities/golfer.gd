@@ -809,8 +809,14 @@ func _decide_putt_target(hole_position: Vector2i) -> Vector2i:
 	return hole_position
 
 ## Calculate putt with sub-tile precision
-## Uses realistic putting model: lateral error (miss left/right of the line),
-## distance control (lag putts for long distance), and guaranteed progress toward hole
+## Uses probability-based make model calibrated to PGA Tour putting stats,
+## scaled by putting_skill. Misses are realistic: putts can go past the hole,
+## stop short, or miss laterally. Three-putts are possible.
+##
+## Make rates (at skill=0.95, roughly PGA Tour level):
+##   3 ft (~0.045 tiles): tap-in     5 ft (~0.076 tiles): ~77%
+##  10 ft (~0.15 tiles):  ~45%      20 ft (~0.30 tiles):  ~22%
+##  30 ft (~0.45 tiles):  ~11%      50 ft (~0.76 tiles):  ~3%
 func _calculate_putt(from_precise: Vector2) -> Dictionary:
 	var terrain_grid = GameManager.terrain_grid
 	var course_data = GameManager.course_data
@@ -833,57 +839,50 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 
 	var landing: Vector2
 
-	# Distances in tiles (1 tile = 22 yards = 66 feet):
-	#   0.07 tiles  = ~5 feet   (tap-in gimme)
-	#   0.33 tiles  = ~22 feet  (mid-range)
-	#   0.50 tiles  = ~33 feet  (challenging)
-	#   1.00 tiles  = ~66 feet  (long putt / lag putt)
-	const PUTT_GIMME: float = 0.07  # ~5 feet - automatic tap-in for putts
-
-	if distance < PUTT_GIMME:
-		# Tap-in — ball is already within the cup radius
+	# Step 1: Tap-in check — automatic make within ~3 feet
+	if distance < GolfRules.TAP_IN_DISTANCE:
 		landing = hole_pos
-
-	elif distance < 0.33:
-		# Short putt: ball rolls just past the hole with slight lateral deviation
-		# If landing is within PUTT_GIMME (~5 feet), it drops in
-		var overshoot = randf_range(0.03, 0.15) * (1.2 - putting_skill * 0.4)
-		var lateral = randf_range(-0.1, 0.1) * (1.0 - putting_skill * 0.5)
-		landing = hole_pos + direction * overshoot + perpendicular * lateral
-
-	elif distance < 1.0:
-		# Medium putt (15-45 feet): mostly about distance control
-		var skill_factor = 0.85 + putting_skill * 0.15
-		var progress_ratio = randf_range(0.80, 1.08) * skill_factor
-		progress_ratio = clampf(progress_ratio, 0.60, 1.15)
-		var lateral = randf_range(-0.2, 0.2) * (1.0 - putting_skill * 0.3)
-		landing = from_precise + direction * distance * progress_ratio + perpendicular * lateral
-
 	else:
-		# Long putt / lag putt (45+ feet): goal is to get close, not hole it
-		var skill_factor = 0.80 + putting_skill * 0.20
-		var progress_ratio = randf_range(0.60, 0.90) * skill_factor
-		var lateral = randf_range(-0.35, 0.35) * (1.0 - putting_skill * 0.2)
-		landing = from_precise + direction * distance * progress_ratio + perpendicular * lateral
+		# Step 2: Determine if the putt is made (probability-based)
+		var make_rate = GolfRules.get_putt_make_rate(distance, putting_skill)
+		var is_made = randf() < make_rate
 
-	# CRITICAL: Guarantee every putt makes meaningful progress toward the hole
-	var new_distance = landing.distance_to(hole_pos)
-	if new_distance >= distance:
-		if distance >= 0.33:
-			# Medium/long putt went sideways or backward — force progress
-			var min_progress = 0.30 + putting_skill * 0.20
-			landing = from_precise + direction * distance * min_progress
-		elif new_distance > 0.25:
-			# Short putt miss that ended up unreasonably far — cap it
-			landing = hole_pos + (landing - hole_pos).normalized() * 0.20
+		if is_made:
+			# Putt drops — ball ends up in the hole
+			landing = hole_pos
 		else:
-			# Very short putt that somehow didn't progress — force minimum advance
-			var min_advance = 0.05 + putting_skill * 0.05
-			landing = from_precise + direction * max(distance * 0.5, min_advance)
+			# Putt misses — calculate realistic miss position
+			var miss_chars = GolfRules.get_putt_miss_characteristics(distance, putting_skill)
 
-	# Snap to hole if ball lands within putt gimme distance (~5 feet)
-	if landing.distance_to(hole_pos) < PUTT_GIMME:
-		landing = hole_pos
+			# Distance error: gaussian sample around the hole position
+			# Positive = past the hole, negative = short of the hole
+			var distance_error = _gaussian_random() * miss_chars.distance_std + miss_chars.long_bias
+
+			# Lateral error: gaussian sample for left/right miss
+			var lateral_error = _gaussian_random() * miss_chars.lateral_std
+
+			# Landing point is relative to the hole position (not the start)
+			landing = hole_pos + direction * distance_error + perpendicular * lateral_error
+
+			# Safety: cap miss distance so putts don't end up absurdly far from the hole
+			# For short putts (< 10 ft / 0.15 tiles): miss should be within ~4 ft of hole
+			# For medium putts (10-30 ft): miss should be within ~8 ft of hole
+			# For long putts (30+ ft): miss should be within a reasonable lag range
+			var max_miss_from_hole: float
+			if distance < 0.15:
+				max_miss_from_hole = 0.06 + (1.0 - putting_skill) * 0.04  # ~3-6 ft
+			elif distance < 0.45:
+				max_miss_from_hole = 0.10 + (1.0 - putting_skill) * 0.10  # ~7-13 ft
+			else:
+				max_miss_from_hole = distance * (0.15 + (1.0 - putting_skill) * 0.20)
+
+			var miss_dist = landing.distance_to(hole_pos)
+			if miss_dist > max_miss_from_hole:
+				landing = hole_pos + (landing - hole_pos).normalized() * max_miss_from_hole
+
+			# Snap to hole if the miss accidentally ended up very close (cup radius)
+			if landing.distance_to(hole_pos) < GolfRules.CUP_RADIUS:
+				landing = hole_pos
 
 	# Ensure landing stays on green terrain
 	var landing_tile = Vector2i(landing.round())
@@ -1145,40 +1144,13 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 func _gaussian_random() -> float:
 	return (randf() + randf() + randf() + randf() - 2.0) / 0.5774
 
-## Get lie modifier based on terrain type and club
+## Get lie modifier based on terrain type and club — delegates to GolfRules
 func _get_lie_modifier(terrain_type: int, club: Club) -> float:
-	match terrain_type:
-		TerrainTypes.Type.GRASS, TerrainTypes.Type.FAIRWAY:
-			return 1.0  # Perfect lie
-		TerrainTypes.Type.TEE_BOX:
-			return 1.05 if club == Club.DRIVER else 1.0  # Slight bonus on tee
-		TerrainTypes.Type.GREEN:
-			return 1.0  # Putting surface
-		TerrainTypes.Type.ROUGH:
-			return 0.75  # 25% accuracy penalty
-		TerrainTypes.Type.HEAVY_ROUGH:
-			return 0.5   # 50% accuracy penalty
-		TerrainTypes.Type.BUNKER:
-			# Wedges handle sand better
-			return 0.6 if club == Club.WEDGE else 0.4
-		TerrainTypes.Type.TREES:
-			return 0.3   # Very difficult shot
-		_:
-			return 0.8   # Default penalty
+	return GolfRules.get_lie_modifier(terrain_type, club)
 
-## Get distance modifier based on terrain
+## Get distance modifier based on terrain — delegates to GolfRules
 func _get_terrain_distance_modifier(terrain_type: int) -> float:
-	match terrain_type:
-		TerrainTypes.Type.ROUGH:
-			return 0.85  # 15% distance loss
-		TerrainTypes.Type.HEAVY_ROUGH:
-			return 0.7   # 30% distance loss
-		TerrainTypes.Type.BUNKER:
-			return 0.75  # 25% distance loss
-		TerrainTypes.Type.TREES:
-			return 0.6   # 40% distance loss (punch out)
-		_:
-			return 1.0   # No penalty
+	return GolfRules.get_terrain_distance_modifier(terrain_type)
 
 ## Calculate rollout after ball lands. Returns Dictionary with final_position,
 ## rollout_distance (tiles), and is_backspin flag.
@@ -1367,36 +1339,48 @@ func _estimate_rollout_duration(rollout_tiles: float) -> float:
 	var duration = 0.3 + (screen_dist / 200.0) * 0.8
 	return clampf(duration, 0.2, 1.2)
 
-## Handle hazard penalties (water or OB). Returns true if a penalty was applied.
+## Handle hazard penalties and non-playable terrain. Returns true if relief was applied.
+## Uses GolfRules.get_relief_type() to determine correct USGA-based relief procedure.
 func _handle_hazard_penalty(previous_position: Vector2i) -> bool:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
 		return false
 
 	var landing_terrain = terrain_grid.get_tile(ball_position)
+	var relief_type = GolfRules.get_relief_type(landing_terrain)
 
-	if landing_terrain == TerrainTypes.Type.WATER:
-		# Water: 1 penalty stroke, drop at point of entry no closer to the hole
-		current_strokes += 1
-		var entry_point = _find_water_entry_point(previous_position, ball_position)
-		var drop_position = _find_water_drop_position(entry_point)
-		print("%s: Ball in water! Penalty stroke. Dropping at point of entry. Now on stroke %d" % [golfer_name, current_strokes])
-		EventBus.hazard_penalty.emit(golfer_id, "water", drop_position)
-		show_thought(FeedbackTriggers.TriggerType.HAZARD_WATER)
-		ball_position = drop_position
-		ball_position_precise = Vector2(drop_position)
-		return true
+	if relief_type == GolfRules.ReliefType.NONE:
+		return false
 
-	elif landing_terrain == TerrainTypes.Type.OUT_OF_BOUNDS:
-		# OB: 1 penalty stroke, replay from previous position (stroke and distance)
-		current_strokes += 1
-		print("%s: Ball out of bounds! Penalty stroke. Replaying from previous position. Now on stroke %d" % [golfer_name, current_strokes])
-		EventBus.hazard_penalty.emit(golfer_id, "ob", previous_position)
-		ball_position = previous_position
-		ball_position_precise = Vector2(previous_position)
-		return true
+	var penalty = GolfRules.get_penalty_strokes(landing_terrain)
+	current_strokes += penalty
 
-	return false
+	match relief_type:
+		GolfRules.ReliefType.DROP_AT_ENTRY:
+			# Water/penalty area: drop near point of entry, no closer to hole
+			var entry_point = _find_water_entry_point(previous_position, ball_position)
+			var drop_position = _find_water_drop_position(entry_point)
+			print("%s: Ball in water! Penalty stroke. Dropping at point of entry. Now on stroke %d" % [golfer_name, current_strokes])
+			EventBus.hazard_penalty.emit(golfer_id, "water", drop_position)
+			show_thought(FeedbackTriggers.TriggerType.HAZARD_WATER)
+			ball_position = drop_position
+			ball_position_precise = Vector2(drop_position)
+
+		GolfRules.ReliefType.STROKE_AND_DISTANCE:
+			# OB: replay from previous position (USGA Rule 18.2)
+			print("%s: Ball out of bounds! Penalty stroke. Replaying from previous position. Now on stroke %d" % [golfer_name, current_strokes])
+			EventBus.hazard_penalty.emit(golfer_id, "ob", previous_position)
+			ball_position = previous_position
+			ball_position_precise = Vector2(previous_position)
+
+		GolfRules.ReliefType.FREE_RELIEF:
+			# Ground under repair (flower beds, empty terrain): free drop to nearest playable
+			var drop_position = _find_water_drop_position(ball_position)
+			print("%s: Ball on non-playable ground. Free relief to nearest playable area." % [golfer_name])
+			ball_position = drop_position
+			ball_position_precise = Vector2(drop_position)
+
+	return true
 
 ## Trace the ball's trajectory to find where it first entered water (point of entry).
 ## Uses Bresenham-style line walk from shot origin to water landing position.

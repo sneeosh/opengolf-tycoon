@@ -505,28 +505,16 @@ func _advance_golfer(golfer: Golfer) -> void:
 		# Check if close enough to hole it (use sub-tile precision for putting accuracy)
 		var hole_position = hole_data.hole_position
 
-		# Max stroke limit: double par pickup rule (standard in casual golf)
-		var max_strokes = hole_data.par * 2
+		# Max stroke limit: triple bogey pickup (pace-of-play rule)
+		var max_strokes = GolfRules.get_max_strokes(hole_data.par)
 		if golfer.current_strokes >= max_strokes:
 			print("%s picking up on hole %d (max %d strokes)" % [golfer.golfer_name, golfer.current_hole + 1, max_strokes])
 			golfer.ball_position = hole_position
 			golfer.ball_position_precise = Vector2(hole_position)
 
-		if HoleManager.is_ball_holed(golfer.ball_position_precise, Vector2(hole_position)):
+		if GolfRules.is_ball_holed(golfer.ball_position_precise, Vector2(hole_position)):
 			# Close enough to hole out
-			var score_diff = golfer.current_strokes - hole_data.par
-			var score_name = ""
-			if golfer.current_strokes == 1:
-				score_name = "Hole-in-One"
-			else:
-				match score_diff:
-					-3: score_name = "Albatross"
-					-2: score_name = "Eagle"
-					-1: score_name = "Birdie"
-					0: score_name = "Par"
-					1: score_name = "Bogey"
-					2: score_name = "Double Bogey"
-					_: score_name = "+%d" % score_diff if score_diff > 0 else "%d" % score_diff
+			var score_name = GolfRules.get_score_name(golfer.current_strokes, hole_data.par)
 			print("%s (ID:%d) holes out on hole %d: %d strokes (Par %d) - %s" % [golfer.golfer_name, golfer.golfer_id, golfer.current_hole + 1, golfer.current_strokes, hole_data.par, score_name])
 			EventBus.ball_in_hole.emit(golfer.golfer_id, hole_data.hole_number)
 			golfer.finish_hole(hole_data.par)

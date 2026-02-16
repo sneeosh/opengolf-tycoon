@@ -155,19 +155,9 @@ func _create_hole() -> void:
 	placement_mode = PlacementMode.NONE
 	placement_mode_changed.emit(placement_mode)
 
-## Calculate par based on hole distance
+## Calculate par based on hole distance — delegates to GolfRules
 static func calculate_par(distance_yards: int) -> int:
-	# Standard par calculation based on USGA guidelines
-	# Par 3: < 250 yards
-	# Par 4: 250-470 yards
-	# Par 5: > 470 yards
-
-	if distance_yards < 250:
-		return 3
-	elif distance_yards < 470:
-		return 4
-	else:
-		return 5
+	return GolfRules.calculate_par(distance_yards)
 
 ## Get all holes in the current course
 func get_holes() -> Array:
