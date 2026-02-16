@@ -297,7 +297,7 @@ func _update_weather() -> void:
 		_weather_label.text = "Sunny"
 		return
 
-	var weather_type = weather_system.get("current_weather")
+	var weather_type = weather_system.get("weather_type")
 	if weather_type == null:
 		weather_type = 0
 

@@ -46,7 +46,7 @@ func get_wind_displacement(shot_direction: Vector2, distance_tiles: float, club:
 	if sensitivity == 0.0:
 		return Vector2.ZERO
 
-	var wind_vector = Vector2(cos(wind_direction), sin(wind_direction)) * wind_speed
+	var wind_vector = Vector2(-sin(wind_direction), cos(wind_direction)) * wind_speed
 
 	# Decompose wind into headwind/tailwind and crosswind components
 	var shot_dir_normalized = shot_direction.normalized()
@@ -71,7 +71,7 @@ func get_distance_modifier(shot_direction: Vector2, club: int) -> float:
 	if sensitivity == 0.0:
 		return 1.0
 
-	var wind_vector = Vector2(cos(wind_direction), sin(wind_direction)) * wind_speed
+	var wind_vector = Vector2(-sin(wind_direction), cos(wind_direction)) * wind_speed
 	var shot_dir_normalized = shot_direction.normalized()
 
 	# Dot product: positive = tailwind (wind going same direction as shot)

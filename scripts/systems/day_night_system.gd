@@ -5,6 +5,7 @@ class_name DayNightSystem
 var _canvas_modulate: CanvasModulate = null
 var _current_hour: float = 6.0
 var _weather_tint: Color = Color.WHITE
+var _target_weather_tint: Color = Color.WHITE  # Lerp target for smooth transitions
 
 func _ready() -> void:
 	_canvas_modulate = CanvasModulate.new()
@@ -25,11 +26,15 @@ func _on_hour_changed(hour: float) -> void:
 	_update_tint()
 
 func _on_weather_changed(_weather_type: int, _intensity: float) -> void:
-	# Get weather tint from weather system
+	# Set target weather tint — actual tint will smoothly lerp toward it in _process
 	if GameManager.weather_system:
-		_weather_tint = GameManager.weather_system.get_sky_tint()
+		_target_weather_tint = GameManager.weather_system.get_sky_tint()
 	else:
-		_weather_tint = Color.WHITE
+		_target_weather_tint = Color.WHITE
+
+func _process(delta: float) -> void:
+	# Smoothly interpolate weather tint toward target (prevents jarring color jumps)
+	_weather_tint = _weather_tint.lerp(_target_weather_tint, clampf(delta * 2.0, 0.0, 1.0))
 	_update_tint()
 
 func _update_tint() -> void:

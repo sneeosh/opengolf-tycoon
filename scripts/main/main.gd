@@ -51,6 +51,7 @@ var tournament_panel: TournamentPanel = null
 var land_panel: LandPanel = null
 var marketing_panel: MarketingPanel = null
 var hotkey_panel: HotkeyPanel = null
+var weather_debug_panel: WeatherDebugPanel = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
@@ -151,6 +152,8 @@ func _ready() -> void:
 	_setup_land_panel()
 	_setup_marketing_panel()
 	_setup_hotkey_panel()
+	_setup_weather_debug_panel()
+	_setup_audio_controls()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -190,6 +193,10 @@ func _input(event: InputEvent) -> void:
 		# F1 help works in any mode (including main menu)
 		if event.keycode == KEY_F1:
 			_toggle_hotkey_panel()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_F2:
+			_toggle_weather_debug_panel()
 			get_viewport().set_input_as_handled()
 			return
 
@@ -368,7 +375,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel"]
+	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -411,8 +418,13 @@ func _setup_top_hud_bar() -> void:
 func _setup_rain_overlay() -> void:
 	rain_overlay = RainOverlay.new()
 	rain_overlay.name = "RainOverlay"
-	# Add to the main scene so it renders over everything
-	add_child(rain_overlay)
+	# Use a CanvasLayer so rain renders in screen space (not world space)
+	# This way rain stays visible regardless of camera position/zoom
+	var rain_canvas := CanvasLayer.new()
+	rain_canvas.name = "RainCanvas"
+	rain_canvas.layer = 90  # Above game world, below UI
+	add_child(rain_canvas)
+	rain_canvas.add_child(rain_overlay)
 	if weather_system:
 		rain_overlay.setup(weather_system)
 
@@ -1795,6 +1807,35 @@ func _toggle_marketing_panel() -> void:
 	"""Toggle the marketing panel visibility."""
 	if marketing_panel:
 		_toggle_panel(marketing_panel)
+
+# --- Weather Debug ---
+
+func _setup_weather_debug_panel() -> void:
+	"""Add weather debug panel to the HUD."""
+	var hud = $UI/HUD
+	weather_debug_panel = WeatherDebugPanel.new()
+	weather_debug_panel.name = "WeatherDebugPanel"
+	weather_debug_panel.close_requested.connect(_on_weather_debug_panel_closed)
+	hud.add_child(weather_debug_panel)
+	weather_debug_panel.hide()
+
+func _on_weather_debug_panel_closed() -> void:
+	weather_debug_panel.hide()
+	_active_panel = null
+
+func _toggle_weather_debug_panel() -> void:
+	"""Toggle the weather debug panel."""
+	if weather_debug_panel:
+		_toggle_panel(weather_debug_panel)
+
+# --- Audio Controls ---
+
+func _setup_audio_controls() -> void:
+	"""Add audio volume controls to the bottom bar."""
+	var bottom_bar = $UI/HUD/BottomBar
+	var audio_controls = AudioControls.new()
+	audio_controls.name = "AudioControls"
+	bottom_bar.add_child(audio_controls)
 
 func _exit_tree() -> void:
 	"""Disconnect all signals to prevent memory leaks on scene unload."""

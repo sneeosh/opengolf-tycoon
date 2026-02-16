@@ -29,6 +29,7 @@ var _path_overlay: PathOverlay = null
 var _debug_overlay: TerrainDebugOverlay = null
 var _noise_overlay: TerrainNoiseOverlay = null
 var _land_boundary_overlay: LandBoundaryOverlay = null
+var _wind_flag_overlay: WindFlagOverlay = null
 
 func _ready() -> void:
 	_generate_tileset()
@@ -47,6 +48,7 @@ func _ready() -> void:
 	_setup_debug_overlay()
 	_setup_noise_overlay()
 	_setup_land_boundary_overlay()
+	_setup_wind_flag_overlay()
 
 	# Force a complete redraw after one frame to ensure shader is fully applied
 	# This fixes the issue where initial tiles don't get shader variation
@@ -363,6 +365,12 @@ func _setup_land_boundary_overlay() -> void:
 	_land_boundary_overlay.name = "LandBoundaryOverlay"
 	add_child(_land_boundary_overlay)
 	_land_boundary_overlay.initialize(self)
+
+func _setup_wind_flag_overlay() -> void:
+	_wind_flag_overlay = WindFlagOverlay.new()
+	_wind_flag_overlay.name = "WindFlagOverlay"
+	add_child(_wind_flag_overlay)
+	_wind_flag_overlay.initialize(self)
 
 ## Toggle debug overlay visibility
 func toggle_debug_overlay() -> void:
