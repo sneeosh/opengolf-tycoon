@@ -92,11 +92,8 @@ func _place_green(position: Vector2i) -> bool:
 		print("Green must be at least 5 tiles from tee (110 yards)")
 		return false
 
-	# Paint green tiles in a 5x5 area
-	var green_tiles = GameManager.terrain_grid.get_brush_tiles(position, 2)
-
-	# Check if we can afford it
-	var cost = TerrainTypes.get_placement_cost(TerrainTypes.Type.GREEN) * green_tiles.size()
+	# Place a single green tile — player can expand with terrain brush
+	var cost = TerrainTypes.get_placement_cost(TerrainTypes.Type.GREEN)
 	if not GameManager.can_afford(cost):
 		if GameManager.is_bankrupt():
 			EventBus.notify("Spending blocked! Balance below -$1,000", "error")
@@ -105,8 +102,7 @@ func _place_green(position: Vector2i) -> bool:
 		return false
 
 	# Place the green
-	for tile_pos in green_tiles:
-		GameManager.terrain_grid.set_tile(tile_pos, TerrainTypes.Type.GREEN)
+	GameManager.terrain_grid.set_tile(position, TerrainTypes.Type.GREEN)
 
 	GameManager.modify_money(-cost)
 	pending_green_position = position
