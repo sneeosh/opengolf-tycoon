@@ -43,7 +43,7 @@ const TOOL_SECTIONS = {
 			{"type": TerrainTypes.Type.PATH, "name": "Path", "icon": "[.]", "hotkey": "8", "desc": "Walking path for golfers"},
 			{"type": "tree", "name": "Trees", "icon": "[^]", "hotkey": "T", "desc": "Adds beauty and obstacles"},
 			{"type": "rock", "name": "Rocks", "icon": "[*]", "hotkey": "R", "desc": "Decorative rock formations"},
-			{"type": "flower", "name": "Flower Bed", "icon": "[f]", "hotkey": "", "desc": "Colorful landscaping"},
+			{"type": "flower", "name": "Flower Bed", "icon": "[f]", "hotkey": "F", "desc": "Colorful landscaping"},
 			{"type": "bulldozer", "name": "Bulldozer", "icon": "[D]", "hotkey": "X", "desc": "Removes trees, rocks, flowers"},
 		]
 	},
@@ -353,6 +353,8 @@ func _input(event: InputEvent) -> void:
 				_on_tool_button_pressed("tree")
 			KEY_R:
 				_on_tool_button_pressed("rock")
+			KEY_F:
+				_on_tool_button_pressed("flower")
 			KEY_B:
 				_on_tool_button_pressed("building")
 			KEY_H:
