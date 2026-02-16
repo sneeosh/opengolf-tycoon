@@ -295,7 +295,7 @@ func _draw_rock_ghost(pos: Vector2, color: Color) -> void:
 	draw_circle(pos + Vector2(-3, -6), 4, highlight)
 
 func _draw_building_ghost(pos: Vector2, color: Color) -> void:
-	# Draw a simple building shape
+	# Draw a simple building shape matching actual building dimensions
 	var building_color = color
 	var roof_color = Color(color.r * 0.7, color.g * 0.7, color.b * 0.7, color.a)
 
@@ -306,24 +306,30 @@ func _draw_building_ghost(pos: Vector2, color: Color) -> void:
 		width = max(width, offset.x + 1)
 		height = max(height, offset.y + 1)
 
-	# Scale building visualization
-	var base_width = width * 32.0
-	var building_height = 30.0
+	# Scale building visualization to match actual building dimensions
+	# Buildings use tile_width=64, tile_height=32
+	var base_width = width * 64.0
+	var base_height = height * 32.0
+	# Building visuals extend above their footprint (walls + roof)
+	var building_height = base_height * 0.85
+	var roof_height = base_height * 0.35
 
-	# Base rectangle
+	# Base rectangle (main building body)
 	draw_rect(Rect2(pos.x - base_width/2, pos.y - building_height, base_width, building_height), building_color)
 
-	# Roof (darker)
+	# Roof (darker, triangular)
 	var roof_points = PackedVector2Array([
 		pos + Vector2(-base_width/2, -building_height),
-		pos + Vector2(0, -building_height - 15),
+		pos + Vector2(0, -building_height - roof_height),
 		pos + Vector2(base_width/2, -building_height)
 	])
 	draw_colored_polygon(roof_points, roof_color)
 
-	# Door
+	# Door (scaled proportionally)
+	var door_width = base_width * 0.12
+	var door_height = building_height * 0.4
 	var door_color = Color(0.3, 0.2, 0.1, color.a)
-	draw_rect(Rect2(pos.x - 5, pos.y - 15, 10, 15), door_color)
+	draw_rect(Rect2(pos.x - door_width/2, pos.y - door_height, door_width, door_height), door_color)
 
 func _draw_hole_creation_preview() -> void:
 	"""Draw preview line and info label during green placement"""
