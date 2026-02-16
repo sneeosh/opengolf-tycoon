@@ -37,13 +37,14 @@ const TOOL_SECTIONS = {
 			{"type": TerrainTypes.Type.OUT_OF_BOUNDS, "name": "Out of Bounds", "icon": "[X]", "hotkey": "7", "desc": "Boundary area with stroke penalty"},
 		]
 	},
-	"Paths & Decor": {
+	"Objects & Decor": {
 		"icon": "[.]",
 		"tools": [
 			{"type": TerrainTypes.Type.PATH, "name": "Path", "icon": "[.]", "hotkey": "8", "desc": "Walking path for golfers"},
 			{"type": "tree", "name": "Trees", "icon": "[^]", "hotkey": "T", "desc": "Adds beauty and obstacles"},
 			{"type": "rock", "name": "Rocks", "icon": "[*]", "hotkey": "R", "desc": "Decorative rock formations"},
 			{"type": TerrainTypes.Type.FLOWER_BED, "name": "Flower Bed", "icon": "[f]", "hotkey": "F", "desc": "Colorful landscaping"},
+			{"type": "building", "name": "Buildings", "icon": "[B]", "hotkey": "B", "desc": "Place amenity buildings"},
 			{"type": "bulldozer", "name": "Bulldozer", "icon": "[D]", "hotkey": "X", "desc": "Removes trees, rocks, flowers"},
 		]
 	},
@@ -54,21 +55,10 @@ const TOOL_SECTIONS = {
 			{"type": "lower", "name": "Lower", "icon": "[-]", "hotkey": "-", "desc": "Lower terrain elevation"},
 		]
 	},
-	"Structures": {
-		"icon": "[B]",
-		"tools": [
-			{"type": "building", "name": "Buildings", "icon": "[B]", "hotkey": "B", "desc": "Place amenity buildings"},
-		]
-	},
-	"Hole Tools": {
+	"Course": {
 		"icon": "[H]",
 		"tools": [
 			{"type": "create_hole", "name": "Create Hole", "icon": "[H]", "hotkey": "H", "desc": "Define tee box, green, and flag"},
-		]
-	},
-	"Management": {
-		"icon": "[P]",
-		"tools": [
 			{"type": "staff", "name": "Staff", "icon": "[P]", "hotkey": "P", "desc": "Manage course maintenance staff"},
 		]
 	},
@@ -327,8 +317,8 @@ func _input(event: InputEvent) -> void:
 		match event.keycode:
 			KEY_EQUAL:  # = for Course Terrain
 				_toggle_section("Course Terrain")
-			KEY_PERIOD:  # . for Paths & Decor
-				_toggle_section("Paths & Decor")
+			KEY_PERIOD:  # . for Objects & Decor
+				_toggle_section("Objects & Decor")
 			KEY_MINUS:  # - for lower elevation
 				_on_tool_button_pressed("lower")
 			KEY_1:
@@ -352,11 +342,11 @@ func _input(event: InputEvent) -> void:
 			KEY_R:
 				_on_tool_button_pressed("rock")
 			KEY_F:
-				_on_tool_button_pressed("flower")
+				_on_tool_button_pressed(TerrainTypes.Type.FLOWER_BED)
 			KEY_B:
 				_on_tool_button_pressed("building")
 			KEY_H:
-				_expand_section("Hole Tools")
+				_expand_section("Course")
 				_on_tool_button_pressed("create_hole")
 			KEY_X:
 				_on_tool_button_pressed("bulldozer")
