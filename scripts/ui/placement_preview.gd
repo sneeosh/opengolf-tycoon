@@ -256,7 +256,8 @@ func _draw_entity_ghost(alpha_mod: float) -> void:
 		PlacementManager.PlacementMode.ROCK:
 			_draw_rock_ghost(base_pos, ghost_color)
 		PlacementManager.PlacementMode.BUILDING:
-			_draw_building_ghost(base_pos, ghost_color)
+			var top_left = terrain_grid.grid_to_screen(current_grid_pos)
+			_draw_building_ghost(top_left, ghost_color)
 
 func _draw_tree_ghost(pos: Vector2, color: Color) -> void:
 	# Draw a simple tree shape
@@ -295,41 +296,188 @@ func _draw_rock_ghost(pos: Vector2, color: Color) -> void:
 	draw_circle(pos + Vector2(-3, -6), 4, highlight)
 
 func _draw_building_ghost(pos: Vector2, color: Color) -> void:
-	# Draw a simple building shape matching actual building dimensions
-	var building_color = color
-	var roof_color = Color(color.r * 0.7, color.g * 0.7, color.b * 0.7, color.a)
-
+	# pos is the top-left screen position of the footprint
 	var footprint = placement_manager.get_building_footprint()
-	var width = 1
-	var height = 1
+	var fw = 1
+	var fh = 1
 	for offset in footprint:
-		width = max(width, offset.x + 1)
-		height = max(height, offset.y + 1)
+		fw = max(fw, offset.x + 1)
+		fh = max(fh, offset.y + 1)
 
-	# Scale building visualization to match actual building dimensions
-	# Buildings use tile_width=64, tile_height=32
-	var base_width = width * 64.0
-	var base_height = height * 32.0
-	# Building visuals extend above their footprint (walls + roof)
-	var building_height = base_height * 0.85
-	var roof_height = base_height * 0.35
+	var w = fw * 64.0
+	var h = fh * 32.0
+	var a = color.a
+	var building_type = placement_manager.selected_building_type
 
-	# Base rectangle (main building body)
-	draw_rect(Rect2(pos.x - base_width/2, pos.y - building_height, base_width, building_height), building_color)
+	match building_type:
+		"clubhouse":
+			_draw_ghost_clubhouse(pos, w, h, a)
+		"pro_shop":
+			_draw_ghost_pro_shop(pos, w, h, a)
+		"restaurant":
+			_draw_ghost_restaurant(pos, w, h, a)
+		"snack_bar":
+			_draw_ghost_snack_bar(pos, w, h, a)
+		"driving_range":
+			_draw_ghost_driving_range(pos, w, h, a)
+		"cart_shed":
+			_draw_ghost_cart_shed(pos, w, h, a)
+		"restroom":
+			_draw_ghost_restroom(pos, w, h, a)
+		"bench":
+			_draw_ghost_bench(pos, w, h, a)
+		_:
+			_draw_ghost_generic(pos, w, h, a)
 
-	# Roof (darker, triangular)
-	var roof_points = PackedVector2Array([
-		pos + Vector2(-base_width/2, -building_height),
-		pos + Vector2(0, -building_height - roof_height),
-		pos + Vector2(base_width/2, -building_height)
-	])
-	draw_colored_polygon(roof_points, roof_color)
+func _draw_ghost_clubhouse(pos: Vector2, w: float, h: float, a: float) -> void:
+	var cx = pos.x + w / 2.0
+	# Wall
+	draw_rect(Rect2(pos.x, pos.y + h * 0.18, w, h * 0.82), Color(0.96, 0.94, 0.88, a))
+	# Roof
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(pos.x - 6, pos.y + h * 0.16),
+		Vector2(cx, pos.y - h * 0.22),
+		Vector2(pos.x + w + 6, pos.y + h * 0.16)
+	]), Color(0.52, 0.32, 0.26, a))
+	# Door
+	var dw = w * 0.22
+	draw_rect(Rect2(cx - dw / 2.0, pos.y + h * 0.42, dw, h * 0.58), Color(0.48, 0.3, 0.18, a))
+	# Windows
+	for xr in [0.18, 0.78]:
+		draw_rect(Rect2(pos.x + w * xr - 11, pos.y + h * 0.34, 22, 28), Color(0.6, 0.78, 0.88, a))
 
-	# Door (scaled proportionally)
-	var door_width = base_width * 0.12
-	var door_height = building_height * 0.4
-	var door_color = Color(0.3, 0.2, 0.1, color.a)
-	draw_rect(Rect2(pos.x - door_width/2, pos.y - door_height, door_width, door_height), door_color)
+func _draw_ghost_pro_shop(pos: Vector2, w: float, h: float, a: float) -> void:
+	# White building with green awning
+	draw_rect(Rect2(pos.x, pos.y + h * 0.15, w, h * 0.85), Color(0.95, 0.95, 0.92, a))
+	# Green awning roof
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(pos.x - 3, pos.y + h * 0.12),
+		Vector2(pos.x + w + 3, pos.y + h * 0.12),
+		Vector2(pos.x + w + 5, pos.y + h * 0.2),
+		Vector2(pos.x - 5, pos.y + h * 0.2)
+	]), Color(0.2, 0.5, 0.3, a))
+	# Storefront window
+	draw_rect(Rect2(pos.x + w * 0.1, pos.y + h * 0.3, w * 0.55, h * 0.55), Color(0.75, 0.88, 0.95, a))
+	# Door
+	draw_rect(Rect2(pos.x + w * 0.72, pos.y + h * 0.45, w * 0.2, h * 0.55), Color(0.55, 0.4, 0.25, a))
+
+func _draw_ghost_restaurant(pos: Vector2, w: float, h: float, a: float) -> void:
+	var cx = pos.x + w / 2.0
+	# Warm brick walls
+	draw_rect(Rect2(pos.x, pos.y + h * 0.15, w, h * 0.85), Color(0.75, 0.55, 0.45, a))
+	# Peaked roof
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(pos.x - 3, pos.y + h * 0.15),
+		Vector2(cx, pos.y - h * 0.15),
+		Vector2(pos.x + w + 3, pos.y + h * 0.15)
+	]), Color(0.45, 0.3, 0.25, a))
+	# Warm glowing windows
+	for i in range(3):
+		var xo = pos.x + w * (0.18 + i * 0.28)
+		draw_rect(Rect2(xo - 11, pos.y + h * 0.38, 22, h * 0.29), Color(1.0, 0.9, 0.6, a * 0.9))
+	# Door
+	draw_rect(Rect2(pos.x + w * 0.42, pos.y + h * 0.78, w * 0.16, h * 0.22), Color(0.45, 0.3, 0.2, a))
+
+func _draw_ghost_snack_bar(pos: Vector2, w: float, h: float, a: float) -> void:
+	# Yellow kiosk
+	draw_rect(Rect2(pos.x, pos.y + h * 0.2, w, h * 0.8), Color(0.95, 0.8, 0.3, a))
+	# Red striped awning
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(pos.x - 4, pos.y + h * 0.15),
+		Vector2(pos.x + w + 4, pos.y + h * 0.15),
+		Vector2(pos.x + w + 6, pos.y + h * 0.28),
+		Vector2(pos.x - 6, pos.y + h * 0.28)
+	]), Color(0.9, 0.3, 0.2, a))
+	# White stripes on awning
+	for i in range(5):
+		var x1 = pos.x + i * w / 4.5
+		draw_rect(Rect2(x1, pos.y + h * 0.16, w / 9, h * 0.11), Color(0.95, 0.95, 0.95, a))
+	# Counter window
+	draw_rect(Rect2(pos.x + w * 0.1, pos.y + h * 0.35, w * 0.8, h * 0.4), Color(0.25, 0.2, 0.18, a))
+
+func _draw_ghost_driving_range(pos: Vector2, w: float, h: float, a: float) -> void:
+	# Green turf outfield
+	draw_rect(Rect2(pos.x, pos.y, w, h * 0.35), Color(0.35, 0.65, 0.35, a))
+	# Concrete pad
+	draw_rect(Rect2(pos.x, pos.y + h * 0.35, w, h * 0.65), Color(0.75, 0.72, 0.68, a))
+	# Canopy roof
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(pos.x - 3, pos.y + h * 0.32),
+		Vector2(pos.x + w + 3, pos.y + h * 0.32),
+		Vector2(pos.x + w + 5, pos.y + h * 0.42),
+		Vector2(pos.x - 5, pos.y + h * 0.42)
+	]), Color(0.4, 0.35, 0.3, a))
+	# Hitting mats
+	for i in range(3):
+		var mx = pos.x + w * (0.2 + i * 0.28)
+		draw_rect(Rect2(mx - 18, pos.y + h * 0.55, 36, h * 0.35), Color(0.25, 0.55, 0.3, a))
+
+func _draw_ghost_cart_shed(pos: Vector2, w: float, h: float, a: float) -> void:
+	# Back wall
+	draw_rect(Rect2(pos.x, pos.y + h * 0.15, w, h * 0.45), Color(0.55, 0.48, 0.42, a))
+	# Concrete floor
+	draw_rect(Rect2(pos.x, pos.y + h * 0.6, w, h * 0.4), Color(0.7, 0.68, 0.65, a))
+	# Roof
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(pos.x - 4, pos.y + h * 0.1),
+		Vector2(pos.x + w + 4, pos.y + h * 0.1),
+		Vector2(pos.x + w + 6, pos.y + h * 0.22),
+		Vector2(pos.x - 6, pos.y + h * 0.22)
+	]), Color(0.35, 0.32, 0.28, a))
+	# Golf carts
+	for i in range(2):
+		var cx = pos.x + w * (0.25 + i * 0.45)
+		draw_rect(Rect2(cx - 20, pos.y + h * 0.45, 40, h * 0.4), Color(0.95, 0.95, 0.9, a))
+		draw_rect(Rect2(cx - 18, pos.y + h * 0.35, 36, h * 0.13), Color(0.3, 0.5, 0.35, a))
+
+func _draw_ghost_restroom(pos: Vector2, w: float, h: float, a: float) -> void:
+	# Light gray building
+	draw_rect(Rect2(pos.x, pos.y + h * 0.2, w, h * 0.8), Color(0.88, 0.88, 0.85, a))
+	# Flat roof
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(pos.x - 2, pos.y + h * 0.15),
+		Vector2(pos.x + w + 2, pos.y + h * 0.15),
+		Vector2(pos.x + w + 3, pos.y + h * 0.25),
+		Vector2(pos.x - 3, pos.y + h * 0.25)
+	]), Color(0.45, 0.42, 0.38, a))
+	# Two doors
+	for i in range(2):
+		var dx = pos.x + w * (0.2 + i * 0.45)
+		draw_rect(Rect2(dx - 10, pos.y + h * 0.38, 20, h * 0.62), Color(0.5, 0.45, 0.4, a))
+	# Gender signs
+	draw_rect(Rect2(pos.x + w * 0.15, pos.y + h * 0.45, w * 0.1, h * 0.13), Color(0.3, 0.5, 0.7, a))
+	draw_rect(Rect2(pos.x + w * 0.6, pos.y + h * 0.45, w * 0.1, h * 0.13), Color(0.7, 0.4, 0.5, a))
+
+func _draw_ghost_bench(pos: Vector2, w: float, h: float, a: float) -> void:
+	# Metal frame legs
+	var frame_color = Color(0.25, 0.25, 0.28, a)
+	for xr in [0.18, 0.82]:
+		draw_rect(Rect2(pos.x + w * xr - 4, pos.y + h * 0.25, 8, h * 0.7), frame_color)
+	# Wooden backrest slats
+	for i in range(3):
+		var sy = pos.y + h * (0.28 + i * 0.08)
+		var c = Color(0.55, 0.38, 0.22, a) if i % 2 == 0 else Color(0.65, 0.48, 0.3, a)
+		draw_rect(Rect2(pos.x + w * 0.15, sy, w * 0.7, 5), c)
+	# Wooden seat slats
+	for i in range(3):
+		var sy = pos.y + h * (0.52 + i * 0.1)
+		var c = Color(0.55, 0.38, 0.22, a) if i % 2 == 0 else Color(0.65, 0.48, 0.3, a)
+		draw_rect(Rect2(pos.x + w * 0.12, sy, w * 0.76, 6), c)
+
+func _draw_ghost_generic(pos: Vector2, w: float, h: float, a: float) -> void:
+	# Gray building
+	draw_rect(Rect2(pos.x, pos.y + h * 0.2, w, h * 0.8), Color(0.72, 0.7, 0.68, a))
+	# Flat roof
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(pos.x - 2, pos.y + h * 0.15),
+		Vector2(pos.x + w + 2, pos.y + h * 0.15),
+		Vector2(pos.x + w + 3, pos.y + h * 0.25),
+		Vector2(pos.x - 3, pos.y + h * 0.25)
+	]), Color(0.5, 0.45, 0.4, a))
+	# Window
+	draw_rect(Rect2(pos.x + w * 0.3, pos.y + h * 0.35, w * 0.4, h * 0.25), Color(0.7, 0.82, 0.9, a))
+	# Door
+	draw_rect(Rect2(pos.x + w * 0.4, pos.y + h * 0.65, w * 0.2, h * 0.35), Color(0.45, 0.35, 0.28, a))
 
 func _draw_hole_creation_preview() -> void:
 	"""Draw preview line and info label during green placement"""
