@@ -696,46 +696,35 @@ func _find_best_landing_zone(hole_position: Vector2i, max_distance: float, club:
 	if aggression > 0.7 and distance_to_hole > max_distance * 0.8:
 		target_distance = max_distance
 
-	# Evaluate potential landing zones
+	# Evaluate potential landing zones — scan wide arc to find fairways off the direct line
 	var best_target = hole_position
 	var best_score = -999.0
 
-	# Sample points along the line to the hole
-	var num_samples = 5
-	for i in range(num_samples):
-		var test_distance = target_distance * (0.7 + (i / float(num_samples)) * 0.6)  # 70% to 130% of target
-		var test_position = ball_position + Vector2i(direction_to_hole * test_distance)
-
-		if not terrain_grid.is_valid_position(test_position):
-			continue
-
-		var score = _evaluate_landing_zone(test_position, hole_position, club)
-		if score > best_score:
-			best_score = score
-			best_target = test_position
-
-	# Also consider slight left/right adjustments to avoid hazards
-	for offset_angle in [-0.05, 0.0, 0.05]:  # -3°, 0°, +3° (reduced from ±8.5° for straighter shots)
+	var num_angles = 11  # -15° to +15° in ~3° steps
+	var num_distances = 5
+	for a in range(num_angles):
+		var offset_angle = (-0.26 + (a / float(num_angles - 1)) * 0.52)  # -15° to +15° in radians
 		var adjusted_direction = direction_to_hole.rotated(offset_angle)
-		var test_position = ball_position + Vector2i(adjusted_direction * target_distance)
+		for d in range(num_distances):
+			var test_distance = target_distance * (0.7 + (d / float(num_distances)) * 0.6)
+			var test_position = ball_position + Vector2i(adjusted_direction * test_distance)
 
-		if not terrain_grid.is_valid_position(test_position):
-			continue
+			if not terrain_grid.is_valid_position(test_position):
+				continue
 
-		# AI compensates for wind: evaluate where ball will actually land
-		var eval_position = test_position
-		if GameManager.wind_system:
-			var wind_disp = GameManager.wind_system.get_wind_displacement(adjusted_direction, target_distance, club)
-			# Better players compensate more accurately
-			var compensation = wind_disp * accuracy_skill * 0.7
-			eval_position = Vector2i(Vector2(test_position) + wind_disp - compensation)
-			if not terrain_grid.is_valid_position(eval_position):
-				eval_position = test_position
+			# AI compensates for wind: evaluate where ball will actually land
+			var eval_position = test_position
+			if GameManager.wind_system:
+				var wind_disp = GameManager.wind_system.get_wind_displacement(adjusted_direction, test_distance, club)
+				var compensation = wind_disp * accuracy_skill * 0.7
+				eval_position = Vector2i(Vector2(test_position) + wind_disp - compensation)
+				if not terrain_grid.is_valid_position(eval_position):
+					eval_position = test_position
 
-		var score = _evaluate_landing_zone(eval_position, hole_position, club)
-		if score > best_score:
-			best_score = score
-			best_target = test_position
+			var score = _evaluate_landing_zone(eval_position, hole_position, club)
+			if score > best_score:
+				best_score = score
+				best_target = test_position
 
 	return best_target
 
@@ -752,26 +741,29 @@ func _evaluate_landing_zone(position: Vector2i, hole_position: Vector2i, club: C
 	var terrain_type = terrain_grid.get_tile(position)
 	var score = 0.0
 
-	# Score based on terrain type
+	# Score based on terrain type — big gaps so terrain preference isn't
+	# overwhelmed by the distance-to-hole bonus
 	match terrain_type:
 		TerrainTypes.Type.FAIRWAY:
-			score += 100.0  # Best landing zone
+			score += 150.0  # Best landing zone
 		TerrainTypes.Type.GREEN:
-			score += 120.0  # Even better if we can reach green
+			score += 170.0  # Even better if we can reach green
+		TerrainTypes.Type.TEE_BOX:
+			score += 130.0  # Tee box is maintained ground
 		TerrainTypes.Type.GRASS:
-			score += 80.0   # Decent
+			score += 40.0   # Playable but much worse than fairway
 		TerrainTypes.Type.ROUGH:
-			score += 30.0   # Not ideal
+			score += 10.0   # Not ideal
 		TerrainTypes.Type.HEAVY_ROUGH:
-			score += 10.0   # Bad
+			score -= 20.0   # Bad
 		TerrainTypes.Type.BUNKER:
-			score -= 20.0   # Avoid if possible
+			score -= 50.0   # Avoid if possible
 		TerrainTypes.Type.WATER:
 			score -= 1000.0 # Avoid at all costs!
 		TerrainTypes.Type.OUT_OF_BOUNDS:
 			score -= 1000.0 # Never go OB
 		TerrainTypes.Type.TREES:
-			score -= 50.0   # Avoid trees
+			score -= 80.0   # Avoid trees
 
 	# Bonus for getting closer to hole
 	var distance_to_hole = Vector2(position).distance_to(Vector2(hole_position))

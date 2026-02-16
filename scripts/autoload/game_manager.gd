@@ -20,7 +20,7 @@ var current_hour: float = 6.0
 const REPUTATION_DAILY_DECAY: float = 0.5  # -0.5 rep/day (need steady golfer flow to maintain)
 
 # Green fee pricing
-var green_fee: int = 30  # Default $30 per golfer
+var green_fee: int = 10  # Default $10/hole (auto-clamped by hole count)
 const MIN_GREEN_FEE: int = 10
 const MAX_GREEN_FEE: int = 200
 
@@ -120,6 +120,10 @@ func _ready() -> void:
 	EventBus.green_fee_paid.connect(_on_green_fee_paid_for_stats)
 	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole_for_stats)
 	EventBus.golfer_finished_round.connect(_on_golfer_finished_round_for_stats)
+	EventBus.hole_created.connect(_on_hole_created_for_fee_clamp)
+
+func _on_hole_created_for_fee_clamp(_hole_number: int, _par: int, _distance: int) -> void:
+	clamp_green_fee_to_max()
 
 func _on_green_fee_paid_for_stats(_golfer_id: int, _golfer_name: String, amount: int) -> void:
 	daily_stats.record_green_fee(amount)
@@ -249,11 +253,11 @@ func get_effective_max_green_fee() -> int:
 	# $15 per hole, minimum $10
 	return max(MIN_GREEN_FEE, min(holes * 15, MAX_GREEN_FEE))
 
-func get_total_green_fee() -> int:
-	"""Get the total green fee a golfer pays (per-hole fee x number of open holes).
-	This is what a golfer actually pays for a round."""
-	var holes = get_open_hole_count()
-	return green_fee * max(holes, 1)
+func clamp_green_fee_to_max() -> void:
+	"""Re-clamp green fee after hole count changes."""
+	var effective_max = get_effective_max_green_fee()
+	if green_fee > effective_max:
+		set_green_fee(effective_max)
 
 func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
 	"""Process a golfer's green fee payment and return success.
@@ -322,6 +326,7 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 	# Apply theme gameplay modifiers
 	var modifiers = CourseTheme.get_gameplay_modifiers(theme)
 	green_fee = modifiers.get("green_fee_baseline", 30)
+	clamp_green_fee_to_max()  # Clamp to what current hole count allows
 
 	_closing_announced = false
 	_end_of_day_triggered = false
@@ -447,6 +452,8 @@ func _exit_tree() -> void:
 		EventBus.golfer_finished_hole.disconnect(_on_golfer_finished_hole_for_stats)
 	if EventBus.golfer_finished_round.is_connected(_on_golfer_finished_round_for_stats):
 		EventBus.golfer_finished_round.disconnect(_on_golfer_finished_round_for_stats)
+	if EventBus.hole_created.is_connected(_on_hole_created_for_fee_clamp):
+		EventBus.hole_created.disconnect(_on_hole_created_for_fee_clamp)
 
 class CourseData:
 	var name: String = "New Course"

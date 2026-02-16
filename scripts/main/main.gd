@@ -24,9 +24,6 @@ var day_label: Label = null
 var reputation_label: Label = null
 var game_mode_label: Label = null
 var build_mode_btn: Button = null
-var green_fee_label: Label = null
-var green_fee_decrease_btn: Button = null
-var green_fee_increase_btn: Button = null
 var selection_label: Label = null
 
 var current_tool: int = -1  # Start with no tool selected

@@ -121,32 +121,23 @@ static func _find_best_landing_zone(from_pos: Vector2i, hole_position: Vector2i,
 	var best_target: Vector2i = hole_position
 	var best_score: float = -999.0
 
-	# Sample points along the line to the hole (70% to 130% of target distance)
-	var num_samples: int = 5
-	for i in range(num_samples):
-		var test_distance: float = target_distance * (0.7 + (i / float(num_samples)) * 0.6)
-		var test_position: Vector2i = from_pos + Vector2i(direction_to_hole * test_distance)
-
-		if not terrain_grid.is_valid_position(test_position):
-			continue
-
-		var score: float = _evaluate_landing_zone(from_pos, test_position, hole_position, club, terrain_grid)
-		if score > best_score:
-			best_score = score
-			best_target = test_position
-
-	# Also consider slight left/right adjustments to avoid hazards (-3°, 0°, +3°)
-	for offset_angle in [-0.05, 0.0, 0.05]:
+	# Scan a wide arc (±15°) at multiple distances to find fairways off the direct line
+	var num_angles: int = 11  # -15° to +15° in ~3° steps
+	var num_distances: int = 5
+	for a in range(num_angles):
+		var offset_angle: float = (-0.26 + (a / float(num_angles - 1)) * 0.52)  # -15° to +15° in radians
 		var adjusted_direction: Vector2 = direction_to_hole.rotated(offset_angle)
-		var test_position: Vector2i = from_pos + Vector2i(adjusted_direction * target_distance)
+		for d in range(num_distances):
+			var test_distance: float = target_distance * (0.7 + (d / float(num_distances)) * 0.6)
+			var test_position: Vector2i = from_pos + Vector2i(adjusted_direction * test_distance)
 
-		if not terrain_grid.is_valid_position(test_position):
-			continue
+			if not terrain_grid.is_valid_position(test_position):
+				continue
 
-		var score: float = _evaluate_landing_zone(from_pos, test_position, hole_position, club, terrain_grid)
-		if score > best_score:
-			best_score = score
-			best_target = test_position
+			var score: float = _evaluate_landing_zone(from_pos, test_position, hole_position, club, terrain_grid)
+			if score > best_score:
+				best_score = score
+				best_target = test_position
 
 	return best_target
 

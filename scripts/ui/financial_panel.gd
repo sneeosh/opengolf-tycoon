@@ -8,17 +8,17 @@ var _content_vbox: VBoxContainer = null
 var _scroll: ScrollContainer = null
 
 func _build_ui() -> void:
-	custom_minimum_size = Vector2(320, 450)
+	custom_minimum_size = Vector2(360, 620)
 
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 12)
 	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
 	add_child(margin)
 
 	var main_vbox = VBoxContainer.new()
-	main_vbox.add_theme_constant_override("separation", 8)
+	main_vbox.add_theme_constant_override("separation", 4)
 	margin.add_child(main_vbox)
 
 	# Title row with close button
@@ -42,11 +42,11 @@ func _build_ui() -> void:
 	# Scrollable content area
 	_scroll = ScrollContainer.new()
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_scroll.custom_minimum_size = Vector2(0, 350)
+	_scroll.custom_minimum_size = Vector2(0, 530)
 	main_vbox.add_child(_scroll)
 
 	_content_vbox = VBoxContainer.new()
-	_content_vbox.add_theme_constant_override("separation", 6)
+	_content_vbox.add_theme_constant_override("separation", 3)
 	_content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_content_vbox)
 
@@ -61,7 +61,7 @@ func update_display() -> void:
 	# Current Balance
 	var balance_label = Label.new()
 	balance_label.text = "Current Balance"
-	balance_label.add_theme_font_size_override("font_size", 14)
+	balance_label.add_theme_font_size_override("font_size", 13)
 	_content_vbox.add_child(balance_label)
 
 	var balance_row = _create_stat_row("Cash:", "$%d" % GameManager.money, Color(1.0, 1.0, 1.0))
@@ -70,7 +70,7 @@ func update_display() -> void:
 	# Green Fee control
 	var fee_row = HBoxContainer.new()
 	var fee_label = Label.new()
-	fee_label.text = "Green Fee:"
+	fee_label.text = "Fee/hole:"
 	fee_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	fee_row.add_child(fee_label)
 
@@ -81,8 +81,8 @@ func update_display() -> void:
 	fee_row.add_child(fee_decrease)
 
 	var fee_value = Label.new()
-	fee_value.text = "$%d" % GameManager.green_fee
-	fee_value.custom_minimum_size = Vector2(50, 0)
+	fee_value.text = "$%d/hole" % GameManager.green_fee
+	fee_value.custom_minimum_size = Vector2(70, 0)
 	fee_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	fee_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	fee_value.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
@@ -96,12 +96,22 @@ func update_display() -> void:
 
 	_content_vbox.add_child(fee_row)
 
+	# Show round cost and fee cap
+	var holes = GameManager.get_open_hole_count()
+	var total_cost = GameManager.green_fee * max(holes, 1)
+	var max_fee = GameManager.get_effective_max_green_fee()
+	var fee_info = Label.new()
+	fee_info.text = "  Round: $%d (%d holes) | Max: $%d/hole" % [total_cost, max(holes, 1), max_fee]
+	fee_info.add_theme_font_size_override("font_size", 11)
+	fee_info.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	_content_vbox.add_child(fee_info)
+
 	_content_vbox.add_child(HSeparator.new())
 
 	# Today's Revenue
 	var revenue_label = Label.new()
 	revenue_label.text = "Today's Revenue"
-	revenue_label.add_theme_font_size_override("font_size", 14)
+	revenue_label.add_theme_font_size_override("font_size", 13)
 	_content_vbox.add_child(revenue_label)
 
 	var dim_green = Color(0.5, 0.8, 0.5)
@@ -120,7 +130,7 @@ func update_display() -> void:
 	# Today's Costs
 	var costs_label = Label.new()
 	costs_label.text = "Today's Costs"
-	costs_label.add_theme_font_size_override("font_size", 14)
+	costs_label.add_theme_font_size_override("font_size", 13)
 	_content_vbox.add_child(costs_label)
 
 	var dim_color = Color(0.7, 0.7, 0.7)
@@ -155,7 +165,7 @@ func update_display() -> void:
 
 		var compare_label = Label.new()
 		compare_label.text = "Yesterday's Results"
-		compare_label.add_theme_font_size_override("font_size", 14)
+		compare_label.add_theme_font_size_override("font_size", 13)
 		_content_vbox.add_child(compare_label)
 
 		var yest_rev = yesterday.get_total_revenue()
@@ -190,7 +200,7 @@ func update_display() -> void:
 	# Reputation
 	var rep_label = Label.new()
 	rep_label.text = "Course Status"
-	rep_label.add_theme_font_size_override("font_size", 14)
+	rep_label.add_theme_font_size_override("font_size", 13)
 	_content_vbox.add_child(rep_label)
 
 	var reputation = GameManager.reputation
@@ -208,7 +218,7 @@ func update_display() -> void:
 
 		var rating_label = Label.new()
 		rating_label.text = "Official Ratings"
-		rating_label.add_theme_font_size_override("font_size", 14)
+		rating_label.add_theme_font_size_override("font_size", 13)
 		_content_vbox.add_child(rating_label)
 
 		# Hole count for context
