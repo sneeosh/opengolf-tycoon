@@ -30,6 +30,10 @@ const TERRAIN_COLORS: Dictionary = {
 	8: Color(0.15, 0.15, 0.15),   # OUT_OF_BOUNDS - dark
 }
 
+# Land boundary colors
+const BOUNDARY_COLOR = Color(0.9, 0.6, 0.2, 1.0)  # Orange/gold property line
+const UNOWNED_TINT = Color(0.3, 0.2, 0.2, 0.4)    # Subtle dark tint on unowned
+
 func _ready() -> void:
 	custom_minimum_size = Vector2(MAP_SIZE + BORDER_WIDTH * 2, MAP_SIZE + BORDER_WIDTH * 2)
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -44,8 +48,27 @@ func setup(terrain_grid: TerrainGrid, entity_layer, golfer_manager) -> void:
 	if terrain_grid:
 		terrain_grid.tile_changed.connect(_on_terrain_changed)
 
+	# Connect to land manager for property line updates
+	call_deferred("_connect_land_signals")
+
 func _on_terrain_changed(_pos: Vector2i, _old_type: int, _new_type: int) -> void:
 	_needs_redraw = true
+
+func _connect_land_signals() -> void:
+	# Connect to land manager signals (deferred to ensure manager exists)
+	if GameManager.land_manager:
+		if not GameManager.land_manager.land_purchased.is_connected(_on_land_purchased):
+			GameManager.land_manager.land_purchased.connect(_on_land_purchased)
+		if not GameManager.land_manager.land_boundary_changed.is_connected(_on_land_boundary_changed):
+			GameManager.land_manager.land_boundary_changed.connect(_on_land_boundary_changed)
+
+func _on_land_purchased(_parcel: Vector2i) -> void:
+	_needs_redraw = true
+	queue_redraw()
+
+func _on_land_boundary_changed() -> void:
+	_needs_redraw = true
+	queue_redraw()
 
 func set_camera_rect(viewport_rect: Rect2, grid_width: int, grid_height: int) -> void:
 	# Convert screen rect to normalized coordinates (0-1)
@@ -96,6 +119,9 @@ func _draw() -> void:
 	# Draw map texture
 	if _map_texture:
 		draw_texture(_map_texture, Vector2(BORDER_WIDTH, BORDER_WIDTH))
+
+	# Draw land boundary (property lines)
+	_draw_land_boundary()
 
 	# Draw holes (tees and greens)
 	_draw_holes()
@@ -165,6 +191,88 @@ func _draw_camera_rect() -> void:
 	# Draw viewport rectangle outline
 	var rect = Rect2(rect_pos, rect_size)
 	draw_rect(rect, Color(1, 1, 1, 0.8), false, 2.0)
+
+func _draw_land_boundary() -> void:
+	if not GameManager.land_manager or not _terrain_grid:
+		return
+
+	var lm = GameManager.land_manager
+	var parcel_size = lm.PARCEL_SIZE  # 20 tiles per parcel
+	var parcels_per_side = lm.PARCELS_PER_SIDE  # 6x6 parcels
+
+	# Draw tint on unowned parcels
+	for px in range(parcels_per_side):
+		for py in range(parcels_per_side):
+			var parcel_pos = Vector2i(px, py)
+			if not lm.is_parcel_owned(parcel_pos):
+				# Calculate parcel bounds in map pixels
+				var grid_start = Vector2i(px * parcel_size, py * parcel_size)
+				var grid_end = Vector2i((px + 1) * parcel_size, (py + 1) * parcel_size)
+				var map_start = _grid_to_map_pos(grid_start)
+				var map_end = _grid_to_map_pos(grid_end)
+				var rect = Rect2(map_start, map_end - map_start)
+				draw_rect(rect, UNOWNED_TINT)
+
+	# Draw property lines at parcel boundaries
+	for px in range(parcels_per_side):
+		for py in range(parcels_per_side):
+			var parcel_pos = Vector2i(px, py)
+			var is_owned = lm.is_parcel_owned(parcel_pos)
+			if not is_owned:
+				continue  # Only draw borders from owned side
+
+			var grid_x = px * parcel_size
+			var grid_y = py * parcel_size
+
+			# Check right neighbor
+			if px < parcels_per_side - 1:
+				var right = Vector2i(px + 1, py)
+				if not lm.is_parcel_owned(right):
+					var start = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y))
+					var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y + parcel_size))
+					draw_line(start, end, BOUNDARY_COLOR, 1.5)
+
+			# Check bottom neighbor
+			if py < parcels_per_side - 1:
+				var bottom = Vector2i(px, py + 1)
+				if not lm.is_parcel_owned(bottom):
+					var start = _grid_to_map_pos(Vector2i(grid_x, grid_y + parcel_size))
+					var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y + parcel_size))
+					draw_line(start, end, BOUNDARY_COLOR, 1.5)
+
+			# Check left neighbor
+			if px > 0:
+				var left = Vector2i(px - 1, py)
+				if not lm.is_parcel_owned(left):
+					var start = _grid_to_map_pos(Vector2i(grid_x, grid_y))
+					var end = _grid_to_map_pos(Vector2i(grid_x, grid_y + parcel_size))
+					draw_line(start, end, BOUNDARY_COLOR, 1.5)
+
+			# Check top neighbor
+			if py > 0:
+				var top = Vector2i(px, py - 1)
+				if not lm.is_parcel_owned(top):
+					var start = _grid_to_map_pos(Vector2i(grid_x, grid_y))
+					var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y))
+					draw_line(start, end, BOUNDARY_COLOR, 1.5)
+
+			# Draw border at map edges for owned edge parcels
+			if px == 0:
+				var start = _grid_to_map_pos(Vector2i(grid_x, grid_y))
+				var end = _grid_to_map_pos(Vector2i(grid_x, grid_y + parcel_size))
+				draw_line(start, end, BOUNDARY_COLOR, 1.5)
+			if py == 0:
+				var start = _grid_to_map_pos(Vector2i(grid_x, grid_y))
+				var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y))
+				draw_line(start, end, BOUNDARY_COLOR, 1.5)
+			if px == parcels_per_side - 1:
+				var start = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y))
+				var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y + parcel_size))
+				draw_line(start, end, BOUNDARY_COLOR, 1.5)
+			if py == parcels_per_side - 1:
+				var start = _grid_to_map_pos(Vector2i(grid_x, grid_y + parcel_size))
+				var end = _grid_to_map_pos(Vector2i(grid_x + parcel_size, grid_y + parcel_size))
+				draw_line(start, end, BOUNDARY_COLOR, 1.5)
 
 func _grid_to_map_pos(grid_pos: Vector2i) -> Vector2:
 	if not _terrain_grid:
