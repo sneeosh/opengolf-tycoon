@@ -54,6 +54,7 @@ var tournament_panel: TournamentPanel = null
 var land_panel: LandPanel = null
 var marketing_panel: MarketingPanel = null
 var hotkey_panel: HotkeyPanel = null
+var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 var bulldozer_mode: bool = false
@@ -481,6 +482,18 @@ func _update_selection_indicator() -> void:
 
 	selection_label.text = text
 	selection_label.add_theme_color_override("font_color", color)
+
+func _toggle_panel(panel: CenteredPanel) -> void:
+	"""Toggle a panel with mutual exclusion — opening one closes the previous."""
+	if panel == _active_panel and panel.visible:
+		panel.hide()
+		_active_panel = null
+		return
+	# Close the currently open panel (if different)
+	if _active_panel and _active_panel != panel and _active_panel.visible:
+		_active_panel.hide()
+	_active_panel = panel
+	panel.toggle()
 
 func _on_mode_toggle_pressed() -> void:
 	"""Toggle between build and simulation modes."""
@@ -1459,30 +1472,24 @@ func _setup_financial_panel() -> void:
 
 func _on_money_clicked() -> void:
 	## Toggle the financial panel when money is clicked.
-	financial_panel.toggle()
-	if financial_panel.visible:
-		# Center the panel on screen using actual size
-		var viewport_size = get_viewport().get_visible_rect().size
-		var panel_size = financial_panel.get_combined_minimum_size()
-		financial_panel.position = (viewport_size - panel_size) / 2
+	_toggle_panel(financial_panel)
 
 func _on_financial_panel_closed() -> void:
 	"""Hide the financial panel."""
 	financial_panel.hide()
+	if _active_panel == financial_panel:
+		_active_panel = null
 
 func _on_staff_pressed() -> void:
 	## Toggle staff management panel.
 	if staff_panel:
-		staff_panel.toggle()
-		if staff_panel.visible:
-			# Center the panel on screen using actual size
-			var viewport_size = get_viewport().get_visible_rect().size
-			var panel_size = staff_panel.get_combined_minimum_size()
-			staff_panel.position = (viewport_size - panel_size) / 2
+		_toggle_panel(staff_panel)
 
 func _on_staff_panel_closed() -> void:
 	"""Hide the staff panel."""
 	staff_panel.hide()
+	if _active_panel == staff_panel:
+		_active_panel = null
 
 # --- Mini Map ---
 
@@ -1544,6 +1551,8 @@ func _setup_hole_stats_panel() -> void:
 func _on_hole_stats_panel_closed() -> void:
 	"""Hide the hole stats panel."""
 	hole_stats_panel.hide()
+	if _active_panel == hole_stats_panel:
+		_active_panel = null
 
 func _on_hole_stats_selected(hole_number: int) -> void:
 	"""Highlight hole on course and move camera to it."""
@@ -1566,10 +1575,11 @@ func _show_hole_stats(hole_number: int) -> void:
 
 	for hole in GameManager.current_course.holes:
 		if hole.hole_number == hole_number:
+			# Close any active panel first
+			if _active_panel and _active_panel.visible:
+				_active_panel.hide()
 			hole_stats_panel.show_for_hole(hole)
-			# Center the panel on screen
-			var viewport_size = get_viewport().get_visible_rect().size
-			hole_stats_panel.position = (viewport_size - hole_stats_panel.custom_minimum_size) / 2
+			_active_panel = hole_stats_panel
 			break
 
 # --- Tournament Panel ---
@@ -1596,14 +1606,12 @@ func _setup_tournament_panel() -> void:
 func _on_tournament_panel_closed() -> void:
 	"""Hide the tournament panel."""
 	tournament_panel.hide()
+	if _active_panel == tournament_panel:
+		_active_panel = null
 
 func _toggle_tournament_panel() -> void:
 	"""Toggle the tournament panel visibility."""
-	tournament_panel.toggle()
-	if tournament_panel.visible:
-		# Center the panel on screen
-		var viewport_size = get_viewport().get_visible_rect().size
-		tournament_panel.position = (viewport_size - tournament_panel.custom_minimum_size) / 2
+	_toggle_panel(tournament_panel)
 
 func _toggle_terrain_debug_overlay() -> void:
 	"""Toggle the terrain debug overlay (F3)."""
@@ -1634,15 +1642,13 @@ func _setup_land_panel() -> void:
 func _on_land_panel_closed() -> void:
 	"""Hide the land panel."""
 	land_panel.hide()
+	if _active_panel == land_panel:
+		_active_panel = null
 
 func _toggle_land_panel() -> void:
 	"""Toggle the land panel visibility."""
 	if land_panel:
-		land_panel.toggle()
-		if land_panel.visible:
-			var viewport_size = get_viewport().get_visible_rect().size
-			var panel_size = land_panel.get_combined_minimum_size()
-			land_panel.position = (viewport_size - panel_size) / 2
+		_toggle_panel(land_panel)
 
 # --- Marketing Panel ---
 
@@ -1668,6 +1674,8 @@ func _setup_marketing_panel() -> void:
 func _on_marketing_panel_closed() -> void:
 	"""Hide the marketing panel."""
 	marketing_panel.hide()
+	if _active_panel == marketing_panel:
+		_active_panel = null
 
 # --- Hotkey Panel ---
 
@@ -1683,16 +1691,12 @@ func _setup_hotkey_panel() -> void:
 func _toggle_hotkey_panel() -> void:
 	"""Toggle the hotkey reference panel."""
 	if hotkey_panel:
-		hotkey_panel.toggle()
+		_toggle_panel(hotkey_panel)
 
 func _toggle_marketing_panel() -> void:
 	"""Toggle the marketing panel visibility."""
 	if marketing_panel:
-		marketing_panel.toggle()
-		if marketing_panel.visible:
-			var viewport_size = get_viewport().get_visible_rect().size
-			var panel_size = marketing_panel.get_combined_minimum_size()
-			marketing_panel.position = (viewport_size - panel_size) / 2
+		_toggle_panel(marketing_panel)
 
 func _exit_tree() -> void:
 	"""Disconnect all signals to prevent memory leaks on scene unload."""
