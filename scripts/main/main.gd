@@ -29,7 +29,7 @@ var green_fee_decrease_btn: Button = null
 var green_fee_increase_btn: Button = null
 var selection_label: Label = null
 
-var current_tool: int = TerrainTypes.Type.FAIRWAY
+var current_tool: int = -1  # Start with no tool selected
 var brush_size: int = 1
 var is_painting: bool = false
 var last_paint_pos: Vector2i = Vector2i(-1, -1)
@@ -320,10 +320,12 @@ func _on_main_menu_new_game(course_name: String, theme_type: int) -> void:
 	var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
 	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
 	camera.focus_on(Vector2(center_x, center_y), true)
-	# Initialize terrain painting preview with default tool
+	# Start with no tool selected — player chooses their first action
+	current_tool = -1
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
 	if placement_preview:
-		placement_preview.set_terrain_tool(current_tool)
-		placement_preview.set_terrain_painting_enabled(true)
+		placement_preview.set_terrain_painting_enabled(false)
 
 func _on_main_menu_load() -> void:
 	if main_menu:
@@ -687,23 +689,32 @@ func _paint_at_mouse() -> void:
 func _cancel_action() -> void:
 	is_painting = false
 	last_paint_pos = Vector2i(-1, -1)
+
+	# Two-tier cancel: first ESC cancels the active operation, second deselects tool
+	var had_active_operation = false
+
 	if bulldozer_mode:
 		_cancel_bulldozer_mode()
-		print("Cancelled bulldozer mode")
+		had_active_operation = true
 	if elevation_tool.is_active():
 		_cancel_elevation_mode()
-		print("Cancelled elevation mode")
+		had_active_operation = true
 	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
 		placement_manager.cancel_placement()
-		print("Cancelled placement mode")
+		had_active_operation = true
 	if hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
 		hole_tool.cancel_placement()
-		print("Cancelled hole placement")
-	# Enter null selector state - deselect terrain tool
-	if terrain_toolbar:
+		had_active_operation = true
+
+	if had_active_operation:
+		# First ESC: cancelled the active operation, keep terrain tool selected
+		return
+
+	# Second ESC (or no active operation): deselect terrain tool entirely
+	if terrain_toolbar and terrain_toolbar.has_selection():
 		terrain_toolbar.clear_selection()
-	_disable_terrain_painting_preview()
-	print("Deselected all tools (null selector mode)")
+		_disable_terrain_painting_preview()
+		return
 
 func _has_active_tool() -> bool:
 	"""Check if any tool is currently active (not in null selector state)"""
