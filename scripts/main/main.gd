@@ -55,6 +55,8 @@ var _active_panel: CenteredPanel = null  # Tracks the currently open panel to pr
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
 var bulldozer_mode: bool = false
+var _bulldoze_drag_count: int = 0
+var _bulldoze_drag_cost: int = 0
 var placement_preview: PlacementPreview = null
 var main_menu: MainMenu = null
 
@@ -239,6 +241,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if is_painting and event is InputEventMouseMotion:
 		if elevation_tool.is_active():
 			_paint_elevation_at_mouse()
+		elif bulldozer_mode:
+			_bulldoze_at_mouse()
 		else:
 			_paint_at_mouse()
 
@@ -599,11 +603,12 @@ func _start_painting() -> void:
 	if not _has_active_tool():
 		return
 
-	# Check if we're in bulldozer mode
+	# Check if we're in bulldozer mode — supports click-and-drag
 	if bulldozer_mode:
-		var mouse_world = camera.get_mouse_world_position()
-		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
-		_handle_bulldozer_click(grid_pos)
+		is_painting = true
+		_bulldoze_drag_count = 0
+		_bulldoze_drag_cost = 0
+		_bulldoze_at_mouse()
 		return
 
 	# Check if we're in placement mode (building or tree)
@@ -634,6 +639,9 @@ func _start_painting() -> void:
 	_paint_at_mouse()
 
 func _stop_painting() -> void:
+	# Show bulldozer drag summary if items were cleared
+	if bulldozer_mode and _bulldoze_drag_count > 0:
+		EventBus.notify("Cleared %d item%s (-$%d)" % [_bulldoze_drag_count, "s" if _bulldoze_drag_count != 1 else "", _bulldoze_drag_cost], "info")
 	is_painting = false
 	last_paint_pos = Vector2i(-1, -1)
 	if not elevation_tool.is_active():
@@ -1162,6 +1170,28 @@ func _play_placement_feedback(grid_pos: Vector2i, placement_type: String) -> voi
 	# Sound hook (placeholder for future audio)
 	PlacementFeedback.play_placement_sound(placement_type)
 
+func _is_mouse_over_entity(mouse_world: Vector2, entity: Node2D, entity_data: Dictionary) -> bool:
+	"""Check if mouse world position overlaps the entity's visual bounding box."""
+	var vh = entity_data.get("visual_height", 32.0)
+	var bw = entity_data.get("base_width", 24.0)
+	var scale_mult = 1.0
+	if entity.has_meta("_variation") or "_variation" in entity:
+		var variation = entity.get("_variation")
+		if variation:
+			scale_mult = variation.scale
+	var half_w = bw * scale_mult * 0.5
+	var local = mouse_world - entity.global_position
+	# Visual polygons: x centered at 0 (±half_w), y from -vh*0.7 (canopy top) to +vh*0.6 (trunk base)
+	return local.x >= -half_w and local.x <= half_w and local.y >= -vh * scale_mult * 0.7 and local.y <= vh * scale_mult * 0.6
+
+func _bulldoze_at_mouse() -> void:
+	var mouse_world = camera.get_mouse_world_position()
+	var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+	if grid_pos == last_paint_pos: return
+	last_paint_pos = grid_pos
+	if not terrain_grid.is_valid_position(grid_pos): return
+	_handle_bulldozer_click(grid_pos, mouse_world)
+
 # Bulldozer removal costs
 const BULLDOZER_COSTS = {
 	"tree": 15,
@@ -1169,58 +1199,95 @@ const BULLDOZER_COSTS = {
 	"flower_bed": 20
 }
 
-func _handle_bulldozer_click(grid_pos: Vector2i) -> void:
-	"""Handle bulldozer click - remove trees, rocks, or flower beds"""
-	# Check for tree at position
-	var tree = entity_layer.get_tree_at(grid_pos)
-	if tree:
+func _handle_bulldozer_click(grid_pos: Vector2i, mouse_world: Vector2 = Vector2.ZERO) -> void:
+	"""Handle bulldozer removal at a single tile. Supports both single-click and drag."""
+	var dragging = is_painting
+	# Check land ownership
+	if GameManager.land_manager and not GameManager.land_manager.is_tile_owned(grid_pos):
+		if not dragging:
+			EventBus.notify("You don't own this land! Press L to buy parcels.", "error")
+		return
+
+	# Search clicked tile + neighbors for entities whose visual bounds contain the mouse.
+	# Entities visually extend beyond their grid tile, so exact-tile lookup misses clicks
+	# on the visible trunk/canopy that overflow into adjacent tiles.
+	var hit_tree_pos: Vector2i = Vector2i(-1, -1)
+	var hit_rock_pos: Vector2i = Vector2i(-1, -1)
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			var check_pos = grid_pos + Vector2i(dx, dy)
+			if not terrain_grid.is_valid_position(check_pos):
+				continue
+			if hit_tree_pos == Vector2i(-1, -1):
+				var t = entity_layer.get_tree_at(check_pos)
+				if t and _is_mouse_over_entity(mouse_world, t, t.tree_data):
+					hit_tree_pos = check_pos
+			if hit_rock_pos == Vector2i(-1, -1):
+				var r = entity_layer.get_rock_at(check_pos)
+				if r and _is_mouse_over_entity(mouse_world, r, r.rock_data):
+					hit_rock_pos = check_pos
+
+	# Remove hit tree (prefer tree over rock when overlapping)
+	if hit_tree_pos != Vector2i(-1, -1):
 		var cost = BULLDOZER_COSTS["tree"]
 		if not GameManager.can_afford(cost):
-			if GameManager.is_bankrupt():
-				EventBus.notify("Spending blocked! Balance below -$1,000", "error")
-			else:
-				EventBus.notify("Not enough money to remove tree ($%d)" % cost, "error")
+			if not dragging:
+				if GameManager.is_bankrupt():
+					EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+				else:
+					EventBus.notify("Not enough money to remove tree ($%d)" % cost, "error")
 			return
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Remove tree", -cost)
-		entity_layer.remove_tree(grid_pos)
-		EventBus.notify("Tree removed (-$%d)" % cost, "info")
+		entity_layer.remove_tree(hit_tree_pos)
+		_bulldoze_drag_count += 1
+		_bulldoze_drag_cost += cost
+		if not dragging:
+			EventBus.notify("Tree removed (-$%d)" % cost, "info")
 		return
 
-	# Check for rock at position
-	var rock = entity_layer.get_rock_at(grid_pos)
-	if rock:
+	# Remove hit rock
+	if hit_rock_pos != Vector2i(-1, -1):
 		var cost = BULLDOZER_COSTS["rock"]
 		if not GameManager.can_afford(cost):
-			if GameManager.is_bankrupt():
-				EventBus.notify("Spending blocked! Balance below -$1,000", "error")
-			else:
-				EventBus.notify("Not enough money to remove rock ($%d)" % cost, "error")
+			if not dragging:
+				if GameManager.is_bankrupt():
+					EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+				else:
+					EventBus.notify("Not enough money to remove rock ($%d)" % cost, "error")
 			return
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Remove rock", -cost)
-		entity_layer.remove_rock(grid_pos)
-		EventBus.notify("Rock removed (-$%d)" % cost, "info")
+		entity_layer.remove_rock(hit_rock_pos)
+		_bulldoze_drag_count += 1
+		_bulldoze_drag_cost += cost
+		if not dragging:
+			EventBus.notify("Rock removed (-$%d)" % cost, "info")
 		return
 
-	# Check for flower bed terrain
+	# Check for flower bed terrain (exact tile only — flower beds fill their tile)
 	var tile_type = terrain_grid.get_tile(grid_pos)
 	if tile_type == TerrainTypes.Type.FLOWER_BED:
 		var cost = BULLDOZER_COSTS["flower_bed"]
 		if not GameManager.can_afford(cost):
-			if GameManager.is_bankrupt():
-				EventBus.notify("Spending blocked! Balance below -$1,000", "error")
-			else:
-				EventBus.notify("Not enough money to remove flower bed ($%d)" % cost, "error")
+			if not dragging:
+				if GameManager.is_bankrupt():
+					EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+				else:
+					EventBus.notify("Not enough money to remove flower bed ($%d)" % cost, "error")
 			return
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Remove flower bed", -cost)
 		terrain_grid.set_tile(grid_pos, TerrainTypes.Type.GRASS)
-		EventBus.notify("Flower bed removed (-$%d)" % cost, "info")
+		_bulldoze_drag_count += 1
+		_bulldoze_drag_cost += cost
+		if not dragging:
+			EventBus.notify("Flower bed removed (-$%d)" % cost, "info")
 		return
 
 	# Nothing to remove at this position
-	EventBus.notify("Nothing to bulldoze here", "info")
+	if not dragging:
+		EventBus.notify("Nothing to bulldoze here", "info")
 
 # --- Day/Night Cycle ---
 
