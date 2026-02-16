@@ -367,12 +367,14 @@ func _setup_top_hud_bar() -> void:
 	hud.add_child(top_hud_bar)
 	hud.move_child(top_hud_bar, 0)
 
-	# Create "Build Mode" button to return from simulation
+	# Create mode toggle button (Start Day / Stop & Edit)
 	build_mode_btn = Button.new()
-	build_mode_btn.name = "BuildModeBtn"
-	build_mode_btn.text = "# Build"
-	build_mode_btn.pressed.connect(_on_build_mode_pressed)
+	build_mode_btn.name = "ModeToggleBtn"
+	build_mode_btn.text = "Start Day"
+	build_mode_btn.custom_minimum_size = Vector2(120, 34)
+	build_mode_btn.pressed.connect(_on_mode_toggle_pressed)
 	speed_controls.add_child(build_mode_btn)
+	speed_controls.move_child(build_mode_btn, 0)
 
 func _create_green_fee_controls() -> void:
 	"""Create UI controls for adjusting green fee"""
@@ -538,11 +540,14 @@ func _on_green_fee_changed(_old_fee: int, new_fee: int) -> void:
 	if green_fee_label:
 		green_fee_label.text = "Fee: $%d" % new_fee
 
-func _on_build_mode_pressed() -> void:
-	"""Return to building mode from simulation"""
-	if GameManager.current_mode == GameManager.GameMode.SIMULATING:
+func _on_mode_toggle_pressed() -> void:
+	"""Toggle between build and simulation modes."""
+	if GameManager.current_mode == GameManager.GameMode.BUILDING:
+		# Start simulation
+		if GameManager.start_simulation():
+			golfer_manager.spawn_initial_group()
+	elif GameManager.current_mode == GameManager.GameMode.SIMULATING:
 		GameManager.stop_simulation()
-		print("Returned to building mode")
 
 func _update_ui() -> void:
 	# TopHUDBar now handles money/day/reputation/weather/wind updates via signals
@@ -552,25 +557,31 @@ func _update_ui() -> void:
 func _update_button_states() -> void:
 	"""Update button appearance based on game mode and speed"""
 	if GameManager.current_mode == GameManager.GameMode.BUILDING:
-		# In building mode, only play button is relevant
-		pause_btn.disabled = true
-		play_btn.disabled = false
-		fast_btn.disabled = true
-		play_btn.text = "▶ Start"
+		# In building mode, hide speed controls and show Start Day button
+		pause_btn.visible = false
+		play_btn.visible = false
+		fast_btn.visible = false
 
-		# Hide build mode button when in building mode
 		if build_mode_btn:
-			build_mode_btn.visible = false
+			build_mode_btn.visible = true
+			build_mode_btn.text = "Start Day"
+			build_mode_btn.modulate = Color(0.5, 1.0, 0.5)  # Green tint
 	else:
-		# In simulation mode, all buttons are enabled
+		# In simulation mode, show speed controls and Stop & Edit button
+		pause_btn.visible = true
+		play_btn.visible = true
+		fast_btn.visible = true
 		pause_btn.disabled = false
 		play_btn.disabled = false
 		fast_btn.disabled = false
-		play_btn.text = "▶"
+		play_btn.text = ">"
+		pause_btn.text = "||"
+		fast_btn.text = ">>"
 
-		# Show build mode button in simulation
 		if build_mode_btn:
 			build_mode_btn.visible = true
+			build_mode_btn.text = "Stop & Edit"
+			build_mode_btn.modulate = Color(1.0, 0.8, 0.4)  # Orange tint
 
 		# Highlight active speed button
 		pause_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.PAUSED else Color(1, 1, 1, 1)
@@ -738,26 +749,11 @@ func _on_create_hole_pressed() -> void:
 	hole_tool.start_tee_placement()
 
 func _on_speed_selected(speed: int) -> void:
-	# Handle transition from building mode to simulation
-	if GameManager.current_mode == GameManager.GameMode.BUILDING:
-		# Only allow transition if trying to play (not pause)
-		if speed == GameManager.GameSpeed.PAUSED:
-			EventBus.notify("Course is in building mode", "info")
-			return
-
-		# Validate and start simulation
-		if GameManager.start_simulation():
-			print("Started simulation mode")
-			# Spawn initial group of golfers
-			golfer_manager.spawn_initial_group()
+	# Speed buttons only work during simulation
+	if GameManager.current_mode != GameManager.GameMode.SIMULATING:
 		return
 
-	# Handle normal speed changes during simulation
-	if GameManager.current_mode == GameManager.GameMode.SIMULATING:
-		GameManager.set_speed(speed)
-
-		var speed_name = "Paused" if speed == GameManager.GameSpeed.PAUSED else ("Fast" if speed == GameManager.GameSpeed.FAST else "Normal")
-		print("Game speed: %s" % speed_name)
+	GameManager.set_speed(speed)
 
 func _on_money_changed(_old: int, _new: int) -> void:
 	pass
