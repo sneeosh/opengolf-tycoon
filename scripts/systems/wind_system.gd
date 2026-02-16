@@ -10,13 +10,7 @@ var wind_speed: float = 5.0      # MPH (0-30)
 var _base_direction: float = 0.0
 var _drift_rate: float = 0.0
 
-## Club sensitivity to wind (higher = more affected)
-const CLUB_WIND_SENSITIVITY = {
-	0: 1.0,   # DRIVER - full wind effect
-	1: 0.7,   # IRON
-	2: 0.4,   # WEDGE
-	3: 0.0,   # PUTTER - no wind effect
-}
+## Club sensitivity to wind — delegated to GolfRules for single source of truth
 
 func _ready() -> void:
 	_generate_new_wind()
@@ -48,7 +42,7 @@ func update_wind_drift(hours_elapsed: float) -> void:
 ## Get wind displacement for a shot (in tiles)
 ## Returns how far the ball will be pushed by wind
 func get_wind_displacement(shot_direction: Vector2, distance_tiles: float, club: int) -> Vector2:
-	var sensitivity = CLUB_WIND_SENSITIVITY.get(club, 0.5)
+	var sensitivity = GolfRules.get_club_wind_sensitivity(club)
 	if sensitivity == 0.0:
 		return Vector2.ZERO
 
@@ -73,7 +67,7 @@ func get_wind_displacement(shot_direction: Vector2, distance_tiles: float, club:
 ## Get distance modifier from headwind/tailwind
 ## Returns multiplier: <1.0 for headwind, >1.0 for tailwind
 func get_distance_modifier(shot_direction: Vector2, club: int) -> float:
-	var sensitivity = CLUB_WIND_SENSITIVITY.get(club, 0.5)
+	var sensitivity = GolfRules.get_club_wind_sensitivity(club)
 	if sensitivity == 0.0:
 		return 1.0
 

@@ -110,17 +110,14 @@ static func get_probability(trigger_type: TriggerType) -> float:
 static func should_trigger(trigger_type: TriggerType) -> bool:
 	return randf() < get_probability(trigger_type)
 
-## Determine score-based trigger from strokes and par
+## Determine score-based trigger from strokes and par — uses GolfRules classification
 static func get_score_trigger(strokes: int, par: int) -> TriggerType:
-	if strokes == 1:
-		return TriggerType.HOLE_IN_ONE
-	var score_to_par = strokes - par
-	if score_to_par <= -2:
-		return TriggerType.EAGLE
-	elif score_to_par == -1:
-		return TriggerType.BIRDIE
-	elif score_to_par >= 2:
-		return TriggerType.BOGEY_PLUS
+	var classification = GolfRules.classify_score(strokes, par)
+	match classification:
+		"hole_in_one": return TriggerType.HOLE_IN_ONE
+		"eagle": return TriggerType.EAGLE
+		"birdie": return TriggerType.BIRDIE
+		"double_bogey_plus": return TriggerType.BOGEY_PLUS
 	# Par or bogey - no trigger
 	return -1  # Invalid trigger
 
