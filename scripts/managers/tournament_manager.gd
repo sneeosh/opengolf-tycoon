@@ -104,8 +104,21 @@ func _complete_tournament() -> void:
 		GameManager.course_rating
 	)
 
+	# Award tournament revenue (spectators + sponsorships)
+	var spectator_rev = tier_data.get("spectator_revenue", 0)
+	var sponsor_rev = tier_data.get("sponsorship_revenue", 0)
+	var total_revenue = spectator_rev + sponsor_rev
+	if total_revenue > 0:
+		GameManager.modify_money(total_revenue)
+		EventBus.log_transaction("Tournament revenue (spectators + sponsors)", total_revenue)
+
+	# Store revenue in results for display
+	tournament_results["spectator_revenue"] = spectator_rev
+	tournament_results["sponsorship_revenue"] = sponsor_rev
+	tournament_results["total_revenue"] = total_revenue
+
 	# Award reputation
-	GameManager.reputation += tier_data.reputation_reward
+	GameManager.modify_reputation(tier_data.reputation_reward)
 
 	# Record completion
 	last_tournament_end_day = GameManager.current_day

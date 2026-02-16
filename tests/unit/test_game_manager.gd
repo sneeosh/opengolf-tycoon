@@ -63,21 +63,56 @@ func test_set_green_fee_clamps_to_min() -> void:
 	GameManager.set_green_fee(1)
 	assert_eq(GameManager.green_fee, GameManager.MIN_GREEN_FEE, "Should clamp to minimum")
 
-func test_set_green_fee_clamps_to_max() -> void:
+func test_set_green_fee_clamps_to_effective_max() -> void:
+	# With 18 holes, effective max = min(18*15, 200) = $200
+	var course = GameManager.CourseData.new()
+	for i in range(18):
+		var hole = GameManager.HoleData.new()
+		hole.par = 4
+		hole.is_open = true
+		course.add_hole(hole)
+	GameManager.current_course = course
 	GameManager.set_green_fee(999)
-	assert_eq(GameManager.green_fee, GameManager.MAX_GREEN_FEE, "Should clamp to maximum")
+	assert_eq(GameManager.green_fee, GameManager.MAX_GREEN_FEE, "18 holes should allow max $200")
+
+func test_set_green_fee_clamps_by_hole_count() -> void:
+	# With 3 holes, effective max = 3*15 = $45
+	var course = GameManager.CourseData.new()
+	for i in range(3):
+		var hole = GameManager.HoleData.new()
+		hole.par = 4
+		hole.is_open = true
+		course.add_hole(hole)
+	GameManager.current_course = course
+	GameManager.set_green_fee(100)
+	assert_eq(GameManager.green_fee, 45, "3 holes should cap fee at $45")
 
 func test_set_green_fee_accepts_valid_value() -> void:
+	# Set up enough holes so $75 is under the cap (need 5+ holes: 5*15=75)
+	var course = GameManager.CourseData.new()
+	for i in range(5):
+		var hole = GameManager.HoleData.new()
+		hole.par = 4
+		hole.is_open = true
+		course.add_hole(hole)
+	GameManager.current_course = course
 	GameManager.set_green_fee(75)
-	assert_eq(GameManager.green_fee, 75, "Should accept 75 as valid fee")
+	assert_eq(GameManager.green_fee, 75, "Should accept 75 as valid fee with 5 holes")
 
 func test_set_green_fee_accepts_min_boundary() -> void:
 	GameManager.set_green_fee(GameManager.MIN_GREEN_FEE)
 	assert_eq(GameManager.green_fee, GameManager.MIN_GREEN_FEE, "Should accept min boundary")
 
-func test_set_green_fee_accepts_max_boundary() -> void:
-	GameManager.set_green_fee(GameManager.MAX_GREEN_FEE)
-	assert_eq(GameManager.green_fee, GameManager.MAX_GREEN_FEE, "Should accept max boundary")
+func test_get_effective_max_fee_scales_with_holes() -> void:
+	var course = GameManager.CourseData.new()
+	for i in range(6):
+		var hole = GameManager.HoleData.new()
+		hole.par = 4
+		hole.is_open = true
+		course.add_hole(hole)
+	GameManager.current_course = course
+	# 6 holes * $15 = $90
+	assert_eq(GameManager.get_effective_max_green_fee(), 90, "6 holes should have max fee $90")
 
 
 # --- Reputation ---

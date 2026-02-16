@@ -16,6 +16,9 @@ var reputation: float = 50.0
 var current_day: int = 1
 var current_hour: float = 6.0
 
+# Reputation decay: courses must maintain quality to keep reputation
+const REPUTATION_DAILY_DECAY: float = 0.5  # -0.5 rep/day (need steady golfer flow to maintain)
+
 # Green fee pricing
 var green_fee: int = 30  # Default $30 per golfer
 const MIN_GREEN_FEE: int = 10
@@ -212,7 +215,8 @@ func modify_reputation(amount: float) -> void:
 
 func set_green_fee(new_fee: int) -> void:
 	var old_fee = green_fee
-	green_fee = clamp(new_fee, MIN_GREEN_FEE, MAX_GREEN_FEE)
+	var effective_max = get_effective_max_green_fee()
+	green_fee = clamp(new_fee, MIN_GREEN_FEE, effective_max)
 	EventBus.green_fee_changed.emit(old_fee, green_fee)
 
 func get_hole_statistics(hole_number: int) -> HoleStatistics:
@@ -230,16 +234,39 @@ func update_course_rating() -> void:
 	)
 	EventBus.course_rating_changed.emit(course_rating)
 
+func get_open_hole_count() -> int:
+	"""Get the number of open (playable) holes on the course"""
+	if not current_course:
+		return 0
+	return current_course.get_open_holes().size()
+
+func get_effective_max_green_fee() -> int:
+	"""Get the maximum green fee allowed based on hole count.
+	More holes = higher max fee. Prevents 1-hole courses charging $200."""
+	var holes = get_open_hole_count()
+	if holes <= 0:
+		return MIN_GREEN_FEE
+	# $15 per hole, minimum $10
+	return max(MIN_GREEN_FEE, min(holes * 15, MAX_GREEN_FEE))
+
+func get_total_green_fee() -> int:
+	"""Get the total green fee a golfer pays (per-hole fee x number of open holes).
+	This is what a golfer actually pays for a round."""
+	var holes = get_open_hole_count()
+	return green_fee * max(holes, 1)
+
 func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
-	"""Process a golfer's green fee payment and return success"""
-	var total = green_fee
+	"""Process a golfer's green fee payment and return success.
+	Revenue = per-hole fee x number of open holes + pro shop bonus."""
+	var holes = get_open_hole_count()
+	var total = green_fee * max(holes, 1)
 
 	# Pro shop staff add bonus revenue per golfer
 	if staff_manager:
 		total += int(staff_manager.get_pro_shop_revenue_bonus())
 
 	modify_money(total)
-	EventBus.log_transaction("%s paid green fee" % golfer_name, total)
+	EventBus.log_transaction("%s paid green fee (%d holes x $%d)" % [golfer_name, holes, green_fee], total)
 	EventBus.green_fee_paid.emit(golfer_id, golfer_name, total)
 	return true
 
@@ -353,6 +380,11 @@ func request_end_of_day() -> void:
 
 func advance_to_next_day() -> void:
 	"""Advance to the next morning. Called after end-of-day processing is complete."""
+	# Apply daily reputation decay — courses must maintain quality to keep reputation
+	# This prevents permanent reputation lock-in from a single tournament
+	if reputation > 0:
+		modify_reputation(-REPUTATION_DAILY_DECAY)
+
 	# Save yesterday's stats before resetting
 	yesterday_stats = DailyStatistics.new()
 	yesterday_stats.revenue = daily_stats.revenue
