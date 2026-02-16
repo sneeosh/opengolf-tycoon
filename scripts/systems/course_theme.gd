@@ -229,15 +229,15 @@ static func get_terrain_colors(theme_type: int) -> Dictionary:
 	# Default fallback
 	return get_terrain_colors(Type.PARKLAND)
 
-## Tree type distributions per theme
+## Tree/vegetation type distributions per theme
 static func get_tree_types(theme_type: int) -> Array:
 	match theme_type:
-		Type.PARKLAND: return ["oak", "pine", "maple", "birch"]
-		Type.DESERT: return ["pine"]      # Sparse desert pines (cacti visual later)
-		Type.LINKS: return ["pine"]       # Wind-bent pines only
-		Type.MOUNTAIN: return ["pine", "birch"]
-		Type.CITY: return ["oak", "maple"]
-		Type.RESORT: return ["oak", "pine", "maple", "birch"]  # Palm visual later
+		Type.PARKLAND: return ["oak", "pine", "maple", "birch", "bush", "cattails"]
+		Type.DESERT: return ["cactus", "dead_tree", "bush"]
+		Type.LINKS: return ["fescue", "heather", "bush", "pine"]
+		Type.MOUNTAIN: return ["pine", "birch", "bush", "heather"]
+		Type.CITY: return ["oak", "maple", "bush", "cattails"]
+		Type.RESORT: return ["palm", "oak", "cactus", "bush", "birch"]
 	return ["oak", "pine", "maple", "birch"]
 
 ## Natural terrain generation parameters per theme
