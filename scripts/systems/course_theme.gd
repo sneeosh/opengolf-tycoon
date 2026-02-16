@@ -233,7 +233,7 @@ static func get_terrain_colors(theme_type: int) -> Dictionary:
 static func get_tree_types(theme_type: int) -> Array:
 	match theme_type:
 		Type.PARKLAND: return ["oak", "pine", "maple", "birch", "bush", "cattails"]
-		Type.DESERT: return ["cactus", "dead_tree", "bush"]
+		Type.DESERT: return ["cactus", "dead_tree", "bush", "palm"]
 		Type.LINKS: return ["fescue", "heather", "bush", "pine"]
 		Type.MOUNTAIN: return ["pine", "birch", "bush", "heather"]
 		Type.CITY: return ["oak", "maple", "bush", "cattails"]
