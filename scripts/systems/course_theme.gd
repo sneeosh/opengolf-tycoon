@@ -246,50 +246,90 @@ static func get_generation_params(theme_type: int) -> Dictionary:
 		Type.PARKLAND:
 			return {
 				"elevation_range": 3,
-				"water_ponds": Vector2i(1, 3),      # min, max ponds
-				"tree_clusters": Vector2i(5, 10),
-				"scattered_trees": Vector2i(30, 60),
+				"water_ponds": Vector2i(1, 3),
+				"large_water_body": false,
+				"tree_clusters": Vector2i(12, 20),    # Dense woodland coverage
+				"scattered_trees": Vector2i(80, 140),  # Lots of individual trees
+				"tree_cluster_radius": Vector2(10, 25), # Larger clusters
+				"tree_density": Vector2(0.25, 0.45),    # Denser within clusters
 				"rocks": Vector2i(40, 80),
+				"rough_patches": Vector2i(8, 14),      # Overgrown areas
+				"heavy_rough_patches": Vector2i(4, 8),  # Wild undergrowth
+				"flower_patches": Vector2i(3, 6),       # Wildflower meadows
 			}
 		Type.DESERT:
 			return {
 				"elevation_range": 2,
-				"water_ponds": Vector2i(0, 1),       # Minimal water
-				"tree_clusters": Vector2i(1, 3),     # Very sparse
+				"water_ponds": Vector2i(0, 1),
+				"large_water_body": false,
+				"tree_clusters": Vector2i(1, 3),       # Very sparse
 				"scattered_trees": Vector2i(5, 15),
-				"rocks": Vector2i(80, 150),          # Lots of rocks
+				"tree_cluster_radius": Vector2(5, 12),
+				"tree_density": Vector2(0.10, 0.20),
+				"rocks": Vector2i(100, 180),            # Rocky desert landscape
+				"rough_patches": Vector2i(10, 18),      # Scrubland patches
+				"heavy_rough_patches": Vector2i(2, 4),   # Sparse brush
+				"flower_patches": Vector2i(0, 1),        # Rare desert blooms
 			}
 		Type.LINKS:
 			return {
-				"elevation_range": 2,                # Dune mounds
+				"elevation_range": 2,                  # Dune mounds
 				"water_ponds": Vector2i(0, 1),
-				"tree_clusters": Vector2i(0, 2),     # Minimal trees
+				"large_water_body": true,              # Coastal ocean/lake
+				"large_water_edge": "random",          # Which map edge gets water
+				"large_water_depth": Vector2i(8, 14),  # How far inland water extends
+				"tree_clusters": Vector2i(0, 2),       # Minimal trees on links
 				"scattered_trees": Vector2i(3, 10),
-				"rocks": Vector2i(20, 50),
+				"tree_cluster_radius": Vector2(4, 10),
+				"tree_density": Vector2(0.10, 0.20),
+				"rocks": Vector2i(30, 60),
+				"rough_patches": Vector2i(14, 22),     # Heavy fescue rough everywhere
+				"heavy_rough_patches": Vector2i(8, 14), # Deep fescue dunes
+				"flower_patches": Vector2i(1, 3),       # Sea grass clumps
 			}
 		Type.MOUNTAIN:
 			return {
-				"elevation_range": 5,                # Dramatic elevation
-				"water_ponds": Vector2i(1, 2),       # Mountain streams
-				"tree_clusters": Vector2i(8, 15),    # Dense forests
-				"scattered_trees": Vector2i(50, 100),
-				"rocks": Vector2i(60, 120),          # Rocky terrain
+				"elevation_range": 5,                  # Dramatic elevation
+				"water_ponds": Vector2i(1, 3),         # Mountain streams/lakes
+				"large_water_body": false,
+				"tree_clusters": Vector2i(15, 25),     # Dense pine forests
+				"scattered_trees": Vector2i(100, 180),  # Heavily forested
+				"tree_cluster_radius": Vector2(12, 28), # Large forest areas
+				"tree_density": Vector2(0.30, 0.50),    # Very dense clusters
+				"rocks": Vector2i(80, 150),             # Rocky mountain terrain
+				"rough_patches": Vector2i(6, 12),       # Mountain grass patches
+				"heavy_rough_patches": Vector2i(5, 10), # Dense undergrowth
+				"flower_patches": Vector2i(2, 5),        # Mountain wildflowers
 			}
 		Type.CITY:
 			return {
-				"elevation_range": 1,                # Very flat
-				"water_ponds": Vector2i(0, 2),       # Small ponds
-				"tree_clusters": Vector2i(2, 5),
-				"scattered_trees": Vector2i(15, 30),
-				"rocks": Vector2i(10, 25),           # Few rocks
+				"elevation_range": 1,                  # Very flat
+				"water_ponds": Vector2i(0, 2),
+				"large_water_body": false,
+				"tree_clusters": Vector2i(3, 7),
+				"scattered_trees": Vector2i(20, 40),
+				"tree_cluster_radius": Vector2(6, 14),
+				"tree_density": Vector2(0.15, 0.30),
+				"rocks": Vector2i(10, 25),
+				"rough_patches": Vector2i(4, 8),        # Unmowed city lots
+				"heavy_rough_patches": Vector2i(2, 5),
+				"flower_patches": Vector2i(2, 4),        # Overgrown flower beds
 			}
 		Type.RESORT:
 			return {
 				"elevation_range": 2,
-				"water_ponds": Vector2i(2, 4),       # Lagoon-style water
-				"tree_clusters": Vector2i(6, 12),
-				"scattered_trees": Vector2i(40, 80),
+				"water_ponds": Vector2i(1, 3),
+				"large_water_body": true,              # Lagoon/lake feature
+				"large_water_edge": "interior",        # Interior lagoon, not edge
+				"large_water_depth": Vector2i(10, 16), # Larger interior body
+				"tree_clusters": Vector2i(10, 18),     # Lush tropical coverage
+				"scattered_trees": Vector2i(60, 120),
+				"tree_cluster_radius": Vector2(10, 22),
+				"tree_density": Vector2(0.25, 0.40),
 				"rocks": Vector2i(20, 40),
+				"rough_patches": Vector2i(6, 10),       # Tropical undergrowth
+				"heavy_rough_patches": Vector2i(3, 6),
+				"flower_patches": Vector2i(5, 10),       # Abundant tropical flowers
 			}
 	return get_generation_params(Type.PARKLAND)
 
