@@ -34,11 +34,25 @@ const COLOR_TEXT_MUTED := Color(0.4, 0.4, 0.4)        # Disabled/muted text
 
 const COLOR_SUCCESS := Color(0.4, 0.9, 0.4)           # Profit, positive
 const COLOR_SUCCESS_DIM := Color(0.5, 0.8, 0.5)       # Dim green
+const COLOR_SUCCESS_MUTED := Color(0.6, 0.8, 0.6)     # Muted positive feedback
 const COLOR_WARNING := Color(0.9, 0.9, 0.4)           # Caution, moderate
+const COLOR_WARNING_DIM := Color(0.8, 0.8, 0.5)       # Muted caution
 const COLOR_DANGER := Color(0.9, 0.4, 0.4)            # Loss, negative
 const COLOR_DANGER_DIM := Color(0.8, 0.5, 0.5)        # Dim red
+const COLOR_DANGER_MUTED := Color(0.8, 0.6, 0.6)      # Muted negative feedback
 const COLOR_INFO := Color(0.4, 0.7, 1.0)              # Neutral info
+const COLOR_INFO_DIM := Color(0.7, 0.8, 1.0)          # Muted info/blue
 const COLOR_GOLD := Color(1.0, 0.85, 0.0)             # Premium, special
+const COLOR_GOLD_DIM := Color(0.9, 0.75, 0.2)         # Muted gold (eagle)
+const COLOR_ORANGE := Color(0.9, 0.6, 0.3)            # Championship, high tier
+
+## Helper: pick success/danger color based on sign
+static func color_for_value(value: float) -> Color:
+	if value > 0:
+		return COLOR_SUCCESS
+	elif value < 0:
+		return COLOR_DANGER
+	return COLOR_WARNING
 
 # =============================================================================
 # TYPOGRAPHY SCALE
