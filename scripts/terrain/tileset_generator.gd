@@ -509,6 +509,12 @@ static func _draw_tee_box_tile(image: Image, col: int, row: int) -> void:
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 78901
 
+	# Tee marker positions (local coords within 64x32 tile)
+	var marker_color = Color(0.85, 0.15, 0.15)
+	var marker_radius = 3.0
+	var left_marker = Vector2(20, 16)
+	var right_marker = Vector2(44, 16)
+
 	for x in range(rect.position.x, rect.position.x + rect.size.x):
 		for y in range(rect.position.y, rect.position.y + rect.size.y):
 			var local_x = x - rect.position.x
@@ -516,7 +522,13 @@ static func _draw_tee_box_tile(image: Image, col: int, row: int) -> void:
 			var check = (int(local_x / 8) + int(local_y / 4)) % 2
 			var base = light if check == 0 else dark
 			var noise = rng.randf_range(-0.02, 0.02)
-			image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
+
+			# Check if pixel is inside either tee marker circle
+			var local_pos = Vector2(local_x, local_y)
+			if local_pos.distance_to(left_marker) <= marker_radius or local_pos.distance_to(right_marker) <= marker_radius:
+				image.set_pixel(x, y, marker_color)
+			else:
+				image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
 
 static func _draw_path_tile(image: Image, col: int, row: int) -> void:
 	var base = get_color("path")
