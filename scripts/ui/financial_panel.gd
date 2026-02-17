@@ -211,6 +211,72 @@ func update_display() -> void:
 	var golfers_row = _create_stat_row("Golfers Today:", "%d" % stats.golfers_served, Color.WHITE)
 	_content_vbox.add_child(golfers_row)
 
+	# Loan Section
+	_content_vbox.add_child(HSeparator.new())
+
+	var loan_label = Label.new()
+	loan_label.text = "Loans"
+	loan_label.add_theme_font_size_override("font_size", 13)
+	_content_vbox.add_child(loan_label)
+
+	var loan_color = Color(0.9, 0.5, 0.5) if GameManager.loan_balance > 0 else Color(0.7, 0.7, 0.7)
+	var loan_row = _create_stat_row("Outstanding:", "$%d" % GameManager.loan_balance, loan_color)
+	_content_vbox.add_child(loan_row)
+
+	if GameManager.loan_balance > 0:
+		var interest_row = _create_stat_row("Interest:", "5%% / 7 days", Color(0.7, 0.7, 0.7))
+		_content_vbox.add_child(interest_row)
+
+	var loan_btn_row = HBoxContainer.new()
+	loan_btn_row.add_theme_constant_override("separation", 8)
+	_content_vbox.add_child(loan_btn_row)
+
+	var borrow_btn = Button.new()
+	borrow_btn.text = "Borrow $10k"
+	borrow_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	borrow_btn.disabled = GameManager.loan_balance >= GameManager.MAX_LOAN
+	borrow_btn.pressed.connect(func():
+		GameManager.take_loan(10000)
+		update_display()
+	)
+	loan_btn_row.add_child(borrow_btn)
+
+	var repay_btn = Button.new()
+	repay_btn.text = "Repay $10k"
+	repay_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	repay_btn.disabled = GameManager.loan_balance <= 0
+	repay_btn.pressed.connect(func():
+		GameManager.repay_loan(10000)
+		update_display()
+	)
+	loan_btn_row.add_child(repay_btn)
+
+	# Seasonal Forecast
+	_content_vbox.add_child(HSeparator.new())
+
+	var season_label = Label.new()
+	season_label.text = "Seasonal Forecast"
+	season_label.add_theme_font_size_override("font_size", 13)
+	_content_vbox.add_child(season_label)
+
+	var season = SeasonSystem.get_season(GameManager.current_day)
+	var season_name = SeasonSystem.get_season_name(season)
+	var season_color = SeasonSystem.get_season_color(season)
+	var season_row = _create_stat_row("Season:", season_name, season_color)
+	_content_vbox.add_child(season_row)
+
+	var spawn_mod = SeasonSystem.get_spawn_modifier(season)
+	var spawn_pct = int(spawn_mod * 100)
+	var spawn_color = Color(0.4, 0.9, 0.4) if spawn_mod >= 1.0 else (Color(0.9, 0.9, 0.4) if spawn_mod >= 0.7 else Color(0.9, 0.5, 0.5))
+	var demand_row = _create_stat_row("Demand:", "%d%%" % spawn_pct, spawn_color)
+	_content_vbox.add_child(demand_row)
+
+	var maint_mod = SeasonSystem.get_maintenance_modifier(season)
+	var maint_pct = int(maint_mod * 100)
+	var maint_color = Color(0.4, 0.9, 0.4) if maint_mod <= 1.0 else (Color(0.9, 0.9, 0.4) if maint_mod <= 1.2 else Color(0.9, 0.5, 0.5))
+	var maint_row = _create_stat_row("Maintenance:", "%d%%" % maint_pct, maint_color)
+	_content_vbox.add_child(maint_row)
+
 	# Course Ratings (Official Handicap/Slope)
 	var rating = GameManager.course_rating
 	if rating and rating.has("slope"):

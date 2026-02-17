@@ -105,15 +105,16 @@ func _can_place_building(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 			
 			var tile_type = terrain_grid.get_tile(check_pos)
 			
-			# Buildings can be placed on grass by default
-			# placeable_on_course buildings can also be placed on fairway, path, etc.
-			var valid_tiles = [TerrainTypes.Type.GRASS]
+			# Buildings can be placed on any grass-type terrain
+			# placeable_on_course buildings can also be placed on path
+			var valid_tiles = [
+				TerrainTypes.Type.GRASS,
+				TerrainTypes.Type.ROUGH,
+				TerrainTypes.Type.HEAVY_ROUGH,
+				TerrainTypes.Type.FAIRWAY
+			]
 			if placeable_on_course:
-				valid_tiles += [
-					TerrainTypes.Type.FAIRWAY,
-					TerrainTypes.Type.ROUGH,
-					TerrainTypes.Type.PATH
-				]
+				valid_tiles += [TerrainTypes.Type.PATH]
 			
 			if not (tile_type in valid_tiles):
 				return false

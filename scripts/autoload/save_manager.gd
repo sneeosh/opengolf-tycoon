@@ -30,6 +30,9 @@ var ball_manager: Node = null
 ## Flag to prevent autosave during load operations
 var _is_loading: bool = false
 
+## Name of the last slot that was manually saved/loaded (not autosave)
+var current_save_name: String = ""
+
 func _ready() -> void:
 	_ensure_save_directory()
 	_load_user_settings()
@@ -59,6 +62,8 @@ func save_game(save_name: String = "") -> bool:
 	if file:
 		file.store_string(json_string)
 		file.close()
+		if save_name != "autosave":
+			current_save_name = save_name
 		EventBus.save_completed.emit(true)
 		EventBus.notify("Game saved: " + save_name, "success")
 		return true
@@ -94,6 +99,8 @@ func load_game(save_name: String) -> bool:
 	_apply_save_data(save_data)
 	_is_loading = false
 
+	if save_name != "autosave":
+		current_save_name = save_name
 	EventBus.load_completed.emit(true)
 	EventBus.notify("Game loaded: " + save_name, "success")
 	return true
@@ -140,6 +147,7 @@ func _build_save_data() -> Dictionary:
 			"current_hour": GameManager.current_hour,
 			"green_fee": GameManager.green_fee,
 			"theme": CourseTheme.to_string_name(GameManager.current_theme),
+			"loan_balance": GameManager.loan_balance,
 		},
 	}
 
@@ -189,6 +197,9 @@ func _build_save_data() -> Dictionary:
 	if GameManager.marketing_manager:
 		data["marketing"] = GameManager.marketing_manager.serialize()
 
+	# Daily history (rolling 30-day analytics)
+	data["daily_history"] = GameManager.daily_history
+
 	return data
 
 ## Serialize hole data to plain dictionaries
@@ -223,6 +234,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	GameManager.current_day = int(game.get("current_day", 1))
 	GameManager.current_hour = float(game.get("current_hour", 6.0))
 	GameManager.green_fee = int(game.get("green_fee", 30))
+	GameManager.loan_balance = int(game.get("loan_balance", 0))
 
 	# Restore theme (defaults to parkland for saves without theme)
 	var theme_name = game.get("theme", "parkland")
@@ -279,6 +291,9 @@ func _apply_save_data(data: Dictionary) -> void:
 		GameManager.staff_manager.deserialize(data["staff"])
 	if GameManager.marketing_manager and data.has("marketing"):
 		GameManager.marketing_manager.deserialize(data["marketing"])
+
+	# Daily history
+	GameManager.daily_history = data.get("daily_history", [])
 
 	# Golfers: Always clear on load - they will respawn naturally when the user
 	# switches to simulation mode. This avoids complex mid-action state restoration.

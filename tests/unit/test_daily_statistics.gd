@@ -115,23 +115,28 @@ func test_daily_stats_average_score_to_par_over() -> void:
 # --- Operating Costs ---
 
 func test_daily_stats_calculate_operating_costs() -> void:
-	# Save and restore staff tier
+	# Save and restore staff tier and day
 	var original_tier = GameManager.current_staff_tier
+	var original_day = GameManager.current_day
 	GameManager.current_staff_tier = GameManager.StaffTier.FULL_TIME  # $10/hole
+	# Set to Fall (day 15) which has 0.7x maintenance modifier for a clean multiplier
+	GameManager.current_day = 15
 
 	var stats = GameManager.DailyStatistics.new()
 	stats.calculate_operating_costs(100, 9, 50)  # terrain=100, 9 holes, buildings=50
 
-	assert_eq(stats.terrain_maintenance, 100)
+	# terrain = int(100 * 0.7) = 70 (Fall modifier)
+	assert_eq(stats.terrain_maintenance, 70)
 	# base = 50 + 9*25 = 275
 	assert_eq(stats.base_operating_cost, 275)
 	# staff = 9 * 10 = 90
 	assert_eq(stats.staff_wages, 90)
 	assert_eq(stats.building_operating_costs, 50)
-	# total = 100 + 275 + 90 + 50 = 515
-	assert_eq(stats.operating_costs, 515)
+	# total = 70 + 275 + 90 + 50 = 485
+	assert_eq(stats.operating_costs, 485)
 
 	GameManager.current_staff_tier = original_tier
+	GameManager.current_day = original_day
 
 func test_daily_stats_calculate_operating_costs_part_time() -> void:
 	var original_tier = GameManager.current_staff_tier

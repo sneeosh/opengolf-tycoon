@@ -84,6 +84,9 @@ signal selection_cleared()
 signal end_of_day(day_number: int)
 signal course_closing()
 
+# Season Signals
+signal season_changed(old_season: int, new_season: int)
+
 # Tournament Signals
 signal tournament_scheduled(tier: int, start_day: int)
 signal tournament_started(tier: int)

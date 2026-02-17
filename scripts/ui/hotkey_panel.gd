@@ -74,6 +74,7 @@ func _build_ui() -> void:
 		["U", "Tournaments"],
 		["L", "Land"],
 		["M", "Marketing"],
+		["Z", "Analytics"],
 	])
 
 	_add_section(vbox, "Camera & View", [
@@ -90,6 +91,8 @@ func _build_ui() -> void:
 		["Ctrl+Shift+Z", "Redo"],
 		["Esc", "Cancel / Deselect tool"],
 		["F1", "This help panel"],
+		["F2", "Weather debug"],
+		["F4", "Season debug"],
 	])
 
 	# Close button

@@ -178,14 +178,15 @@ func _is_tile_valid_for_placement(grid_pos: Vector2i) -> bool:
 			]
 		PlacementManager.PlacementMode.BUILDING:
 			var building_data = placement_manager.current_placement_data
+			var valid_tiles = [
+				TerrainTypes.Type.GRASS,
+				TerrainTypes.Type.ROUGH,
+				TerrainTypes.Type.HEAVY_ROUGH,
+				TerrainTypes.Type.FAIRWAY
+			]
 			if building_data and building_data.get("placeable_on_course", false):
-				return terrain_type in [
-					TerrainTypes.Type.GRASS,
-					TerrainTypes.Type.FAIRWAY,
-					TerrainTypes.Type.ROUGH,
-					TerrainTypes.Type.PATH
-				]
-			return terrain_type == TerrainTypes.Type.GRASS
+				valid_tiles += [TerrainTypes.Type.PATH]
+			return terrain_type in valid_tiles
 
 	return false
 

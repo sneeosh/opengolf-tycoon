@@ -63,6 +63,10 @@ func get_spawn_rate_modifier() -> float:
 		var marketing_modifier = GameManager.marketing_manager.get_spawn_rate_modifier()
 		base_modifier *= marketing_modifier
 
+	# Apply seasonal demand modifier (Summer peak, Winter trough)
+	var season = SeasonSystem.get_season(GameManager.current_day)
+	base_modifier *= SeasonSystem.get_spawn_modifier(season)
+
 	return base_modifier
 
 func get_effective_spawn_cooldown() -> float:
@@ -654,6 +658,8 @@ func spawn_initial_group() -> void:
 		spawn_random_golfer(new_group_id)
 		# Small delay between spawns in the same group
 		await get_tree().create_timer(0.5).timeout
+		if not is_instance_valid(self):
+			return
 
 func _select_weighted_group_size() -> int:
 	"""Select group size based on weighted probabilities from green fee"""
@@ -754,24 +760,36 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 		if all_finished:
 			await get_tree().create_timer(1.0).timeout
 			for golfer in group_golfers:
-				remove_golfer(golfer.golfer_id)
+				if is_instance_valid(golfer):
+					remove_golfer(golfer.golfer_id)
 		return
 
 	# Record tier for daily statistics
 	GameManager.daily_stats.record_golfer_tier(finished_golfer.golfer_tier)
 
-	# Tier-based reputation gain
-	var reputation_gain = GolferTier.get_reputation_gain(finished_golfer.golfer_tier)
+	# Tier-based reputation gain, scaled by golfer mood
+	# Happy golfers spread the word; unhappy golfers hurt reputation
+	var base_rep = GolferTier.get_reputation_gain(finished_golfer.golfer_tier)
 
 	# Pro golfers give bonus reputation if they had a good round
 	if finished_golfer.golfer_tier == GolferTier.Tier.PRO:
 		var score_to_par = total_strokes - finished_golfer.total_par
 		if score_to_par <= 0:
-			reputation_gain *= 2  # Double rep for pro under par
+			base_rep *= 2  # Double rep for pro under par
 
 	# Apply prestige multiplier (harder courses with good ratings = more reputation)
 	var prestige_mult = CourseRatingSystem.get_prestige_multiplier(GameManager.course_rating)
-	reputation_gain = int(float(reputation_gain) * prestige_mult)
+	base_rep = int(float(base_rep) * prestige_mult)
+
+	# Scale by mood: happy (>0.6) = positive, neutral (0.4-0.6) = small gain, unhappy (<0.4) = negative
+	var mood = finished_golfer.current_mood
+	var reputation_gain: float
+	if mood >= 0.6:
+		reputation_gain = base_rep * lerpf(0.5, 1.0, (mood - 0.6) / 0.4)
+	elif mood >= 0.4:
+		reputation_gain = base_rep * 0.25  # Neutral: minimal gain
+	else:
+		reputation_gain = -base_rep * lerpf(0.0, 1.0, (0.4 - mood) / 0.4)  # Unhappy: reputation loss
 
 	GameManager.modify_reputation(reputation_gain)
 
@@ -789,9 +807,10 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 	if all_finished:
 		# Wait a moment so players can see the group finish
 		await get_tree().create_timer(1.0).timeout
-		# Remove all golfers in the group
+		# Remove all golfers in the group (check validity — golfers may have been freed by a save/load)
 		for golfer in group_golfers:
-			remove_golfer(golfer.golfer_id)
+			if is_instance_valid(golfer):
+				remove_golfer(golfer.golfer_id)
 
 ## Get all active golfers
 func get_active_golfers() -> Array[Golfer]:

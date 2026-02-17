@@ -40,7 +40,7 @@ func _build_ui() -> void:
 
 	_save_name_input = LineEdit.new()
 	_save_name_input.placeholder_text = "Save name..."
-	_save_name_input.text = "slot_1"
+	_save_name_input.text = SaveManager.current_save_name if SaveManager.current_save_name != "" else "slot_1"
 	_save_name_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	save_row.add_child(_save_name_input)
 

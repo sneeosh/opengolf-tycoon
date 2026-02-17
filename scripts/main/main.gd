@@ -52,6 +52,8 @@ var land_panel: LandPanel = null
 var marketing_panel: MarketingPanel = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
+var season_debug_panel: SeasonDebugPanel = null
+var analytics_panel_ui: AnalyticsPanel = null
 var golfer_info_popup: GolferInfoPopup = null
 var round_summary_popup: RoundSummaryPopup = null
 var tournament_leaderboard: TournamentLeaderboard = null
@@ -162,6 +164,8 @@ func _ready() -> void:
 	_setup_marketing_panel()
 	_setup_hotkey_panel()
 	_setup_weather_debug_panel()
+	_setup_season_debug_panel()
+	_setup_analytics_panel()
 	_setup_golfer_info_popup()
 	_setup_round_summary_popup()
 	_setup_shot_trails()
@@ -211,6 +215,10 @@ func _input(event: InputEvent) -> void:
 			_toggle_weather_debug_panel()
 			get_viewport().set_input_as_handled()
 			return
+		if event.keycode == KEY_F4:
+			_toggle_season_debug_panel()
+			get_viewport().set_input_as_handled()
+			return
 
 		if event.is_command_or_control_pressed():
 			if event.keycode == KEY_S:
@@ -235,6 +243,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_M:
 				_toggle_marketing_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_Z:
+				_toggle_analytics_panel()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
@@ -387,7 +398,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "GolferInfoPopup", "TournamentLeaderboard"]
+	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -1841,6 +1852,47 @@ func _toggle_weather_debug_panel() -> void:
 	"""Toggle the weather debug panel."""
 	if weather_debug_panel:
 		_toggle_panel(weather_debug_panel)
+
+# --- Season Debug ---
+
+func _setup_season_debug_panel() -> void:
+	"""Add season debug panel to the HUD."""
+	var hud = $UI/HUD
+	season_debug_panel = SeasonDebugPanel.new()
+	season_debug_panel.name = "SeasonDebugPanel"
+	season_debug_panel.close_requested.connect(_on_season_debug_panel_closed)
+	hud.add_child(season_debug_panel)
+	season_debug_panel.hide()
+
+func _on_season_debug_panel_closed() -> void:
+	season_debug_panel.hide()
+	_active_panel = null
+
+func _toggle_season_debug_panel() -> void:
+	"""Toggle the season debug panel."""
+	if season_debug_panel:
+		_toggle_panel(season_debug_panel)
+
+# --- Analytics Panel ---
+
+func _setup_analytics_panel() -> void:
+	"""Add analytics panel to the HUD."""
+	var hud = $UI/HUD
+	analytics_panel_ui = AnalyticsPanel.new()
+	analytics_panel_ui.name = "AnalyticsPanel"
+	analytics_panel_ui.close_requested.connect(_on_analytics_panel_closed)
+	hud.add_child(analytics_panel_ui)
+	analytics_panel_ui.hide()
+
+func _on_analytics_panel_closed() -> void:
+	analytics_panel_ui.hide()
+	if _active_panel == analytics_panel_ui:
+		_active_panel = null
+
+func _toggle_analytics_panel() -> void:
+	"""Toggle the analytics panel visibility."""
+	if analytics_panel_ui:
+		_toggle_panel(analytics_panel_ui)
 
 # --- Audio Controls ---
 

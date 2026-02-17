@@ -9,6 +9,7 @@ class_name ShotPathCalculator
 ## Average CASUAL golfer skills (midpoint of CASUAL tier [0.5, 0.7]):
 
 const AVG_ACCURACY: float = 0.6
+const AVG_DRIVING: float = 0.6
 const AVG_AGGRESSION: float = 0.45
 
 ## Calculate shot path waypoints from tee to flag.
@@ -48,6 +49,23 @@ static func calculate_waypoints(hole_data: GameManager.HoleData, terrain_grid: T
 
 	waypoints.append(hole_data.hole_position)
 	return waypoints
+
+## Get skill-adjusted distance factor for the average casual golfer.
+## Mirrors Golfer._get_skill_distance_factor() using average CASUAL skill (0.6).
+static func _get_avg_skill_distance_factor(club: int) -> float:
+	match club:
+		Golfer.Club.DRIVER:
+			return 0.60 + AVG_DRIVING * 0.37
+		Golfer.Club.FAIRWAY_WOOD:
+			return 0.65 + AVG_DRIVING * 0.30
+		Golfer.Club.IRON:
+			return 0.70 + AVG_ACCURACY * 0.25
+		Golfer.Club.WEDGE:
+			return 0.80 + AVG_ACCURACY * 0.18
+		Golfer.Club.PUTTER:
+			return 0.92 + 0.6 * 0.06
+		_:
+			return 0.85
 
 ## Decide shot target from a position - mirrors Golfer.decide_shot_target()
 ## Evaluates multiple club candidates and picks the one with the best landing zone.
@@ -95,7 +113,7 @@ static func _decide_shot_target(from_pos: Vector2i, hole_position: Vector2i, ter
 
 	for club in candidate_clubs:
 		var stats: Dictionary = Golfer.CLUB_STATS[club]
-		var max_dist: float = stats["max_distance"] * 0.97  # Near-full distance
+		var max_dist: float = stats["max_distance"] * _get_avg_skill_distance_factor(club)
 		# Cap to layup distance when multiple shots remain
 		if max_target_distance < INF:
 			max_dist = minf(max_dist, max_target_distance)
@@ -121,11 +139,16 @@ static func _find_best_landing_zone(from_pos: Vector2i, hole_position: Vector2i,
 	var best_target: Vector2i = hole_position
 	var best_score: float = -999.0
 
-	# Scan a wide arc (±15°) at multiple distances to find fairways off the direct line
-	var num_angles: int = 11  # -15° to +15° in ~3° steps
+	# Determine if this is a lay-up or approach shot
+	var can_reach_green: bool = max_distance >= distance_to_hole * 0.9
+
+	# Approach shots: narrow scan (±15°) for precision
+	# Lay-up shots: wide scan (±45°) to discover dogleg fairways
+	var scan_half_angle: float = 0.26 if can_reach_green else 0.785
+	var num_angles: int = 11 if can_reach_green else 21
 	var num_distances: int = 5
 	for a in range(num_angles):
-		var offset_angle: float = (-0.26 + (a / float(num_angles - 1)) * 0.52)  # -15° to +15° in radians
+		var offset_angle: float = (-scan_half_angle + (a / float(num_angles - 1)) * scan_half_angle * 2.0)
 		var adjusted_direction: Vector2 = direction_to_hole.rotated(offset_angle)
 		for d in range(num_distances):
 			var test_distance: float = target_distance * (0.7 + (d / float(num_distances)) * 0.6)
@@ -146,6 +169,13 @@ static func _evaluate_landing_zone(from_pos: Vector2i, position: Vector2i, hole_
 	# Check if ball flight path crosses trees at low altitude
 	if _path_crosses_obstacle(from_pos, position, terrain_grid):
 		return -2000.0
+
+	# Graduated penalty for flying over tree canopy
+	var trees_overflown: int = _count_trees_along_path(from_pos, position, terrain_grid)
+	var tree_fly_penalty: float = 0.0
+	if trees_overflown > 0:
+		var risk_factor: float = 1.0 - AVG_ACCURACY * 0.3
+		tree_fly_penalty = 15.0 * trees_overflown * risk_factor
 
 	var terrain_type: int = terrain_grid.get_tile(position)
 	var score: float = 0.0
@@ -182,7 +212,10 @@ static func _evaluate_landing_zone(from_pos: Vector2i, position: Vector2i, hole_
 	if distance_to_hole >= current_distance:
 		score -= 500.0
 
-	score -= distance_to_hole * 4.0
+	# Lay-up: terrain quality > distance; Approach: distance is paramount
+	var is_layup: bool = current_distance > Golfer.CLUB_STATS[Golfer.Club.DRIVER]["max_distance"]
+	var distance_weight: float = 2.5 if is_layup else 4.0
+	score -= distance_to_hole * distance_weight
 
 	# Personality adjustments for average golfer (aggression 0.45)
 	# Not cautious enough (<0.3) to trigger extra bunker/rough penalties
@@ -202,6 +235,7 @@ static func _evaluate_landing_zone(from_pos: Vector2i, position: Vector2i, hole_
 				hazard_penalty += 20.0 * (1.0 - AVG_AGGRESSION)
 
 	score -= hazard_penalty
+	score -= tree_fly_penalty
 	return score
 
 ## Check if ball flight path crosses trees at low altitude
@@ -226,3 +260,21 @@ static func _path_crosses_obstacle(start: Vector2i, end: Vector2i, terrain_grid:
 				return true
 
 	return false
+
+## Count tree tiles along a flight path (regardless of altitude).
+static func _count_trees_along_path(start: Vector2i, end: Vector2i, terrain_grid: TerrainGrid) -> int:
+	var distance: float = Vector2(start).distance_to(Vector2(end))
+	var num_samples: int = int(distance) + 1
+	var tree_count: int = 0
+
+	for i in range(num_samples):
+		var t: float = i / float(max(num_samples, 1))
+		var sample_pos: Vector2i = Vector2i(Vector2(start).lerp(Vector2(end), t))
+
+		if not terrain_grid.is_valid_position(sample_pos):
+			continue
+
+		if terrain_grid.get_tile(sample_pos) == TerrainTypes.Type.TREES:
+			tree_count += 1
+
+	return tree_count

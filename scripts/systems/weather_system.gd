@@ -38,21 +38,23 @@ func generate_daily_weather() -> void:
 	_generate_daily_weather()
 
 func _generate_daily_weather() -> void:
-	# Weight towards good weather (70% chance of sunny/partly cloudy)
+	# Seasonal weather weights (Summer = mostly sunny, Winter = more rain)
+	var season = SeasonSystem.get_season(GameManager.current_day)
+	var thresholds = SeasonSystem.get_weather_weights(season)
 	var roll = randf()
-	if roll < 0.40:
+	if roll < thresholds[0]:
 		weather_type = WeatherType.SUNNY
 		intensity = 0.0
-	elif roll < 0.70:
+	elif roll < thresholds[1]:
 		weather_type = WeatherType.PARTLY_CLOUDY
 		intensity = 0.1
-	elif roll < 0.85:
+	elif roll < thresholds[2]:
 		weather_type = WeatherType.CLOUDY
 		intensity = 0.25
-	elif roll < 0.93:
+	elif roll < thresholds[3]:
 		weather_type = WeatherType.LIGHT_RAIN
 		intensity = 0.4
-	elif roll < 0.98:
+	elif roll < thresholds[4]:
 		weather_type = WeatherType.RAIN
 		intensity = 0.6
 	else:

@@ -108,17 +108,17 @@ func _build_ui() -> void:
 	rep_container.add_theme_constant_override("separation", 6)
 	stats_container.add_child(rep_container)
 
-	var rep_icon = Label.new()
-	rep_icon.text = "*"
-	rep_icon.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
-	rep_icon.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
-	rep_container.add_child(rep_icon)
+	var rep_label = Label.new()
+	rep_label.text = "Rep:"
+	rep_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
+	rep_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	rep_container.add_child(rep_label)
 
 	_reputation_button = Button.new()
 	_reputation_button.flat = true
 	_reputation_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
 	_reputation_button.pressed.connect(_on_reputation_pressed)
-	_reputation_button.tooltip_text = "Click to view course rating details"
+	_reputation_button.tooltip_text = "Course reputation (click for rating details)"
 	rep_container.add_child(_reputation_button)
 
 	# Vertical separator
@@ -264,7 +264,11 @@ func _update_day_time() -> void:
 	if display_hour == 0:
 		display_hour = 12
 
-	_day_time_label.text = "Day %d - %d:%02d %s" % [day, display_hour, minute, am_pm]
+	var season = SeasonSystem.get_season(day)
+	var season_name = SeasonSystem.get_season_name(season)
+	var day_in_season = SeasonSystem.get_day_in_season(day)
+	var year = SeasonSystem.get_year(day)
+	_day_time_label.text = "%s D%d Y%d - %d:%02d %s" % [season_name, day_in_season, year, display_hour, minute, am_pm]
 
 func _update_reputation() -> void:
 	if not has_node("/root/GameManager"):

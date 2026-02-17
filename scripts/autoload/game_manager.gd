@@ -16,8 +16,17 @@ var reputation: float = 50.0
 var current_day: int = 1
 var current_hour: float = 6.0
 
-# Reputation decay: courses must maintain quality to keep reputation
-const REPUTATION_DAILY_DECAY: float = 0.5  # -0.5 rep/day (need steady golfer flow to maintain)
+# Reputation decay scales with course quality (stars)
+const REPUTATION_DAILY_DECAY: float = 0.5  # Baseline at 3 stars
+
+# Loan system
+var loan_balance: int = 0
+const MAX_LOAN: int = 50000
+const LOAN_INTEREST_RATE: float = 0.05  # 5% per 7-day period
+
+# Historical daily statistics (rolling 30-day window, persisted)
+var daily_history: Array = []
+const MAX_DAILY_HISTORY: int = 30
 
 # Green fee pricing
 var green_fee: int = 10  # Default $10/hole (auto-clamped by hole count)
@@ -209,8 +218,61 @@ func can_afford(cost: int) -> bool:
 	return money - cost >= BANKRUPTCY_THRESHOLD
 
 func is_bankrupt() -> bool:
-	"""Check if spending is blocked due to low balance."""
 	return money < BANKRUPTCY_THRESHOLD
+
+func take_loan(amount: int) -> bool:
+	amount = clampi(amount, 10000, MAX_LOAN)
+	if loan_balance + amount > MAX_LOAN:
+		EventBus.notify("Maximum loan is $%d" % MAX_LOAN, "error")
+		return false
+	loan_balance += amount
+	modify_money(amount)
+	EventBus.log_transaction("Loan taken", amount)
+	EventBus.notify("Loan: +$%d (Total debt: $%d)" % [amount, loan_balance], "info")
+	return true
+
+func repay_loan(amount: int) -> bool:
+	if loan_balance <= 0:
+		EventBus.notify("No outstanding loans", "info")
+		return false
+	amount = mini(amount, loan_balance)
+	if not can_afford(amount):
+		EventBus.notify("Not enough money to repay", "error")
+		return false
+	loan_balance -= amount
+	modify_money(-amount)
+	EventBus.log_transaction("Loan repayment", -amount)
+	EventBus.notify("Repaid $%d (Remaining: $%d)" % [amount, loan_balance], "info")
+	return true
+
+func _process_loan_interest() -> void:
+	if loan_balance <= 0:
+		return
+	var interest = int(loan_balance * LOAN_INTEREST_RATE)
+	if interest < 1:
+		interest = 1
+	loan_balance += interest
+	EventBus.notify("Loan interest: +$%d debt (Balance: $%d)" % [interest, loan_balance], "warning")
+
+func _archive_daily_stats() -> void:
+	var satisfaction = 0.5
+	if FeedbackManager:
+		satisfaction = FeedbackManager.get_satisfaction_rating()
+	var season = SeasonSystem.get_season(current_day)
+	var entry = {
+		"day": current_day,
+		"revenue": daily_stats.get_total_revenue(),
+		"costs": daily_stats.operating_costs,
+		"profit": daily_stats.get_profit(),
+		"golfers_served": daily_stats.golfers_served,
+		"satisfaction": satisfaction,
+		"reputation": reputation,
+		"season": season,
+		"tier_counts": daily_stats.tier_counts.duplicate(),
+	}
+	daily_history.append(entry)
+	while daily_history.size() > MAX_DAILY_HISTORY:
+		daily_history.pop_front()
 
 func modify_reputation(amount: float) -> void:
 	var old_rep = reputation
@@ -336,11 +398,14 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 	yesterday_stats = null  # No yesterday on day 1
 	hole_statistics.clear()  # Clear per-hole stats for new game
 	reset_course_records()  # Clear records for new game
+	loan_balance = 0
+	daily_history.clear()
 
 	# Apply theme colors to tileset generator
 	TilesetGenerator.set_theme_colors(CourseTheme.get_terrain_colors(theme))
 	EventBus.theme_changed.emit(theme)
 
+	SaveManager.current_save_name = ""
 	set_mode(GameMode.BUILDING)
 	EventBus.new_game_started.emit()
 
@@ -385,10 +450,33 @@ func request_end_of_day() -> void:
 
 func advance_to_next_day() -> void:
 	"""Advance to the next morning. Called after end-of-day processing is complete."""
-	# Apply daily reputation decay — courses must maintain quality to keep reputation
-	# This prevents permanent reputation lock-in from a single tournament
+	# Reputation decay scales with course quality
+	# Below 3 stars: accelerated. Above 3: reduced. Always present.
 	if reputation > 0:
-		modify_reputation(-REPUTATION_DAILY_DECAY)
+		var stars = course_rating.get("stars", 3)
+		var decay: float
+		if stars < 3:
+			decay = 1.0
+		elif stars == 3:
+			decay = 0.5
+		elif stars == 4:
+			decay = 0.25
+		else:
+			decay = 0.1
+		modify_reputation(-decay)
+
+	# Loan interest compounds every 7 days
+	if current_day % 7 == 0:
+		_process_loan_interest()
+
+	# Detect season change for next day
+	var old_season = SeasonSystem.get_season(current_day)
+	var new_season = SeasonSystem.get_season(current_day + 1)
+	if old_season != new_season:
+		EventBus.season_changed.emit(old_season, new_season)
+
+	# Archive today's stats for analytics (rolling 30-day history)
+	_archive_daily_stats()
 
 	# Save yesterday's stats before resetting
 	yesterday_stats = DailyStatistics.new()
@@ -554,8 +642,10 @@ class DailyStatistics:
 	## hole_count: number of holes on the course
 	## building_costs: total operating costs from all buildings
 	func calculate_operating_costs(terrain_cost: int, hole_count: int, building_costs: int = 0) -> void:
-		# Terrain maintenance from actual tiles
-		terrain_maintenance = terrain_cost
+		# Terrain maintenance from actual tiles, scaled by seasonal modifier
+		var season = SeasonSystem.get_season(GameManager.current_day)
+		var season_mod = SeasonSystem.get_maintenance_modifier(season)
+		terrain_maintenance = int(terrain_cost * season_mod)
 
 		# Base operating cost: $50 + $25 per hole
 		base_operating_cost = 50 + (hole_count * 25)
