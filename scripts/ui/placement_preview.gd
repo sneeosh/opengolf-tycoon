@@ -41,7 +41,7 @@ func _process(delta: float) -> void:
 	# Show preview for entity placement, terrain painting, OR hole creation
 	var show_entity_preview = placement_manager and placement_manager.placement_mode != PlacementManager.PlacementMode.NONE
 	var show_terrain_preview = terrain_painting_enabled and current_terrain_tool >= 0
-	var show_hole_preview = hole_tool and hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_GREEN
+	var show_hole_preview = hole_tool and hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE
 
 	if show_entity_preview or show_terrain_preview or show_hole_preview:
 		_target_alpha = 1.0
@@ -120,9 +120,11 @@ func _draw() -> void:
 		return
 
 	# Check for hole creation preview (always draw regardless of alpha)
-	var is_hole_preview = hole_tool and hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_GREEN
-	if is_hole_preview:
-		_draw_hole_creation_preview()
+	if hole_tool and hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
+		if hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_TEE:
+			_draw_tee_placement_preview()
+		else:
+			_draw_hole_creation_preview()
 
 	if _current_alpha < 0.01:
 		return
@@ -551,6 +553,28 @@ func _draw_ghost_generic(pos: Vector2, w: float, h: float, a: float) -> void:
 	draw_rect(Rect2(pos.x + w * 0.3, pos.y + h * 0.35, w * 0.4, h * 0.25), Color(0.7, 0.82, 0.9, a))
 	# Door
 	draw_rect(Rect2(pos.x + w * 0.4, pos.y + h * 0.65, w * 0.2, h * 0.35), Color(0.45, 0.35, 0.28, a))
+
+func _draw_tee_placement_preview() -> void:
+	if not hole_tool or not camera or not terrain_grid:
+		return
+
+	var mouse_world = camera.get_mouse_world_position()
+	var hover_grid_pos = terrain_grid.screen_to_grid(mouse_world)
+	if not terrain_grid.is_valid_position(hover_grid_pos):
+		return
+
+	var pulse = 0.7 + sin(_pulse_time) * 0.3
+	var tee_color = Color(0.4, 0.85, 0.45, 0.5 * pulse)
+	var screen_pos = terrain_grid.grid_to_screen(hover_grid_pos)
+	var tw = terrain_grid.tile_width
+	var th = terrain_grid.tile_height
+	draw_rect(Rect2(screen_pos, Vector2(tw, th)), tee_color)
+	draw_rect(Rect2(screen_pos, Vector2(tw, th)), Color(1.0, 1.0, 1.0, 0.7 * pulse), false, 2.0)
+
+	# Label
+	var font = ThemeDB.fallback_font
+	var center = terrain_grid.grid_to_screen_center(hover_grid_pos)
+	draw_string(font, center + Vector2(-28, -20), "Place Tee", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(1, 1, 1, 0.9))
 
 func _draw_hole_creation_preview() -> void:
 	"""Draw preview line and info label during green placement"""
