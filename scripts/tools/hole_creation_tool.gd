@@ -57,11 +57,8 @@ func _place_tee(position: Vector2i) -> bool:
 	if not GameManager.terrain_grid.is_valid_position(position):
 		return false
 
-	# Paint tee box tiles in a 3x3 area
-	var tee_tiles = GameManager.terrain_grid.get_brush_tiles(position, 1)
-
 	# Check if we can afford it
-	var cost = TerrainTypes.get_placement_cost(TerrainTypes.Type.TEE_BOX) * tee_tiles.size()
+	var cost = TerrainTypes.get_placement_cost(TerrainTypes.Type.TEE_BOX)
 	if not GameManager.can_afford(cost):
 		if GameManager.is_bankrupt():
 			EventBus.notify("Spending blocked! Balance below -$1,000", "error")
@@ -69,9 +66,8 @@ func _place_tee(position: Vector2i) -> bool:
 			EventBus.notify("Not enough money to place tee box (need $%d)" % cost, "error")
 		return false
 
-	# Place the tee box
-	for tile_pos in tee_tiles:
-		GameManager.terrain_grid.set_tile(tile_pos, TerrainTypes.Type.TEE_BOX)
+	# Place a single tee box tile
+	GameManager.terrain_grid.set_tile(position, TerrainTypes.Type.TEE_BOX)
 
 	GameManager.modify_money(-cost)
 	pending_tee_position = position
