@@ -23,20 +23,21 @@ func _exit_tree() -> void:
 		EventBus.load_completed.disconnect(_on_load_completed)
 
 func _on_hole_created(_hole_number: int, _par: int, _distance_yards: int) -> void:
-	_rebuild_all_flags()
+	call_deferred("_rebuild_all_flags")
 
 func _on_hole_deleted(_hole_number: int) -> void:
-	_rebuild_all_flags()
+	call_deferred("_rebuild_all_flags")
 
 func _on_load_completed(_success: bool) -> void:
 	# Rebuild flags after a save is loaded
 	call_deferred("_rebuild_all_flags")
 
 func _rebuild_all_flags() -> void:
-	# Remove existing flags
+	# Remove existing flags immediately (not queue_free) to prevent stale _draw() calls
 	for flag in _flags:
 		if is_instance_valid(flag):
-			flag.queue_free()
+			remove_child(flag)
+			flag.free()
 	_flags.clear()
 
 	if not _terrain_grid or not GameManager.course_data:

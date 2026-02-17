@@ -10,6 +10,7 @@ var flag: Flag
 var line: Line2D
 var info_label: Label
 var waypoint_markers: Array[Node2D] = []
+var _line_update_pending: bool = false
 
 signal hole_selected(hole_number: int)
 
@@ -34,7 +35,8 @@ func _create_visuals() -> void:
 
 func _create_connection_line() -> void:
 	if line:
-		line.queue_free()
+		remove_child(line)
+		line.free()
 
 	line = Line2D.new()
 	line.name = "ConnectionLine"
@@ -63,10 +65,11 @@ func _update_line() -> void:
 	_update_waypoint_markers(waypoints)
 
 func _update_waypoint_markers(waypoints: Array[Vector2i]) -> void:
-	# Clear existing markers
+	# Clear existing markers immediately (not queue_free) to prevent stale rendering
 	for marker in waypoint_markers:
 		if is_instance_valid(marker):
-			marker.queue_free()
+			remove_child(marker)
+			marker.free()
 	waypoint_markers.clear()
 
 	# Create markers at intermediate waypoints (skip first=tee and last=flag)
@@ -110,7 +113,8 @@ func _create_flag() -> void:
 			flag.flag_selected.disconnect(_on_flag_selected)
 		if flag.flag_moved.is_connected(_on_flag_moved):
 			flag.flag_moved.disconnect(_on_flag_moved)
-		flag.queue_free()
+		remove_child(flag)
+		flag.free()
 
 	flag = Flag.new()
 	flag.name = "Flag"
@@ -125,7 +129,8 @@ func _create_flag() -> void:
 
 func _create_info_label() -> void:
 	if info_label:
-		info_label.queue_free()
+		remove_child(info_label)
+		info_label.free()
 
 	info_label = Label.new()
 	info_label.name = "InfoLabel"
@@ -209,7 +214,13 @@ func _on_flag_moved(old_position: Vector2i, new_position: Vector2i) -> void:
 	EventBus.hole_updated.emit(hole_data.hole_number)
 
 func _on_terrain_tile_changed(_position: Vector2i, _old_type: int, _new_type: int) -> void:
-	# Recalculate difficulty when terrain changes
+	# Debounce: only recalculate once per frame even if many tiles change
+	if not _line_update_pending:
+		_line_update_pending = true
+		call_deferred("_deferred_terrain_update")
+
+func _deferred_terrain_update() -> void:
+	_line_update_pending = false
 	if hole_data and terrain_grid:
 		var new_difficulty = DifficultyCalculator.calculate_hole_difficulty(hole_data, terrain_grid)
 		if absf(new_difficulty - hole_data.difficulty_rating) > 0.05:
