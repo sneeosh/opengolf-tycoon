@@ -165,17 +165,29 @@ func _show_current_tournament(info: Dictionary) -> void:
 			state_text = "Starts in %d days" % info.days_remaining
 			_status_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.3))
 		TournamentSystem.TournamentState.IN_PROGRESS:
-			state_text = "In Progress - %d day(s) remaining" % info.days_remaining
+			state_text = "In Progress"
 			_status_label.add_theme_color_override("font_color", Color(0.3, 0.9, 0.3))
 
 	_status_label.text = "%s\n%s" % [info.name, state_text]
 
 	# Show tournament info
 	var info_label = Label.new()
-	info_label.text = "Tournament in progress. Professional golfers are competing on your course."
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
-	_content_vbox.add_child(info_label)
+
+	if info.state == TournamentSystem.TournamentState.IN_PROGRESS:
+		info_label.text = "Professional golfers are competing on your course. Watch the tournament or press End Day to skip ahead."
+		_content_vbox.add_child(info_label)
+
+		var hint_label = Label.new()
+		hint_label.text = "The live leaderboard is shown on the right side of the screen."
+		hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hint_label.add_theme_font_size_override("font_size", 11)
+		hint_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		_content_vbox.add_child(hint_label)
+	else:
+		info_label.text = "Tournament scheduled. Professional golfers will compete on your course."
+		_content_vbox.add_child(info_label)
 
 	# Show last results if available
 	if not _tournament_manager.tournament_results.is_empty():

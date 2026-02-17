@@ -61,6 +61,9 @@ const CLUB_STATS = {
 ## Golfer tier (Beginner, Casual, Serious, Pro)
 var golfer_tier: int = GolferTier.Tier.CASUAL
 
+## Tournament flag — tournament golfers skip green fees and course-closing checks
+var is_tournament_golfer: bool = false
+
 ## Per-hole score tracking for scorecard display
 var hole_scores: Array = []  # Array of {hole: int, strokes: int, par: int}
 

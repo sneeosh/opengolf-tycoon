@@ -497,7 +497,8 @@ func _advance_golfer(golfer: Golfer) -> void:
 		return
 
 	# Course closing: finish current hole but don't start new ones
-	if not GameManager.is_course_open() and golfer.current_strokes == 0:
+	# Tournament golfers are exempt — they play to completion
+	if not GameManager.is_course_open() and golfer.current_strokes == 0 and not golfer.is_tournament_golfer:
 		golfer.finish_round()
 		return
 
@@ -547,7 +548,8 @@ func _advance_golfer(golfer: Golfer) -> void:
 				return
 
 			# If course is closed, don't start a new hole - finish the round
-			if not GameManager.is_course_open():
+			# Tournament golfers are exempt — they play to completion
+			if not GameManager.is_course_open() and not golfer.is_tournament_golfer:
 				golfer.finish_round()
 				return
 
@@ -666,6 +668,62 @@ func _select_weighted_group_size() -> int:
 
 	return 4  # Fallback to foursome
 
+## Spawn a tournament golfer with forced tier (no green fee)
+func spawn_tournament_golfer(forced_tier: int, group_id: int) -> Golfer:
+	if not golfers_container:
+		push_error("No golfers container found")
+		return null
+
+	var pro_names = [
+		"Seve", "Vijay", "Ernie", "Lee", "Gary", "Sam", "Ben", "Walter",
+		"Byron", "Gene", "Tom", "Nick", "Payne", "Hale", "Ray", "Billy"
+	]
+	var base_name = pro_names[randi() % pro_names.size()]
+	var prefix = GolferTier.get_name_prefix(forced_tier)
+	var full_name = prefix + " " + base_name if prefix != "" else base_name
+
+	var golfer = GOLFER_SCENE.instantiate() as Golfer
+	golfer.golfer_id = next_golfer_id
+	next_golfer_id += 1
+	golfer.golfer_name = full_name
+	golfer.group_id = group_id
+	golfer.is_tournament_golfer = true
+
+	# Set default skills (will be overridden by initialize_from_tier)
+	golfer.driving_skill = 0.5
+	golfer.accuracy_skill = 0.5
+	golfer.putting_skill = 0.5
+	golfer.recovery_skill = 0.5
+
+	golfers_container.add_child(golfer)
+	active_golfers.append(golfer)
+	golfer.golfer_selected.connect(_on_golfer_selected)
+
+	# Initialize tier skills — no green fee payment for tournament golfers
+	golfer.initialize_from_tier(forced_tier)
+
+	EventBus.golfer_spawned.emit(golfer.golfer_id, full_name)
+	golfer_spawned.emit(golfer)
+
+	return golfer
+
+## Get all active tournament golfers
+func get_tournament_golfers() -> Array[Golfer]:
+	var result: Array[Golfer] = []
+	for golfer in active_golfers:
+		if golfer.is_tournament_golfer:
+			result.append(golfer)
+	return result
+
+## Remove all tournament golfers from the course
+func remove_tournament_golfers() -> void:
+	var to_remove: Array[int] = []
+	for golfer in active_golfers:
+		if golfer.is_tournament_golfer:
+			to_remove.append(golfer.golfer_id)
+	for gid in to_remove:
+		remove_golfer(gid)
+
 ## Remove a golfer from the course
 func remove_golfer(golfer_id: int) -> void:
 	for i in range(active_golfers.size()):
@@ -681,6 +739,22 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
 	# Find the golfer to get their tier and group_id
 	var finished_golfer = get_golfer(golfer_id)
 	if not finished_golfer:
+		return
+
+	# Tournament golfers don't give reputation or record daily stats — skip to group removal
+	if finished_golfer.is_tournament_golfer:
+		var group_id = finished_golfer.group_id
+		var all_finished = true
+		var group_golfers: Array[Golfer] = []
+		for golfer in active_golfers:
+			if golfer.group_id == group_id:
+				group_golfers.append(golfer)
+				if golfer.current_state != Golfer.State.FINISHED:
+					all_finished = false
+		if all_finished:
+			await get_tree().create_timer(1.0).timeout
+			for golfer in group_golfers:
+				remove_golfer(golfer.golfer_id)
 		return
 
 	# Record tier for daily statistics

@@ -54,6 +54,7 @@ var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
 var golfer_info_popup: GolferInfoPopup = null
 var round_summary_popup: RoundSummaryPopup = null
+var tournament_leaderboard: TournamentLeaderboard = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
@@ -119,6 +120,12 @@ func _ready() -> void:
 	tournament_manager.name = "TournamentManager"
 	add_child(tournament_manager)
 	GameManager.tournament_manager = tournament_manager
+
+	# Set up tournament leaderboard
+	tournament_leaderboard = TournamentLeaderboard.new()
+	tournament_leaderboard.name = "TournamentLeaderboard"
+	$UI/HUD.add_child(tournament_leaderboard)
+	tournament_manager.setup(golfer_manager, tournament_leaderboard)
 
 	# Set up economy managers
 	var land_mgr = LandManager.new()
@@ -380,7 +387,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "GolferInfoPopup"]
+	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "GolferInfoPopup", "TournamentLeaderboard"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -1398,6 +1405,8 @@ func _create_save_load_button() -> void:
 	bottom_bar.add_child(end_day_btn)
 
 func _on_end_day_pressed() -> void:
+	if tournament_manager.is_tournament_in_progress():
+		tournament_manager.simulate_remaining_and_complete()
 	GameManager.force_end_day()
 
 func _on_menu_pressed() -> void:
