@@ -208,10 +208,12 @@ func _update_visuals() -> void:
 		visual.rotation = _variation.rotation
 
 func _draw_trunk(visual: Node2D, trunk_color: Color) -> void:
-	"""Draw a standard tree trunk"""
+	"""Draw a standard tree trunk with bark texture"""
 	var trunk = Polygon2D.new()
 	trunk.name = "Trunk"
 	trunk.color = trunk_color
+	var trunk_top: float = 20.0
+	var trunk_bottom: float = 45.0
 	match tree_type:
 		"palm":
 			# Palm trunk: curved, thinner, taller
@@ -221,6 +223,8 @@ func _draw_trunk(visual: Node2D, trunk_color: Color) -> void:
 				Vector2(7, 48),
 				Vector2(-3, 48)
 			])
+			trunk_top = 15.0
+			trunk_bottom = 48.0
 		"dead_tree":
 			# Dead tree trunk: slightly wider, gnarled
 			trunk.polygon = PackedVector2Array([
@@ -229,6 +233,8 @@ func _draw_trunk(visual: Node2D, trunk_color: Color) -> void:
 				Vector2(8, 46),
 				Vector2(-6, 46)
 			])
+			trunk_top = 18.0
+			trunk_bottom = 46.0
 		_:
 			# Standard tree trunk
 			trunk.polygon = PackedVector2Array([
@@ -238,6 +244,33 @@ func _draw_trunk(visual: Node2D, trunk_color: Color) -> void:
 				Vector2(-6, 45)
 			])
 	visual.add_child(trunk)
+
+	# Bark texture lines — 2 thin horizontal darker lines
+	var bark_color = trunk_color.darkened(0.15)
+	for i in range(2):
+		var line_y = trunk_top + (trunk_bottom - trunk_top) * (0.3 + i * 0.35)
+		var bark_line = Polygon2D.new()
+		bark_line.color = bark_color
+		bark_line.polygon = PackedVector2Array([
+			Vector2(-4, line_y), Vector2(4, line_y),
+			Vector2(4, line_y + 1.5), Vector2(-4, line_y + 1.5)
+		])
+		visual.add_child(bark_line)
+
+	# Leaf litter at base — small semi-transparent darker circles
+	if tree_type != "dead_tree" and tree_type != "palm":
+		var litter_color = Color(trunk_color.r * 0.7, trunk_color.g * 0.9, trunk_color.b * 0.7, 0.3)
+		var litter_positions = [Vector2(-8, 44), Vector2(4, 46), Vector2(10, 43)]
+		for pos in litter_positions:
+			var litter = Polygon2D.new()
+			litter.color = litter_color
+			var pts = PackedVector2Array()
+			for j in range(6):
+				var angle = (j / 6.0) * TAU
+				pts.append(Vector2(pos.x + cos(angle) * 4, pos.y + sin(angle) * 2))
+			litter.polygon = pts
+			litter.z_index = -1
+			visual.add_child(litter)
 
 func _draw_oak_canopy(visual: Node2D, color: Color) -> void:
 	"""Draw oak tree canopy - round and full"""
@@ -252,6 +285,16 @@ func _draw_oak_canopy(visual: Node2D, color: Color) -> void:
 		points.append(Vector2(x, y))
 	canopy.polygon = points
 	visual.add_child(canopy)
+
+	# Crown highlight — lighter ellipse at upper-left (11 o'clock)
+	var highlight = Polygon2D.new()
+	highlight.color = Color(color.r * 1.2, color.g * 1.2, color.b * 1.15, 0.7)
+	var hl_points = PackedVector2Array()
+	for i in range(10):
+		var angle = (i / 10.0) * TAU
+		hl_points.append(Vector2(cos(angle) * 14 - 6, sin(angle) * 10 - 4))
+	highlight.polygon = hl_points
+	visual.add_child(highlight)
 
 func _draw_pine_canopy(visual: Node2D, color: Color) -> void:
 	"""Draw pine tree canopy - tall and narrow"""
@@ -268,6 +311,20 @@ func _draw_pine_canopy(visual: Node2D, color: Color) -> void:
 		Vector2(-20, -10)
 	])
 	visual.add_child(canopy)
+
+	# Left-face highlight strip for volume
+	var highlight = Polygon2D.new()
+	highlight.color = Color(color.r * 1.2, color.g * 1.2, color.b * 1.1, 0.5)
+	highlight.polygon = PackedVector2Array([
+		Vector2(-2, -33),
+		Vector2(-16, -8),
+		Vector2(-8, 4),
+		Vector2(-12, 14),
+		Vector2(-4, 12),
+		Vector2(-4, 0),
+		Vector2(-8, -6),
+	])
+	visual.add_child(highlight)
 
 func _draw_maple_canopy(visual: Node2D, color: Color) -> void:
 	"""Draw maple tree canopy - medium and rounded"""
@@ -286,6 +343,19 @@ func _draw_maple_canopy(visual: Node2D, color: Color) -> void:
 		Vector2(-22, -15)
 	])
 	visual.add_child(canopy)
+
+	# Crown highlight — upper-left quadrant
+	var highlight = Polygon2D.new()
+	highlight.color = Color(color.r * 1.18, color.g * 1.18, color.b * 1.12, 0.6)
+	highlight.polygon = PackedVector2Array([
+		Vector2(-4, -23),
+		Vector2(-18, -12),
+		Vector2(-24, 0),
+		Vector2(-16, 8),
+		Vector2(-6, 2),
+		Vector2(-2, -10),
+	])
+	visual.add_child(highlight)
 
 func _draw_birch_canopy(visual: Node2D, color: Color) -> void:
 	"""Draw birch tree canopy - light and airy"""

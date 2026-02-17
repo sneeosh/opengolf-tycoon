@@ -68,7 +68,12 @@ func set_rock_size(size: String) -> void:
 
 func _generate_variation() -> void:
 	"""Generate deterministic variation based on grid position"""
-	_base_rock_color = rock_data.get("color", Color.GRAY)
+	# Use theme-tinted rock color if available
+	var theme_colors = CourseTheme.get_terrain_colors(GameManager.current_theme)
+	if theme_colors.has("rocks"):
+		_base_rock_color = theme_colors["rocks"]
+	else:
+		_base_rock_color = rock_data.get("color", Color.GRAY)
 
 	# Get variation parameters for this rock size
 	var var_params = ROCK_VARIATION.get(rock_size, ROCK_VARIATION["medium"])
@@ -197,7 +202,7 @@ func _draw_medium_rock(visual: Node2D, color: Color) -> void:
 	])
 	visual.add_child(rock)
 
-	# Add highlight
+	# Primary highlight — upper-left facet
 	var highlight = Polygon2D.new()
 	highlight.color = Color(color.r * 1.3, color.g * 1.3, color.b * 1.3)
 	highlight.polygon = PackedVector2Array([
@@ -207,6 +212,31 @@ func _draw_medium_rock(visual: Node2D, color: Color) -> void:
 		Vector2(8, 4)
 	])
 	visual.add_child(highlight)
+
+	# Secondary highlight — upper-right facet for irregular surface
+	var highlight2 = Polygon2D.new()
+	highlight2.color = Color(color.r * 1.15, color.g * 1.15, color.b * 1.15)
+	highlight2.polygon = PackedVector2Array([
+		Vector2(6, -4),
+		Vector2(10, -3),
+		Vector2(12, 2),
+		Vector2(8, 1)
+	])
+	visual.add_child(highlight2)
+
+	# Moss accent on shadow side (PARKLAND, MOUNTAIN, RESORT themes)
+	var theme = GameManager.current_theme
+	if theme == CourseTheme.Type.PARKLAND or theme == CourseTheme.Type.MOUNTAIN or theme == CourseTheme.Type.RESORT:
+		var moss = Polygon2D.new()
+		moss.color = Color(0.3, 0.45, 0.3, 0.5)
+		moss.polygon = PackedVector2Array([
+			Vector2(-12, 10),
+			Vector2(-6, 6),
+			Vector2(-2, 8),
+			Vector2(-4, 13),
+			Vector2(-10, 14)
+		])
+		visual.add_child(moss)
 
 func _draw_large_rock(visual: Node2D, color: Color) -> void:
 	"""Draw a large rock"""
@@ -223,7 +253,7 @@ func _draw_large_rock(visual: Node2D, color: Color) -> void:
 	])
 	visual.add_child(rock)
 
-	# Add highlight
+	# Primary highlight — upper-left facet
 	var highlight = Polygon2D.new()
 	highlight.color = Color(color.r * 1.3, color.g * 1.3, color.b * 1.3)
 	highlight.polygon = PackedVector2Array([
@@ -233,7 +263,32 @@ func _draw_large_rock(visual: Node2D, color: Color) -> void:
 		Vector2(10, 5)
 	])
 	visual.add_child(highlight)
-	# Shadow is now handled by ShadowRenderer
+
+	# Secondary highlight — right facet
+	var highlight2 = Polygon2D.new()
+	highlight2.color = Color(color.r * 1.18, color.g * 1.18, color.b * 1.18)
+	highlight2.polygon = PackedVector2Array([
+		Vector2(10, -6),
+		Vector2(16, -5),
+		Vector2(18, 4),
+		Vector2(12, 2)
+	])
+	visual.add_child(highlight2)
+
+	# Moss accent on shadow side (PARKLAND, MOUNTAIN, RESORT themes)
+	var theme = GameManager.current_theme
+	if theme == CourseTheme.Type.PARKLAND or theme == CourseTheme.Type.MOUNTAIN or theme == CourseTheme.Type.RESORT:
+		var moss = Polygon2D.new()
+		moss.color = Color(0.3, 0.45, 0.3, 0.45)
+		moss.polygon = PackedVector2Array([
+			Vector2(-16, 14),
+			Vector2(-10, 8),
+			Vector2(-4, 10),
+			Vector2(-2, 16),
+			Vector2(-8, 18),
+			Vector2(-14, 18)
+		])
+		visual.add_child(moss)
 
 func get_rock_info() -> Dictionary:
 	var info = {

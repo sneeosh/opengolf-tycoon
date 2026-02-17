@@ -203,6 +203,10 @@ func _update_visuals() -> void:
 		_:
 			_draw_generic(visual, size_x, size_y)
 
+	# Add isometric side wall strip for 3D depth (skip bench — it's open)
+	if building_type != "bench":
+		_add_isometric_depth(visual, size_x, size_y)
+
 	# Add click detection area
 	var click_area = Area2D.new()
 	click_area.name = "ClickArea"
@@ -218,6 +222,34 @@ func _update_visuals() -> void:
 
 	# Connect click detection
 	click_area.input_event.connect(_on_click_area_input_event)
+
+func _add_isometric_depth(visual: Node2D, width_px: int, height_px: int) -> void:
+	"""Add a side wall strip and roof overhang shadow for isometric 3D depth"""
+	var depth = 6  # Pixel width of the side face
+
+	# Side wall strip — darker version of the building, on the right edge
+	var side_wall = Polygon2D.new()
+	side_wall.name = "SideWall"
+	side_wall.color = Color(0, 0, 0, 0.18)  # Dark overlay on right edge
+	side_wall.polygon = PackedVector2Array([
+		Vector2(width_px, height_px * 0.18),
+		Vector2(width_px + depth, height_px * 0.18 + depth * 0.5),
+		Vector2(width_px + depth, height_px + depth * 0.5),
+		Vector2(width_px, height_px)
+	])
+	visual.add_child(side_wall)
+
+	# Roof overhang shadow on the front face — subtle darkening along the roofline
+	var roof_shadow = Polygon2D.new()
+	roof_shadow.name = "RoofOverhangShadow"
+	roof_shadow.color = Color(0, 0, 0, 0.08)
+	roof_shadow.polygon = PackedVector2Array([
+		Vector2(0, height_px * 0.18),
+		Vector2(width_px, height_px * 0.18),
+		Vector2(width_px, height_px * 0.28),
+		Vector2(0, height_px * 0.28)
+	])
+	visual.add_child(roof_shadow)
 
 func _draw_clubhouse(visual: Node2D, width_px: int, height_px: int) -> void:
 	"""Draw clubhouse - appearance varies by upgrade level"""

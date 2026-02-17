@@ -115,6 +115,29 @@ var visual_offset: Vector2 = Vector2.ZERO
 var is_active_golfer: bool = false
 var _highlight_ring: Polygon2D = null
 
+## Walk animation state
+var _walk_frame: int = 0  # 0 or 1, alternates for leg swap
+var _walk_timer: float = 0.0
+const WALK_FRAME_DURATION: float = 0.25  # seconds per frame
+
+## Leg polygon data for walk animation frames
+const LEGS_FRAME_0 = PackedVector2Array([
+	Vector2(-4, 4), Vector2(-5, 11), Vector2(-2, 11), Vector2(-1, 6),
+	Vector2(1, 6), Vector2(2, 11), Vector2(5, 11), Vector2(4, 4)
+])
+const LEGS_FRAME_1 = PackedVector2Array([
+	Vector2(-4, 4), Vector2(-3, 11), Vector2(-1, 11), Vector2(0, 4),
+	Vector2(0, 4), Vector2(1, 11), Vector2(3, 11), Vector2(4, 4)
+])
+const SHOES_FRAME_0 = PackedVector2Array([
+	Vector2(-6, 11), Vector2(-6, 14), Vector2(-2, 14), Vector2(-2, 11),
+	Vector2(2, 11), Vector2(2, 14), Vector2(6, 14), Vector2(6, 11)
+])
+const SHOES_FRAME_1 = PackedVector2Array([
+	Vector2(-4, 11), Vector2(-4, 14), Vector2(-1, 14), Vector2(-1, 11),
+	Vector2(1, 11), Vector2(1, 14), Vector2(4, 14), Vector2(4, 11)
+])
+
 ## Visual components
 @onready var visual: Node2D = $Visual if has_node("Visual") else null
 @onready var name_label: Label = $InfoContainer/NameLabel if has_node("InfoContainer/NameLabel") else null
@@ -265,6 +288,53 @@ func _apply_appearance() -> void:
 	if hands:
 		hands.color = skin_tone
 
+	# Add body shading overlays for visual depth
+	_add_body_shading()
+
+func _add_body_shading() -> void:
+	if not visual:
+		return
+	# Shirt shadow on lower half - subtle darkening
+	var shirt_shadow = Polygon2D.new()
+	shirt_shadow.name = "ShirtShadow"
+	shirt_shadow.color = Color(0, 0, 0, 0.12)
+	shirt_shadow.polygon = PackedVector2Array([
+		Vector2(-5, 1), Vector2(-5, 5), Vector2(5, 5), Vector2(6, 1)
+	])
+	visual.add_child(shirt_shadow)
+
+	# Shirt highlight on upper chest
+	var shirt_highlight = Polygon2D.new()
+	shirt_highlight.name = "ShirtHighlight"
+	shirt_highlight.color = Color(1, 1, 1, 0.1)
+	shirt_highlight.polygon = PackedVector2Array([
+		Vector2(-4, -4), Vector2(-3, -3), Vector2(3, -3), Vector2(4, -4)
+	])
+	visual.add_child(shirt_highlight)
+
+	# Head highlight on upper portion for volume
+	var head_highlight = Polygon2D.new()
+	head_highlight.name = "HeadHighlight"
+	head_highlight.color = Color(1, 1, 1, 0.15)
+	var hl_points = PackedVector2Array()
+	for i in range(8):
+		var angle = (i / 8.0) * PI  # Only upper half arc
+		var x = cos(angle) * 3
+		var y = sin(angle) * 3 - 11  # Offset up to match head
+		hl_points.append(Vector2(x, y))
+	head_highlight.polygon = hl_points
+	visual.add_child(head_highlight)
+
+	# Shoe sole accent - slightly lighter strip
+	var shoe_sole = Polygon2D.new()
+	shoe_sole.name = "ShoeSole"
+	shoe_sole.color = Color(0.35, 0.35, 0.35)
+	shoe_sole.polygon = PackedVector2Array([
+		Vector2(-4, 13), Vector2(-1, 13), Vector2(-1, 14), Vector2(-4, 14),
+		Vector2(1, 13), Vector2(4, 13), Vector2(4, 14), Vector2(1, 14)
+	])
+	visual.add_child(shoe_sole)
+
 func _exit_tree() -> void:
 	if EventBus.green_fee_paid.is_connected(_on_green_fee_paid):
 		EventBus.green_fee_paid.disconnect(_on_green_fee_paid)
@@ -285,6 +355,74 @@ func initialize_from_tier(tier: int) -> void:
 	var personality = GolferTier.get_personality(tier)
 	aggression = personality.aggression
 	patience = personality.patience
+
+	# Apply tier-based visual differentiation
+	_apply_tier_visuals(tier)
+
+func _apply_tier_visuals(tier: int) -> void:
+	if not visual:
+		return
+	match tier:
+		GolferTier.Tier.BEGINNER:
+			# Beginners: no cap, casual look (hide cap, show hair)
+			if cap:
+				cap.visible = false
+			if cap_brim:
+				cap_brim.visible = false
+			if hair:
+				hair.visible = true
+		GolferTier.Tier.CASUAL:
+			# Casual: standard look (cap visible, default appearance)
+			pass
+		GolferTier.Tier.SERIOUS:
+			# Serious: visor (cap with no top) + stripe accent on shirt
+			if cap:
+				cap.visible = false
+			if cap_brim:
+				cap_brim.visible = true
+				cap_brim.color = cap_color
+			# Add shirt stripe for serious golfers
+			var stripe = Polygon2D.new()
+			stripe.name = "TierStripe"
+			stripe.color = Color(1, 1, 1, 0.25)
+			stripe.polygon = PackedVector2Array([
+				Vector2(-5, -1), Vector2(5, -1),
+				Vector2(5, 1), Vector2(-5, 1)
+			])
+			visual.add_child(stripe)
+		GolferTier.Tier.PRO:
+			# Pro: distinct cap + logo mark + belt detail
+			if cap:
+				cap.color = Color(0.1, 0.1, 0.15)  # Dark branded cap
+			if cap_brim:
+				cap_brim.color = Color(0.08, 0.08, 0.12)
+			# Logo on cap
+			var logo = Polygon2D.new()
+			logo.name = "CapLogo"
+			logo.color = Color(1, 1, 1, 0.5)
+			logo.polygon = PackedVector2Array([
+				Vector2(-2, -14), Vector2(2, -14),
+				Vector2(2, -12.5), Vector2(-2, -12.5)
+			])
+			visual.add_child(logo)
+			# Belt detail
+			var belt = Polygon2D.new()
+			belt.name = "Belt"
+			belt.color = Color(0.2, 0.2, 0.22)
+			belt.polygon = PackedVector2Array([
+				Vector2(-5, 4), Vector2(5, 4),
+				Vector2(5, 5.5), Vector2(-5, 5.5)
+			])
+			visual.add_child(belt)
+			# Belt buckle
+			var buckle = Polygon2D.new()
+			buckle.name = "Buckle"
+			buckle.color = Color(0.8, 0.7, 0.3)
+			buckle.polygon = PackedVector2Array([
+				Vector2(-1, 4), Vector2(1, 4),
+				Vector2(1, 5.5), Vector2(-1, 5.5)
+			])
+			visual.add_child(buckle)
 
 func _process(delta: float) -> void:
 	_update_highlight_ring()
@@ -326,10 +464,20 @@ func _process_walking(delta: float) -> void:
 	# Check for building proximity (revenue/satisfaction effects)
 	_check_building_proximity()
 
-	# Simple walking animation - bob up and down, preserving visual offset
+	# Walking animation - bob + leg swap
 	if visual:
 		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * 1.5
 		visual.position = visual_offset + Vector2(0, bob_amount)
+
+	# 2-frame walk cycle: alternate leg positions
+	_walk_timer += delta
+	if _walk_timer >= WALK_FRAME_DURATION:
+		_walk_timer -= WALK_FRAME_DURATION
+		_walk_frame = 1 - _walk_frame
+		if legs:
+			legs.polygon = LEGS_FRAME_1 if _walk_frame == 1 else LEGS_FRAME_0
+		if shoes:
+			shoes.polygon = SHOES_FRAME_1 if _walk_frame == 1 else SHOES_FRAME_0
 
 	# Swing arms while walking
 	var swing_amount = sin(Time.get_ticks_msec() / 200.0) * 0.15
@@ -364,33 +512,50 @@ func _play_swing_animation() -> void:
 		golf_club.visible = true
 
 	var tween = create_tween()
-	tween.set_ease(Tween.EASE_IN_OUT)
+
+	# Stage 1: Address/waggle - small preparatory movement
 	tween.set_parallel(true)
-
-	# Backswing - arms and club rotate back
-	tween.tween_property(arms, "rotation", 1.0, 0.3)
+	tween.tween_property(arms, "rotation", 0.15, 0.12).set_ease(Tween.EASE_IN_OUT)
 	if hands:
-		tween.tween_property(hands, "rotation", 1.0, 0.3)
+		tween.tween_property(hands, "rotation", 0.15, 0.12).set_ease(Tween.EASE_IN_OUT)
 	if golf_club:
-		tween.tween_property(golf_club, "rotation", -1.5, 0.3)
+		tween.tween_property(golf_club, "rotation", -0.2, 0.12).set_ease(Tween.EASE_IN_OUT)
+	if body:
+		tween.tween_property(body, "rotation", 0.05, 0.12).set_ease(Tween.EASE_IN_OUT)
 
+	# Stage 2: Full backswing with body rotation
 	tween.chain().set_parallel(true)
-
-	# Downswing - fast forward swing
-	tween.tween_property(arms, "rotation", -0.6, 0.12)
+	tween.tween_property(arms, "rotation", 1.1, 0.28).set_ease(Tween.EASE_OUT)
 	if hands:
-		tween.tween_property(hands, "rotation", -0.6, 0.12)
+		tween.tween_property(hands, "rotation", 1.1, 0.28).set_ease(Tween.EASE_OUT)
 	if golf_club:
-		tween.tween_property(golf_club, "rotation", 0.8, 0.12)
+		tween.tween_property(golf_club, "rotation", -1.6, 0.28).set_ease(Tween.EASE_OUT)
+	if body:
+		tween.tween_property(body, "rotation", 0.12, 0.28).set_ease(Tween.EASE_OUT)
 
+	# Stage 2b: Brief pause at top of backswing
 	tween.chain().set_parallel(true)
+	tween.tween_interval(0.08)
 
-	# Follow through
-	tween.tween_property(arms, "rotation", 0.0, 0.25)
+	# Stage 3: Downswing - explosive forward rotation
+	tween.chain().set_parallel(true)
+	tween.tween_property(arms, "rotation", -0.7, 0.1).set_ease(Tween.EASE_IN)
 	if hands:
-		tween.tween_property(hands, "rotation", 0.0, 0.25)
+		tween.tween_property(hands, "rotation", -0.7, 0.1).set_ease(Tween.EASE_IN)
 	if golf_club:
-		tween.tween_property(golf_club, "rotation", 0.3, 0.25)
+		tween.tween_property(golf_club, "rotation", 0.9, 0.1).set_ease(Tween.EASE_IN)
+	if body:
+		tween.tween_property(body, "rotation", -0.1, 0.1).set_ease(Tween.EASE_IN)
+
+	# Stage 4: Follow through with body unwinding
+	tween.chain().set_parallel(true)
+	tween.tween_property(arms, "rotation", 0.0, 0.3).set_ease(Tween.EASE_OUT)
+	if hands:
+		tween.tween_property(hands, "rotation", 0.0, 0.3).set_ease(Tween.EASE_OUT)
+	if golf_club:
+		tween.tween_property(golf_club, "rotation", 0.3, 0.3).set_ease(Tween.EASE_OUT)
+	if body:
+		tween.tween_property(body, "rotation", 0.0, 0.3).set_ease(Tween.EASE_OUT)
 
 	await tween.finished
 	swing_animation_playing = false
@@ -1845,6 +2010,15 @@ func _update_visual() -> void:
 		arms.rotation = 0
 	if hands:
 		hands.rotation = 0
+	if body:
+		body.rotation = 0
+	# Reset legs to default pose (undo walk animation)
+	if legs:
+		legs.polygon = LEGS_FRAME_0
+	if shoes:
+		shoes.polygon = SHOES_FRAME_0
+	_walk_frame = 0
+	_walk_timer = 0.0
 
 	# Hide golf club by default
 	if golf_club:
