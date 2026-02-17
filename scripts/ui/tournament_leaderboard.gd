@@ -23,12 +23,12 @@ func _build_ui() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.1, 0.92)
+	style.bg_color = UIConstants.COLOR_BG_DARK
 	style.border_width_bottom = 2
 	style.border_width_top = 2
 	style.border_width_left = 2
 	style.border_width_right = 2
-	style.border_color = Color(0.25, 0.25, 0.3)
+	style.border_color = UIConstants.COLOR_BORDER
 	style.corner_radius_top_left = 6
 	style.corner_radius_top_right = 6
 	style.corner_radius_bottom_left = 6
@@ -63,7 +63,7 @@ func _build_ui() -> void:
 	vbox.add_child(HSeparator.new())
 
 	# Header row
-	var header := _create_row("", "Name", "Score", "Thru", Color(0.6, 0.6, 0.6))
+	var header := _create_row("", "Name", "Score", "Thru", UIConstants.COLOR_TEXT_DIM)
 	vbox.add_child(header)
 
 	# Scrollable grid area
@@ -170,12 +170,12 @@ func _format_score(entry: Dictionary) -> String:
 
 func _get_score_color(diff: int, total_par: int) -> Color:
 	if total_par == 0:
-		return Color(0.7, 0.7, 0.7)
+		return UIConstants.COLOR_TEXT_DIM
 	if diff < 0:
-		return Color(0.3, 0.9, 0.3)  # Under par - green
+		return UIConstants.COLOR_SCORE_UNDER
 	if diff == 0:
-		return Color.WHITE
-	return Color(0.9, 0.4, 0.3)  # Over par - red
+		return UIConstants.COLOR_SCORE_PAR
+	return UIConstants.COLOR_SCORE_OVER
 
 func _create_row(rank: String, player_name: String, score: String, thru: String, color: Color) -> HBoxContainer:
 	var row := HBoxContainer.new()
@@ -186,7 +186,7 @@ func _create_row(rank: String, player_name: String, score: String, thru: String,
 	rank_label.add_theme_font_size_override("font_size", 11)
 	rank_label.custom_minimum_size = Vector2(22, 0)
 	rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	rank_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	rank_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	row.add_child(rank_label)
 
 	var name_label := Label.new()
@@ -209,7 +209,7 @@ func _create_row(rank: String, player_name: String, score: String, thru: String,
 	thru_label.add_theme_font_size_override("font_size", 11)
 	thru_label.custom_minimum_size = Vector2(28, 0)
 	thru_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	thru_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	thru_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	row.add_child(thru_label)
 
 	return row
