@@ -16,6 +16,14 @@ func _ready() -> void:
 	EventBus.tournament_started.connect(_on_tournament_started)
 	EventBus.tournament_completed.connect(_on_tournament_completed)
 
+func _exit_tree() -> void:
+	if EventBus.tournament_scheduled.is_connected(_on_tournament_scheduled):
+		EventBus.tournament_scheduled.disconnect(_on_tournament_scheduled)
+	if EventBus.tournament_started.is_connected(_on_tournament_started):
+		EventBus.tournament_started.disconnect(_on_tournament_started)
+	if EventBus.tournament_completed.is_connected(_on_tournament_completed):
+		EventBus.tournament_completed.disconnect(_on_tournament_completed)
+
 func _build_ui() -> void:
 	custom_minimum_size = Vector2(340, 480)
 
