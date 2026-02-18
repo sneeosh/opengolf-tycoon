@@ -67,6 +67,11 @@ func get_spawn_rate_modifier() -> float:
 	var season = SeasonSystem.get_season(GameManager.current_day)
 	base_modifier *= SeasonSystem.get_spawn_modifier(season)
 
+	# Apply seasonal event modifier (special events boost/reduce demand)
+	var active_event = SeasonalEvents.get_active_event(GameManager.current_day)
+	if active_event:
+		base_modifier *= active_event.spawn_modifier
+
 	return base_modifier
 
 func get_effective_spawn_cooldown() -> float:

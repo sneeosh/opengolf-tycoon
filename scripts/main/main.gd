@@ -60,6 +60,7 @@ var tournament_leaderboard: TournamentLeaderboard = null
 var pause_menu: PauseMenu = null
 var milestone_manager: MilestoneManager = null
 var milestones_panel: MilestonesPanel = null
+var seasonal_calendar_panel: SeasonalCalendarPanel = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
@@ -172,6 +173,7 @@ func _ready() -> void:
 	_setup_golfer_info_popup()
 	_setup_round_summary_popup()
 	_setup_milestone_system()
+	_setup_seasonal_calendar()
 	_setup_autosave_indicator()
 	_setup_notification_toast()
 	_setup_shot_trails()
@@ -266,6 +268,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_G:
 				_toggle_milestones_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_C:
+				_toggle_seasonal_calendar()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
@@ -427,7 +432,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
+	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -2008,6 +2013,38 @@ func _setup_milestone_system() -> void:
 
 func _toggle_milestones_panel() -> void:
 	_toggle_panel(milestones_panel)
+
+# --- Seasonal Calendar ---
+
+func _setup_seasonal_calendar() -> void:
+	seasonal_calendar_panel = SeasonalCalendarPanel.new()
+	seasonal_calendar_panel.name = "SeasonalCalendarPanel"
+	seasonal_calendar_panel.close_requested.connect(func():
+		seasonal_calendar_panel.hide()
+		_active_panel = null
+	)
+	$UI/HUD.add_child(seasonal_calendar_panel)
+
+	# Listen for day changes to announce seasonal events
+	EventBus.day_changed.connect(_on_day_changed_for_events)
+	EventBus.season_changed.connect(_on_season_changed_notification)
+
+func _toggle_seasonal_calendar() -> void:
+	_toggle_panel(seasonal_calendar_panel)
+
+func _on_day_changed_for_events(_new_day: int) -> void:
+	# Check if there's a seasonal event starting today
+	var event = SeasonalEvents.get_active_event(_new_day)
+	if event:
+		var day_in_season = SeasonSystem.get_day_in_season(_new_day)
+		if day_in_season == event.day_in_season:
+			EventBus.notify("Event: %s" % event.name, "success")
+			if event.reputation_bonus > 0:
+				GameManager.modify_reputation(event.reputation_bonus)
+
+func _on_season_changed_notification(old_season: int, new_season: int) -> void:
+	var season_name = SeasonSystem.get_season_name(new_season)
+	EventBus.notify("%s has arrived!" % season_name, "info")
 
 # --- Notification Toast ---
 
