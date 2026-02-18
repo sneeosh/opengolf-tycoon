@@ -61,6 +61,7 @@ var pause_menu: PauseMenu = null
 var milestone_manager: MilestoneManager = null
 var milestones_panel: MilestonesPanel = null
 var seasonal_calendar_panel: SeasonalCalendarPanel = null
+var tutorial_system: TutorialSystem = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
@@ -1132,6 +1133,10 @@ func _on_new_game_started() -> void:
 	NaturalTerrainGenerator.generate(terrain_grid, entity_layer)
 	print("Natural terrain generated for new course")
 
+	# Start tutorial for first-time players
+	if not TutorialSystem.is_tutorial_completed():
+		_start_tutorial()
+
 func _cancel_elevation_mode() -> void:
 	if elevation_tool.is_active():
 		elevation_tool.cancel()
@@ -2045,6 +2050,23 @@ func _on_day_changed_for_events(_new_day: int) -> void:
 func _on_season_changed_notification(old_season: int, new_season: int) -> void:
 	var season_name = SeasonSystem.get_season_name(new_season)
 	EventBus.notify("%s has arrived!" % season_name, "info")
+
+# --- Tutorial ---
+
+func _start_tutorial() -> void:
+	if tutorial_system and tutorial_system.is_active:
+		return
+	tutorial_system = TutorialSystem.new()
+	tutorial_system.name = "TutorialSystem"
+	add_child(tutorial_system)
+	tutorial_system.start_tutorial()
+	var overlay = tutorial_system.get_overlay()
+	if overlay:
+		$UI.add_child(overlay)
+	tutorial_system.tutorial_completed.connect(_on_tutorial_completed)
+
+func _on_tutorial_completed() -> void:
+	EventBus.notify("Tutorial complete! Press F1 for hotkeys anytime.", "success")
 
 # --- Notification Toast ---
 
