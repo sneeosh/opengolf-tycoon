@@ -219,12 +219,12 @@ func update_display() -> void:
 	loan_label.add_theme_font_size_override("font_size", 13)
 	_content_vbox.add_child(loan_label)
 
-	var loan_color = Color(0.9, 0.5, 0.5) if GameManager.loan_balance > 0 else Color(0.7, 0.7, 0.7)
+	var loan_color = UIConstants.COLOR_DANGER_DIM if GameManager.loan_balance > 0 else UIConstants.COLOR_TEXT_DIM
 	var loan_row = _create_stat_row("Outstanding:", "$%d" % GameManager.loan_balance, loan_color)
 	_content_vbox.add_child(loan_row)
 
 	if GameManager.loan_balance > 0:
-		var interest_row = _create_stat_row("Interest:", "5%% / 7 days", Color(0.7, 0.7, 0.7))
+		var interest_row = _create_stat_row("Interest:", "5%% / 7 days", UIConstants.COLOR_TEXT_DIM)
 		_content_vbox.add_child(interest_row)
 
 	var loan_btn_row = HBoxContainer.new()
@@ -267,13 +267,13 @@ func update_display() -> void:
 
 	var spawn_mod = SeasonSystem.get_spawn_modifier(season)
 	var spawn_pct = int(spawn_mod * 100)
-	var spawn_color = Color(0.4, 0.9, 0.4) if spawn_mod >= 1.0 else (Color(0.9, 0.9, 0.4) if spawn_mod >= 0.7 else Color(0.9, 0.5, 0.5))
+	var spawn_color = UIConstants.COLOR_SUCCESS if spawn_mod >= 1.0 else (UIConstants.COLOR_WARNING if spawn_mod >= 0.7 else UIConstants.COLOR_DANGER_DIM)
 	var demand_row = _create_stat_row("Demand:", "%d%%" % spawn_pct, spawn_color)
 	_content_vbox.add_child(demand_row)
 
 	var maint_mod = SeasonSystem.get_maintenance_modifier(season)
 	var maint_pct = int(maint_mod * 100)
-	var maint_color = Color(0.4, 0.9, 0.4) if maint_mod <= 1.0 else (Color(0.9, 0.9, 0.4) if maint_mod <= 1.2 else Color(0.9, 0.5, 0.5))
+	var maint_color = UIConstants.COLOR_SUCCESS if maint_mod <= 1.0 else (UIConstants.COLOR_WARNING if maint_mod <= 1.2 else UIConstants.COLOR_DANGER_DIM)
 	var maint_row = _create_stat_row("Maintenance:", "%d%%" % maint_pct, maint_color)
 	_content_vbox.add_child(maint_row)
 

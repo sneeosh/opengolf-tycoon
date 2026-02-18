@@ -15,6 +15,16 @@ func _build_ui() -> void:
 	EventBus.end_of_day.connect(_on_data_changed)
 	EventBus.day_changed.connect(_on_data_changed)
 
+func _exit_tree() -> void:
+	if EventBus.golfer_finished_hole.is_connected(_on_data_changed):
+		EventBus.golfer_finished_hole.disconnect(_on_data_changed)
+	if EventBus.golfer_finished_round.is_connected(_on_data_changed):
+		EventBus.golfer_finished_round.disconnect(_on_data_changed)
+	if EventBus.end_of_day.is_connected(_on_data_changed):
+		EventBus.end_of_day.disconnect(_on_data_changed)
+	if EventBus.day_changed.is_connected(_on_data_changed):
+		EventBus.day_changed.disconnect(_on_data_changed)
+
 	custom_minimum_size = Vector2(420, 600)
 
 	var margin = MarginContainer.new()
@@ -95,10 +105,10 @@ func update_display() -> void:
 			total_golfers += entry.get("golfers_served", 0)
 
 		var avg_profit = total_profit / max(recent.size(), 1)
-		var profit_color = Color(0.4, 0.9, 0.4) if avg_profit >= 0 else Color(0.9, 0.4, 0.4)
+		var profit_color = UIConstants.COLOR_SUCCESS if avg_profit >= 0 else UIConstants.COLOR_DANGER
 		_content_vbox.add_child(_create_stat_row("Avg Daily Profit:", "$%d" % avg_profit, profit_color))
-		_content_vbox.add_child(_create_stat_row("7-Day Revenue:", "$%d" % total_revenue, Color(0.5, 0.8, 0.5)))
-		_content_vbox.add_child(_create_stat_row("7-Day Costs:", "$%d" % total_costs, Color(0.9, 0.5, 0.5)))
+		_content_vbox.add_child(_create_stat_row("7-Day Revenue:", "$%d" % total_revenue, UIConstants.COLOR_SUCCESS_DIM))
+		_content_vbox.add_child(_create_stat_row("7-Day Costs:", "$%d" % total_costs, UIConstants.COLOR_DANGER_DIM))
 		_content_vbox.add_child(_create_stat_row("Total Golfers:", "%d" % total_golfers, Color.WHITE))
 
 	_content_vbox.add_child(HSeparator.new())
@@ -143,10 +153,10 @@ func update_display() -> void:
 
 		if hardest_hole > 0:
 			var h_text = "Hole %d (+%.1f avg)" % [hardest_hole, hardest_avg]
-			_content_vbox.add_child(_create_stat_row("Hardest:", h_text, Color(0.9, 0.5, 0.5)))
+			_content_vbox.add_child(_create_stat_row("Hardest:", h_text, UIConstants.COLOR_DANGER_DIM))
 		if easiest_hole > 0:
 			var e_text = "Hole %d (%.1f avg)" % [easiest_hole, easiest_avg]
-			_content_vbox.add_child(_create_stat_row("Easiest:", e_text, Color(0.5, 0.9, 0.5)))
+			_content_vbox.add_child(_create_stat_row("Easiest:", e_text, UIConstants.COLOR_SUCCESS_DIM))
 		if most_played_hole > 0:
 			_content_vbox.add_child(_create_stat_row("Most Played:", "Hole %d (%d rounds)" % [most_played_hole, most_rounds], Color.WHITE))
 
@@ -179,10 +189,10 @@ func update_display() -> void:
 
 		if grand_total > 0:
 			var tier_colors = {
-				GolferTier.Tier.BEGINNER: Color(0.5, 0.8, 0.5),
-				GolferTier.Tier.CASUAL: Color(0.5, 0.7, 0.9),
-				GolferTier.Tier.SERIOUS: Color(0.9, 0.7, 0.3),
-				GolferTier.Tier.PRO: Color(0.9, 0.4, 0.4),
+				GolferTier.Tier.BEGINNER: UIConstants.COLOR_SUCCESS_MUTED,
+				GolferTier.Tier.CASUAL: UIConstants.COLOR_BLUE_SOFT,
+				GolferTier.Tier.SERIOUS: UIConstants.COLOR_GOLD_DIM,
+				GolferTier.Tier.PRO: UIConstants.COLOR_DANGER,
 			}
 			for tier in [GolferTier.Tier.BEGINNER, GolferTier.Tier.CASUAL, GolferTier.Tier.SERIOUS, GolferTier.Tier.PRO]:
 				var pct = int(float(totals[tier]) / grand_total * 100)
@@ -210,13 +220,13 @@ func update_display() -> void:
 			var trend_color: Color
 			if sat_diff > 0.05:
 				trend_text = "Improving (%.0f%%)" % (last_sat * 100)
-				trend_color = Color(0.4, 0.9, 0.4)
+				trend_color = UIConstants.COLOR_SUCCESS
 			elif sat_diff < -0.05:
 				trend_text = "Declining (%.0f%%)" % (last_sat * 100)
-				trend_color = Color(0.9, 0.4, 0.4)
+				trend_color = UIConstants.COLOR_DANGER
 			else:
 				trend_text = "Stable (%.0f%%)" % (last_sat * 100)
-				trend_color = Color(0.9, 0.9, 0.4)
+				trend_color = UIConstants.COLOR_WARNING
 			_content_vbox.add_child(_create_stat_row("Satisfaction:", trend_text, trend_color))
 
 		# Reputation trend
@@ -228,20 +238,20 @@ func update_display() -> void:
 			var rep_color: Color
 			if rep_diff > 1.0:
 				rep_text = "%.0f%% (+%.1f)" % [last_rep, rep_diff]
-				rep_color = Color(0.4, 0.9, 0.4)
+				rep_color = UIConstants.COLOR_SUCCESS
 			elif rep_diff < -1.0:
 				rep_text = "%.0f%% (%.1f)" % [last_rep, rep_diff]
-				rep_color = Color(0.9, 0.4, 0.4)
+				rep_color = UIConstants.COLOR_DANGER
 			else:
 				rep_text = "%.0f%% (stable)" % last_rep
-				rep_color = Color(0.9, 0.9, 0.4)
+				rep_color = UIConstants.COLOR_WARNING
 			_content_vbox.add_child(_create_stat_row("Reputation:", rep_text, rep_color))
 
 	# Top complaint from FeedbackManager
 	if FeedbackManager:
 		var top_complaint = FeedbackManager.get_top_complaint()
 		if top_complaint != "":
-			_content_vbox.add_child(_create_stat_row("Top Issue:", top_complaint, Color(0.9, 0.6, 0.3)))
+			_content_vbox.add_child(_create_stat_row("Top Issue:", top_complaint, UIConstants.COLOR_ORANGE))
 
 func _get_recent(history: Array, count: int) -> Array:
 	var start = max(0, history.size() - count)
@@ -257,7 +267,7 @@ func _add_dim_label(text: String) -> void:
 	var label = Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", 11)
-	label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	_content_vbox.add_child(label)
 
 func _create_stat_row(label_text: String, value_text: String, value_color: Color = Color.WHITE) -> HBoxContainer:
