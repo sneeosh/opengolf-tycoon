@@ -7,12 +7,12 @@ var _flower_positions: Dictionary = {}  # pos -> flower data
 
 # Flower color palettes
 const FLOWER_COLORS = [
-	Color(0.95, 0.3, 0.4),   # Red
-	Color(0.95, 0.7, 0.2),   # Yellow
-	Color(0.95, 0.55, 0.7),  # Pink
-	Color(0.6, 0.4, 0.85),   # Purple
-	Color(0.95, 0.95, 0.95), # White
-	Color(0.95, 0.6, 0.3),   # Orange
+	Color(0.80, 0.35, 0.42),  # Muted red
+	Color(0.85, 0.68, 0.30),  # Muted gold
+	Color(0.82, 0.55, 0.65),  # Muted pink
+	Color(0.55, 0.42, 0.72),  # Muted purple
+	Color(0.90, 0.88, 0.85),  # Off-white
+	Color(0.82, 0.58, 0.35),  # Muted orange
 ]
 
 func initialize(grid: TerrainGrid) -> void:
@@ -47,11 +47,11 @@ func _generate_flowers_for_tile(pos: Vector2i) -> void:
 	rng.seed = pos.x * 31337 ^ pos.y * 65537
 
 	var flowers: Array = []
-	var flower_count = rng.randi_range(8, 15)
+	var flower_count = rng.randi_range(4, 7)
 
-	# Pick 2-3 colors for this bed (for a cohesive look)
+	# Pick 1-2 colors for this bed (restrained palette)
 	var bed_colors: Array = []
-	var color_count = rng.randi_range(2, 3)
+	var color_count = rng.randi_range(1, 2)
 	for i in range(color_count):
 		bed_colors.append(FLOWER_COLORS[rng.randi_range(0, FLOWER_COLORS.size() - 1)])
 
@@ -59,8 +59,8 @@ func _generate_flowers_for_tile(pos: Vector2i) -> void:
 		var flower = {
 			"x": rng.randf_range(6, terrain_grid.tile_width - 6),
 			"y": rng.randf_range(3, terrain_grid.tile_height - 3),
-			"size": rng.randf_range(2.5, 5.0),
-			"petals": rng.randi_range(4, 7),
+			"size": rng.randf_range(2.0, 3.5),
+			"petals": rng.randi_range(4, 6),
 			"color": bed_colors[rng.randi_range(0, bed_colors.size() - 1)],
 			"rotation": rng.randf_range(0, TAU)
 		}
@@ -68,12 +68,12 @@ func _generate_flowers_for_tile(pos: Vector2i) -> void:
 
 	# Also add some green foliage patches
 	var foliage: Array = []
-	var foliage_count = rng.randi_range(4, 8)
+	var foliage_count = rng.randi_range(2, 3)
 	for i in range(foliage_count):
 		foliage.append({
 			"x": rng.randf_range(4, terrain_grid.tile_width - 4),
 			"y": rng.randf_range(2, terrain_grid.tile_height - 2),
-			"size": rng.randf_range(3, 6)
+			"size": rng.randf_range(2.5, 4.5)
 		})
 
 	_flower_positions[pos] = {"flowers": flowers, "foliage": foliage}

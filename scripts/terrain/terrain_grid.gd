@@ -30,6 +30,7 @@ var _debug_overlay: TerrainDebugOverlay = null
 var _noise_overlay: TerrainNoiseOverlay = null
 var _land_boundary_overlay: LandBoundaryOverlay = null
 var _wind_flag_overlay: WindFlagOverlay = null
+var _elevation_shading_overlay: ElevationShadingOverlay = null
 
 func _ready() -> void:
 	_generate_tileset()
@@ -49,6 +50,7 @@ func _ready() -> void:
 	_setup_noise_overlay()
 	_setup_land_boundary_overlay()
 	_setup_wind_flag_overlay()
+	_setup_elevation_shading_overlay()
 
 	# Force a complete redraw after one frame to ensure shader is fully applied
 	# This fixes the issue where initial tiles don't get shader variation
@@ -271,6 +273,10 @@ func calculate_distance_yards(from: Vector2i, to: Vector2i) -> int:
 	var distance_tiles = Vector2(to - from).length()
 	return int(distance_tiles * YARDS_PER_TILE)
 
+func calculate_distance_yards_precise(from: Vector2, to: Vector2) -> int:
+	const YARDS_PER_TILE: float = 22.0
+	return int(from.distance_to(to) * YARDS_PER_TILE)
+
 func get_total_maintenance_cost() -> int:
 	## Only count maintenance for player-placed tiles, not auto-generated terrain
 	var total: int = 0
@@ -371,6 +377,12 @@ func _setup_wind_flag_overlay() -> void:
 	_wind_flag_overlay.name = "WindFlagOverlay"
 	add_child(_wind_flag_overlay)
 	_wind_flag_overlay.initialize(self)
+
+func _setup_elevation_shading_overlay() -> void:
+	_elevation_shading_overlay = ElevationShadingOverlay.new()
+	_elevation_shading_overlay.name = "ElevationShadingOverlay"
+	add_child(_elevation_shading_overlay)
+	_elevation_shading_overlay.setup(self)
 
 ## Toggle debug overlay visibility
 func toggle_debug_overlay() -> void:

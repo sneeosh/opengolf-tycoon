@@ -194,6 +194,22 @@ func _land_ball() -> void:
 	# Check terrain type at final resting position
 	var terrain_type = terrain_grid.get_tile(grid_position)
 
+	# Spawn landing impact effect for full shots only (skip putts and short chips)
+	if flight_max_height > 10.0:
+		var impact_terrain = "default"
+		match terrain_type:
+			TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.TEE_BOX:
+				impact_terrain = "fairway"
+			TerrainTypes.Type.GRASS, TerrainTypes.Type.ROUGH, TerrainTypes.Type.HEAVY_ROUGH:
+				impact_terrain = "grass"
+			TerrainTypes.Type.BUNKER:
+				impact_terrain = "bunker"
+			TerrainTypes.Type.WATER:
+				impact_terrain = "water"
+			TerrainTypes.Type.GREEN:
+				impact_terrain = "fairway"
+		LandingImpactEffect.create_at(get_parent(), global_position, impact_terrain)
+
 	match terrain_type:
 		TerrainTypes.Type.WATER:
 			_change_state(BallState.IN_WATER)

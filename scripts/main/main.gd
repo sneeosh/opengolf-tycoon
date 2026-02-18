@@ -1446,6 +1446,10 @@ func _on_load_completed(_success: bool) -> void:
 		# Regenerate tileset with loaded theme colors
 		if terrain_grid:
 			terrain_grid.regenerate_tileset()
+		# Center camera on grid (same as new game) so player starts on their course
+		var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
+		var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
+		camera.focus_on(Vector2(center_x, center_y), true)
 
 # --- Undo/Redo System ---
 

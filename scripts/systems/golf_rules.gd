@@ -150,8 +150,8 @@ static func get_putt_make_rate(distance_tiles: float, putting_skill: float) -> f
 	# For beginners (skill=0.35), decay is ~3x steeper.
 	var base_decay = 0.053
 	# Skill scales the decay: lower skill = steeper decay = harder to make putts
-	# skill 0.95 → multiplier 1.0, skill 0.35 → multiplier ~2.8
-	var skill_multiplier = 1.0 + (1.0 - putting_skill) * 3.0
+	# skill 0.95 → multiplier 1.125, skill 0.35 → multiplier ~2.625
+	var skill_multiplier = 1.0 + (1.0 - putting_skill) * 2.5
 	var decay = base_decay * skill_multiplier
 
 	var make_rate = exp(-distance_feet * decay)
@@ -172,29 +172,30 @@ static func get_putt_miss_characteristics(distance_tiles: float, putting_skill: 
 
 	# Distance error (how far past/short of hole the miss ends up)
 	# Skilled putters have tighter distance control
+	# Tighter values prevent cascading 3-4 putt cycles for beginners
 	var distance_std: float
 	if distance_feet < 10.0:
 		# Short putts: small overshoot, tight control
-		distance_std = 0.02 + (1.0 - putting_skill) * 0.03
+		distance_std = 0.015 + (1.0 - putting_skill) * 0.02
 	elif distance_feet < 30.0:
 		# Medium putts: moderate distance error
-		distance_std = 0.04 + (1.0 - putting_skill) * 0.08
+		distance_std = 0.03 + (1.0 - putting_skill) * 0.06
 	else:
 		# Long putts: distance control is the main challenge
 		# Error proportional to distance (lag putting)
-		distance_std = distance_tiles * (0.08 + (1.0 - putting_skill) * 0.15)
+		distance_std = distance_tiles * (0.06 + (1.0 - putting_skill) * 0.12)
 
 	# Lateral error (left/right miss)
 	var lateral_std: float
 	if distance_feet < 10.0:
 		# Short putts: small lateral miss (lip-out territory)
-		lateral_std = 0.01 + (1.0 - putting_skill) * 0.025
+		lateral_std = 0.008 + (1.0 - putting_skill) * 0.017
 	elif distance_feet < 30.0:
 		# Medium putts: moderate read error
-		lateral_std = 0.02 + (1.0 - putting_skill) * 0.05
+		lateral_std = 0.015 + (1.0 - putting_skill) * 0.035
 	else:
 		# Long putts: significant read error
-		lateral_std = 0.03 + (1.0 - putting_skill) * 0.08
+		lateral_std = 0.025 + (1.0 - putting_skill) * 0.06
 
 	# Slight long bias — pros are taught "never up, never in"
 	# Aggressive putters tend to run it past; cautious ones leave it short

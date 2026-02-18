@@ -526,15 +526,19 @@ func _advance_golfer(golfer: Golfer) -> void:
 		# Already hit at least one shot
 		# Check if close enough to hole it (use sub-tile precision for putting accuracy)
 		var hole_position = hole_data.hole_position
+		var hole_pos_vec = Vector2(hole_position)
+		var ball_holed = GolfRules.is_ball_holed(golfer.ball_position_precise, hole_pos_vec)
 
 		# Max stroke limit: triple bogey pickup (pace-of-play rule)
-		var max_strokes = GolfRules.get_max_strokes(hole_data.par)
-		if golfer.current_strokes >= max_strokes:
-			print("%s picking up on hole %d (max %d strokes)" % [golfer.golfer_name, golfer.current_hole + 1, max_strokes])
-			golfer.ball_position = hole_position
-			golfer.ball_position_precise = Vector2(hole_position)
+		if not ball_holed:
+			var max_strokes = GolfRules.get_max_strokes(hole_data.par)
+			if golfer.current_strokes >= max_strokes:
+				print("%s picking up on hole %d (max %d strokes)" % [golfer.golfer_name, golfer.current_hole + 1, max_strokes])
+				golfer.ball_position = hole_position
+				golfer.ball_position_precise = hole_pos_vec
+				ball_holed = true
 
-		if GolfRules.is_ball_holed(golfer.ball_position_precise, Vector2(hole_position)):
+		if ball_holed:
 			# Close enough to hole out
 			var score_name = GolfRules.get_score_name(golfer.current_strokes, hole_data.par)
 			print("%s (ID:%d) holes out on hole %d: %d strokes (Par %d) - %s" % [golfer.golfer_name, golfer.golfer_id, golfer.current_hole + 1, golfer.current_strokes, hole_data.par, score_name])

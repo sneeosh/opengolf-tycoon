@@ -115,6 +115,30 @@ var visual_offset: Vector2 = Vector2.ZERO
 var is_active_golfer: bool = false
 var _highlight_ring: Polygon2D = null
 
+## Walk animation state
+var _walk_frame: int = 0  # 0 or 1, alternates for leg swap
+var _walk_timer: float = 0.0
+const WALK_FRAME_DURATION: float = 0.25  # seconds per frame
+
+## Leg polygon data for walk animation frames
+## Frame 0 = standing (matches scene default), Frame 1 = mid-stride
+var LEGS_FRAME_0 := PackedVector2Array([
+	Vector2(-4, 4), Vector2(-3, 11), Vector2(-1, 11), Vector2(0, 4),
+	Vector2(0, 4), Vector2(1, 11), Vector2(3, 11), Vector2(4, 4)
+])
+var LEGS_FRAME_1 := PackedVector2Array([
+	Vector2(-4, 4), Vector2(-4, 11), Vector2(-2, 11), Vector2(-1, 5),
+	Vector2(1, 5), Vector2(2, 11), Vector2(4, 11), Vector2(4, 4)
+])
+var SHOES_FRAME_0 := PackedVector2Array([
+	Vector2(-4, 11), Vector2(-4, 14), Vector2(-1, 14), Vector2(-1, 11),
+	Vector2(1, 11), Vector2(1, 14), Vector2(4, 14), Vector2(4, 11)
+])
+var SHOES_FRAME_1 := PackedVector2Array([
+	Vector2(-5, 11), Vector2(-5, 14), Vector2(-2, 14), Vector2(-2, 11),
+	Vector2(2, 11), Vector2(2, 14), Vector2(5, 14), Vector2(5, 11)
+])
+
 ## Visual components
 @onready var visual: Node2D = $Visual if has_node("Visual") else null
 @onready var name_label: Label = $InfoContainer/NameLabel if has_node("InfoContainer/NameLabel") else null
@@ -265,6 +289,53 @@ func _apply_appearance() -> void:
 	if hands:
 		hands.color = skin_tone
 
+	# Add body shading overlays for visual depth
+	_add_body_shading()
+
+func _add_body_shading() -> void:
+	if not visual:
+		return
+	# Shirt shadow on lower half - subtle darkening
+	var shirt_shadow = Polygon2D.new()
+	shirt_shadow.name = "ShirtShadow"
+	shirt_shadow.color = Color(0, 0, 0, 0.12)
+	shirt_shadow.polygon = PackedVector2Array([
+		Vector2(-5, 1), Vector2(-5, 5), Vector2(5, 5), Vector2(6, 1)
+	])
+	visual.add_child(shirt_shadow)
+
+	# Shirt highlight on upper chest
+	var shirt_highlight = Polygon2D.new()
+	shirt_highlight.name = "ShirtHighlight"
+	shirt_highlight.color = Color(1, 1, 1, 0.1)
+	shirt_highlight.polygon = PackedVector2Array([
+		Vector2(-4, -4), Vector2(-3, -3), Vector2(3, -3), Vector2(4, -4)
+	])
+	visual.add_child(shirt_highlight)
+
+	# Head highlight on upper portion for volume
+	var head_highlight = Polygon2D.new()
+	head_highlight.name = "HeadHighlight"
+	head_highlight.color = Color(1, 1, 1, 0.15)
+	var hl_points = PackedVector2Array()
+	for i in range(8):
+		var angle = (i / 8.0) * PI  # Only upper half arc
+		var x = cos(angle) * 3
+		var y = sin(angle) * 3 - 11  # Offset up to match head
+		hl_points.append(Vector2(x, y))
+	head_highlight.polygon = hl_points
+	visual.add_child(head_highlight)
+
+	# Shoe sole accent - slightly lighter strip
+	var shoe_sole = Polygon2D.new()
+	shoe_sole.name = "ShoeSole"
+	shoe_sole.color = Color(0.35, 0.35, 0.35)
+	shoe_sole.polygon = PackedVector2Array([
+		Vector2(-4, 13), Vector2(-1, 13), Vector2(-1, 14), Vector2(-4, 14),
+		Vector2(1, 13), Vector2(4, 13), Vector2(4, 14), Vector2(1, 14)
+	])
+	visual.add_child(shoe_sole)
+
 func _exit_tree() -> void:
 	if EventBus.green_fee_paid.is_connected(_on_green_fee_paid):
 		EventBus.green_fee_paid.disconnect(_on_green_fee_paid)
@@ -285,6 +356,74 @@ func initialize_from_tier(tier: int) -> void:
 	var personality = GolferTier.get_personality(tier)
 	aggression = personality.aggression
 	patience = personality.patience
+
+	# Apply tier-based visual differentiation
+	_apply_tier_visuals(tier)
+
+func _apply_tier_visuals(tier: int) -> void:
+	if not visual:
+		return
+	match tier:
+		GolferTier.Tier.BEGINNER:
+			# Beginners: no cap, casual look (hide cap, show hair)
+			if cap:
+				cap.visible = false
+			if cap_brim:
+				cap_brim.visible = false
+			if hair:
+				hair.visible = true
+		GolferTier.Tier.CASUAL:
+			# Casual: standard look (cap visible, default appearance)
+			pass
+		GolferTier.Tier.SERIOUS:
+			# Serious: visor (cap with no top) + stripe accent on shirt
+			if cap:
+				cap.visible = false
+			if cap_brim:
+				cap_brim.visible = true
+				cap_brim.color = cap_color
+			# Add shirt stripe for serious golfers
+			var stripe = Polygon2D.new()
+			stripe.name = "TierStripe"
+			stripe.color = Color(1, 1, 1, 0.25)
+			stripe.polygon = PackedVector2Array([
+				Vector2(-5, -1), Vector2(5, -1),
+				Vector2(5, 1), Vector2(-5, 1)
+			])
+			visual.add_child(stripe)
+		GolferTier.Tier.PRO:
+			# Pro: distinct cap + logo mark + belt detail
+			if cap:
+				cap.color = Color(0.1, 0.1, 0.15)  # Dark branded cap
+			if cap_brim:
+				cap_brim.color = Color(0.08, 0.08, 0.12)
+			# Logo on cap
+			var logo = Polygon2D.new()
+			logo.name = "CapLogo"
+			logo.color = Color(1, 1, 1, 0.5)
+			logo.polygon = PackedVector2Array([
+				Vector2(-2, -14), Vector2(2, -14),
+				Vector2(2, -12.5), Vector2(-2, -12.5)
+			])
+			visual.add_child(logo)
+			# Belt detail
+			var belt = Polygon2D.new()
+			belt.name = "Belt"
+			belt.color = Color(0.2, 0.2, 0.22)
+			belt.polygon = PackedVector2Array([
+				Vector2(-5, 4), Vector2(5, 4),
+				Vector2(5, 5.5), Vector2(-5, 5.5)
+			])
+			visual.add_child(belt)
+			# Belt buckle
+			var buckle = Polygon2D.new()
+			buckle.name = "Buckle"
+			buckle.color = Color(0.8, 0.7, 0.3)
+			buckle.polygon = PackedVector2Array([
+				Vector2(-1, 4), Vector2(1, 4),
+				Vector2(1, 5.5), Vector2(-1, 5.5)
+			])
+			visual.add_child(buckle)
 
 func _process(delta: float) -> void:
 	_update_highlight_ring()
@@ -326,10 +465,20 @@ func _process_walking(delta: float) -> void:
 	# Check for building proximity (revenue/satisfaction effects)
 	_check_building_proximity()
 
-	# Simple walking animation - bob up and down, preserving visual offset
+	# Walking animation - bob + leg swap
 	if visual:
 		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * 1.5
 		visual.position = visual_offset + Vector2(0, bob_amount)
+
+	# 2-frame walk cycle: alternate leg positions
+	_walk_timer += delta
+	if _walk_timer >= WALK_FRAME_DURATION:
+		_walk_timer -= WALK_FRAME_DURATION
+		_walk_frame = 1 - _walk_frame
+		if legs:
+			legs.polygon = LEGS_FRAME_1 if _walk_frame == 1 else LEGS_FRAME_0
+		if shoes:
+			shoes.polygon = SHOES_FRAME_1 if _walk_frame == 1 else SHOES_FRAME_0
 
 	# Swing arms while walking
 	var swing_amount = sin(Time.get_ticks_msec() / 200.0) * 0.15
@@ -353,44 +502,126 @@ func _process_swinging(_delta: float) -> void:
 	# Play swing animation once
 	if not swing_animation_playing and arms:
 		swing_animation_playing = true
-		_play_swing_animation()
+		var terrain_grid = GameManager.terrain_grid
+		var current_terrain = terrain_grid.get_tile(ball_position) if terrain_grid else -1
+		var on_green = current_terrain == TerrainTypes.Type.GREEN
+		_play_swing_animation(on_green)
 
-func _play_swing_animation() -> void:
+func _play_swing_animation(is_putt: bool = false) -> void:
 	if not arms:
 		return
+
+	# Prevent double-triggering from both take_shot() and _process_swinging()
+	swing_animation_playing = true
 
 	# Show the golf club during swing
 	if golf_club:
 		golf_club.visible = true
 
-	var tween = create_tween()
-	tween.set_ease(Tween.EASE_IN_OUT)
-	tween.set_parallel(true)
+	# IMPORTANT: In Godot 4, tween.chain().set_parallel(true) is BROKEN.
+	# chain() sets parallel_enabled=false, but set_parallel(true) immediately
+	# re-enables it, so the next tweener joins the current step instead of
+	# creating a new one. The correct pattern is:
+	#   tween.chain().tween_property(...)  — first tweener creates the new step
+	#   tween.tween_property(...)          — subsequent ones are parallel (default_parallel=true)
+	var tween = create_tween().set_parallel(true)
 
-	# Backswing - arms and club rotate back
-	tween.tween_property(arms, "rotation", 1.0, 0.3)
-	if hands:
-		tween.tween_property(hands, "rotation", 1.0, 0.3)
-	if golf_club:
-		tween.tween_property(golf_club, "rotation", -1.5, 0.3)
+	if is_putt:
+		# Putt: Gentle pendulum stroke — rotation only, no position change
+		# Step 1: Slight forward press
+		tween.tween_property(arms, "rotation", -0.08, 0.10).set_ease(Tween.EASE_IN_OUT)
+		if hands:
+			tween.tween_property(hands, "rotation", -0.08, 0.10).set_ease(Tween.EASE_IN_OUT)
+		if golf_club:
+			tween.tween_property(golf_club, "rotation", -0.1, 0.10).set_ease(Tween.EASE_IN_OUT)
 
-	tween.chain().set_parallel(true)
+		# Step 2: Pendulum back
+		tween.chain().tween_property(arms, "rotation", 0.25, 0.20).set_ease(Tween.EASE_IN_OUT)
+		if hands:
+			tween.tween_property(hands, "rotation", 0.25, 0.20).set_ease(Tween.EASE_IN_OUT)
+		if golf_club:
+			tween.tween_property(golf_club, "rotation", 0.35, 0.20).set_ease(Tween.EASE_IN_OUT)
 
-	# Downswing - fast forward swing
-	tween.tween_property(arms, "rotation", -0.6, 0.12)
-	if hands:
-		tween.tween_property(hands, "rotation", -0.6, 0.12)
-	if golf_club:
-		tween.tween_property(golf_club, "rotation", 0.8, 0.12)
+		# Step 3: Forward stroke
+		tween.chain().tween_property(arms, "rotation", -0.2, 0.15).set_ease(Tween.EASE_IN_OUT)
+		if hands:
+			tween.tween_property(hands, "rotation", -0.2, 0.15).set_ease(Tween.EASE_IN_OUT)
+		if golf_club:
+			tween.tween_property(golf_club, "rotation", -0.3, 0.15).set_ease(Tween.EASE_IN_OUT)
 
-	tween.chain().set_parallel(true)
+		# Step 4: Return to neutral
+		tween.chain().tween_property(arms, "rotation", 0.0, 0.20).set_ease(Tween.EASE_IN_OUT)
+		if hands:
+			tween.tween_property(hands, "rotation", 0.0, 0.20).set_ease(Tween.EASE_IN_OUT)
+		if golf_club:
+			tween.tween_property(golf_club, "rotation", 0.0, 0.20).set_ease(Tween.EASE_IN_OUT)
+	else:
+		# Full swing using position + rotation keyframes (P1-P10 swing positions).
+		# Nodes must MOVE to new positions — rotation alone can't produce a backswing
+		# because all nodes share the same pivot at (0,0).
 
-	# Follow through
-	tween.tween_property(arms, "rotation", 0.0, 0.25)
-	if hands:
-		tween.tween_property(hands, "rotation", 0.0, 0.25)
-	if golf_club:
-		tween.tween_property(golf_club, "rotation", 0.3, 0.25)
+		# P1 → P3: Takeaway — club and arms begin lifting back and up
+		tween.tween_property(arms, "position", Vector2(2, -2), 0.14).set_ease(Tween.EASE_OUT)
+		tween.tween_property(arms, "rotation", -0.5, 0.14).set_ease(Tween.EASE_OUT)
+		if hands:
+			tween.tween_property(hands, "position", Vector2(3, -3), 0.14).set_ease(Tween.EASE_OUT)
+			tween.tween_property(hands, "rotation", -0.6, 0.14).set_ease(Tween.EASE_OUT)
+		if golf_club:
+			tween.tween_property(golf_club, "position", Vector2(3, -3), 0.14).set_ease(Tween.EASE_OUT)
+			tween.tween_property(golf_club, "rotation", 1.5, 0.14).set_ease(Tween.EASE_OUT)
+		if body:
+			tween.tween_property(body, "rotation", 0.08, 0.14).set_ease(Tween.EASE_OUT)
+
+		# P3 → P4: Top of backswing — arms raised high, club overhead pointing back
+		tween.chain().tween_property(arms, "position", Vector2(4, -5), 0.22).set_ease(Tween.EASE_OUT)
+		tween.tween_property(arms, "rotation", -0.8, 0.22).set_ease(Tween.EASE_OUT)
+		if hands:
+			tween.tween_property(hands, "position", Vector2(5, -6), 0.22).set_ease(Tween.EASE_OUT)
+			tween.tween_property(hands, "rotation", -0.9, 0.22).set_ease(Tween.EASE_OUT)
+		if golf_club:
+			tween.tween_property(golf_club, "position", Vector2(5, -6), 0.22).set_ease(Tween.EASE_OUT)
+			tween.tween_property(golf_club, "rotation", 2.8, 0.22).set_ease(Tween.EASE_OUT)
+		if body:
+			tween.tween_property(body, "rotation", 0.15, 0.22).set_ease(Tween.EASE_OUT)
+
+		# Pause at top of backswing
+		tween.chain().tween_interval(0.08)
+
+		# P4 → P6: Downswing through impact — everything snaps back down
+		tween.chain().tween_property(arms, "position", Vector2(0, 1), 0.06).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_EXPO)
+		tween.tween_property(arms, "rotation", 0.0, 0.06).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_EXPO)
+		if hands:
+			tween.tween_property(hands, "position", Vector2(0, 1), 0.06).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_EXPO)
+			tween.tween_property(hands, "rotation", 0.0, 0.06).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_EXPO)
+		if golf_club:
+			tween.tween_property(golf_club, "position", Vector2(0, 1), 0.06).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_EXPO)
+			tween.tween_property(golf_club, "rotation", -0.1, 0.06).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_EXPO)
+		if body:
+			tween.tween_property(body, "rotation", -0.04, 0.06).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_EXPO)
+
+		# P6 → P8: Follow-through — arms and club sweep to the other side
+		tween.chain().tween_property(arms, "position", Vector2(-3, -3), 0.14).set_ease(Tween.EASE_OUT)
+		tween.tween_property(arms, "rotation", 0.6, 0.14).set_ease(Tween.EASE_OUT)
+		if hands:
+			tween.tween_property(hands, "position", Vector2(-4, -4), 0.14).set_ease(Tween.EASE_OUT)
+			tween.tween_property(hands, "rotation", 0.7, 0.14).set_ease(Tween.EASE_OUT)
+		if golf_club:
+			tween.tween_property(golf_club, "position", Vector2(-3, -4), 0.14).set_ease(Tween.EASE_OUT)
+			tween.tween_property(golf_club, "rotation", -2.2, 0.14).set_ease(Tween.EASE_OUT)
+		if body:
+			tween.tween_property(body, "rotation", -0.12, 0.14).set_ease(Tween.EASE_OUT)
+
+		# P8 → P10: Return to neutral
+		tween.chain().tween_property(arms, "position", Vector2.ZERO, 0.25).set_ease(Tween.EASE_IN_OUT)
+		tween.tween_property(arms, "rotation", 0.0, 0.25).set_ease(Tween.EASE_IN_OUT)
+		if hands:
+			tween.tween_property(hands, "position", Vector2.ZERO, 0.25).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(hands, "rotation", 0.0, 0.25).set_ease(Tween.EASE_IN_OUT)
+		if golf_club:
+			tween.tween_property(golf_club, "position", Vector2.ZERO, 0.25).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(golf_club, "rotation", 0.0, 0.25).set_ease(Tween.EASE_IN_OUT)
+		if body:
+			tween.tween_property(body, "rotation", 0.0, 0.25).set_ease(Tween.EASE_IN_OUT)
 
 	await tween.finished
 	if not is_instance_valid(self):
@@ -440,16 +671,16 @@ func take_shot(target: Vector2i) -> void:
 	current_strokes += 1
 	_change_state(State.SWINGING)
 
-	# Play swing animation before the ball leaves
-	await _play_swing_animation()
-	if not is_instance_valid(self):
-		return
-
 	var terrain_grid = GameManager.terrain_grid
 	# Use rounded precise position for terrain check to handle sub-tile edge cases
 	var terrain_check_pos = Vector2i(ball_position_precise.round()) if terrain_grid else ball_position
 	var current_terrain = terrain_grid.get_tile(terrain_check_pos) if terrain_grid else -1
 	var is_putt = current_terrain == TerrainTypes.Type.GREEN
+
+	# Play swing animation before the ball leaves
+	await _play_swing_animation(is_putt)
+	if not is_instance_valid(self):
+		return
 
 	# Save position before shot for OB stroke-and-distance penalty
 	var previous_position = ball_position
@@ -628,13 +859,14 @@ func select_club(distance_to_target: float, current_terrain: int) -> Club:
 	if current_terrain == TerrainTypes.Type.GREEN:
 		return Club.PUTTER
 
-	# Allow fringe putting: use putter from nearby off-green lies on easy terrain
-	# Real golfers often putt from the fringe or short grass near the green
+	# Allow fringe putting: use putter from nearby off-green lies
+	# Real golfers often putt from the fringe or bump-and-run from light rough
 	if distance_to_target <= CLUB_STATS[Club.PUTTER]["max_distance"]:
 		var is_puttable_surface = current_terrain in [
 			TerrainTypes.Type.FAIRWAY,
 			TerrainTypes.Type.GRASS,
 			TerrainTypes.Type.TEE_BOX,
+			TerrainTypes.Type.ROUGH,
 		]
 		if is_puttable_surface:
 			return Club.PUTTER
@@ -681,13 +913,15 @@ func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 	if current_terrain == TerrainTypes.Type.GREEN:
 		return _decide_putt_target(hole_position)
 
-	# Fringe putting check
+	# Fringe putting/chipping check — within putter range, use putt targeting
+	# Includes ROUGH since golfers can bump-and-run from light rough near the green
 	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
 	if distance_to_hole <= CLUB_STATS[Club.PUTTER]["max_distance"]:
-		var is_puttable = current_terrain in [
-			TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.GRASS, TerrainTypes.Type.TEE_BOX,
+		var is_chippable = current_terrain in [
+			TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.GRASS,
+			TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.ROUGH,
 		]
-		if is_puttable:
+		if is_chippable:
 			return _decide_putt_target(hole_position)
 
 	# Evaluate candidate clubs to find the best overall option (enables lay-up)
@@ -716,6 +950,19 @@ func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 			best_score = score
 			best_target = target
 			best_club = club
+
+	# Course management: less skilled golfers aim toward the center of the green
+	# rather than directly at the pin. Pros attack flags, amateurs play safe.
+	# This also naturally spreads out group landing positions.
+	var course_data = GameManager.course_data
+	if course_data and current_hole < course_data.holes.size():
+		var hole_data = course_data.holes[current_hole]
+		var green_center = hole_data.green_position
+		if green_center != Vector2i.ZERO and green_center != hole_position:
+			# Blend: pros (accuracy ~0.9) aim 90% at pin, beginners (accuracy ~0.3) aim 70% at green center
+			var pin_weight = clampf(accuracy_skill * 0.8 + 0.2, 0.3, 1.0)
+			var blended = Vector2(hole_position) * pin_weight + Vector2(green_center) * (1.0 - pin_weight)
+			best_target = Vector2i(blended.round())
 
 	return best_target
 
@@ -924,16 +1171,15 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 			landing = hole_pos + direction * distance_error + perpendicular * lateral_error
 
 			# Safety: cap miss distance so putts don't end up absurdly far from the hole
-			# For short putts (< 10 ft / 0.15 tiles): miss should be within ~4 ft of hole
-			# For medium putts (10-30 ft): miss should be within ~8 ft of hole
-			# For long putts (30+ ft): miss should be within a reasonable lag range
+			# Tighter caps prevent cascading multi-putt cycles for low-skill golfers.
+			# Short putt misses should end near tap-in range; medium misses within 5-8 ft.
 			var max_miss_from_hole: float
 			if distance < 0.15:
-				max_miss_from_hole = 0.06 + (1.0 - putting_skill) * 0.04  # ~3-6 ft
+				max_miss_from_hole = 0.045 + (1.0 - putting_skill) * 0.025  # ~3-4.6 ft
 			elif distance < 0.45:
-				max_miss_from_hole = 0.10 + (1.0 - putting_skill) * 0.10  # ~7-13 ft
+				max_miss_from_hole = 0.07 + (1.0 - putting_skill) * 0.06   # ~5-8.5 ft
 			else:
-				max_miss_from_hole = distance * (0.15 + (1.0 - putting_skill) * 0.20)
+				max_miss_from_hole = distance * (0.12 + (1.0 - putting_skill) * 0.15)
 
 			var miss_dist = landing.distance_to(hole_pos)
 			if miss_dist > max_miss_from_hole:
@@ -943,21 +1189,27 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 			if landing.distance_to(hole_pos) < GolfRules.CUP_RADIUS:
 				landing = hole_pos
 
-	# Ensure landing stays on green terrain
+	# Ensure landing stays on or near green terrain.
+	# For fringe putts (starting off-green), the path may cross grass before reaching
+	# the green — only constrain the landing once the path has entered the green.
 	var landing_tile = Vector2i(landing.round())
 	if not terrain_grid.is_valid_position(landing_tile) or terrain_grid.get_tile(landing_tile) != TerrainTypes.Type.GREEN:
-		# Walk back along the putt path to find the last green tile
 		var steps = max(int(from_precise.distance_to(landing) * 10.0), 1)
 		var last_valid = from_precise
+		var entered_green = false
 		for i in range(1, steps + 1):
 			var t = i / float(steps)
 			var check = from_precise.lerp(landing, t)
 			var check_tile = Vector2i(check.round())
 			if terrain_grid.is_valid_position(check_tile) and terrain_grid.get_tile(check_tile) == TerrainTypes.Type.GREEN:
+				entered_green = true
 				last_valid = check
-			else:
-				break
-		landing = last_valid
+			elif entered_green:
+				break  # Left the green after entering — stop at the edge
+		if entered_green:
+			landing = last_valid
+		# If path never crossed the green (fringe putt that missed), keep calculated
+		# landing position — the ball ends up on grass/rough near the green.
 
 	var distance_yards = int(from_precise.distance_to(landing) * 22.0)
 
@@ -1115,6 +1367,20 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	var miss_direction = direction.rotated(miss_angle_rad)
 	var landing_point = Vector2(from) + (miss_direction * actual_distance)
 
+	# Minimum lateral dispersion floor for short/medium-range shots.
+	# The angular model produces tight clusters at close range (same angle = fewer
+	# yards off-target), but real golfers have swing inconsistencies (alignment,
+	# contact quality, tempo) that spread short iron shots across the target area.
+	# This floor ensures beginners scatter across the green on short par 3s rather
+	# than all landing in a tight cluster.
+	if club != Club.PUTTER:
+		var angular_lateral_std = actual_distance * sin(deg_to_rad(spread_std_dev))
+		var min_lateral_std = (1.0 - total_accuracy) * 0.8
+		if angular_lateral_std < min_lateral_std:
+			var perpendicular = Vector2(-miss_direction.y, miss_direction.x)
+			var extra_std = sqrt(min_lateral_std * min_lateral_std - angular_lateral_std * angular_lateral_std)
+			landing_point += perpendicular * (_gaussian_random() * extra_std)
+
 	# Distance error: topped/fat shots lose distance (never gain)
 	# Bell curve - most shots near full distance, occasional chunk/top
 	var distance_loss = absf(_gaussian_random()) * (1.0 - total_accuracy) * 0.12
@@ -1160,7 +1426,7 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 							break
 					carry_position = edge_pos
 
-		var distance_yards = terrain_grid.calculate_distance_yards(from, carry_position)
+		var distance_yards = terrain_grid.calculate_distance_yards_precise(Vector2(from), carry_position_precise)
 		return {
 			"landing_position": carry_position,
 			"landing_position_precise": carry_position_precise,
@@ -1185,7 +1451,7 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 		final_position = carry_position
 		final_position_precise = carry_position_precise
 
-	var distance_yards = terrain_grid.calculate_distance_yards(from, final_position)
+	var distance_yards = terrain_grid.calculate_distance_yards_precise(Vector2(from), final_position_precise)
 
 	return {
 		"landing_position": final_position,
@@ -1918,13 +2184,26 @@ func _update_visual() -> void:
 	visual.position = visual_offset
 	if arms:
 		arms.rotation = 0
+		arms.position = Vector2.ZERO
 	if hands:
 		hands.rotation = 0
+		hands.position = Vector2.ZERO
+	if body:
+		body.rotation = 0
+
+	# Reset legs to default pose (undo walk animation)
+	if legs:
+		legs.polygon = LEGS_FRAME_0
+	if shoes:
+		shoes.polygon = SHOES_FRAME_0
+	_walk_frame = 0
+	_walk_timer = 0.0
 
 	# Hide golf club by default
 	if golf_club:
 		golf_club.visible = false
 		golf_club.rotation = 0
+		golf_club.position = Vector2.ZERO
 
 	# Reset body modulate to show true shirt color
 	if body:
@@ -1942,14 +2221,9 @@ func _update_visual() -> void:
 				golf_club.visible = true
 				golf_club.rotation = -0.3
 		State.SWINGING:
-			# Show golf club during swing
+			# Show golf club — tween animation handles all positioning
 			if golf_club:
 				golf_club.visible = true
-				golf_club.rotation = -1.2  # Club rotated back
-			if arms:
-				arms.rotation = -0.3
-			if hands:
-				hands.rotation = -0.3
 		State.WATCHING:
 			# Show club while watching ball
 			if golf_club:
