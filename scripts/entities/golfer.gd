@@ -23,7 +23,7 @@ enum Club {
 const CLUB_STATS = {
 	Club.DRIVER: {
 		"max_distance": 14,    # tiles (308 yards)
-		"min_distance": 10,    # tiles (220 yards)
+		"min_distance": 9,     # tiles (198 yards) — lowered from 10 so casual golfers can use Driver
 		"accuracy_modifier": 0.7,
 		"name": "Driver"
 	},
@@ -99,6 +99,9 @@ var target_position: Vector2i = Vector2i.ZERO
 ## Shot preparation
 var preparation_time: float = 0.0
 const PREPARATION_DURATION: float = 1.0  # 1 second to prepare shot
+
+## Club chosen by decide_shot_target() — used by _calculate_shot() to avoid mismatch
+var _chosen_club: Club = Club.DRIVER
 
 ## Movement
 @export var walk_speed: float = 100.0
@@ -965,16 +968,21 @@ func select_club(distance_to_target: float, current_terrain: int) -> Club:
 		return Club.WEDGE
 
 ## Get the fraction of a club's max distance this golfer can achieve.
-## Skill-based distance scaling: beginners reach ~60-75% of max, pros reach ~95-98%.
+## Skill-based distance scaling: beginners reach ~45-60% of max, pros reach ~89-94%.
 ## Used in targeting so golfers aim at spots within their actual range.
+## Target carry distances (before rollout):
+##   Beginner (0.30-0.50): Driver 174-208yd, FW 110-143yd, Iron 92-123yd
+##   Casual   (0.50-0.70): Driver 208-242yd, FW 143-176yd, Iron 123-152yd
+##   Serious  (0.70-0.85): Driver 242-267yd, FW 176-198yd, Iron 152-169yd
+##   Pro      (0.85-0.98): Driver 267-289yd, FW 198-217yd, Iron 169-183yd
 func _get_skill_distance_factor(club: Club) -> float:
 	match club:
 		Club.DRIVER:
-			return 0.60 + driving_skill * 0.37
+			return 0.40 + driving_skill * 0.55
 		Club.FAIRWAY_WOOD:
-			return 0.65 + driving_skill * 0.30
+			return 0.40 + driving_skill * 0.50
 		Club.IRON:
-			return 0.70 + accuracy_skill * 0.25
+			return 0.50 + accuracy_skill * 0.42
 		Club.WEDGE:
 			return 0.80 + accuracy_skill * 0.18
 		Club.PUTTER:
@@ -1043,6 +1051,8 @@ func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 				var blended = Vector2(hole_position) * pin_weight + Vector2(green_center) * (1.0 - pin_weight)
 				best_target = Vector2i(blended.round())
 
+	# Store chosen club so _calculate_shot() uses it instead of re-deriving
+	_chosen_club = best_club
 	return best_target
 
 ## Find best landing zone considering fairways and hazards
@@ -1078,6 +1088,9 @@ func _find_best_landing_zone(hole_position: Vector2i, max_distance: float, club:
 		var adjusted_direction = direction_to_hole.rotated(offset_angle)
 		for d in range(num_distances):
 			var test_distance = target_distance * (0.7 + (d / float(num_distances)) * 0.6)
+			# On lay-up shots, don't scan beyond the golfer's max range
+			if not can_reach_green:
+				test_distance = min(test_distance, max_distance)
 			var test_position = ball_position + Vector2i(adjusted_direction * test_distance)
 
 			# Skip degenerate positions where small floats truncate to (0,0) offset
@@ -1310,10 +1323,17 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	if not terrain_grid:
 		return {"landing_position": target, "distance": 0, "accuracy": 1.0, "club": Club.DRIVER}
 
-	# Determine club selection
+	# Use the club chosen during targeting (decide_shot_target) to avoid mismatch.
+	# Previously select_club() re-derived the club from distance alone, which could
+	# pick a different club than what the targeting AI evaluated (e.g., targeting
+	# chose Driver at 9.4 tiles but select_club picked FW because 9.4 < 10).
 	var current_terrain = terrain_grid.get_tile(from)
 	var distance_to_target = Vector2(from).distance_to(Vector2(target))
-	var club = select_club(distance_to_target, current_terrain)
+	var club: Club
+	if current_terrain == TerrainTypes.Type.GREEN:
+		club = Club.PUTTER  # Always putt on the green
+	else:
+		club = _chosen_club
 	var club_stats = CLUB_STATS[club]
 
 	# Get terrain modifiers
