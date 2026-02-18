@@ -2014,10 +2014,22 @@ func _on_pause_load() -> void:
 
 func _on_pause_quit_to_menu() -> void:
 	_close_pause_menu()
-	_on_quit_to_menu()
+	_show_quit_confirm("Unsaved progress will be lost.\nReturn to main menu?", "Quit to Menu", _on_quit_to_menu)
 
 func _on_pause_quit_to_desktop() -> void:
-	get_tree().quit()
+	_close_pause_menu()
+	_show_quit_confirm("Unsaved progress will be lost.\nQuit to desktop?", "Quit", func(): get_tree().quit())
+
+func _show_quit_confirm(message: String, confirm_text: String, on_confirm: Callable) -> void:
+	"""Show a confirmation dialog for a destructive action."""
+	var dialog = ConfirmDialog.new(message, confirm_text, "Cancel")
+	dialog.name = "QuitConfirmDialog"
+	dialog.confirmed.connect(on_confirm)
+	dialog.cancelled.connect(func():
+		# Re-show pause menu if the user cancels
+		_show_pause_menu()
+	)
+	$UI/HUD.add_child(dialog)
 
 # --- Shot Trails ---
 
