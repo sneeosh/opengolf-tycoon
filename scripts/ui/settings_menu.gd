@@ -194,6 +194,59 @@ func _build_display_tab() -> void:
 	vsync_row.add_child(vsync_check)
 	inner.add_child(vsync_row)
 
+	# UI Scale slider
+	var ui_scale_row = HBoxContainer.new()
+	ui_scale_row.add_theme_constant_override("separation", 12)
+	var ui_scale_label = Label.new()
+	ui_scale_label.text = "UI Scale"
+	ui_scale_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
+	ui_scale_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ui_scale_row.add_child(ui_scale_label)
+
+	var ui_scale_slider = HSlider.new()
+	ui_scale_slider.min_value = 0.8
+	ui_scale_slider.max_value = 1.5
+	ui_scale_slider.step = 0.1
+	ui_scale_slider.value = _load_ui_scale()
+	ui_scale_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ui_scale_slider.custom_minimum_size = Vector2(150, 0)
+	ui_scale_row.add_child(ui_scale_slider)
+
+	var ui_scale_value = Label.new()
+	ui_scale_value.text = "%d%%" % int(ui_scale_slider.value * 100)
+	ui_scale_value.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	ui_scale_value.custom_minimum_size = Vector2(40, 0)
+	ui_scale_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	ui_scale_row.add_child(ui_scale_value)
+
+	ui_scale_slider.value_changed.connect(func(val: float):
+		ui_scale_value.text = "%d%%" % int(val * 100)
+		get_tree().root.content_scale_factor = val
+		_save_display_settings()
+	)
+	inner.add_child(ui_scale_row)
+
+	# Colorblind mode
+	var cb_row = HBoxContainer.new()
+	cb_row.add_theme_constant_override("separation", 12)
+	var cb_label = Label.new()
+	cb_label.text = "Colorblind Mode"
+	cb_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
+	cb_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cb_row.add_child(cb_label)
+
+	var cb_options = OptionButton.new()
+	for mode in ColorblindMode.get_all_modes():
+		cb_options.add_item(ColorblindMode.get_mode_name(mode), mode)
+	cb_options.custom_minimum_size = Vector2(220, 0)
+	cb_options.selected = GameManager.colorblind_mode
+	cb_options.item_selected.connect(func(index: int):
+		GameManager.set_colorblind_mode(index)
+		_save_display_settings()
+	)
+	cb_row.add_child(cb_options)
+	inner.add_child(cb_row)
+
 	margin.add_child(inner)
 	display_tab.add_child(margin)
 	_tab_container.add_child(display_tab)
@@ -361,6 +414,13 @@ func _add_keybinding_row(parent: VBoxContainer, key: String, action: String) -> 
 
 	parent.add_child(row)
 
+func _load_ui_scale() -> float:
+	"""Load UI scale from settings file, default 1.0."""
+	var config := ConfigFile.new()
+	if config.load(SaveManager.SETTINGS_PATH) == OK:
+		return config.get_value("display", "ui_scale", 1.0)
+	return 1.0
+
 func _save_display_settings() -> void:
 	"""Persist display settings to user settings file."""
 	var config := ConfigFile.new()
@@ -368,6 +428,8 @@ func _save_display_settings() -> void:
 	config.set_value("display", "window_mode", DisplayServer.window_get_mode())
 	config.set_value("display", "borderless", DisplayServer.window_get_flag(DisplayServer.WINDOW_FLAG_BORDERLESS))
 	config.set_value("display", "vsync", DisplayServer.window_get_vsync_mode())
+	config.set_value("display", "ui_scale", get_tree().root.content_scale_factor)
+	config.set_value("display", "colorblind_mode", ColorblindMode.to_string_name(GameManager.colorblind_mode))
 	config.save(SaveManager.SETTINGS_PATH)
 
 func _input(event: InputEvent) -> void:

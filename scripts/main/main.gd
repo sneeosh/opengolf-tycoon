@@ -62,6 +62,7 @@ var milestone_manager: MilestoneManager = null
 var milestones_panel: MilestonesPanel = null
 var seasonal_calendar_panel: SeasonalCalendarPanel = null
 var tutorial_system: TutorialSystem = null
+var course_rating_overlay: CourseRatingOverlay = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
@@ -177,6 +178,8 @@ func _ready() -> void:
 	_setup_seasonal_calendar()
 	_setup_autosave_indicator()
 	_setup_notification_toast()
+	_setup_course_rating_overlay()
+	_setup_floating_text()
 	_setup_shot_trails()
 	_setup_audio_controls()
 	_initialize_game()
@@ -356,19 +359,22 @@ func _show_main_menu() -> void:
 	main_menu = MainMenu.new()
 	main_menu.name = "MainMenu"
 	main_menu.new_game_requested.connect(_on_main_menu_new_game)
+	main_menu.quick_start_requested.connect(_on_main_menu_quick_start)
 	main_menu.load_game_requested.connect(_on_main_menu_load)
 	main_menu.settings_requested.connect(_on_main_menu_settings)
+	main_menu.credits_requested.connect(_on_main_menu_credits)
 	$UI/HUD.add_child(main_menu)
 	# Hide gameplay UI while in menu
 	_set_gameplay_ui_visible(false)
 
 func _on_main_menu_new_game(course_name: String, theme_type: int) -> void:
+	var difficulty := main_menu.get_selected_difficulty() if main_menu else DifficultyPresets.Preset.NORMAL
 	if main_menu:
 		main_menu.queue_free()
 		main_menu = null
 	_set_gameplay_ui_visible(true)
 
-	GameManager.new_game(course_name, theme_type)
+	GameManager.new_game(course_name, theme_type, difficulty)
 
 	# Regenerate tileset with theme colors
 	terrain_grid.regenerate_tileset()
@@ -378,6 +384,29 @@ func _on_main_menu_new_game(course_name: String, theme_type: int) -> void:
 	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
 	camera.focus_on(Vector2(center_x, center_y), true)
 	# Start with no tool selected — player chooses their first action
+	current_tool = -1
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
+	if placement_preview:
+		placement_preview.set_terrain_painting_enabled(false)
+
+var _quick_start_pending: bool = false
+
+func _on_main_menu_quick_start(course_name: String, theme_type: int) -> void:
+	"""Start a new game with a pre-built 3-hole course."""
+	var difficulty := main_menu.get_selected_difficulty() if main_menu else DifficultyPresets.Preset.NORMAL
+	if main_menu:
+		main_menu.queue_free()
+		main_menu = null
+	_set_gameplay_ui_visible(true)
+
+	# Flag so _on_new_game_started knows to build the quick-start course
+	_quick_start_pending = true
+	GameManager.new_game(course_name, theme_type, difficulty)
+
+	var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
+	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
+	camera.focus_on(Vector2(center_x, center_y), true)
 	current_tool = -1
 	if terrain_toolbar:
 		terrain_toolbar.clear_selection()
@@ -413,6 +442,13 @@ func _on_main_menu_settings() -> void:
 	# No need to re-show anything when closing from main menu
 	settings.close_requested.connect(func(): pass)
 	$UI/HUD.add_child(settings)
+
+func _on_main_menu_credits() -> void:
+	"""Show credits screen from main menu."""
+	var credits = CreditsScreen.new()
+	credits.name = "CreditsScreen"
+	credits.close_requested.connect(func(): pass)
+	$UI/HUD.add_child(credits)
 
 func _on_main_menu_load_panel_closed() -> void:
 	"""Save/load panel closed without loading — return to main menu."""
@@ -1133,8 +1169,14 @@ func _on_new_game_started() -> void:
 	NaturalTerrainGenerator.generate(terrain_grid, entity_layer)
 	print("Natural terrain generated for new course")
 
-	# Start tutorial for first-time players
-	if not TutorialSystem.is_tutorial_completed():
+	# Build pre-made course if Quick Start was selected
+	var is_quick_start := _quick_start_pending
+	if _quick_start_pending:
+		_quick_start_pending = false
+		QuickStartCourse.build(terrain_grid, entity_layer, hole_tool)
+
+	# Start tutorial for first-time players (skip for Quick Start — they already have a course)
+	if not is_quick_start and not TutorialSystem.is_tutorial_completed():
 		_start_tutorial()
 
 func _cancel_elevation_mode() -> void:
@@ -2074,6 +2116,41 @@ func _setup_notification_toast() -> void:
 	var toast = NotificationToast.new()
 	toast.name = "NotificationToast"
 	$UI.add_child(toast)
+
+# --- Course Rating Overlay ---
+
+func _setup_course_rating_overlay() -> void:
+	"""Add live course rating overlay in bottom-left during build mode."""
+	course_rating_overlay = CourseRatingOverlay.new()
+	course_rating_overlay.name = "CourseRatingOverlay"
+	# Position in bottom-left above bottom bar
+	course_rating_overlay.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	course_rating_overlay.offset_top = -160
+	course_rating_overlay.offset_bottom = -55
+	course_rating_overlay.offset_left = 10
+	course_rating_overlay.offset_right = 220
+	$UI/HUD.add_child(course_rating_overlay)
+
+# --- Floating Transaction Text ---
+
+func _setup_floating_text() -> void:
+	"""Connect money changes to spawn floating +$/-$ text on transactions."""
+	EventBus.transaction_completed.connect(_on_transaction_for_floating_text)
+
+func _on_transaction_for_floating_text(_description: String, amount: int) -> void:
+	"""Spawn floating text at a relevant screen position for transactions."""
+	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+		return
+	if abs(amount) < 1:
+		return
+
+	# Show floating text near the money display in the top HUD
+	# Convert HUD position to world-space so it renders above terrain
+	var vp_size := get_viewport().get_visible_rect().size
+	var screen_pos := Vector2(120, 28)  # Near top-left money display
+	# For world-space, convert screen coords to camera-relative position
+	var world_pos := camera.global_position + (screen_pos - vp_size / 2) / camera.zoom
+	FloatingText.create_at(self, world_pos, amount)
 
 # --- Autosave Indicator ---
 

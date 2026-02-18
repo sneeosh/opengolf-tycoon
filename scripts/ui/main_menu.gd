@@ -3,12 +3,16 @@ class_name MainMenu
 ## MainMenu - Title screen with New Game (theme selection), Load, and Quit
 
 signal new_game_requested(course_name: String, theme_type: int)
+signal quick_start_requested(course_name: String, theme_type: int)
 signal load_game_requested()
 signal settings_requested()
+signal credits_requested()
 
 var _theme_cards: Array = []
 var _selected_theme: int = CourseTheme.Type.PARKLAND
+var _selected_difficulty: int = DifficultyPresets.Preset.NORMAL
 var _course_name_input: LineEdit = null
+var _difficulty_buttons: Array = []
 
 func _ready() -> void:
 	# Full-screen dark background
@@ -25,8 +29,8 @@ func _ready() -> void:
 	add_child(center)
 
 	var main_vbox = VBoxContainer.new()
-	main_vbox.add_theme_constant_override("separation", 20)
-	main_vbox.custom_minimum_size = Vector2(900, 600)
+	main_vbox.add_theme_constant_override("separation", 16)
+	main_vbox.custom_minimum_size = Vector2(900, 650)
 	center.add_child(main_vbox)
 
 	# Title
@@ -45,11 +49,6 @@ func _ready() -> void:
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_vbox.add_child(subtitle)
 
-	# Spacer
-	var spacer = Control.new()
-	spacer.custom_minimum_size = Vector2(0, 10)
-	main_vbox.add_child(spacer)
-
 	# Course name input
 	var name_row = HBoxContainer.new()
 	name_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -65,6 +64,32 @@ func _ready() -> void:
 	_course_name_input.add_theme_font_size_override("font_size", 16)
 	name_row.add_child(_course_name_input)
 	main_vbox.add_child(name_row)
+
+	# Difficulty selector row
+	var diff_row = HBoxContainer.new()
+	diff_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	diff_row.add_theme_constant_override("separation", 12)
+
+	var diff_label = Label.new()
+	diff_label.text = "Difficulty: "
+	diff_label.add_theme_font_size_override("font_size", 16)
+	diff_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.7))
+	diff_row.add_child(diff_label)
+
+	for preset in DifficultyPresets.get_all_presets():
+		var mods = DifficultyPresets.get_modifiers(preset)
+		var btn = Button.new()
+		btn.text = mods["name"]
+		btn.tooltip_text = mods["description"]
+		btn.custom_minimum_size = Vector2(100, 32)
+		btn.add_theme_font_size_override("font_size", 14)
+		btn.set_meta("preset", preset)
+		btn.pressed.connect(_on_difficulty_selected.bind(preset))
+		diff_row.add_child(btn)
+		_difficulty_buttons.append(btn)
+
+	main_vbox.add_child(diff_row)
+	_update_difficulty_selection()
 
 	# Theme selection label
 	var theme_label = Label.new()
@@ -89,10 +114,10 @@ func _ready() -> void:
 	# Update initial selection visual
 	_update_card_selection()
 
-	# Buttons row
+	# Buttons row 1: Main actions
 	var btn_row = HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.add_theme_constant_override("separation", 20)
+	btn_row.add_theme_constant_override("separation", 16)
 	main_vbox.add_child(btn_row)
 
 	# Continue button - only visible if saves exist
@@ -102,38 +127,59 @@ func _ready() -> void:
 		var latest = saves[0]
 		continue_btn.text = "Continue"
 		continue_btn.tooltip_text = "%s - Day %d" % [latest.get("course_name", ""), latest.get("day", 0)]
-		continue_btn.custom_minimum_size = Vector2(160, 45)
+		continue_btn.custom_minimum_size = Vector2(140, 45)
 		continue_btn.add_theme_font_size_override("font_size", 18)
 		continue_btn.pressed.connect(_on_continue_pressed.bind(latest.get("name", "")))
 		btn_row.add_child(continue_btn)
 
 	var start_btn = Button.new()
-	start_btn.text = "Start New Game"
-	start_btn.custom_minimum_size = Vector2(200, 45)
+	start_btn.text = "New Game"
+	start_btn.custom_minimum_size = Vector2(140, 45)
 	start_btn.add_theme_font_size_override("font_size", 18)
 	start_btn.pressed.connect(_on_start_pressed)
 	btn_row.add_child(start_btn)
 
+	var quick_start_btn = Button.new()
+	quick_start_btn.text = "Quick Start"
+	quick_start_btn.tooltip_text = "Start with a pre-built 3-hole course — jump straight in!"
+	quick_start_btn.custom_minimum_size = Vector2(140, 45)
+	quick_start_btn.add_theme_font_size_override("font_size", 18)
+	quick_start_btn.pressed.connect(_on_quick_start_pressed)
+	btn_row.add_child(quick_start_btn)
+
 	var load_btn = Button.new()
 	load_btn.text = "Load Game"
-	load_btn.custom_minimum_size = Vector2(150, 45)
+	load_btn.custom_minimum_size = Vector2(140, 45)
 	load_btn.add_theme_font_size_override("font_size", 16)
 	load_btn.pressed.connect(_on_load_pressed)
 	btn_row.add_child(load_btn)
 
+	# Buttons row 2: Settings, Credits, Quit
+	var btn_row2 = HBoxContainer.new()
+	btn_row2.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row2.add_theme_constant_override("separation", 16)
+	main_vbox.add_child(btn_row2)
+
 	var settings_btn = Button.new()
 	settings_btn.text = "Settings"
-	settings_btn.custom_minimum_size = Vector2(120, 45)
-	settings_btn.add_theme_font_size_override("font_size", 16)
+	settings_btn.custom_minimum_size = Vector2(120, 38)
+	settings_btn.add_theme_font_size_override("font_size", 15)
 	settings_btn.pressed.connect(_on_settings_pressed)
-	btn_row.add_child(settings_btn)
+	btn_row2.add_child(settings_btn)
+
+	var credits_btn = Button.new()
+	credits_btn.text = "Credits"
+	credits_btn.custom_minimum_size = Vector2(120, 38)
+	credits_btn.add_theme_font_size_override("font_size", 15)
+	credits_btn.pressed.connect(_on_credits_pressed)
+	btn_row2.add_child(credits_btn)
 
 	var quit_btn = Button.new()
 	quit_btn.text = "Quit"
-	quit_btn.custom_minimum_size = Vector2(100, 45)
-	quit_btn.add_theme_font_size_override("font_size", 16)
+	quit_btn.custom_minimum_size = Vector2(100, 38)
+	quit_btn.add_theme_font_size_override("font_size", 15)
 	quit_btn.pressed.connect(_on_quit_pressed)
-	btn_row.add_child(quit_btn)
+	btn_row2.add_child(quit_btn)
 
 	# Version label
 	var version = Label.new()
@@ -230,6 +276,28 @@ func _update_card_selection() -> void:
 		style.set_corner_radius_all(6)
 		card.add_theme_stylebox_override("panel", style)
 
+func _on_difficulty_selected(preset: int) -> void:
+	_selected_difficulty = preset
+	_update_difficulty_selection()
+
+func _update_difficulty_selection() -> void:
+	for btn in _difficulty_buttons:
+		var preset = btn.get_meta("preset")
+		if preset == _selected_difficulty:
+			btn.modulate = Color(1.0, 1.0, 1.0)
+			# Highlight selected button
+			var style = StyleBoxFlat.new()
+			style.bg_color = UIConstants.COLOR_PRIMARY
+			style.set_corner_radius_all(4)
+			btn.add_theme_stylebox_override("normal", style)
+		else:
+			btn.modulate = Color(0.7, 0.7, 0.7)
+			# Remove override to use default style
+			btn.remove_theme_stylebox_override("normal")
+
+func get_selected_difficulty() -> int:
+	return _selected_difficulty
+
 func _on_continue_pressed(save_name: String) -> void:
 	SaveManager.load_game(save_name)
 
@@ -239,11 +307,20 @@ func _on_start_pressed() -> void:
 		course_name = "My Golf Course"
 	new_game_requested.emit(course_name, _selected_theme)
 
+func _on_quick_start_pressed() -> void:
+	var course_name = _course_name_input.text.strip_edges()
+	if course_name.is_empty():
+		course_name = "My Golf Course"
+	quick_start_requested.emit(course_name, _selected_theme)
+
 func _on_load_pressed() -> void:
 	load_game_requested.emit()
 
 func _on_settings_pressed() -> void:
 	settings_requested.emit()
+
+func _on_credits_pressed() -> void:
+	credits_requested.emit()
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()

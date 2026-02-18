@@ -150,6 +150,7 @@ func _build_save_data() -> Dictionary:
 			"green_fee": GameManager.green_fee,
 			"theme": CourseTheme.to_string_name(GameManager.current_theme),
 			"loan_balance": GameManager.loan_balance,
+			"difficulty": DifficultyPresets.to_string_name(GameManager.current_difficulty),
 		},
 	}
 
@@ -242,10 +243,18 @@ func _apply_save_data(data: Dictionary) -> void:
 	GameManager.green_fee = int(game.get("green_fee", 30))
 	GameManager.loan_balance = int(game.get("loan_balance", 0))
 
+	# Restore difficulty preset (defaults to Normal for older saves)
+	var diff_name = game.get("difficulty", "normal")
+	GameManager.current_difficulty = DifficultyPresets.from_string(diff_name)
+	var diff_mods := DifficultyPresets.get_modifiers(GameManager.current_difficulty)
+	GameManager.bankruptcy_threshold = diff_mods.get("bankruptcy_threshold", -1000)
+
 	# Restore theme (defaults to parkland for saves without theme)
 	var theme_name = game.get("theme", "parkland")
 	GameManager.current_theme = CourseTheme.from_string(theme_name)
-	TilesetGenerator.set_theme_colors(CourseTheme.get_terrain_colors(GameManager.current_theme))
+	var base_colors := CourseTheme.get_terrain_colors(GameManager.current_theme)
+	var remapped := ColorblindMode.remap_colors(base_colors, GameManager.colorblind_mode)
+	TilesetGenerator.set_theme_colors(remapped)
 	EventBus.theme_changed.emit(GameManager.current_theme)
 
 	# Terrain
@@ -395,6 +404,15 @@ func _apply_audio_settings(config: ConfigFile) -> void:
 func _apply_display_settings(config: ConfigFile) -> void:
 	var vsync = config.get_value("display", "vsync", DisplayServer.VSYNC_ENABLED)
 	DisplayServer.window_set_vsync_mode(vsync)
+
+	# Restore UI scale
+	var ui_scale = config.get_value("display", "ui_scale", 1.0)
+	if ui_scale != 1.0:
+		get_tree().root.content_scale_factor = ui_scale
+
+	# Restore colorblind mode
+	var cb_name = config.get_value("display", "colorblind_mode", "off")
+	GameManager.colorblind_mode = ColorblindMode.from_string(cb_name)
 
 func save_user_settings() -> void:
 	var config := ConfigFile.new()
