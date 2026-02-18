@@ -95,6 +95,18 @@ func _ready() -> void:
 	btn_row.add_theme_constant_override("separation", 20)
 	main_vbox.add_child(btn_row)
 
+	# Continue button - only visible if saves exist
+	var saves = SaveManager.get_save_list()
+	if not saves.is_empty():
+		var continue_btn = Button.new()
+		var latest = saves[0]
+		continue_btn.text = "Continue"
+		continue_btn.tooltip_text = "%s - Day %d" % [latest.get("course_name", ""), latest.get("day", 0)]
+		continue_btn.custom_minimum_size = Vector2(160, 45)
+		continue_btn.add_theme_font_size_override("font_size", 18)
+		continue_btn.pressed.connect(_on_continue_pressed.bind(latest.get("name", "")))
+		btn_row.add_child(continue_btn)
+
 	var start_btn = Button.new()
 	start_btn.text = "Start New Game"
 	start_btn.custom_minimum_size = Vector2(200, 45)
@@ -217,6 +229,9 @@ func _update_card_selection() -> void:
 
 		style.set_corner_radius_all(6)
 		card.add_theme_stylebox_override("panel", style)
+
+func _on_continue_pressed(save_name: String) -> void:
+	SaveManager.load_game(save_name)
 
 func _on_start_pressed() -> void:
 	var course_name = _course_name_input.text.strip_edges()
