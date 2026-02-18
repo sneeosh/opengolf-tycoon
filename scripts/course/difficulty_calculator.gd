@@ -141,14 +141,14 @@ static func _calculate_green_difficulty(hole_data: GameManager.HoleData, terrain
 
 	var green_size = green_tiles.size()
 
-	# Standard green is ~20-30 tiles. Small is <15, large is >35
+	# At 22 yards/tile, 1 tile ≈ a real green. Standard game green is 3-5 tiles.
 	var size_difficulty: float = 0.0
-	if green_size < 12:
-		size_difficulty = 0.8  # Very small green
-	elif green_size < 18:
-		size_difficulty = 0.4  # Small green
-	elif green_size > 40:
-		size_difficulty = -0.2  # Large green is easier
+	if green_size < 2:
+		size_difficulty = 0.8  # Tiny green (1 tile) — very demanding target
+	elif green_size < 4:
+		size_difficulty = 0.4  # Small green (2-3 tiles)
+	elif green_size > 6:
+		size_difficulty = -0.2  # Large green (7+ tiles) is easier
 
 	# Check green slope (elevation variance)
 	var slope_difficulty: float = 0.0
