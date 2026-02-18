@@ -26,6 +26,7 @@ var terrain_grid: TerrainGrid = null
 var entity_layer: EntityLayer = null
 var golfer_manager: Node = null
 var ball_manager: Node = null
+var milestone_manager: MilestoneManager = null
 
 ## Flag to prevent autosave during load operations
 var _is_loading: bool = false
@@ -44,11 +45,12 @@ func _ensure_save_directory() -> void:
 	if dir and not dir.dir_exists("saves"):
 		dir.make_dir("saves")
 
-func set_references(grid: TerrainGrid, entities: EntityLayer, golfers: Node = null, balls: Node = null) -> void:
+func set_references(grid: TerrainGrid, entities: EntityLayer, golfers: Node = null, balls: Node = null, milestones: MilestoneManager = null) -> void:
 	terrain_grid = grid
 	entity_layer = entities
 	golfer_manager = golfers
 	ball_manager = balls
+	milestone_manager = milestones
 
 func save_game(save_name: String = "") -> bool:
 	if save_name.is_empty():
@@ -200,6 +202,10 @@ func _build_save_data() -> Dictionary:
 	# Daily history (rolling 30-day analytics)
 	data["daily_history"] = GameManager.daily_history
 
+	# Milestones
+	if milestone_manager:
+		data["milestones"] = milestone_manager.serialize()
+
 	return data
 
 ## Serialize hole data to plain dictionaries
@@ -294,6 +300,10 @@ func _apply_save_data(data: Dictionary) -> void:
 
 	# Daily history
 	GameManager.daily_history = data.get("daily_history", [])
+
+	# Milestones
+	if milestone_manager and data.has("milestones"):
+		milestone_manager.deserialize(data["milestones"])
 
 	# Golfers: Always clear on load - they will respawn naturally when the user
 	# switches to simulation mode. This avoids complex mid-action state restoration.

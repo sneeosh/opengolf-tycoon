@@ -58,6 +58,8 @@ var golfer_info_popup: GolferInfoPopup = null
 var round_summary_popup: RoundSummaryPopup = null
 var tournament_leaderboard: TournamentLeaderboard = null
 var pause_menu: PauseMenu = null
+var milestone_manager: MilestoneManager = null
+var milestones_panel: MilestonesPanel = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
@@ -169,6 +171,7 @@ func _ready() -> void:
 	_setup_analytics_panel()
 	_setup_golfer_info_popup()
 	_setup_round_summary_popup()
+	_setup_milestone_system()
 	_setup_autosave_indicator()
 	_setup_notification_toast()
 	_setup_shot_trails()
@@ -260,6 +263,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_Z:
 				_toggle_analytics_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_G:
+				_toggle_milestones_panel()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
@@ -421,7 +427,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
+	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -1980,6 +1986,28 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int) -> void:
 		"green_fee": GameManager.green_fee,
 		"holes_played": golfer.hole_scores.size(),
 	})
+
+# --- Milestone System ---
+
+func _setup_milestone_system() -> void:
+	milestone_manager = MilestoneManager.new()
+	milestone_manager.name = "MilestoneManager"
+	add_child(milestone_manager)
+
+	milestones_panel = MilestonesPanel.new()
+	milestones_panel.name = "MilestonesPanel"
+	milestones_panel.set_milestone_manager(milestone_manager)
+	milestones_panel.close_requested.connect(func():
+		milestones_panel.hide()
+		_active_panel = null
+	)
+	$UI/HUD.add_child(milestones_panel)
+
+	# Update SaveManager reference to include milestone manager
+	SaveManager.milestone_manager = milestone_manager
+
+func _toggle_milestones_panel() -> void:
+	_toggle_panel(milestones_panel)
 
 # --- Notification Toast ---
 
