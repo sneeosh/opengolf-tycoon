@@ -23,7 +23,7 @@ func _build_ui() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var style := StyleBoxFlat.new()
-	style.bg_color = UIConstants.COLOR_BG_DARK
+	style.bg_color = Color(UIConstants.COLOR_BG_DARK, 0.92)
 	style.border_width_bottom = 2
 	style.border_width_top = 2
 	style.border_width_left = 2

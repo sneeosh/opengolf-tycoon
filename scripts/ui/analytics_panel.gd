@@ -15,16 +15,6 @@ func _build_ui() -> void:
 	EventBus.end_of_day.connect(_on_data_changed)
 	EventBus.day_changed.connect(_on_data_changed)
 
-func _exit_tree() -> void:
-	if EventBus.golfer_finished_hole.is_connected(_on_data_changed):
-		EventBus.golfer_finished_hole.disconnect(_on_data_changed)
-	if EventBus.golfer_finished_round.is_connected(_on_data_changed):
-		EventBus.golfer_finished_round.disconnect(_on_data_changed)
-	if EventBus.end_of_day.is_connected(_on_data_changed):
-		EventBus.end_of_day.disconnect(_on_data_changed)
-	if EventBus.day_changed.is_connected(_on_data_changed):
-		EventBus.day_changed.disconnect(_on_data_changed)
-
 	custom_minimum_size = Vector2(420, 600)
 
 	var margin = MarginContainer.new()
@@ -67,6 +57,16 @@ func _exit_tree() -> void:
 	_content_vbox.add_theme_constant_override("separation", 3)
 	_content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_content_vbox)
+
+func _exit_tree() -> void:
+	if EventBus.golfer_finished_hole.is_connected(_on_data_changed):
+		EventBus.golfer_finished_hole.disconnect(_on_data_changed)
+	if EventBus.golfer_finished_round.is_connected(_on_data_changed):
+		EventBus.golfer_finished_round.disconnect(_on_data_changed)
+	if EventBus.end_of_day.is_connected(_on_data_changed):
+		EventBus.end_of_day.disconnect(_on_data_changed)
+	if EventBus.day_changed.is_connected(_on_data_changed):
+		EventBus.day_changed.disconnect(_on_data_changed)
 
 func update_display() -> void:
 	for child in _content_vbox.get_children():

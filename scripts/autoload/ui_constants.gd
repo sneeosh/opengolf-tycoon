@@ -68,14 +68,6 @@ const COLOR_MOOD_HAPPY := Color(0.3, 0.9, 0.3)        # Satisfied/Happy
 const COLOR_MOOD_NEUTRAL := Color(0.9, 0.9, 0.3)      # Neutral
 const COLOR_MOOD_UNHAPPY := Color(0.9, 0.3, 0.3)      # Frustrated/Unhappy
 
-## Helper: pick success/danger color based on sign
-static func color_for_value(value: float) -> Color:
-	if value > 0:
-		return COLOR_SUCCESS
-	elif value < 0:
-		return COLOR_DANGER
-	return COLOR_WARNING
-
 # =============================================================================
 # TYPOGRAPHY SCALE
 # =============================================================================

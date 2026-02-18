@@ -87,12 +87,12 @@ func test_missing_day_uses_default() -> void:
 	assert_eq(day, 1, "Missing day should default to 1")
 
 func test_null_value_for_money_uses_default() -> void:
-	# In JSON, a null field results in null in the parsed dict
+	# In JSON, a null field results in null in the parsed dict.
+	# dict.get() returns null (not the default) when the key exists with value null.
+	# int(null) crashes in Godot 4, so production code should guard against this.
 	var game = {"money": null}
-	var money = int(game.get("money", 50000))
-	# int(null) returns 0 in GDScript, not 50000
-	# This tests the current behavior (which may need fixing)
-	assert_true(money is int, "Money should be an int even with null input")
+	var raw = game.get("money", 50000)
+	assert_true(raw == null, "get() returns null when key exists with null value, not the default")
 
 
 # --- Game State Full Round-trip ---
