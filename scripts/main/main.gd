@@ -57,6 +57,7 @@ var analytics_panel_ui: AnalyticsPanel = null
 var golfer_info_popup: GolferInfoPopup = null
 var round_summary_popup: RoundSummaryPopup = null
 var tournament_leaderboard: TournamentLeaderboard = null
+var pause_menu: PauseMenu = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
@@ -198,8 +199,19 @@ func _process(_delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	# Keyboard shortcuts - handled in _input so UI controls don't swallow them
 	if event is InputEventKey and event.pressed and not event.echo:
+		# Escape key toggles pause menu (works in any gameplay mode, not main menu)
+		if event.keycode == KEY_ESCAPE:
+			if GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
+				_toggle_pause_menu()
+				get_viewport().set_input_as_handled()
+				return
+
 		# Don't process any gameplay hotkeys while in main menu
 		if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+			return
+
+		# Don't process hotkeys while pause menu is open
+		if pause_menu:
 			return
 
 		# Skip non-modifier hotkeys if a text input has focus
@@ -398,7 +410,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
+	var popup_panels = ["MainMenu", "PauseMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -1951,6 +1963,61 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int) -> void:
 		"green_fee": GameManager.green_fee,
 		"holes_played": golfer.hole_scores.size(),
 	})
+
+# --- Pause Menu ---
+
+func _toggle_pause_menu() -> void:
+	"""Toggle the pause menu overlay."""
+	if pause_menu:
+		_close_pause_menu()
+	else:
+		_show_pause_menu()
+
+func _show_pause_menu() -> void:
+	"""Show the pause menu and pause the game."""
+	if pause_menu:
+		return
+	# Close any active panel
+	if _active_panel and _active_panel.visible:
+		_active_panel.hide()
+		_active_panel = null
+
+	# Pause game
+	GameManager.is_paused = true
+
+	pause_menu = PauseMenu.new()
+	pause_menu.name = "PauseMenu"
+	pause_menu.resume_requested.connect(_on_pause_resume)
+	pause_menu.save_requested.connect(_on_pause_save)
+	pause_menu.load_requested.connect(_on_pause_load)
+	pause_menu.quit_to_menu_requested.connect(_on_pause_quit_to_menu)
+	pause_menu.quit_to_desktop_requested.connect(_on_pause_quit_to_desktop)
+	$UI/HUD.add_child(pause_menu)
+
+func _close_pause_menu() -> void:
+	"""Close the pause menu and resume the game."""
+	if pause_menu:
+		pause_menu.queue_free()
+		pause_menu = null
+	GameManager.is_paused = false
+
+func _on_pause_resume() -> void:
+	_close_pause_menu()
+
+func _on_pause_save() -> void:
+	_close_pause_menu()
+	_on_menu_pressed()
+
+func _on_pause_load() -> void:
+	_close_pause_menu()
+	_on_menu_pressed()
+
+func _on_pause_quit_to_menu() -> void:
+	_close_pause_menu()
+	_on_quit_to_menu()
+
+func _on_pause_quit_to_desktop() -> void:
+	get_tree().quit()
 
 # --- Shot Trails ---
 
