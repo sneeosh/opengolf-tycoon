@@ -369,6 +369,8 @@ func _load_user_settings() -> void:
 	if config.has_section("audio"):
 		# Defer to after SoundManager is ready
 		call_deferred("_apply_audio_settings", config)
+	if config.has_section("display"):
+		call_deferred("_apply_display_settings", config)
 
 func _apply_audio_settings(config: ConfigFile) -> void:
 	if not SoundManager:
@@ -379,6 +381,10 @@ func _apply_audio_settings(config: ConfigFile) -> void:
 		"ambient_volume": config.get_value("audio", "ambient_volume", 0.6),
 		"is_muted": config.get_value("audio", "is_muted", false),
 	})
+
+func _apply_display_settings(config: ConfigFile) -> void:
+	var vsync = config.get_value("display", "vsync", DisplayServer.VSYNC_ENABLED)
+	DisplayServer.window_set_vsync_mode(vsync)
 
 func save_user_settings() -> void:
 	var config := ConfigFile.new()

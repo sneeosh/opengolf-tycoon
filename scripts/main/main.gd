@@ -343,6 +343,7 @@ func _show_main_menu() -> void:
 	main_menu.name = "MainMenu"
 	main_menu.new_game_requested.connect(_on_main_menu_new_game)
 	main_menu.load_game_requested.connect(_on_main_menu_load)
+	main_menu.settings_requested.connect(_on_main_menu_settings)
 	$UI/HUD.add_child(main_menu)
 	# Hide gameplay UI while in menu
 	_set_gameplay_ui_visible(false)
@@ -391,6 +392,14 @@ func _on_main_menu_load() -> void:
 	if not EventBus.load_completed.is_connected(_on_main_menu_load_completed):
 		EventBus.load_completed.connect(_on_main_menu_load_completed)
 
+func _on_main_menu_settings() -> void:
+	"""Show settings from main menu."""
+	var settings = SettingsMenu.new()
+	settings.name = "SettingsMenu"
+	# No need to re-show anything when closing from main menu
+	settings.close_requested.connect(func(): pass)
+	$UI/HUD.add_child(settings)
+
 func _on_main_menu_load_panel_closed() -> void:
 	"""Save/load panel closed without loading — return to main menu."""
 	_disconnect_main_menu_load_signal()
@@ -410,7 +419,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
+	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -1996,6 +2005,7 @@ func _show_pause_menu() -> void:
 	pause_menu.resume_requested.connect(_on_pause_resume)
 	pause_menu.save_requested.connect(_on_pause_save)
 	pause_menu.load_requested.connect(_on_pause_load)
+	pause_menu.settings_requested.connect(_on_pause_settings)
 	pause_menu.quit_to_menu_requested.connect(_on_pause_quit_to_menu)
 	pause_menu.quit_to_desktop_requested.connect(_on_pause_quit_to_desktop)
 	$UI/HUD.add_child(pause_menu)
@@ -2017,6 +2027,21 @@ func _on_pause_save() -> void:
 func _on_pause_load() -> void:
 	_close_pause_menu()
 	_on_menu_pressed()
+
+func _on_pause_settings() -> void:
+	_close_pause_menu()
+	_show_settings_menu()
+
+func _show_settings_menu() -> void:
+	"""Show the settings menu overlay."""
+	var settings = SettingsMenu.new()
+	settings.name = "SettingsMenu"
+	settings.close_requested.connect(func():
+		# Re-show pause menu when settings closes (if not from main menu)
+		if GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
+			_show_pause_menu()
+	)
+	$UI/HUD.add_child(settings)
 
 func _on_pause_quit_to_menu() -> void:
 	_close_pause_menu()

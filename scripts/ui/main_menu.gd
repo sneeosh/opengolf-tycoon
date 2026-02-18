@@ -4,6 +4,7 @@ class_name MainMenu
 
 signal new_game_requested(course_name: String, theme_type: int)
 signal load_game_requested()
+signal settings_requested()
 
 var _theme_cards: Array = []
 var _selected_theme: int = CourseTheme.Type.PARKLAND
@@ -107,6 +108,13 @@ func _ready() -> void:
 	load_btn.add_theme_font_size_override("font_size", 16)
 	load_btn.pressed.connect(_on_load_pressed)
 	btn_row.add_child(load_btn)
+
+	var settings_btn = Button.new()
+	settings_btn.text = "Settings"
+	settings_btn.custom_minimum_size = Vector2(120, 45)
+	settings_btn.add_theme_font_size_override("font_size", 16)
+	settings_btn.pressed.connect(_on_settings_pressed)
+	btn_row.add_child(settings_btn)
 
 	var quit_btn = Button.new()
 	quit_btn.text = "Quit"
@@ -218,6 +226,9 @@ func _on_start_pressed() -> void:
 
 func _on_load_pressed() -> void:
 	load_game_requested.emit()
+
+func _on_settings_pressed() -> void:
+	settings_requested.emit()
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()

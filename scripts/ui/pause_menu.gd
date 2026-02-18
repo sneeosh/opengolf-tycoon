@@ -8,6 +8,7 @@ class_name PauseMenu
 signal resume_requested
 signal save_requested
 signal load_requested
+signal settings_requested
 signal quit_to_menu_requested
 signal quit_to_desktop_requested
 
@@ -76,6 +77,7 @@ func _build_ui() -> void:
 	_add_menu_button(vbox, "Resume", _on_resume_pressed)
 	_add_menu_button(vbox, "Save Game", _on_save_pressed)
 	_add_menu_button(vbox, "Load Game", _on_load_pressed)
+	_add_menu_button(vbox, "Settings", _on_settings_pressed)
 
 	# Separator before destructive actions
 	vbox.add_child(HSeparator.new())
@@ -115,6 +117,9 @@ func _on_save_pressed() -> void:
 
 func _on_load_pressed() -> void:
 	load_requested.emit()
+
+func _on_settings_pressed() -> void:
+	settings_requested.emit()
 
 func _on_quit_to_menu_pressed() -> void:
 	quit_to_menu_requested.emit()
