@@ -132,13 +132,15 @@ These features add polish and strategic nuance using mostly existing infrastruct
 **Problem:** Greens are just clusters of green-type tiles painted one at a time. No shaping tools.
 
 **Proposal:**
-- Add **green brush presets** to the terrain tool when painting GREEN tiles:
-  - Small circle (~12 tiles) — demanding target
-  - Medium oval (~24 tiles) — standard
-  - Large kidney (~36 tiles) — generous
+- Add **green brush presets** to the terrain tool when painting GREEN tiles. At 22 yards/tile, a single tile already represents a full-sized real green (~22×22 yards ≈ 6,400 sq ft). Presets reflect game-scale greens, not real-world dimensions:
+  - Small (1 tile) — tiny, demanding target
+  - Medium (2-3 tiles) — standard game green
+  - Large (4-6 tiles) — generous, resort-style
 - Presets are starting points; players can edit individual tiles after.
-- Green size already affects difficulty (the calculator checks tile count). This makes it easier to create intentionally-sized greens.
-- Display green size (sq. yards) in the hole info label.
+- Green size already affects difficulty (the calculator checks tile count, but **current thresholds are wrong** — see note below). This makes it easier to create intentionally-sized greens.
+- Display green tile count in the hole info label.
+
+> **Bug note:** `difficulty_calculator.gd:144` defines "standard green" as 20-30 tiles (440-660 yards of putting surface). These thresholds need to be corrected to match the 22 yards/tile scale. Proposed fix: tiny <2, small 2-3, standard 4-5, large 6+.
 
 **Scope:** UI brush presets for GREEN terrain. No new terrain types.
 
@@ -149,9 +151,9 @@ These features add polish and strategic nuance using mostly existing infrastruct
 **Problem:** Players can't tell how "tight" or "generous" their fairway is at key distances.
 
 **Proposal:**
-- On the hole visualization overlay, show **fairway width markers** at 150y, 200y, and 250y from the tee.
-- Each marker shows the fairway width in yards (count of FAIRWAY tiles perpendicular to the tee-green line at that distance).
-- Color coding: <20y wide = red (tight), 20-35y = yellow (moderate), 35y+ = green (generous).
+- On the hole visualization overlay, show **fairway width markers** at 150y, 200y, and 250y from the tee (roughly 7, 9, and 11 tiles).
+- Each marker shows the fairway width as a tile count perpendicular to the tee-green line at that distance.
+- Color coding: 1-2 tiles wide = red (tight), 3-4 tiles = yellow (moderate), 5+ tiles = green (generous).
 - This teaches players that tight fairways near landing zones create difficulty, while wide fairways are forgiving.
 
 **Scope:** Overlay visualization only. No gameplay changes.
