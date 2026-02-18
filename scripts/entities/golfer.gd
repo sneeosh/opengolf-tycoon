@@ -200,9 +200,10 @@ func _ready() -> void:
 	input_pickable = true
 	input_event.connect(_on_click_area_input_event)
 
-	# Set up labels
+	# Set up labels with tier-colored name
 	if name_label:
 		name_label.text = golfer_name
+		_apply_tier_name_color()
 
 	# Create highlight ring for active golfer indication
 	_create_highlight_ring()
@@ -215,19 +216,55 @@ func _ready() -> void:
 
 ## Randomize golfer appearance with variety
 func _randomize_appearance() -> void:
-	# Shirt colors - bright polo shirt colors
-	var shirt_colors = [
-		Color(0.9, 0.35, 0.35),   # Red
-		Color(0.35, 0.6, 0.9),    # Blue
-		Color(0.35, 0.8, 0.45),   # Green
-		Color(0.9, 0.75, 0.3),    # Yellow/Gold
-		Color(0.8, 0.45, 0.7),    # Pink
-		Color(0.95, 0.55, 0.3),   # Orange
-		Color(0.5, 0.35, 0.7),    # Purple
-		Color(0.3, 0.7, 0.7),     # Teal
-		Color(0.95, 0.95, 0.95),  # White
-		Color(0.15, 0.15, 0.2),   # Navy
-	]
+	# Tier-specific shirt color palettes for visual differentiation at a glance
+	var shirt_colors: Array
+	match golfer_tier:
+		GolferTier.Tier.BEGINNER:
+			# Beginners: bright, casual, mismatched colors
+			shirt_colors = [
+				Color(0.95, 0.55, 0.3),   # Bright orange
+				Color(0.9, 0.75, 0.3),    # Yellow
+				Color(0.8, 0.45, 0.7),    # Pink
+				Color(0.5, 0.85, 0.5),    # Lime green
+				Color(0.95, 0.4, 0.4),    # Bright red
+				Color(0.3, 0.75, 0.75),   # Turquoise
+			]
+		GolferTier.Tier.CASUAL:
+			# Casual: standard polo shirt colors
+			shirt_colors = [
+				Color(0.35, 0.6, 0.9),    # Blue
+				Color(0.35, 0.8, 0.45),   # Green
+				Color(0.9, 0.35, 0.35),   # Red
+				Color(0.95, 0.95, 0.95),  # White
+				Color(0.3, 0.7, 0.7),     # Teal
+				Color(0.5, 0.35, 0.7),    # Purple
+			]
+		GolferTier.Tier.SERIOUS:
+			# Serious: refined, coordinated athletic colors
+			shirt_colors = [
+				Color(0.2, 0.2, 0.3),     # Dark navy
+				Color(0.15, 0.35, 0.15),  # Forest green
+				Color(0.3, 0.3, 0.35),    # Charcoal
+				Color(0.85, 0.85, 0.85),  # Light gray
+				Color(0.6, 0.15, 0.15),   # Burgundy
+				Color(0.25, 0.4, 0.55),   # Steel blue
+			]
+		GolferTier.Tier.PRO:
+			# Pro: sponsored, branded, muted professional colors
+			shirt_colors = [
+				Color(0.1, 0.1, 0.15),    # Near-black
+				Color(0.95, 0.95, 0.95),  # Tour white
+				Color(0.15, 0.2, 0.35),   # Midnight blue
+				Color(0.6, 0.55, 0.5),    # Khaki tour
+				Color(0.25, 0.25, 0.25),  # Carbon
+			]
+		_:
+			shirt_colors = [
+				Color(0.9, 0.35, 0.35),
+				Color(0.35, 0.6, 0.9),
+				Color(0.35, 0.8, 0.45),
+				Color(0.95, 0.95, 0.95),
+			]
 	shirt_color = shirt_colors[randi() % shirt_colors.size()]
 
 	# Pants colors - khakis, navy, white, gray
@@ -427,6 +464,24 @@ func _apply_tier_visuals(tier: int) -> void:
 				Vector2(1, 5.5), Vector2(-1, 5.5)
 			])
 			visual.add_child(buckle)
+
+## Color the floating name label by tier for at-a-glance identification
+func _apply_tier_name_color() -> void:
+	if not name_label:
+		return
+	var tier_color: Color
+	match golfer_tier:
+		GolferTier.Tier.BEGINNER:
+			tier_color = Color(0.6, 0.8, 0.6)   # Light green
+		GolferTier.Tier.CASUAL:
+			tier_color = Color(0.6, 0.6, 0.9)   # Blue
+		GolferTier.Tier.SERIOUS:
+			tier_color = Color(0.9, 0.7, 0.3)   # Gold
+		GolferTier.Tier.PRO:
+			tier_color = Color(0.9, 0.3, 0.9)   # Purple
+		_:
+			tier_color = Color.WHITE
+	name_label.add_theme_color_override("font_color", tier_color)
 
 func _process(delta: float) -> void:
 	_update_highlight_ring()
