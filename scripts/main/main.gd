@@ -410,7 +410,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "PauseMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
+	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -814,8 +814,12 @@ func _on_speed_selected(speed: int) -> void:
 
 	GameManager.set_speed(speed)
 
+var _game_over_shown: bool = false
+
 func _on_money_changed(_old: int, _new: int) -> void:
-	pass
+	# Check for bankruptcy game over
+	if GameManager.is_bankrupt() and not _game_over_shown:
+		_show_game_over()
 
 func _on_day_changed(_new_day: int) -> void:
 	# Operating costs are now calculated at end of day before summary
@@ -1097,6 +1101,7 @@ func _disable_terrain_painting_preview() -> void:
 
 func _on_new_game_started() -> void:
 	"""Generate natural terrain when a new game starts"""
+	_game_over_shown = false
 	# Regenerate tileset with the selected theme colors
 	if terrain_grid:
 		terrain_grid.regenerate_tileset()
@@ -1454,6 +1459,7 @@ func _on_quit_to_menu() -> void:
 
 func _on_load_completed(_success: bool) -> void:
 	if _success:
+		_game_over_shown = false
 		_rebuild_hole_list()
 		# Regenerate tileset with loaded theme colors
 		if terrain_grid:
@@ -2030,6 +2036,40 @@ func _show_quit_confirm(message: String, confirm_text: String, on_confirm: Calla
 		_show_pause_menu()
 	)
 	$UI/HUD.add_child(dialog)
+
+# --- Game Over ---
+
+func _show_game_over() -> void:
+	"""Show the bankruptcy game over screen."""
+	_game_over_shown = true
+	GameManager.is_paused = true
+
+	# Close any active panels
+	if _active_panel and _active_panel.visible:
+		_active_panel.hide()
+		_active_panel = null
+	if pause_menu:
+		_close_pause_menu()
+
+	var game_over = GameOverPanel.new()
+	game_over.name = "GameOverPanel"
+	game_over.retry_requested.connect(func():
+		game_over.queue_free()
+		_game_over_shown = false
+		_on_quit_to_menu()
+	)
+	game_over.load_requested.connect(func():
+		game_over.queue_free()
+		_game_over_shown = false
+		GameManager.is_paused = false
+		_on_menu_pressed()
+	)
+	game_over.quit_to_menu_requested.connect(func():
+		game_over.queue_free()
+		_game_over_shown = false
+		_on_quit_to_menu()
+	)
+	$UI/HUD.add_child(game_over)
 
 # --- Shot Trails ---
 
