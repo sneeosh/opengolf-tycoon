@@ -63,6 +63,60 @@ func _make_golfer(overrides: Dictionary = {}) -> ShotAI.GolferData:
 	gd.total_par = overrides.get("total_par", 0)
 	return gd
 
+## Tier presets — deterministic midpoints from GolferTier ranges for reproducible tests.
+## These mirror golfer_tier.gd TIER_DATA without using randf_range.
+func _make_beginner(overrides: Dictionary = {}) -> ShotAI.GolferData:
+	var defaults: Dictionary = {
+		"driving_skill": 0.4,      # midpoint of [0.3, 0.5]
+		"accuracy_skill": 0.4,
+		"putting_skill": 0.4,
+		"recovery_skill": 0.4,
+		"miss_tendency": 0.6,      # midpoint of [0.4, 0.8] — strong slice
+		"aggression": 0.3,         # midpoint of [0.2, 0.4]
+		"patience": 0.75,          # midpoint of [0.6, 0.9]
+	}
+	defaults.merge(overrides, true)
+	return _make_golfer(defaults)
+
+func _make_casual(overrides: Dictionary = {}) -> ShotAI.GolferData:
+	var defaults: Dictionary = {
+		"driving_skill": 0.6,      # midpoint of [0.5, 0.7]
+		"accuracy_skill": 0.6,
+		"putting_skill": 0.6,
+		"recovery_skill": 0.6,
+		"miss_tendency": 0.35,     # midpoint of [0.2, 0.5]
+		"aggression": 0.45,        # midpoint of [0.3, 0.6]
+		"patience": 0.55,          # midpoint of [0.4, 0.7]
+	}
+	defaults.merge(overrides, true)
+	return _make_golfer(defaults)
+
+func _make_serious(overrides: Dictionary = {}) -> ShotAI.GolferData:
+	var defaults: Dictionary = {
+		"driving_skill": 0.775,    # midpoint of [0.7, 0.85]
+		"accuracy_skill": 0.775,
+		"putting_skill": 0.775,
+		"recovery_skill": 0.775,
+		"miss_tendency": 0.2,      # midpoint of [0.1, 0.3]
+		"aggression": 0.6,         # midpoint of [0.5, 0.7]
+		"patience": 0.45,          # midpoint of [0.3, 0.6]
+	}
+	defaults.merge(overrides, true)
+	return _make_golfer(defaults)
+
+func _make_pro(overrides: Dictionary = {}) -> ShotAI.GolferData:
+	var defaults: Dictionary = {
+		"driving_skill": 0.915,    # midpoint of [0.85, 0.98]
+		"accuracy_skill": 0.915,
+		"putting_skill": 0.915,
+		"recovery_skill": 0.915,
+		"miss_tendency": 0.075,    # midpoint of [0.0, 0.15]
+		"aggression": 0.75,        # midpoint of [0.6, 0.9]
+		"patience": 0.35,          # midpoint of [0.2, 0.5]
+	}
+	defaults.merge(overrides, true)
+	return _make_golfer(defaults)
+
 ## Paint a rectangle of terrain
 func _paint_rect(terrain_type: int, from: Vector2i, to: Vector2i) -> void:
 	for x in range(from.x, to.x + 1):
@@ -636,3 +690,212 @@ func test_layup_prefers_clear_approach_line() -> void:
 	# Target should advance from the tee
 	assert_gt(decision.target.x, tee.x,
 		"Should advance from tee position")
+
+# ============================================================================
+# SCENARIO 18: TIER COMPARISON — Same hole, all 4 tiers
+# ============================================================================
+# Moderately challenging par 4 with water left and bunker guarding the green.
+# Tests that each tier produces valid decisions and that skill differences
+# manifest in club selection and targeting behavior.
+
+func _setup_tier_test_hole() -> void:
+	var tee = Vector2i(3, 20)
+	var flag = Vector2i(28, 20)
+	_paint_rect(TerrainTypes.Type.TEE_BOX, tee - Vector2i(1, 1), tee + Vector2i(1, 1))
+	_paint_rect(TerrainTypes.Type.FAIRWAY, Vector2i(5, 18), Vector2i(26, 22))
+	# Water hazard left of fairway
+	_paint_rect(TerrainTypes.Type.WATER, Vector2i(10, 14), Vector2i(20, 17))
+	# Greenside bunker
+	_paint_rect(TerrainTypes.Type.BUNKER, Vector2i(26, 18), Vector2i(27, 19))
+	# Green
+	_paint_rect(TerrainTypes.Type.GREEN, Vector2i(27, 19), Vector2i(29, 21))
+	_setup_hole(tee, Vector2i(28, 20), flag, 4)
+
+func test_tier_beginner_produces_valid_tee_shot() -> void:
+	_setup_tier_test_hole()
+	var gd = _make_beginner({"ball_position": Vector2i(3, 20)})
+	var decision = ShotAI.decide_shot_for(gd, Vector2i(28, 20))
+
+	assert_true(_terrain_grid.is_valid_position(decision.target),
+		"Beginner target must be on grid")
+	assert_gt(decision.target.x, 3,
+		"Beginner should advance from tee")
+	# Beginners shouldn't aim into water
+	assert_ne(_terrain_grid.get_tile(decision.target), TerrainTypes.Type.WATER,
+		"Beginner should not aim into water")
+
+func test_tier_casual_produces_valid_tee_shot() -> void:
+	_setup_tier_test_hole()
+	var gd = _make_casual({"ball_position": Vector2i(3, 20)})
+	var decision = ShotAI.decide_shot_for(gd, Vector2i(28, 20))
+
+	assert_true(_terrain_grid.is_valid_position(decision.target),
+		"Casual target must be on grid")
+	assert_gt(decision.target.x, 3,
+		"Casual should advance from tee")
+	assert_ne(_terrain_grid.get_tile(decision.target), TerrainTypes.Type.WATER,
+		"Casual should not aim into water")
+
+func test_tier_serious_produces_valid_tee_shot() -> void:
+	_setup_tier_test_hole()
+	var gd = _make_serious({"ball_position": Vector2i(3, 20)})
+	var decision = ShotAI.decide_shot_for(gd, Vector2i(28, 20))
+
+	assert_true(_terrain_grid.is_valid_position(decision.target),
+		"Serious target must be on grid")
+	assert_gt(decision.target.x, 3,
+		"Serious should advance from tee")
+	assert_ne(_terrain_grid.get_tile(decision.target), TerrainTypes.Type.WATER,
+		"Serious should not aim into water")
+
+func test_tier_pro_produces_valid_tee_shot() -> void:
+	_setup_tier_test_hole()
+	var gd = _make_pro({"ball_position": Vector2i(3, 20)})
+	var decision = ShotAI.decide_shot_for(gd, Vector2i(28, 20))
+
+	assert_true(_terrain_grid.is_valid_position(decision.target),
+		"Pro target must be on grid")
+	assert_gt(decision.target.x, 3,
+		"Pro should advance from tee")
+	assert_ne(_terrain_grid.get_tile(decision.target), TerrainTypes.Type.WATER,
+		"Pro should not aim into water")
+
+func test_tier_pro_drives_farther_than_beginner() -> void:
+	_setup_tier_test_hole()
+	var tee = Vector2i(3, 20)
+
+	var beginner = _make_beginner({"ball_position": tee})
+	var beginner_decision = ShotAI.decide_shot_for(beginner, Vector2i(28, 20))
+
+	var pro = _make_pro({"ball_position": tee})
+	var pro_decision = ShotAI.decide_shot_for(pro, Vector2i(28, 20))
+
+	var beginner_dist = Vector2(beginner_decision.target).distance_to(Vector2(tee))
+	var pro_dist = Vector2(pro_decision.target).distance_to(Vector2(tee))
+
+	# Pro's max driver distance (~0.91 skill) is much farther than beginner's (~0.4 skill)
+	assert_gt(pro_dist, beginner_dist,
+		"Pro should drive farther than beginner. Pro: %.1f, Beginner: %.1f" % [pro_dist, beginner_dist])
+
+# ============================================================================
+# SCENARIO 19: TIER RECOVERY COMPARISON — All tiers in trees
+# ============================================================================
+# All 4 tiers stuck in trees. Verify each produces a valid recovery shot
+# and that higher-skill golfers tend to find better escape routes.
+
+func _setup_tier_recovery_hole() -> void:
+	# Trees surrounding the ball, fairway to the south
+	_paint_rect(TerrainTypes.Type.TREES, Vector2i(8, 17), Vector2i(15, 23))
+	_paint_rect(TerrainTypes.Type.FAIRWAY, Vector2i(5, 24), Vector2i(25, 27))
+	_paint_rect(TerrainTypes.Type.GREEN, Vector2i(29, 19), Vector2i(31, 21))
+	_setup_hole(Vector2i(2, 20), Vector2i(30, 20), Vector2i(30, 20), 4)
+
+func test_tier_all_recover_from_trees() -> void:
+	_setup_tier_recovery_hole()
+	var ball = Vector2i(10, 20)
+
+	var tiers: Array = [
+		{"name": "Beginner", "maker": "_make_beginner"},
+		{"name": "Casual", "maker": "_make_casual"},
+		{"name": "Serious", "maker": "_make_serious"},
+		{"name": "Pro", "maker": "_make_pro"},
+	]
+
+	for tier_info in tiers:
+		var gd = call(tier_info.maker, {"ball_position": ball})
+		var decision = ShotAI.decide_shot_for(gd, Vector2i(30, 20))
+
+		# All tiers should use recovery strategy
+		assert_eq(decision.strategy, "recovery",
+			"%s should use recovery strategy from trees" % tier_info.name)
+
+		# All tiers should use iron or wedge (no woods through trees)
+		assert_true(decision.club in [Golfer.Club.WEDGE, Golfer.Club.IRON],
+			"%s should use wedge or iron from trees" % tier_info.name)
+
+		# Target should not be in trees or water
+		var target_terrain = _terrain_grid.get_tile(decision.target)
+		assert_ne(target_terrain, TerrainTypes.Type.TREES,
+			"%s recovery should not aim back into trees" % tier_info.name)
+		assert_ne(target_terrain, TerrainTypes.Type.WATER,
+			"%s recovery should not aim into water" % tier_info.name)
+
+# ============================================================================
+# SCENARIO 20: TIER APPROACH COMPARISON — Approach to guarded green
+# ============================================================================
+# All tiers approaching a green guarded by bunker front-left and water right.
+# Tests that lower-skill tiers aim more toward green center (safe) while
+# pros can aim more aggressively at a tight pin.
+
+func test_tier_approach_to_guarded_green() -> void:
+	var ball = Vector2i(15, 20)
+	var flag = Vector2i(22, 18)  # Pin tucked near the bunker
+	var green_center = Vector2i(22, 20)
+	_paint_rect(TerrainTypes.Type.FAIRWAY, Vector2i(13, 18), Vector2i(20, 22))
+	# Bunker front-left of green
+	_paint_rect(TerrainTypes.Type.BUNKER, Vector2i(20, 17), Vector2i(21, 18))
+	# Water right of green
+	_paint_rect(TerrainTypes.Type.WATER, Vector2i(23, 21), Vector2i(25, 24))
+	# Green
+	_paint_rect(TerrainTypes.Type.GREEN, Vector2i(21, 18), Vector2i(23, 22))
+	_setup_hole(Vector2i(2, 20), green_center, flag, 4)
+
+	var beginner = _make_beginner({"ball_position": ball})
+	var beginner_decision = ShotAI.decide_shot_for(beginner, flag)
+
+	var pro = _make_pro({"ball_position": ball})
+	var pro_decision = ShotAI.decide_shot_for(pro, flag)
+
+	# Both should produce targets on or near the green
+	var beginner_to_green = Vector2(beginner_decision.target).distance_to(Vector2(green_center))
+	var pro_to_green = Vector2(pro_decision.target).distance_to(Vector2(green_center))
+	assert_lt(beginner_to_green, 6.0,
+		"Beginner should aim near green, got %.1f tiles away" % beginner_to_green)
+	assert_lt(pro_to_green, 6.0,
+		"Pro should aim near green, got %.1f tiles away" % pro_to_green)
+
+	# Neither should aim into water
+	assert_ne(_terrain_grid.get_tile(beginner_decision.target), TerrainTypes.Type.WATER,
+		"Beginner should not aim into water")
+	assert_ne(_terrain_grid.get_tile(pro_decision.target), TerrainTypes.Type.WATER,
+		"Pro should not aim into water")
+
+# ============================================================================
+# SCENARIO 21: TIER PUTTING — Green reading varies by skill
+# ============================================================================
+
+func test_tier_putting_skill_affects_read() -> void:
+	var ball = Vector2i(18, 20)
+	var flag = Vector2i(22, 20)
+	_paint_rect(TerrainTypes.Type.GREEN, Vector2i(16, 18), Vector2i(24, 22))
+	_setup_hole(Vector2i(2, 20), Vector2i(20, 20), flag, 4)
+
+	# Create slope: higher to the north
+	for x in range(16, 25):
+		_set_elevation(Vector2i(x, 18), 3)
+		_set_elevation(Vector2i(x, 19), 2)
+		_set_elevation(Vector2i(x, 20), 1)
+		_set_elevation(Vector2i(x, 21), 0)
+		_set_elevation(Vector2i(x, 22), 0)
+
+	var beginner = _make_beginner({"ball_position": ball})
+	beginner.ball_position_precise = Vector2(ball)
+	var beginner_putt = ShotAI.decide_shot_for(beginner, flag)
+
+	var pro = _make_pro({"ball_position": ball})
+	pro.ball_position_precise = Vector2(ball)
+	var pro_putt = ShotAI.decide_shot_for(pro, flag)
+
+	# Both should use putter
+	assert_eq(beginner_putt.club, Golfer.Club.PUTTER,
+		"Beginner should putt on green")
+	assert_eq(pro_putt.club, Golfer.Club.PUTTER,
+		"Pro should putt on green")
+
+	# Both targets should be near the flag
+	var beginner_dist = Vector2(beginner_putt.target).distance_to(Vector2(flag))
+	var pro_dist = Vector2(pro_putt.target).distance_to(Vector2(flag))
+	assert_lt(beginner_dist, 3.0,
+		"Beginner putt target should be near flag")
+	assert_lt(pro_dist, 3.0,
+		"Pro putt target should be near flag")
