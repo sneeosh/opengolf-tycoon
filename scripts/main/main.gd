@@ -169,6 +169,7 @@ func _ready() -> void:
 	_setup_analytics_panel()
 	_setup_golfer_info_popup()
 	_setup_round_summary_popup()
+	_setup_autosave_indicator()
 	_setup_shot_trails()
 	_setup_audio_controls()
 	_initialize_game()
@@ -1978,6 +1979,13 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int) -> void:
 		"green_fee": GameManager.green_fee,
 		"holes_played": golfer.hole_scores.size(),
 	})
+
+# --- Autosave Indicator ---
+
+func _setup_autosave_indicator() -> void:
+	var indicator = AutosaveIndicator.new()
+	indicator.name = "AutosaveIndicator"
+	$UI.add_child(indicator)
 
 # --- Pause Menu ---
 
