@@ -102,6 +102,8 @@ const PREPARATION_DURATION: float = 1.0  # 1 second to prepare shot
 
 ## Club chosen by decide_shot_target() — used by _calculate_shot() to avoid mismatch
 var _chosen_club: Club = Club.DRIVER
+## Strategy chosen by ShotAI (normal/recovery/layup/attack) — for debug/feedback
+var _shot_strategy: String = "normal"
 
 ## Movement
 @export var walk_speed: float = 100.0
@@ -789,13 +791,14 @@ func take_shot(target: Vector2i) -> void:
 			wind_str = " | Wind: %dmph %s" % [int(ws.wind_speed), compass[compass_idx]]
 
 	var extra_str = " | " + ", ".join(extras) if extras.size() > 0 else ""
-	print("[SHOT] %s (%s) H%d S%d | Par %d, %dyd | %s %dyd, %.1f%% acc | Remaining: %dyd (%s)%s%s" % [
+	var strategy_str = " [%s]" % _shot_strategy if _shot_strategy != "normal" else ""
+	print("[SHOT] %s (%s) H%d S%d | Par %d, %dyd | %s %dyd, %.1f%% acc | Remaining: %dyd (%s)%s%s%s" % [
 		golfer_name, tier_name,
 		current_hole + 1, current_strokes,
 		hole_par, hole_yardage,
 		club_name, shot_result.distance, shot_result.accuracy * 100,
 		remaining_yards, landing_terrain_name,
-		extra_str, wind_str
+		extra_str, wind_str, strategy_str
 	])
 
 	# Shank thought bubble
@@ -951,13 +954,11 @@ func finish_round() -> void:
 
 	EventBus.golfer_finished_round.emit(golfer_id, total_strokes)
 
-## Select appropriate club based on distance and terrain
+## Select appropriate club based on distance and terrain (legacy compatibility).
+## Primary club selection is now handled by ShotAI.decide_shot().
 func select_club(distance_to_target: float, current_terrain: int) -> Club:
-	# If on green, always use putter
 	if current_terrain == TerrainTypes.Type.GREEN:
 		return Club.PUTTER
-
-	# Select club based on distance (in tiles)
 	if distance_to_target >= CLUB_STATS[Club.DRIVER]["min_distance"]:
 		return Club.DRIVER
 	elif distance_to_target >= CLUB_STATS[Club.FAIRWAY_WOOD]["min_distance"]:
@@ -990,221 +991,17 @@ func _get_skill_distance_factor(club: Club) -> float:
 		_:
 			return 0.85
 
-## AI decision making - decide where to aim shot
-## Evaluates multiple club options and picks the one with the best landing zone,
-## enabling lay-up strategy when hazards make a longer club risky.
+## AI decision making - decide where to aim shot.
+## Delegates to ShotAI for multi-shot planning, wind compensation, recovery logic,
+## green reading, and risk analysis. Returns aim point and stores chosen club.
 func decide_shot_target(hole_position: Vector2i) -> Vector2i:
-	var terrain_grid = GameManager.terrain_grid
-	if not terrain_grid:
-		return hole_position
+	var decision: ShotAI.ShotDecision = ShotAI.decide_shot(self, hole_position)
+	_chosen_club = decision.club
+	_shot_strategy = decision.strategy
+	return decision.target
 
-	var current_terrain = terrain_grid.get_tile(ball_position)
-
-	# Special logic for putting
-	if current_terrain == TerrainTypes.Type.GREEN:
-		return _decide_putt_target(hole_position)
-
-	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
-
-	# Evaluate candidate clubs to find the best overall option (enables lay-up)
-	var candidate_clubs: Array[Club] = []
-	for club_type in [Club.DRIVER, Club.FAIRWAY_WOOD, Club.IRON, Club.WEDGE]:
-		var stats = CLUB_STATS[club_type]
-		# Club is a candidate if the hole is within or beyond its min range
-		if distance_to_hole >= stats["min_distance"] * 0.7:
-			candidate_clubs.append(club_type)
-
-	if candidate_clubs.is_empty():
-		candidate_clubs.append(Club.WEDGE)
-
-	var best_club: Club = candidate_clubs[0]
-	var best_target: Vector2i = hole_position
-	var best_score: float = -9999.0
-
-	for club in candidate_clubs:
-		var stats = CLUB_STATS[club]
-		var skill_factor = _get_skill_distance_factor(club)
-		var max_dist = stats["max_distance"] * skill_factor
-		var target = _find_best_landing_zone(hole_position, max_dist, club)
-		var score = _evaluate_landing_zone(target, hole_position, club)
-
-		if score > best_score:
-			best_score = score
-			best_target = target
-			best_club = club
-
-	# Course management: less skilled golfers aim toward the center of the green
-	# rather than directly at the pin. Pros attack flags, amateurs play safe.
-	# Only apply on approach shots where the golfer can actually reach the green —
-	# otherwise tee shots get aimed at the green (400yd away) instead of the fairway.
-	var best_club_stats = CLUB_STATS[best_club]
-	var best_skill_factor = _get_skill_distance_factor(best_club)
-	var best_max_dist = best_club_stats["max_distance"] * best_skill_factor
-	if best_max_dist >= distance_to_hole * 0.85:
-		var course_data = GameManager.course_data
-		if course_data and current_hole < course_data.holes.size():
-			var hole_data = course_data.holes[current_hole]
-			var green_center = hole_data.green_position
-			if green_center != Vector2i.ZERO and green_center != hole_position:
-				# Blend: pros (accuracy ~0.9) aim 90% at pin, beginners (accuracy ~0.3) aim 70% at green center
-				var pin_weight = clampf(accuracy_skill * 0.8 + 0.2, 0.3, 1.0)
-				var blended = Vector2(hole_position) * pin_weight + Vector2(green_center) * (1.0 - pin_weight)
-				best_target = Vector2i(blended.round())
-
-	# Store chosen club so _calculate_shot() uses it instead of re-deriving
-	_chosen_club = best_club
-	return best_target
-
-## Find best landing zone considering fairways and hazards
-func _find_best_landing_zone(hole_position: Vector2i, max_distance: float, club: Club) -> Vector2i:
-	var terrain_grid = GameManager.terrain_grid
-	if not terrain_grid:
-		return hole_position
-
-	var direction_to_hole = Vector2(hole_position - ball_position).normalized()
-	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
-
-	# Determine target distance (layup vs go for it)
-	var target_distance = min(distance_to_hole, max_distance)
-
-	# Aggressive players go for max distance more often
-	if aggression > 0.7 and distance_to_hole > max_distance * 0.8:
-		target_distance = max_distance
-
-	# Determine if this is a lay-up or approach shot
-	var can_reach_green = max_distance >= distance_to_hole * 0.9
-
-	# Evaluate potential landing zones — scan wide arc to find fairways off the direct line
-	var best_target = hole_position
-	var best_score = -999.0
-
-	# Approach shots: narrow scan (±15°) for precision
-	# Lay-up shots: wide scan (±45°) to discover dogleg fairways
-	var scan_half_angle: float = 0.26 if can_reach_green else 0.785
-	var num_angles: int = 11 if can_reach_green else 21
-	var num_distances = 5
-	for a in range(num_angles):
-		var offset_angle = (-scan_half_angle + (a / float(num_angles - 1)) * scan_half_angle * 2.0)
-		var adjusted_direction = direction_to_hole.rotated(offset_angle)
-		for d in range(num_distances):
-			var test_distance = target_distance * (0.7 + (d / float(num_distances)) * 0.6)
-			# On lay-up shots, don't scan beyond the golfer's max range
-			if not can_reach_green:
-				test_distance = min(test_distance, max_distance)
-			var test_position = ball_position + Vector2i(adjusted_direction * test_distance)
-
-			# Skip degenerate positions where small floats truncate to (0,0) offset
-			if test_position == ball_position:
-				continue
-
-			if not terrain_grid.is_valid_position(test_position):
-				continue
-
-			# AI compensates for wind: evaluate where ball will actually land
-			var eval_position = test_position
-			if GameManager.wind_system:
-				var wind_disp = GameManager.wind_system.get_wind_displacement(adjusted_direction, test_distance, club)
-				var compensation = wind_disp * accuracy_skill * 0.7
-				eval_position = Vector2i(Vector2(test_position) + wind_disp - compensation)
-				if not terrain_grid.is_valid_position(eval_position):
-					eval_position = test_position
-
-			var score = _evaluate_landing_zone(eval_position, hole_position, club)
-			if score > best_score:
-				best_score = score
-				best_target = test_position
-
-	return best_target
-
-## Evaluate how good a landing zone is
-func _evaluate_landing_zone(position: Vector2i, hole_position: Vector2i, club: Club) -> float:
-	var terrain_grid = GameManager.terrain_grid
-	if not terrain_grid:
-		return 0.0
-
-	# Check if shot path will hit trees mid-flight (low ball near takeoff/landing)
-	if _path_crosses_obstacle(ball_position, position, false):
-		return -2000.0  # Trees block low-altitude flight!
-
-	# Graduated penalty for flying over tree canopy — even if ball clears at altitude,
-	# dense forests represent risk (imperfect shots) and irrational targeting
-	var trees_overflown: int = _count_trees_along_path(ball_position, position)
-	var tree_fly_penalty: float = 0.0
-	if trees_overflown > 0:
-		var risk_factor: float = 1.0 - accuracy_skill * 0.3
-		tree_fly_penalty = 15.0 * trees_overflown * risk_factor
-
-	var terrain_type = terrain_grid.get_tile(position)
-	var score = 0.0
-
-	# Score based on terrain type — big gaps so terrain preference isn't
-	# overwhelmed by the distance-to-hole bonus
-	match terrain_type:
-		TerrainTypes.Type.FAIRWAY:
-			score += 150.0  # Best landing zone
-		TerrainTypes.Type.GREEN:
-			score += 170.0  # Even better if we can reach green
-		TerrainTypes.Type.TEE_BOX:
-			score += 130.0  # Tee box is maintained ground
-		TerrainTypes.Type.GRASS:
-			score += 40.0   # Playable but much worse than fairway
-		TerrainTypes.Type.ROUGH:
-			score += 10.0   # Not ideal
-		TerrainTypes.Type.HEAVY_ROUGH:
-			score -= 20.0   # Bad
-		TerrainTypes.Type.BUNKER:
-			score -= 50.0   # Avoid if possible
-		TerrainTypes.Type.WATER:
-			score -= 1000.0 # Avoid at all costs!
-		TerrainTypes.Type.OUT_OF_BOUNDS:
-			score -= 1000.0 # Never go OB
-		TerrainTypes.Type.TREES:
-			score -= 80.0   # Avoid trees
-
-	# Bonus for getting closer to hole
-	var distance_to_hole = Vector2(position).distance_to(Vector2(hole_position))
-	var current_distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
-
-	# Strong penalty if shot doesn't move us closer to the hole
-	if distance_to_hole >= current_distance_to_hole:
-		score -= 500.0  # Large penalty for shots that don't advance towards the hole
-
-	# Lay-up shots: terrain quality matters more than raw distance
-	# Approach shots: getting close to the green is paramount
-	var is_layup: bool = current_distance_to_hole > CLUB_STATS[Club.DRIVER]["max_distance"]
-	var distance_weight: float = 2.5 if is_layup else 4.0
-	score -= distance_to_hole * distance_weight
-
-	# Personality adjustments
-	if aggression < 0.3:  # Cautious players heavily penalize hazards
-		if terrain_type == TerrainTypes.Type.BUNKER:
-			score -= 80.0
-		if terrain_type == TerrainTypes.Type.ROUGH or terrain_type == TerrainTypes.Type.HEAVY_ROUGH:
-			score -= 30.0
-
-	# Check surrounding tiles for hazards (risky if near water/OB)
-	var hazard_penalty = 0.0
-	for dx in range(-2, 3):
-		for dy in range(-2, 3):
-			if dx == 0 and dy == 0:
-				continue
-			var check_pos = position + Vector2i(dx, dy)
-			if not terrain_grid.is_valid_position(check_pos):
-				continue
-
-			var nearby_terrain = terrain_grid.get_tile(check_pos)
-			if nearby_terrain == TerrainTypes.Type.WATER or nearby_terrain == TerrainTypes.Type.OUT_OF_BOUNDS:
-				hazard_penalty += 20.0 * (1.0 - aggression)  # Cautious players avoid being near hazards
-
-	score -= hazard_penalty
-	score -= tree_fly_penalty
-
-	return score
-
-## Decide putt target - always aim at the hole
-## Actual putt outcome (sub-tile precision, error model) is handled by _calculate_putt
-func _decide_putt_target(hole_position: Vector2i) -> Vector2i:
-	return hole_position
+## Legacy club selection (kept for ShotPathCalculator compatibility).
+## New shot AI uses ShotAI.decide_shot() which handles club selection internally.
 
 ## Calculate putt with sub-tile precision
 ## Uses probability-based make model calibrated to PGA Tour putting stats,
@@ -1983,7 +1780,7 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 ## Check if path crosses obstacles (water/OB for walking, trees for flight)
 ## For ball flight, only trees block — and only when the ball is low
 ## (first/last 20% of flight). Water and OB are cleared by the airborne ball;
-## landing penalties are handled separately by _evaluate_landing_zone.
+## landing penalties are handled separately by ShotAI._score_landing_zone.
 func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bool:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
@@ -2008,7 +1805,7 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 				return true
 		else:
 			# Ball flight: the ball flies through the air and clears water/OB below.
-			# Landing in water/OB is penalized by _evaluate_landing_zone terrain scoring.
+			# Landing in water/OB is penalized by ShotAI terrain scoring.
 			# Trees block when the ball is low - use parabolic height model.
 			if terrain_type == TerrainTypes.Type.TREES:
 				# Ball trajectory: parabolic arc with peak at midpoint
@@ -2020,30 +1817,6 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 					return true
 
 	return false
-
-## Count tree tiles along a flight path (regardless of altitude).
-## Used to penalize risky shots over dense forests even when the ball
-## trajectory clears the treetops.
-func _count_trees_along_path(start: Vector2i, end: Vector2i) -> int:
-	var terrain_grid = GameManager.terrain_grid
-	if not terrain_grid:
-		return 0
-
-	var distance = Vector2(start).distance_to(Vector2(end))
-	var num_samples = int(distance) + 1
-	var tree_count: int = 0
-
-	for i in range(num_samples):
-		var t = i / float(max(num_samples, 1))
-		var sample_pos = Vector2i(Vector2(start).lerp(Vector2(end), t))
-
-		if not terrain_grid.is_valid_position(sample_pos):
-			continue
-
-		if terrain_grid.get_tile(sample_pos) == TerrainTypes.Type.TREES:
-			tree_count += 1
-
-	return tree_count
 
 ## A* pathfinding on the terrain grid, avoiding water and OB.
 ## Returns simplified waypoints (not every grid cell).
