@@ -19,6 +19,7 @@ enum TriggerType {
 	GREAT_SHOT,
 	BAD_LIE,
 	TOO_FEW_HOLES,
+	SHANK,
 }
 
 ## Trigger data: messages array and sentiment
@@ -87,6 +88,11 @@ const TRIGGERS: Dictionary = {
 		"messages": ["Too short!", "Only a few holes?", "Not a real course", "Barely got started"],
 		"sentiment": "negative",
 		"probability": 0.8,
+	},
+	TriggerType.SHANK: {
+		"messages": ["D'oh! Shank!", "Shank city!!", "Hosel rocket!", "Yikes!! Shank!"],
+		"sentiment": "negative",
+		"probability": 1.0,  # Always show — shanks are rare enough already
 	},
 }
 

@@ -732,25 +732,72 @@ func take_shot(target: Vector2i) -> void:
 
 	# Debug output
 	var club_name = CLUB_STATS[shot_result.club]["name"]
-	var extra_detail = ""
+	var hole_data_dbg = GameManager.course_data.holes[current_hole]
+	var hole_par = hole_data_dbg.par
+	var hole_yardage = hole_data_dbg.distance_yards
+	var tier_name = GolferTier.get_tier_name(golfer_tier)
+
+	# Distance remaining to hole after this shot
+	var hole_pos_dbg = Vector2(hole_data_dbg.hole_position)
+	var remaining_tiles = ball_position_precise.distance_to(hole_pos_dbg)
+	var remaining_yards = int(remaining_tiles * 22.0)
+
+	# Landing terrain
+	var terrain_grid_dbg = GameManager.terrain_grid
+	var landing_terrain_name = "?"
+	if terrain_grid_dbg:
+		var landing_terrain_type = terrain_grid_dbg.get_tile(ball_position)
+		landing_terrain_name = TerrainTypes.get_type_name(landing_terrain_type)
+
+	# Extra details
+	var extras = []
 	if is_putt:
-		var hole_pos = GameManager.course_data.holes[current_hole].hole_position
-		var dist_to_hole_debug = ball_position_precise.distance_to(Vector2(hole_pos))
-		extra_detail = " (%.1fft to hole)" % (dist_to_hole_debug * 22.0 * 3.0)  # tiles -> yards -> feet
-	elif shot_result.get("rollout_tiles", 0.0) > 0.0:
-		var roll_yards = shot_result.rollout_tiles * 22.0
-		var spin_label = " BACKSPIN" if shot_result.get("is_backspin", false) else ""
-		extra_detail = " (%.0fyd rollout%s)" % [roll_yards, spin_label]
-	print("%s (ID:%d) - Hole %d, Stroke %d: %s shot, %d yards, %.1f%% accuracy%s" % [
-		golfer_name,
-		golfer_id,
-		current_hole + 1,
-		current_strokes,
-		club_name,
-		shot_result.distance,
-		shot_result.accuracy * 100,
-		extra_detail
+		var dist_to_hole_ft = remaining_tiles * 22.0 * 3.0
+		extras.append("%.1fft to hole" % dist_to_hole_ft)
+	else:
+		# Miss angle
+		var miss_deg = shot_result.get("miss_angle_deg", 0.0)
+		if absf(miss_deg) > 0.1:
+			var miss_dir = "slice" if miss_deg > 0 else "hook"
+			extras.append("%.1f° %s" % [absf(miss_deg), miss_dir])
+		if shot_result.get("is_shank", false):
+			extras.append("SHANK")
+		# Rollout
+		if shot_result.get("rollout_tiles", 0.0) > 0.0:
+			var roll_yards = shot_result.rollout_tiles * 22.0
+			var spin_label = " backspin" if shot_result.get("is_backspin", false) else ""
+			extras.append("%.0fyd roll%s" % [roll_yards, spin_label])
+		# Yards off target
+		var target_pos = shot_result.get("target", Vector2i.ZERO)
+		if target_pos != Vector2i.ZERO:
+			var off_target_tiles = ball_position_precise.distance_to(Vector2(target_pos))
+			var off_target_yards = int(off_target_tiles * 22.0)
+			if off_target_yards > 0:
+				extras.append("%dyd off target" % off_target_yards)
+
+	# Wind info
+	var wind_str = ""
+	if GameManager.wind_system and not is_putt:
+		var ws = GameManager.wind_system
+		if ws.wind_speed > 1.0:
+			var wind_deg = rad_to_deg(ws.wind_direction)
+			var compass = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+			var compass_idx = int(round(wind_deg / 45.0)) % 8
+			wind_str = " | Wind: %dmph %s" % [int(ws.wind_speed), compass[compass_idx]]
+
+	var extra_str = " | " + ", ".join(extras) if extras.size() > 0 else ""
+	print("[SHOT] %s (%s) H%d S%d | Par %d, %dyd | %s %dyd, %.1f%% acc | Remaining: %dyd (%s)%s%s" % [
+		golfer_name, tier_name,
+		current_hole + 1, current_strokes,
+		hole_par, hole_yardage,
+		club_name, shot_result.distance, shot_result.accuracy * 100,
+		remaining_yards, landing_terrain_name,
+		extra_str, wind_str
 	])
+
+	# Shank thought bubble
+	if shot_result.get("is_shank", false):
+		show_thought(FeedbackTriggers.TriggerType.SHANK)
 
 	# Emit events
 	EventBus.shot_taken.emit(golfer_id, current_hole, current_strokes)
@@ -825,6 +872,29 @@ func finish_hole(par: int) -> void:
 			# Spawn celebration effect
 			HoleInOneCelebration.create_at(get_parent(), global_position)
 
+	# Per-hole debug summary
+	var _score_diff = current_strokes - par
+	var _score_label: String
+	if _score_diff <= -3: _score_label = "Double Eagle"
+	elif _score_diff == -2: _score_label = "Eagle"
+	elif _score_diff == -1: _score_label = "Birdie"
+	elif _score_diff == 0: _score_label = "Par"
+	elif _score_diff == 1: _score_label = "Bogey"
+	elif _score_diff == 2: _score_label = "Double Bogey"
+	elif _score_diff == 3: _score_label = "Triple Bogey"
+	else: _score_label = "+%d" % _score_diff
+	var _hole_yardage = 0
+	var _course_data = GameManager.course_data
+	if _course_data and current_hole < _course_data.holes.size():
+		_hole_yardage = _course_data.holes[current_hole].distance_yards
+	if current_strokes == 1: _score_label = "HOLE IN ONE"
+	print("[HOLE] %s (%s) H%d: %s (%d/%d) | %dyd par %d | Skills: D%.2f A%.2f P%.2f R%.2f | Tendency: %.2f" % [
+		golfer_name, GolferTier.get_tier_name(golfer_tier),
+		current_hole + 1, _score_label, current_strokes, par,
+		_hole_yardage, par,
+		driving_skill, accuracy_skill, putting_skill, recovery_skill, miss_tendency
+	])
+
 	EventBus.golfer_finished_hole.emit(golfer_id, current_hole, current_strokes, par)
 	hole_completed.emit(current_strokes, par)
 
@@ -851,6 +921,31 @@ func finish_round() -> void:
 		if course_trigger != -1:
 			show_thought(course_trigger)
 
+	# Per-round debug summary
+	var _eagles = 0
+	var _birdies = 0
+	var _pars = 0
+	var _bogeys = 0
+	var _doubles = 0
+	var _triples_plus = 0
+	for hs in hole_scores:
+		var diff = hs.strokes - hs.par
+		if diff <= -2: _eagles += 1
+		elif diff == -1: _birdies += 1
+		elif diff == 0: _pars += 1
+		elif diff == 1: _bogeys += 1
+		elif diff == 2: _doubles += 1
+		else: _triples_plus += 1
+	var _vs_par = total_strokes - total_par
+	var _vs_par_str = "E" if _vs_par == 0 else ("%+d" % _vs_par)
+	print("[ROUND] %s (%s): %s (%d/%d) | %d holes | %dE %dB %dP %dBo %dDB %d+3 | Skills: D%.2f A%.2f P%.2f R%.2f | Tendency: %.2f" % [
+		golfer_name, GolferTier.get_tier_name(golfer_tier),
+		_vs_par_str, total_strokes, total_par,
+		hole_scores.size(),
+		_eagles, _birdies, _pars, _bogeys, _doubles, _triples_plus,
+		driving_skill, accuracy_skill, putting_skill, recovery_skill, miss_tendency
+	])
+
 	EventBus.golfer_finished_round.emit(golfer_id, total_strokes)
 
 ## Select appropriate club based on distance and terrain
@@ -858,18 +953,6 @@ func select_club(distance_to_target: float, current_terrain: int) -> Club:
 	# If on green, always use putter
 	if current_terrain == TerrainTypes.Type.GREEN:
 		return Club.PUTTER
-
-	# Allow fringe putting: use putter from nearby off-green lies
-	# Real golfers often putt from the fringe or bump-and-run from light rough
-	if distance_to_target <= CLUB_STATS[Club.PUTTER]["max_distance"]:
-		var is_puttable_surface = current_terrain in [
-			TerrainTypes.Type.FAIRWAY,
-			TerrainTypes.Type.GRASS,
-			TerrainTypes.Type.TEE_BOX,
-			TerrainTypes.Type.ROUGH,
-		]
-		if is_puttable_surface:
-			return Club.PUTTER
 
 	# Select club based on distance (in tiles)
 	if distance_to_target >= CLUB_STATS[Club.DRIVER]["min_distance"]:
@@ -913,16 +996,7 @@ func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 	if current_terrain == TerrainTypes.Type.GREEN:
 		return _decide_putt_target(hole_position)
 
-	# Fringe putting/chipping check — within putter range, use putt targeting
-	# Includes ROUGH since golfers can bump-and-run from light rough near the green
 	var distance_to_hole = Vector2(ball_position).distance_to(Vector2(hole_position))
-	if distance_to_hole <= CLUB_STATS[Club.PUTTER]["max_distance"]:
-		var is_chippable = current_terrain in [
-			TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.GRASS,
-			TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.ROUGH,
-		]
-		if is_chippable:
-			return _decide_putt_target(hole_position)
 
 	# Evaluate candidate clubs to find the best overall option (enables lay-up)
 	var candidate_clubs: Array[Club] = []
@@ -953,16 +1027,21 @@ func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 
 	# Course management: less skilled golfers aim toward the center of the green
 	# rather than directly at the pin. Pros attack flags, amateurs play safe.
-	# This also naturally spreads out group landing positions.
-	var course_data = GameManager.course_data
-	if course_data and current_hole < course_data.holes.size():
-		var hole_data = course_data.holes[current_hole]
-		var green_center = hole_data.green_position
-		if green_center != Vector2i.ZERO and green_center != hole_position:
-			# Blend: pros (accuracy ~0.9) aim 90% at pin, beginners (accuracy ~0.3) aim 70% at green center
-			var pin_weight = clampf(accuracy_skill * 0.8 + 0.2, 0.3, 1.0)
-			var blended = Vector2(hole_position) * pin_weight + Vector2(green_center) * (1.0 - pin_weight)
-			best_target = Vector2i(blended.round())
+	# Only apply on approach shots where the golfer can actually reach the green —
+	# otherwise tee shots get aimed at the green (400yd away) instead of the fairway.
+	var best_club_stats = CLUB_STATS[best_club]
+	var best_skill_factor = _get_skill_distance_factor(best_club)
+	var best_max_dist = best_club_stats["max_distance"] * best_skill_factor
+	if best_max_dist >= distance_to_hole * 0.85:
+		var course_data = GameManager.course_data
+		if course_data and current_hole < course_data.holes.size():
+			var hole_data = course_data.holes[current_hole]
+			var green_center = hole_data.green_position
+			if green_center != Vector2i.ZERO and green_center != hole_position:
+				# Blend: pros (accuracy ~0.9) aim 90% at pin, beginners (accuracy ~0.3) aim 70% at green center
+				var pin_weight = clampf(accuracy_skill * 0.8 + 0.2, 0.3, 1.0)
+				var blended = Vector2(hole_position) * pin_weight + Vector2(green_center) * (1.0 - pin_weight)
+				best_target = Vector2i(blended.round())
 
 	return best_target
 
@@ -1171,15 +1250,18 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 			landing = hole_pos + direction * distance_error + perpendicular * lateral_error
 
 			# Safety: cap miss distance so putts don't end up absurdly far from the hole
-			# Tighter caps prevent cascading multi-putt cycles for low-skill golfers.
-			# Short putt misses should end near tap-in range; medium misses within 5-8 ft.
+			# Tighter caps prevent cascading multi-putt cycles.
+			# Skilled putters (0.8+) should leave misses within easy tap-in range.
 			var max_miss_from_hole: float
 			if distance < 0.15:
-				max_miss_from_hole = 0.045 + (1.0 - putting_skill) * 0.025  # ~3-4.6 ft
+				# Short putts (<10ft): misses stay very close
+				max_miss_from_hole = 0.03 + (1.0 - putting_skill) * 0.025   # ~2-3.6 ft
 			elif distance < 0.45:
-				max_miss_from_hole = 0.07 + (1.0 - putting_skill) * 0.06   # ~5-8.5 ft
+				# Medium putts (10-30ft): tighter cap, skilled putters leave ~3ft not 5+ft
+				max_miss_from_hole = 0.04 + (1.0 - putting_skill) * 0.05    # ~2.6-5.9 ft
 			else:
-				max_miss_from_hole = distance * (0.12 + (1.0 - putting_skill) * 0.15)
+				# Long putts (30ft+): proportional but tighter
+				max_miss_from_hole = distance * (0.08 + (1.0 - putting_skill) * 0.12)
 
 			var miss_dist = landing.distance_to(hole_pos)
 			if miss_dist > max_miss_from_hole:
@@ -1354,10 +1436,12 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 	var miss_angle_deg = base_angle_deg + tendency_strength
 
 	# Rare shank: catastrophic sideways miss (only on full swings, not putts/wedges)
-	# ~5% for worst beginners, <0.5% for pros
+	# ~3% for worst beginners, <0.3% for pros
+	var is_shank = false
 	if club != Club.PUTTER and club != Club.WEDGE:
-		var shank_chance = (1.0 - total_accuracy) * 0.06
+		var shank_chance = (1.0 - total_accuracy) * 0.04
 		if randf() < shank_chance:
+			is_shank = true
 			var shank_dir = 1.0 if miss_tendency >= 0.0 else -1.0
 			miss_angle_deg = shank_dir * randf_range(35.0, 55.0)
 			actual_distance *= randf_range(0.3, 0.6)
@@ -1436,6 +1520,9 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 			"club": club,
 			"rollout_tiles": 0.0,
 			"is_backspin": false,
+			"miss_angle_deg": miss_angle_deg,
+			"is_shank": is_shank,
+			"target": target,
 		}
 
 	# --- Rollout calculation ---
@@ -1462,6 +1549,9 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 		"club": club,
 		"rollout_tiles": rollout.rollout_distance,
 		"is_backspin": rollout.is_backspin,
+		"miss_angle_deg": miss_angle_deg,
+		"is_shank": is_shank,
+		"target": target,
 	}
 
 ## Approximate gaussian random using Central Limit Theorem (sum of uniform randoms).
