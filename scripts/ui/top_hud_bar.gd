@@ -4,6 +4,7 @@ class_name TopHUDBar
 
 signal money_clicked()
 signal reputation_clicked()
+signal rating_clicked()
 
 # UI References
 var _game_mode_icon: Label
@@ -15,6 +16,7 @@ var _reputation_button: Button
 var _weather_icon: Label
 var _weather_label: Label
 var _wind_label: Label
+var _rating_button: Button
 
 # State
 var _last_money: int = 0
@@ -120,6 +122,23 @@ func _build_ui() -> void:
 	_reputation_button.pressed.connect(_on_reputation_pressed)
 	_reputation_button.tooltip_text = "Course reputation (click for rating details)"
 	rep_container.add_child(_reputation_button)
+
+	# Vertical separator
+	stats_container.add_child(_create_vseparator())
+
+	# Course Rating Display (clickable)
+	var rating_container = HBoxContainer.new()
+	rating_container.add_theme_constant_override("separation", 4)
+	stats_container.add_child(rating_container)
+
+	_rating_button = Button.new()
+	_rating_button.flat = true
+	_rating_button.text = "-- (-.--)"
+	_rating_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
+	_rating_button.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+	_rating_button.pressed.connect(_on_rating_pressed)
+	_rating_button.tooltip_text = "Course rating (click for details)"
+	rating_container.add_child(_rating_button)
 
 	# Vertical separator
 	stats_container.add_child(_create_vseparator())
@@ -372,6 +391,21 @@ func _on_money_pressed() -> void:
 
 func _on_reputation_pressed() -> void:
 	reputation_clicked.emit()
+
+func _on_rating_pressed() -> void:
+	rating_clicked.emit()
+
+func update_rating(stars: float) -> void:
+	var display := CourseRatingSystem.get_star_display(stars)
+	_rating_button.text = "%s (%.1f)" % [display, stars]
+	if stars >= 4.0:
+		_rating_button.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	elif stars >= 3.0:
+		_rating_button.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
+	elif stars >= 2.0:
+		_rating_button.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
+	else:
+		_rating_button.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
 
 func _on_money_changed(old_amount: int, new_amount: int) -> void:
 	_money_trend_value = new_amount - old_amount

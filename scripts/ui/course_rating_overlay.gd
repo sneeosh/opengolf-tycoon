@@ -1,62 +1,58 @@
-extends Control
+extends CenteredPanel
 class_name CourseRatingOverlay
-## CourseRatingOverlay - Shows live course rating in the bottom-left during build mode
+## CourseRatingOverlay - Shows detailed course rating breakdown
 ##
-## Displays overall star rating and category breakdown so the player gets
-## real-time feedback while designing their course. Hides during simulation
-## and main menu. Updates on terrain changes and hole creation/deletion.
+## Displays overall star rating and category breakdown. Opened by clicking
+## the star rating in the top bar.
 
-const PANEL_WIDTH := 200.0
-const UPDATE_INTERVAL := 1.0  # Seconds between recalculations
+signal close_requested
+signal rating_updated(stars: float)
 
-var _panel: PanelContainer = null
+const PANEL_WIDTH := 240.0
+
 var _overall_label: Label = null
 var _condition_label: Label = null
 var _design_label: Label = null
 var _value_label: Label = null
 var _difficulty_label: Label = null
-var _update_timer: float = 0.0
-
-func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_build_ui()
-
-	EventBus.game_mode_changed.connect(_on_mode_changed)
-	EventBus.hole_created.connect(func(_h, _p, _d): _update_rating())
-	EventBus.hole_deleted.connect(func(_h): _update_rating())
-	EventBus.terrain_tile_changed.connect(func(_p, _o, _n): _schedule_update())
-
-	# Initial state
-	visible = GameManager.current_mode == GameManager.GameMode.BUILDING
 
 func _build_ui() -> void:
-	_panel = PanelContainer.new()
+	custom_minimum_size = Vector2(PANEL_WIDTH, 0)
+
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.08, 0.06, 0.88)
+	style.bg_color = Color(0.06, 0.08, 0.06, 0.95)
 	style.border_color = UIConstants.COLOR_PRIMARY
+	style.set_border_width_all(1)
 	style.border_width_left = 2
-	style.set_corner_radius_all(4)
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 6
-	style.content_margin_bottom = 6
-	_panel.add_theme_stylebox_override("panel", style)
-	_panel.custom_minimum_size = Vector2(PANEL_WIDTH, 0)
-	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_panel)
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	add_theme_stylebox_override("panel", style)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 2)
-	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_panel.add_child(vbox)
+	vbox.add_theme_constant_override("separation", 4)
+	add_child(vbox)
 
-	# Title
+	# Title row with close button
+	var title_row := HBoxContainer.new()
+	vbox.add_child(title_row)
+
 	var title := Label.new()
 	title.text = "Course Rating"
-	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
 	title.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_row.add_child(title)
+
+	var close_btn := Button.new()
+	close_btn.text = "X"
+	close_btn.custom_minimum_size = Vector2(30, 30)
+	close_btn.pressed.connect(_on_close_pressed)
+	title_row.add_child(close_btn)
+
+	vbox.add_child(HSeparator.new())
 
 	_overall_label = _add_row(vbox, "Overall:", "---")
 	_condition_label = _add_row(vbox, "Condition:", "---")
@@ -66,36 +62,22 @@ func _build_ui() -> void:
 
 func _add_row(parent: VBoxContainer, label_text: String, initial_value: String) -> Label:
 	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var lbl := Label.new()
 	lbl.text = label_text
-	lbl.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
+	lbl.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	lbl.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(lbl)
 
 	var val := Label.new()
 	val.text = initial_value
-	val.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
+	val.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	val.add_theme_color_override("font_color", UIConstants.COLOR_TEXT)
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	val.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(val)
 
 	parent.add_child(row)
 	return val
-
-func _schedule_update() -> void:
-	_update_timer = UPDATE_INTERVAL  # Will recalculate on next _process tick
-
-func _process(delta: float) -> void:
-	if not visible:
-		return
-	if _update_timer > 0:
-		_update_timer -= delta
-		if _update_timer <= 0:
-			_update_rating()
 
 func _update_rating() -> void:
 	if not GameManager.current_course or not GameManager.terrain_grid:
@@ -109,7 +91,7 @@ func _update_rating() -> void:
 		GameManager.reputation
 	)
 
-	var stars := rating.get("overall", 3.0)
+	var stars: float = rating.get("overall", 3.0)
 	_overall_label.text = "%s (%.1f)" % [CourseRatingSystem.get_star_display(stars), stars]
 	_overall_label.add_theme_color_override("font_color", _star_color(stars))
 
@@ -120,6 +102,8 @@ func _update_rating() -> void:
 	var diff: float = rating.get("difficulty", 5.0)
 	_difficulty_label.text = "%s (%.1f)" % [CourseRatingSystem.get_difficulty_text(diff), diff]
 
+	rating_updated.emit(stars)
+
 func _star_color(stars: float) -> Color:
 	if stars >= 4.0:
 		return UIConstants.COLOR_GOLD
@@ -129,7 +113,13 @@ func _star_color(stars: float) -> Color:
 		return UIConstants.COLOR_WARNING
 	return UIConstants.COLOR_DANGER
 
-func _on_mode_changed(_old: int, new_mode: int) -> void:
-	visible = new_mode == GameManager.GameMode.BUILDING
+func _on_close_pressed() -> void:
+	close_requested.emit()
+	hide()
+
+func toggle() -> void:
 	if visible:
+		hide()
+	else:
 		_update_rating()
+		show_centered()

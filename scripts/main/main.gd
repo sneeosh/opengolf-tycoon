@@ -210,9 +210,19 @@ func _process(_delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	# Keyboard shortcuts - handled in _input so UI controls don't swallow them
 	if event is InputEventKey and event.pressed and not event.echo:
-		# Escape key toggles pause menu (works in any gameplay mode, not main menu)
+		# Escape key: deselect active tool/panel first, then open pause menu
 		if event.keycode == KEY_ESCAPE:
 			if GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
+				# Close open panel first
+				if _active_panel and _active_panel.visible:
+					_active_panel.hide()
+					_active_panel = null
+					get_viewport().set_input_as_handled()
+					return
+				# Deselect active tool/selection — let _unhandled_input handle it
+				if _has_active_tool():
+					return
+				# Nothing active — open pause menu
 				_toggle_pause_menu()
 				get_viewport().set_input_as_handled()
 				return
@@ -466,7 +476,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
+	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard", "CourseRatingOverlay"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -490,8 +500,9 @@ func _setup_top_hud_bar() -> void:
 	top_hud_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	top_hud_bar.offset_bottom = UIConstants.TOP_HUD_HEIGHT
 
-	# Connect money click to financial panel
+	# Connect top bar clicks to panels
 	top_hud_bar.money_clicked.connect(_on_money_clicked)
+	top_hud_bar.rating_clicked.connect(_toggle_course_rating_panel)
 
 	# Add to HUD as first child
 	hud.add_child(top_hud_bar)
@@ -2047,6 +2058,15 @@ func _setup_milestone_system() -> void:
 	)
 	$UI/HUD.add_child(milestones_panel)
 
+	# Add milestones button to bottom bar
+	var bottom_bar = $UI/HUD/BottomBar
+	var milestones_btn = Button.new()
+	milestones_btn.name = "MilestonesBtn"
+	milestones_btn.text = "Milestones"
+	milestones_btn.tooltip_text = "Goals & achievements (G)"
+	milestones_btn.pressed.connect(_toggle_milestones_panel)
+	bottom_bar.add_child(milestones_btn)
+
 	# Update SaveManager reference to include milestone manager
 	SaveManager.milestone_manager = milestone_manager
 
@@ -2112,16 +2132,38 @@ func _setup_notification_toast() -> void:
 # --- Course Rating Overlay ---
 
 func _setup_course_rating_overlay() -> void:
-	"""Add live course rating overlay in bottom-left during build mode."""
+	"""Add course rating panel (toggled from top bar star rating)."""
 	course_rating_overlay = CourseRatingOverlay.new()
 	course_rating_overlay.name = "CourseRatingOverlay"
-	# Position in bottom-left above bottom bar
-	course_rating_overlay.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	course_rating_overlay.offset_top = -160
-	course_rating_overlay.offset_bottom = -55
-	course_rating_overlay.offset_left = 10
-	course_rating_overlay.offset_right = 220
+	course_rating_overlay.close_requested.connect(func():
+		course_rating_overlay.hide()
+		if _active_panel == course_rating_overlay:
+			_active_panel = null
+	)
+	course_rating_overlay.rating_updated.connect(func(stars: float):
+		if top_hud_bar:
+			top_hud_bar.update_rating(stars)
+	)
 	$UI/HUD.add_child(course_rating_overlay)
+	course_rating_overlay.hide()
+	# Push initial rating to top bar (deferred so GameManager is ready)
+	_update_top_bar_rating.call_deferred()
+
+func _update_top_bar_rating() -> void:
+	if not GameManager.current_course or not GameManager.terrain_grid or not top_hud_bar:
+		return
+	var rating := CourseRatingSystem.calculate_rating(
+		GameManager.terrain_grid,
+		GameManager.current_course,
+		GameManager.daily_stats,
+		GameManager.green_fee,
+		GameManager.reputation
+	)
+	var stars: float = rating.get("overall", 3.0)
+	top_hud_bar.update_rating(stars)
+
+func _toggle_course_rating_panel() -> void:
+	_toggle_panel(course_rating_overlay)
 
 # --- Floating Transaction Text ---
 
