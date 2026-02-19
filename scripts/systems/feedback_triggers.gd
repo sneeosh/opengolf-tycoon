@@ -122,16 +122,25 @@ static func get_probability(trigger_type: TriggerType) -> float:
 static func should_trigger(trigger_type: TriggerType) -> bool:
 	return randf() < get_probability(trigger_type)
 
-## Determine score-based trigger from strokes and par — uses GolfRules classification
-static func get_score_trigger(strokes: int, par: int) -> TriggerType:
+## Expected strokes over par per hole, based on average skill (0.0-1.0).
+## Used as a rough handicap so golfers judge performance against their own ability.
+static func get_expected_over_par(avg_skill: float) -> float:
+	return (1.0 - avg_skill) * 3.0
+
+## Determine score-based trigger from strokes, par, and golfer skill.
+## Positive triggers (hole-in-one/eagle/birdie) are unconditional — great golf is always exciting.
+## Negative trigger (BOGEY_PLUS) only fires when significantly worse than personal expectation.
+static func get_score_trigger(strokes: int, par: int, avg_skill: float = 0.5) -> TriggerType:
 	var classification = GolfRules.classify_score(strokes, par)
 	match classification:
 		"hole_in_one": return TriggerType.HOLE_IN_ONE
 		"eagle": return TriggerType.EAGLE
 		"birdie": return TriggerType.BIRDIE
-		"double_bogey_plus": return TriggerType.BOGEY_PLUS
-	# Par or bogey - no trigger
-	return -1  # Invalid trigger
+	# Negative trigger only if 2+ strokes worse than personal expectation
+	var expected = par + get_expected_over_par(avg_skill)
+	if strokes >= expected + 2.0:
+		return TriggerType.BOGEY_PLUS
+	return -1  # At or near expected — no trigger
 
 ## Determine price trigger based on total round cost and reputation
 static func get_price_trigger(total_round_cost: int, reputation: float) -> TriggerType:
@@ -146,10 +155,11 @@ static func get_price_trigger(total_round_cost: int, reputation: float) -> Trigg
 		return TriggerType.GOOD_VALUE
 	return -1  # No trigger for fair pricing
 
-## Determine course satisfaction trigger based on final score
-static func get_course_trigger(total_strokes: int, total_par: int) -> TriggerType:
-	var score_to_par = total_strokes - total_par
-	# Happy if within 5 over par (realistic for casual golfers)
-	if score_to_par <= 5:
+## Determine course satisfaction trigger based on final score vs personal expectation.
+## Golfers are happy if they scored within ~3 strokes of their expected total.
+static func get_course_trigger(total_strokes: int, total_par: int,
+		avg_skill: float = 0.5, hole_count: int = 18) -> TriggerType:
+	var expected_total = total_par + hole_count * get_expected_over_par(avg_skill)
+	if total_strokes <= expected_total + 3.0:
 		return TriggerType.NICE_COURSE
-	return -1  # No trigger for poor scores (they already complained per-hole)
+	return -1  # No trigger — scored well below expectation (already complained per-hole)

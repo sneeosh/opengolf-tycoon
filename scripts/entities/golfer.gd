@@ -853,21 +853,23 @@ func finish_hole(par: int) -> void:
 	total_par += par
 	previous_hole_strokes = current_strokes  # Store for honor system on next tee
 
-	# Update mood based on performance
-	var score_diff = current_strokes - par
-	if score_diff <= -2:      # Eagle or better
+	# Update mood based on performance relative to personal expectation
+	var avg_skill = (driving_skill + accuracy_skill + putting_skill + recovery_skill) / 4.0
+	var expected_score = par + FeedbackTriggers.get_expected_over_par(avg_skill)
+	var performance = current_strokes - expected_score  # negative = better than expected
+	if performance <= -2.0:       # Way better than expected
 		_adjust_mood(0.3)
-	elif score_diff == -1:    # Birdie
+	elif performance <= -1.0:     # Better than expected
 		_adjust_mood(0.15)
-	elif score_diff == 0:     # Par
+	elif performance <= 0.5:      # At or near expected
 		_adjust_mood(0.05)
-	elif score_diff == 1:     # Bogey
+	elif performance <= 1.5:      # Slightly worse than expected
 		_adjust_mood(-0.1)
-	else:                     # Double bogey or worse
+	else:                         # Much worse than expected
 		_adjust_mood(-0.2)
 
 	# Show thought bubble for notable scores
-	var score_trigger = FeedbackTriggers.get_score_trigger(current_strokes, par)
+	var score_trigger = FeedbackTriggers.get_score_trigger(current_strokes, par, avg_skill)
 	if score_trigger != -1:
 		show_thought(score_trigger)
 
@@ -923,7 +925,9 @@ func finish_round() -> void:
 		show_thought(FeedbackTriggers.TriggerType.TOO_FEW_HOLES)
 	else:
 		# Show course satisfaction feedback (only if course has enough holes)
-		var course_trigger = FeedbackTriggers.get_course_trigger(total_strokes, total_par)
+		var avg_skill = (driving_skill + accuracy_skill + putting_skill + recovery_skill) / 4.0
+		var holes_played = hole_scores.size()
+		var course_trigger = FeedbackTriggers.get_course_trigger(total_strokes, total_par, avg_skill, holes_played)
 		if course_trigger != -1:
 			show_thought(course_trigger)
 

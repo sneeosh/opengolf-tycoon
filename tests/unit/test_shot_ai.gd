@@ -600,9 +600,10 @@ func test_avoids_ob_adjacent_landing_zones() -> void:
 func test_rocks_forces_wedge_only() -> void:
 	var ball = Vector2i(15, 20)
 	var flag = Vector2i(25, 20)
-	_terrain_grid._grid[ball] = TerrainTypes.Type.ROCKS
 	_paint_rect(TerrainTypes.Type.FAIRWAY, Vector2i(13, 18), Vector2i(27, 22))
 	_paint_rect(TerrainTypes.Type.GREEN, Vector2i(24, 19), Vector2i(26, 21))
+	# Paint ROCKS after fairway so it doesn't get overwritten
+	_terrain_grid._grid[ball] = TerrainTypes.Type.ROCKS
 	_setup_hole(Vector2i(2, 20), Vector2i(25, 20), flag, 4)
 
 	var gd = _make_golfer({"ball_position": ball})
@@ -899,3 +900,40 @@ func test_tier_putting_skill_affects_read() -> void:
 		"Beginner putt target should be near flag")
 	assert_lt(pro_dist, 3.0,
 		"Pro putt target should be near flag")
+
+# ============================================================================
+# SCENARIO 22: SHORT APPROACH — Wedge chip doesn't overshoot
+# ============================================================================
+# Ball 1 tile from flag on fairway. ShotAI must generate a candidate near
+# the flag, not at 60+ yards. This was the root cause of the chip-shot
+# overshooting bug where the scan floor was 60% of wedge max distance.
+
+func test_short_approach_doesnt_overshoot() -> void:
+	# Ball at (18, 20) on fairway, 2 tiles from flag at (20, 20) on green
+	# Green painted AFTER fairway so ball tile stays fairway
+	var ball = Vector2i(18, 20)
+	var flag = Vector2i(20, 20)
+	_paint_rect(TerrainTypes.Type.FAIRWAY, Vector2i(16, 18), Vector2i(19, 22))
+	_paint_rect(TerrainTypes.Type.GREEN, Vector2i(19, 19), Vector2i(21, 21))
+	_setup_hole(Vector2i(2, 20), Vector2i(20, 20), flag, 4)
+	# Ensure ball tile is fairway (green rect overlaps x=19 but ball is at x=18)
+	assert_eq(_terrain_grid.get_tile(ball), TerrainTypes.Type.FAIRWAY,
+		"Precondition: ball should be on fairway")
+
+	var gd = _make_golfer({"ball_position": ball})
+	var decision = ShotAI.decide_shot_for(gd, flag)
+
+	# Must use wedge (not putter — ball is off-green on fairway)
+	assert_eq(decision.club, Golfer.Club.WEDGE,
+		"Should use wedge for short approach from fairway")
+
+	# Target must be near the flag, not 60+ yards away
+	var target_dist = Vector2(decision.target).distance_to(Vector2(flag))
+	assert_lt(target_dist, 3.0,
+		"Short approach target should be near flag, got %.1f tiles away" % target_dist)
+
+	# Target should not overshoot wildly (within 2x ball-to-flag distance)
+	var ball_to_flag = Vector2(ball).distance_to(Vector2(flag))
+	var target_from_ball = Vector2(decision.target).distance_to(Vector2(ball))
+	assert_lt(target_from_ball, ball_to_flag * 2.0,
+		"Should not overshoot: target %.1f tiles from ball, flag %.1f tiles" % [target_from_ball, ball_to_flag])

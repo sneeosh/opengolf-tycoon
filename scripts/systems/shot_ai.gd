@@ -233,10 +233,9 @@ static func _decide_recovery_shot(
 				if not terrain_grid.is_valid_position(test_pos):
 					continue
 
-				# Check if path is clear (trees block low shots)
-				if _path_crosses_trees(ball_pos, test_pos, terrain_grid):
-					continue
-
+				# Skip tree-path check: recovery shots are low punch-outs
+				# designed to escape trees. Club restrictions + terrain scoring
+				# already model the difficulty.
 				var terrain_type: int = terrain_grid.get_tile(test_pos)
 				var score: float = TERRAIN_SCORES.get(terrain_type, -50.0)
 
@@ -271,10 +270,27 @@ static func _decide_recovery_shot(
 	if best_candidate:
 		return _make_decision(best_candidate.aim_point, best_candidate.club, "recovery", best_score)
 
-	# Absolute fallback: chip toward the hole with a wedge
-	var fallback_dir: Vector2 = direction_to_hole
-	var fallback_dist: float = 2.0  # Short chip
-	var fallback_target: Vector2i = ball_pos + Vector2i((fallback_dir * fallback_dist).round())
+	# Absolute fallback: find nearest non-hazard tile, preferring toward the hole
+	var fallback_target: Vector2i = ball_pos + Vector2i((direction_to_hole * 2.0).round())
+	var best_fallback_score: float = -99999.0
+	for radius in range(1, 6):
+		for dx in range(-radius, radius + 1):
+			for dy in range(-radius, radius + 1):
+				if absi(dx) != radius and absi(dy) != radius:
+					continue  # Only check perimeter
+				var check_pos: Vector2i = ball_pos + Vector2i(dx, dy)
+				if not terrain_grid.is_valid_position(check_pos):
+					continue
+				var t: int = terrain_grid.get_tile(check_pos)
+				var s: float = TERRAIN_SCORES.get(t, -50.0)
+				# Prefer tiles toward the hole
+				var adv: float = distance_to_hole - Vector2(check_pos).distance_to(Vector2(hole_position))
+				s += adv * 2.0
+				if s > best_fallback_score:
+					best_fallback_score = s
+					fallback_target = check_pos
+		if best_fallback_score > 0:
+			break  # Found a decent tile, stop expanding
 	return _make_decision(fallback_target, Golfer.Club.WEDGE, "recovery", -100.0)
 
 ## Get clubs allowed from a trouble lie
@@ -387,11 +403,20 @@ static func _evaluate_all_candidates(
 
 			for d in range(DISTANCE_SAMPLES):
 				var t_dist: float = d / float(max(DISTANCE_SAMPLES - 1, 1))
-				# Scan from 60% to 110% of effective max (wider range than before)
-				var test_dist: float = effective_max * (0.6 + t_dist * 0.5)
+				var test_dist: float
+				# Wedge approach shots scan from chip distance to max,
+				# so golfers near the green can target the actual distance
+				# instead of overshooting to 60+ yards.
+				var is_wedge_approach: bool = (club == Golfer.Club.WEDGE and shots_remaining <= 1)
+				if is_wedge_approach:
+					var chip_floor: float = 0.25  # ~5.5 yards — covers any tile off the green
+					test_dist = chip_floor + t_dist * (effective_max * 1.1 - chip_floor)
+				else:
+					# Standard scan: 60% to 110% of effective max
+					test_dist = effective_max * (0.6 + t_dist * 0.5)
 
-				# Skip distances below club minimum
-				if test_dist < min_dist * 0.7:
+				# Skip distances below club minimum (waived for wedge chips)
+				if not is_wedge_approach and test_dist < min_dist * 0.7:
 					continue
 
 				var test_pos: Vector2i = ball_pos + Vector2i((scan_dir * test_dist).round())
@@ -430,6 +455,14 @@ static func _evaluate_all_candidates(
 					gd, ball_pos, wind_adjusted_landing, terrain_grid, club
 				)
 				score -= risk_penalty
+
+				# --- Club accuracy preference for approach shots ---
+				# When multiple clubs can reach the green, prefer the most
+				# accurate (iron > fairway wood > driver). This prevents
+				# driver selection on short par 3s where all clubs score
+				# similarly on terrain alone.
+				if shots_remaining <= 1:
+					score += stats["accuracy_modifier"] * 20.0
 
 				var strategy: String = "attack" if can_reach_green else "layup"
 
