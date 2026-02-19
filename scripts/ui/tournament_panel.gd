@@ -16,6 +16,14 @@ func _ready() -> void:
 	EventBus.tournament_started.connect(_on_tournament_started)
 	EventBus.tournament_completed.connect(_on_tournament_completed)
 
+func _exit_tree() -> void:
+	if EventBus.tournament_scheduled.is_connected(_on_tournament_scheduled):
+		EventBus.tournament_scheduled.disconnect(_on_tournament_scheduled)
+	if EventBus.tournament_started.is_connected(_on_tournament_started):
+		EventBus.tournament_started.disconnect(_on_tournament_started)
+	if EventBus.tournament_completed.is_connected(_on_tournament_completed):
+		EventBus.tournament_completed.disconnect(_on_tournament_completed)
+
 func _build_ui() -> void:
 	custom_minimum_size = Vector2(340, 480)
 
@@ -97,7 +105,7 @@ func _show_available_tournaments() -> void:
 	var cooldown = _tournament_manager.get_cooldown_remaining()
 	if cooldown > 0:
 		_status_label.text = "Cooldown: %d days until next tournament" % cooldown
-		_status_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.5))
+		_status_label.add_theme_color_override("font_color", UIConstants.COLOR_WARNING_DIM)
 	else:
 		_status_label.text = "Select a tournament to host:"
 		_status_label.remove_theme_color_override("font_color")
@@ -117,7 +125,7 @@ func _show_available_tournaments() -> void:
 		var req_row = _create_stat_row(
 			"Requirements:",
 			"%d holes, %.1f stars" % [tier_data.min_holes, tier_data.min_rating],
-			Color(0.7, 0.7, 0.7)
+			UIConstants.COLOR_TEXT_DIM
 		)
 		_content_vbox.add_child(req_row)
 
@@ -125,7 +133,7 @@ func _show_available_tournaments() -> void:
 		var cost_row = _create_stat_row(
 			"Entry / Prize:",
 			"$%d / $%d" % [tier_data.entry_cost, tier_data.prize_pool],
-			Color(0.7, 0.9, 0.7)
+			UIConstants.COLOR_SUCCESS_DIM
 		)
 		_content_vbox.add_child(cost_row)
 
@@ -133,7 +141,7 @@ func _show_available_tournaments() -> void:
 		var reward_row = _create_stat_row(
 			"Reputation:",
 			"+%d (%d days)" % [tier_data.reputation_reward, tier_data.duration_days],
-			Color(0.7, 0.8, 0.9)
+			UIConstants.COLOR_INFO_DIM
 		)
 		_content_vbox.add_child(reward_row)
 
@@ -163,17 +171,17 @@ func _show_current_tournament(info: Dictionary) -> void:
 	match info.state:
 		TournamentSystem.TournamentState.SCHEDULED:
 			state_text = "Starts in %d days" % info.days_remaining
-			_status_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.3))
+			_status_label.add_theme_color_override("font_color", UIConstants.COLOR_WARNING_DIM)
 		TournamentSystem.TournamentState.IN_PROGRESS:
-			state_text = "In Progress"
-			_status_label.add_theme_color_override("font_color", Color(0.3, 0.9, 0.3))
+			state_text = "In Progress - %d day(s) remaining" % info.days_remaining
+			_status_label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
 
 	_status_label.text = "%s\n%s" % [info.name, state_text]
 
 	# Show tournament info
 	var info_label = Label.new()
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	info_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	info_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 
 	if info.state == TournamentSystem.TournamentState.IN_PROGRESS:
 		info_label.text = "Professional golfers are competing on your course. Watch the tournament or press End Day to skip ahead."
@@ -183,7 +191,7 @@ func _show_current_tournament(info: Dictionary) -> void:
 		hint_label.text = "The live leaderboard is shown on the right side of the screen."
 		hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		hint_label.add_theme_font_size_override("font_size", 11)
-		hint_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		hint_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 		_content_vbox.add_child(hint_label)
 	else:
 		info_label.text = "Tournament scheduled. Professional golfers will compete on your course."
@@ -199,7 +207,7 @@ func _show_current_tournament(info: Dictionary) -> void:
 		_content_vbox.add_child(results_title)
 
 		var results = _tournament_manager.tournament_results
-		var winner_row = _create_stat_row("Winner:", results.get("winner_name", "Unknown"), Color(1.0, 0.85, 0.0))
+		var winner_row = _create_stat_row("Winner:", results.get("winner_name", "Unknown"), UIConstants.COLOR_GOLD)
 		_content_vbox.add_child(winner_row)
 
 		var score_row = _create_stat_row("Score:", "%d (Par %d)" % [results.get("winning_score", 0), results.get("par", 72)], Color.WHITE)

@@ -92,6 +92,32 @@ func _connect_signals() -> void:
 	EventBus.hour_changed.connect(_on_hour_changed)
 	EventBus.game_mode_changed.connect(_on_game_mode_changed)
 
+func _exit_tree() -> void:
+	if EventBus.shot_taken.is_connected(_on_shot_taken):
+		EventBus.shot_taken.disconnect(_on_shot_taken)
+	if EventBus.ball_shot_landed_precise.is_connected(_on_ball_shot_landed):
+		EventBus.ball_shot_landed_precise.disconnect(_on_ball_shot_landed)
+	if EventBus.ball_putt_landed_precise.is_connected(_on_ball_putt_landed):
+		EventBus.ball_putt_landed_precise.disconnect(_on_ball_putt_landed)
+	if EventBus.ball_in_hole.is_connected(_on_ball_in_hole):
+		EventBus.ball_in_hole.disconnect(_on_ball_in_hole)
+	if EventBus.hazard_penalty.is_connected(_on_hazard_penalty):
+		EventBus.hazard_penalty.disconnect(_on_hazard_penalty)
+	if EventBus.record_broken.is_connected(_on_record_broken):
+		EventBus.record_broken.disconnect(_on_record_broken)
+	if EventBus.building_placed.is_connected(_on_building_placed):
+		EventBus.building_placed.disconnect(_on_building_placed)
+	if EventBus.building_removed.is_connected(_on_building_removed):
+		EventBus.building_removed.disconnect(_on_building_removed)
+	if EventBus.wind_changed.is_connected(_on_wind_changed):
+		EventBus.wind_changed.disconnect(_on_wind_changed)
+	if EventBus.weather_changed.is_connected(_on_weather_changed):
+		EventBus.weather_changed.disconnect(_on_weather_changed)
+	if EventBus.hour_changed.is_connected(_on_hour_changed):
+		EventBus.hour_changed.disconnect(_on_hour_changed)
+	if EventBus.game_mode_changed.is_connected(_on_game_mode_changed):
+		EventBus.game_mode_changed.disconnect(_on_game_mode_changed)
+
 # ─── Public API ───────────────────────────────────────────────────
 
 func play_ui_click() -> void:

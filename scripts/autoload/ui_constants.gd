@@ -34,11 +34,39 @@ const COLOR_TEXT_MUTED := Color(0.4, 0.4, 0.4)        # Disabled/muted text
 
 const COLOR_SUCCESS := Color(0.4, 0.9, 0.4)           # Profit, positive
 const COLOR_SUCCESS_DIM := Color(0.5, 0.8, 0.5)       # Dim green
+const COLOR_SUCCESS_MUTED := Color(0.6, 0.8, 0.6)     # Muted positive feedback
 const COLOR_WARNING := Color(0.9, 0.9, 0.4)           # Caution, moderate
+const COLOR_WARNING_DIM := Color(0.8, 0.8, 0.5)       # Muted caution
 const COLOR_DANGER := Color(0.9, 0.4, 0.4)            # Loss, negative
 const COLOR_DANGER_DIM := Color(0.8, 0.5, 0.5)        # Dim red
+const COLOR_DANGER_MUTED := Color(0.8, 0.6, 0.6)      # Muted negative feedback
 const COLOR_INFO := Color(0.4, 0.7, 1.0)              # Neutral info
+const COLOR_INFO_DIM := Color(0.7, 0.8, 1.0)          # Muted info/blue
 const COLOR_GOLD := Color(1.0, 0.85, 0.0)             # Premium, special
+const COLOR_GOLD_DIM := Color(0.9, 0.75, 0.2)         # Muted gold (eagle)
+const COLOR_ORANGE := Color(0.9, 0.6, 0.3)            # Championship, high tier
+const COLOR_PURPLE := Color(0.9, 0.3, 0.9)            # Pro tier
+const COLOR_BLUE_SOFT := Color(0.6, 0.6, 0.9)         # Casual tier
+
+# =============================================================================
+# GOLF SCORE COLORS
+# =============================================================================
+
+const COLOR_SCORE_EAGLE := Color(1.0, 0.85, 0.0)      # Eagle or better (gold)
+const COLOR_SCORE_BIRDIE := Color(0.3, 0.9, 0.3)      # Birdie (green)
+const COLOR_SCORE_PAR := Color.WHITE                   # Par
+const COLOR_SCORE_BOGEY := Color(0.9, 0.6, 0.3)       # Bogey (orange)
+const COLOR_SCORE_DOUBLE := Color(0.9, 0.3, 0.3)      # Double bogey+ (red)
+const COLOR_SCORE_OVER := Color(0.9, 0.4, 0.3)        # Over par (leaderboard)
+const COLOR_SCORE_UNDER := Color(0.3, 0.9, 0.3)       # Under par (leaderboard)
+
+# =============================================================================
+# MOOD COLORS
+# =============================================================================
+
+const COLOR_MOOD_HAPPY := Color(0.3, 0.9, 0.3)        # Satisfied/Happy
+const COLOR_MOOD_NEUTRAL := Color(0.9, 0.9, 0.3)      # Neutral
+const COLOR_MOOD_UNHAPPY := Color(0.9, 0.3, 0.3)      # Frustrated/Unhappy
 
 # =============================================================================
 # TYPOGRAPHY SCALE

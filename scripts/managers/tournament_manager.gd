@@ -120,7 +120,8 @@ func schedule_tournament(tier: int) -> bool:
 	var tier_data = TournamentSystem.get_tier_data(tier)
 
 	# Pay entry cost
-	GameManager.money -= tier_data.entry_cost
+	GameManager.modify_money(-tier_data.entry_cost)
+	EventBus.log_transaction("Tournament entry fee (%s)" % tier_data.name, -tier_data.entry_cost)
 
 	# Lead time: local tournaments start next day, larger ones need 3 days prep
 	var lead_days = 1 if tier == TournamentSystem.TournamentTier.LOCAL else 3

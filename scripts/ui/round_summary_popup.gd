@@ -28,12 +28,12 @@ func _build_panel() -> void:
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.1, 0.12, 0.92)
+	style.bg_color = UIConstants.COLOR_BG_PANEL
 	style.border_width_bottom = 2
 	style.border_width_top = 2
 	style.border_width_left = 2
 	style.border_width_right = 2
-	style.border_color = Color(0.3, 0.3, 0.35)
+	style.border_color = UIConstants.COLOR_BORDER
 	style.corner_radius_top_left = 6
 	style.corner_radius_top_right = 6
 	style.corner_radius_bottom_left = 6
@@ -52,7 +52,7 @@ func _build_panel() -> void:
 	var header := Label.new()
 	header.text = "Round Complete"
 	header.add_theme_font_size_override("font_size", 13)
-	header.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	header.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	vbox.add_child(header)
 
 	_name_label = Label.new()
@@ -69,11 +69,17 @@ func _build_panel() -> void:
 
 	_fee_label = Label.new()
 	_fee_label.add_theme_font_size_override("font_size", 11)
-	_fee_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
+	_fee_label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS_DIM)
 	vbox.add_child(_fee_label)
 
 	# Click to dismiss
 	_panel.gui_input.connect(_on_panel_input)
+
+func _exit_tree() -> void:
+	# Clear timer reference to avoid callbacks after removal
+	if _dismiss_timer and _dismiss_timer.timeout.is_connected(_dismiss_current):
+		_dismiss_timer.timeout.disconnect(_dismiss_current)
+	_dismiss_timer = null
 
 func queue_notification(data: Dictionary) -> void:
 	_queue.append(data)
@@ -147,11 +153,11 @@ func _on_panel_input(event: InputEvent) -> void:
 		_dismiss_current()
 
 func _get_score_color(diff: int) -> Color:
-	if diff < -1: return Color(1.0, 0.85, 0.0)
-	if diff == -1: return Color(0.3, 0.9, 0.3)
-	if diff == 0: return Color.WHITE
-	if diff == 1: return Color(0.9, 0.6, 0.3)
-	return Color(0.9, 0.3, 0.3)
+	if diff < -1: return UIConstants.COLOR_SCORE_EAGLE
+	if diff == -1: return UIConstants.COLOR_SCORE_BIRDIE
+	if diff == 0: return UIConstants.COLOR_SCORE_PAR
+	if diff == 1: return UIConstants.COLOR_SCORE_BOGEY
+	return UIConstants.COLOR_SCORE_DOUBLE
 
 func _get_mood_text(mood: float) -> String:
 	if mood >= 0.8: return "Very Happy"
@@ -161,6 +167,6 @@ func _get_mood_text(mood: float) -> String:
 	return "Frustrated"
 
 func _get_mood_color(mood: float) -> Color:
-	if mood >= 0.6: return Color(0.3, 0.9, 0.3)
-	if mood >= 0.4: return Color(0.9, 0.9, 0.3)
-	return Color(0.9, 0.3, 0.3)
+	if mood >= 0.6: return UIConstants.COLOR_MOOD_HAPPY
+	if mood >= 0.4: return UIConstants.COLOR_MOOD_NEUTRAL
+	return UIConstants.COLOR_MOOD_UNHAPPY

@@ -10,10 +10,10 @@ var _title_label: Label = null
 var _tier_label: Label = null
 
 const TIER_COLORS := {
-	0: Color(0.6, 0.8, 0.6),   # BEGINNER - light green
-	1: Color(0.6, 0.6, 0.9),   # CASUAL - blue
-	2: Color(0.9, 0.7, 0.3),   # SERIOUS - gold
-	3: Color(0.9, 0.3, 0.9),   # PRO - purple
+	0: UIConstants.COLOR_SUCCESS_MUTED,  # BEGINNER - light green
+	1: UIConstants.COLOR_BLUE_SOFT,      # CASUAL - blue
+	2: UIConstants.COLOR_GOLD_DIM,       # SERIOUS - gold
+	3: UIConstants.COLOR_PURPLE,         # PRO - purple
 }
 
 func _build_ui() -> void:
@@ -120,7 +120,7 @@ func _update_display() -> void:
 		score_text = "%d (E)" % _golfer.total_strokes
 
 	_content_vbox.add_child(_create_stat_row("Score", score_text, _get_score_color(score_vs_par)))
-	_content_vbox.add_child(_create_stat_row("Hole", "%d" % (_golfer.current_hole + 1), Color.WHITE))
+	_content_vbox.add_child(_create_stat_row("Hole", "%d" % (_golfer.current_hole + 1), UIConstants.COLOR_TEXT))
 	_content_vbox.add_child(_create_stat_row("Mood", _get_mood_text(_golfer.current_mood), _get_mood_color(_golfer.current_mood)))
 
 	_content_vbox.add_child(HSeparator.new())
@@ -171,14 +171,14 @@ func _create_skill_bar(skill_name: String, value: float) -> HBoxContainer:
 
 	# Background bar
 	var bg := ColorRect.new()
-	bg.color = Color(0.15, 0.15, 0.15)
+	bg.color = UIConstants.COLOR_BG_BUTTON
 	bg.custom_minimum_size = Vector2(140, 12)
 	bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(bg)
 
 	# Fill bar (added as child of bg)
 	var fill := ColorRect.new()
-	var bar_color = Color(0.3, 0.8, 0.3).lerp(Color(0.9, 0.3, 0.3), 1.0 - value)
+	var bar_color = UIConstants.COLOR_SCORE_BIRDIE.lerp(UIConstants.COLOR_SCORE_DOUBLE, 1.0 - value)
 	fill.color = bar_color
 	fill.custom_minimum_size = Vector2(140.0 * value, 12)
 	fill.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -211,11 +211,11 @@ func _create_stat_row(label_text: String, value_text: String, value_color: Color
 	return row
 
 func _get_score_color(diff: int) -> Color:
-	if diff < -1: return Color(1.0, 0.85, 0.0)   # Eagle+ gold
-	if diff == -1: return Color(0.3, 0.9, 0.3)    # Birdie green
-	if diff == 0: return Color.WHITE               # Par
-	if diff == 1: return Color(0.9, 0.6, 0.3)     # Bogey orange
-	return Color(0.9, 0.3, 0.3)                   # Double+ red
+	if diff < -1: return UIConstants.COLOR_SCORE_EAGLE
+	if diff == -1: return UIConstants.COLOR_SCORE_BIRDIE
+	if diff == 0: return UIConstants.COLOR_SCORE_PAR
+	if diff == 1: return UIConstants.COLOR_SCORE_BOGEY
+	return UIConstants.COLOR_SCORE_DOUBLE
 
 func _get_hole_score_color(diff: int) -> Color:
 	return _get_score_color(diff)
@@ -228,6 +228,6 @@ func _get_mood_text(mood: float) -> String:
 	return "Frustrated"
 
 func _get_mood_color(mood: float) -> Color:
-	if mood >= 0.6: return Color(0.3, 0.9, 0.3)
-	if mood >= 0.4: return Color(0.9, 0.9, 0.3)
-	return Color(0.9, 0.3, 0.3)
+	if mood >= 0.6: return UIConstants.COLOR_MOOD_HAPPY
+	if mood >= 0.4: return UIConstants.COLOR_MOOD_NEUTRAL
+	return UIConstants.COLOR_MOOD_UNHAPPY

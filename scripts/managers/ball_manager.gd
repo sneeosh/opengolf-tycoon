@@ -16,7 +16,6 @@ signal ball_in_hazard(golfer_id: int, hazard_type: String)
 func _ready() -> void:
 	# Connect to EventBus for golfer shot events
 	EventBus.shot_taken.connect(_on_shot_taken)
-	EventBus.ball_landed.connect(_on_ball_landed)
 	EventBus.ball_putt_landed_precise.connect(_on_ball_putt_precise)
 	EventBus.ball_shot_landed_precise.connect(_on_ball_shot_precise)
 	EventBus.golfer_started_hole.connect(_on_golfer_started_hole)
@@ -28,8 +27,6 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if EventBus.shot_taken.is_connected(_on_shot_taken):
 		EventBus.shot_taken.disconnect(_on_shot_taken)
-	if EventBus.ball_landed.is_connected(_on_ball_landed):
-		EventBus.ball_landed.disconnect(_on_ball_landed)
 	if EventBus.ball_putt_landed_precise.is_connected(_on_ball_putt_precise):
 		EventBus.ball_putt_landed_precise.disconnect(_on_ball_putt_precise)
 	if EventBus.ball_shot_landed_precise.is_connected(_on_ball_shot_precise):
@@ -207,19 +204,6 @@ func _on_shot_taken(golfer_id: int, hole_number: int, stroke_count: int) -> void
 	# The actual ball movement will be triggered by ball_landed signal
 	# which contains the from/to positions
 	pass
-
-func _on_ball_landed(golfer_id: int, from_position: Vector2i, landing_position: Vector2i, terrain_type: int) -> void:
-	# This is called from golfer._calculate_shot()
-	# We need to animate the ball from the shot origin to landing position
-
-	# Ignore invalid golfer IDs (can happen during deserialization before golfer_id is set)
-	if golfer_id < 0:
-		return
-
-	if terrain_grid:
-		var distance = terrain_grid.calculate_distance_yards(from_position, landing_position)
-		var is_putt = terrain_grid.get_tile(from_position) == TerrainTypes.Type.GREEN
-		animate_shot(golfer_id, from_position, landing_position, distance, is_putt)
 
 func _on_ball_landed_at_position(landing_pos: Vector2i, golfer_id: int) -> void:
 	# Ball has finished landing animation

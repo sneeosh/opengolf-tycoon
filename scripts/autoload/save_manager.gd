@@ -230,10 +230,10 @@ func _apply_save_data(data: Dictionary) -> void:
 	var game = data.get("game_state", data)  # v1 had flat structure
 	GameManager.course_name = game.get("course_name", "Loaded Course")
 	GameManager.money = int(game.get("money", 50000))
-	GameManager.reputation = float(game.get("reputation", 50.0))
-	GameManager.current_day = int(game.get("current_day", 1))
-	GameManager.current_hour = float(game.get("current_hour", 6.0))
-	GameManager.green_fee = int(game.get("green_fee", 30))
+	GameManager.reputation = clampf(float(game.get("reputation", 50.0)), 0.0, 100.0)
+	GameManager.current_day = max(1, int(game.get("current_day", 1)))
+	GameManager.current_hour = clampf(float(game.get("current_hour", 6.0)), 0.0, GameManager.HOURS_PER_DAY)
+	GameManager.green_fee = clamp(int(game.get("green_fee", 30)), GameManager.MIN_GREEN_FEE, GameManager.MAX_GREEN_FEE)
 	GameManager.loan_balance = int(game.get("loan_balance", 0))
 
 	# Restore theme (defaults to parkland for saves without theme)
