@@ -57,6 +57,12 @@ var analytics_panel_ui: AnalyticsPanel = null
 var golfer_info_popup: GolferInfoPopup = null
 var round_summary_popup: RoundSummaryPopup = null
 var tournament_leaderboard: TournamentLeaderboard = null
+var pause_menu: PauseMenu = null
+var milestone_manager: MilestoneManager = null
+var milestones_panel: MilestonesPanel = null
+var seasonal_calendar_panel: SeasonalCalendarPanel = null
+var tutorial_system: TutorialSystem = null
+var course_rating_overlay: CourseRatingOverlay = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
@@ -168,6 +174,12 @@ func _ready() -> void:
 	_setup_analytics_panel()
 	_setup_golfer_info_popup()
 	_setup_round_summary_popup()
+	_setup_milestone_system()
+	_setup_seasonal_calendar()
+	_setup_autosave_indicator()
+	_setup_notification_toast()
+	_setup_course_rating_overlay()
+	_setup_floating_text()
 	_setup_shot_trails()
 	_setup_audio_controls()
 	_initialize_game()
@@ -198,8 +210,19 @@ func _process(_delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	# Keyboard shortcuts - handled in _input so UI controls don't swallow them
 	if event is InputEventKey and event.pressed and not event.echo:
+		# Escape key toggles pause menu (works in any gameplay mode, not main menu)
+		if event.keycode == KEY_ESCAPE:
+			if GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
+				_toggle_pause_menu()
+				get_viewport().set_input_as_handled()
+				return
+
 		# Don't process any gameplay hotkeys while in main menu
 		if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+			return
+
+		# Don't process hotkeys while pause menu is open
+		if pause_menu:
 			return
 
 		# Skip non-modifier hotkeys if a text input has focus
@@ -246,6 +269,12 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_Z:
 				_toggle_analytics_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_G:
+				_toggle_milestones_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_C:
+				_toggle_seasonal_calendar()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
@@ -327,18 +356,22 @@ func _show_main_menu() -> void:
 	main_menu = MainMenu.new()
 	main_menu.name = "MainMenu"
 	main_menu.new_game_requested.connect(_on_main_menu_new_game)
+	main_menu.quick_start_requested.connect(_on_main_menu_quick_start)
 	main_menu.load_game_requested.connect(_on_main_menu_load)
+	main_menu.settings_requested.connect(_on_main_menu_settings)
+	main_menu.credits_requested.connect(_on_main_menu_credits)
 	$UI/HUD.add_child(main_menu)
 	# Hide gameplay UI while in menu
 	_set_gameplay_ui_visible(false)
 
 func _on_main_menu_new_game(course_name: String, theme_type: int) -> void:
+	var difficulty := main_menu.get_selected_difficulty() if main_menu else DifficultyPresets.Preset.NORMAL
 	if main_menu:
 		main_menu.queue_free()
 		main_menu = null
 	_set_gameplay_ui_visible(true)
 
-	GameManager.new_game(course_name, theme_type)
+	GameManager.new_game(course_name, theme_type, difficulty)
 
 	# Regenerate tileset with theme colors
 	terrain_grid.regenerate_tileset()
@@ -348,6 +381,29 @@ func _on_main_menu_new_game(course_name: String, theme_type: int) -> void:
 	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
 	camera.focus_on(Vector2(center_x, center_y), true)
 	# Start with no tool selected — player chooses their first action
+	current_tool = -1
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
+	if placement_preview:
+		placement_preview.set_terrain_painting_enabled(false)
+
+var _quick_start_pending: bool = false
+
+func _on_main_menu_quick_start(course_name: String, theme_type: int) -> void:
+	"""Start a new game with a pre-built 3-hole course."""
+	var difficulty := main_menu.get_selected_difficulty() if main_menu else DifficultyPresets.Preset.NORMAL
+	if main_menu:
+		main_menu.queue_free()
+		main_menu = null
+	_set_gameplay_ui_visible(true)
+
+	# Flag so _on_new_game_started knows to build the quick-start course
+	_quick_start_pending = true
+	GameManager.new_game(course_name, theme_type, difficulty)
+
+	var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
+	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
+	camera.focus_on(Vector2(center_x, center_y), true)
 	current_tool = -1
 	if terrain_toolbar:
 		terrain_toolbar.clear_selection()
@@ -376,6 +432,21 @@ func _on_main_menu_load() -> void:
 	if not EventBus.load_completed.is_connected(_on_main_menu_load_completed):
 		EventBus.load_completed.connect(_on_main_menu_load_completed)
 
+func _on_main_menu_settings() -> void:
+	"""Show settings from main menu."""
+	var settings = SettingsMenu.new()
+	settings.name = "SettingsMenu"
+	# No need to re-show anything when closing from main menu
+	settings.close_requested.connect(func(): pass)
+	$UI/HUD.add_child(settings)
+
+func _on_main_menu_credits() -> void:
+	"""Show credits screen from main menu."""
+	var credits = CreditsScreen.new()
+	credits.name = "CreditsScreen"
+	credits.close_requested.connect(func(): pass)
+	$UI/HUD.add_child(credits)
+
 func _on_main_menu_load_panel_closed() -> void:
 	"""Save/load panel closed without loading — return to main menu."""
 	_disconnect_main_menu_load_signal()
@@ -395,7 +466,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
+	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -797,8 +868,12 @@ func _on_speed_selected(speed: int) -> void:
 
 	GameManager.set_speed(speed)
 
+var _game_over_shown: bool = false
+
 func _on_money_changed(_old: int, _new: int) -> void:
-	pass
+	# Check for bankruptcy game over
+	if GameManager.is_bankrupt() and not _game_over_shown:
+		_show_game_over()
 
 func _on_day_changed(_new_day: int) -> void:
 	# Operating costs are now calculated at end of day before summary
@@ -1080,6 +1155,7 @@ func _disable_terrain_painting_preview() -> void:
 
 func _on_new_game_started() -> void:
 	"""Generate natural terrain when a new game starts"""
+	_game_over_shown = false
 	# Regenerate tileset with the selected theme colors
 	if terrain_grid:
 		terrain_grid.regenerate_tileset()
@@ -1087,6 +1163,16 @@ func _on_new_game_started() -> void:
 	# Generate natural terrain features
 	NaturalTerrainGenerator.generate(terrain_grid, entity_layer)
 	print("Natural terrain generated for new course")
+
+	# Build pre-made course if Quick Start was selected
+	var is_quick_start := _quick_start_pending
+	if _quick_start_pending:
+		_quick_start_pending = false
+		QuickStartCourse.build(terrain_grid, entity_layer, hole_tool)
+
+	# Start tutorial for first-time players (skip for Quick Start — they already have a course)
+	if not is_quick_start and not TutorialSystem.is_tutorial_completed():
+		_start_tutorial()
 
 func _cancel_elevation_mode() -> void:
 	if elevation_tool.is_active():
@@ -1437,6 +1523,7 @@ func _on_quit_to_menu() -> void:
 
 func _on_load_completed(_success: bool) -> void:
 	if _success:
+		_game_over_shown = false
 		_rebuild_hole_list()
 		# Sync hole creation tool so the next hole gets the correct number
 		if GameManager.current_course:
@@ -1943,6 +2030,243 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int) -> void:
 		"green_fee": GameManager.green_fee,
 		"holes_played": golfer.hole_scores.size(),
 	})
+
+# --- Milestone System ---
+
+func _setup_milestone_system() -> void:
+	milestone_manager = MilestoneManager.new()
+	milestone_manager.name = "MilestoneManager"
+	add_child(milestone_manager)
+
+	milestones_panel = MilestonesPanel.new()
+	milestones_panel.name = "MilestonesPanel"
+	milestones_panel.set_milestone_manager(milestone_manager)
+	milestones_panel.close_requested.connect(func():
+		milestones_panel.hide()
+		_active_panel = null
+	)
+	$UI/HUD.add_child(milestones_panel)
+
+	# Update SaveManager reference to include milestone manager
+	SaveManager.milestone_manager = milestone_manager
+
+func _toggle_milestones_panel() -> void:
+	_toggle_panel(milestones_panel)
+
+# --- Seasonal Calendar ---
+
+func _setup_seasonal_calendar() -> void:
+	seasonal_calendar_panel = SeasonalCalendarPanel.new()
+	seasonal_calendar_panel.name = "SeasonalCalendarPanel"
+	seasonal_calendar_panel.close_requested.connect(func():
+		seasonal_calendar_panel.hide()
+		_active_panel = null
+	)
+	$UI/HUD.add_child(seasonal_calendar_panel)
+
+	# Listen for day changes to announce seasonal events
+	EventBus.day_changed.connect(_on_day_changed_for_events)
+	EventBus.season_changed.connect(_on_season_changed_notification)
+
+func _toggle_seasonal_calendar() -> void:
+	_toggle_panel(seasonal_calendar_panel)
+
+func _on_day_changed_for_events(_new_day: int) -> void:
+	# Check if there's a seasonal event starting today
+	var event = SeasonalEvents.get_active_event(_new_day)
+	if event:
+		var day_in_season = SeasonSystem.get_day_in_season(_new_day)
+		if day_in_season == event.day_in_season:
+			EventBus.notify("Event: %s" % event.name, "success")
+			if event.reputation_bonus > 0:
+				GameManager.modify_reputation(event.reputation_bonus)
+
+func _on_season_changed_notification(old_season: int, new_season: int) -> void:
+	var season_name = SeasonSystem.get_season_name(new_season)
+	EventBus.notify("%s has arrived!" % season_name, "info")
+
+# --- Tutorial ---
+
+func _start_tutorial() -> void:
+	if tutorial_system and tutorial_system.is_active:
+		return
+	tutorial_system = TutorialSystem.new()
+	tutorial_system.name = "TutorialSystem"
+	add_child(tutorial_system)
+	tutorial_system.start_tutorial()
+	var overlay = tutorial_system.get_overlay()
+	if overlay:
+		$UI.add_child(overlay)
+	tutorial_system.tutorial_completed.connect(_on_tutorial_completed)
+
+func _on_tutorial_completed() -> void:
+	EventBus.notify("Tutorial complete! Press F1 for hotkeys anytime.", "success")
+
+# --- Notification Toast ---
+
+func _setup_notification_toast() -> void:
+	var toast = NotificationToast.new()
+	toast.name = "NotificationToast"
+	$UI.add_child(toast)
+
+# --- Course Rating Overlay ---
+
+func _setup_course_rating_overlay() -> void:
+	"""Add live course rating overlay in bottom-left during build mode."""
+	course_rating_overlay = CourseRatingOverlay.new()
+	course_rating_overlay.name = "CourseRatingOverlay"
+	# Position in bottom-left above bottom bar
+	course_rating_overlay.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	course_rating_overlay.offset_top = -160
+	course_rating_overlay.offset_bottom = -55
+	course_rating_overlay.offset_left = 10
+	course_rating_overlay.offset_right = 220
+	$UI/HUD.add_child(course_rating_overlay)
+
+# --- Floating Transaction Text ---
+
+func _setup_floating_text() -> void:
+	"""Connect money changes to spawn floating +$/-$ text on transactions."""
+	EventBus.transaction_completed.connect(_on_transaction_for_floating_text)
+
+func _on_transaction_for_floating_text(_description: String, amount: int) -> void:
+	"""Spawn floating text at a relevant screen position for transactions."""
+	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+		return
+	if abs(amount) < 1:
+		return
+
+	# Show floating text near the money display in the top HUD
+	# Convert HUD position to world-space so it renders above terrain
+	var vp_size := get_viewport().get_visible_rect().size
+	var screen_pos := Vector2(120, 28)  # Near top-left money display
+	# For world-space, convert screen coords to camera-relative position
+	var world_pos := camera.global_position + (screen_pos - vp_size / 2) / camera.zoom
+	FloatingText.create_at(self, world_pos, amount)
+
+# --- Autosave Indicator ---
+
+func _setup_autosave_indicator() -> void:
+	var indicator = AutosaveIndicator.new()
+	indicator.name = "AutosaveIndicator"
+	$UI.add_child(indicator)
+
+# --- Pause Menu ---
+
+func _toggle_pause_menu() -> void:
+	"""Toggle the pause menu overlay."""
+	if pause_menu:
+		_close_pause_menu()
+	else:
+		_show_pause_menu()
+
+func _show_pause_menu() -> void:
+	"""Show the pause menu and pause the game."""
+	if pause_menu:
+		return
+	# Close any active panel
+	if _active_panel and _active_panel.visible:
+		_active_panel.hide()
+		_active_panel = null
+
+	# Pause game
+	GameManager.is_paused = true
+
+	pause_menu = PauseMenu.new()
+	pause_menu.name = "PauseMenu"
+	pause_menu.resume_requested.connect(_on_pause_resume)
+	pause_menu.save_requested.connect(_on_pause_save)
+	pause_menu.load_requested.connect(_on_pause_load)
+	pause_menu.settings_requested.connect(_on_pause_settings)
+	pause_menu.quit_to_menu_requested.connect(_on_pause_quit_to_menu)
+	pause_menu.quit_to_desktop_requested.connect(_on_pause_quit_to_desktop)
+	$UI/HUD.add_child(pause_menu)
+
+func _close_pause_menu() -> void:
+	"""Close the pause menu and resume the game."""
+	if pause_menu:
+		pause_menu.queue_free()
+		pause_menu = null
+	GameManager.is_paused = false
+
+func _on_pause_resume() -> void:
+	_close_pause_menu()
+
+func _on_pause_save() -> void:
+	_close_pause_menu()
+	_on_menu_pressed()
+
+func _on_pause_load() -> void:
+	_close_pause_menu()
+	_on_menu_pressed()
+
+func _on_pause_settings() -> void:
+	_close_pause_menu()
+	_show_settings_menu()
+
+func _show_settings_menu() -> void:
+	"""Show the settings menu overlay."""
+	var settings = SettingsMenu.new()
+	settings.name = "SettingsMenu"
+	settings.close_requested.connect(func():
+		# Re-show pause menu when settings closes (if not from main menu)
+		if GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
+			_show_pause_menu()
+	)
+	$UI/HUD.add_child(settings)
+
+func _on_pause_quit_to_menu() -> void:
+	_close_pause_menu()
+	_show_quit_confirm("Unsaved progress will be lost.\nReturn to main menu?", "Quit to Menu", _on_quit_to_menu)
+
+func _on_pause_quit_to_desktop() -> void:
+	_close_pause_menu()
+	_show_quit_confirm("Unsaved progress will be lost.\nQuit to desktop?", "Quit", func(): get_tree().quit())
+
+func _show_quit_confirm(message: String, confirm_text: String, on_confirm: Callable) -> void:
+	"""Show a confirmation dialog for a destructive action."""
+	var dialog = ConfirmDialog.new(message, confirm_text, "Cancel")
+	dialog.name = "QuitConfirmDialog"
+	dialog.confirmed.connect(on_confirm)
+	dialog.cancelled.connect(func():
+		# Re-show pause menu if the user cancels
+		_show_pause_menu()
+	)
+	$UI/HUD.add_child(dialog)
+
+# --- Game Over ---
+
+func _show_game_over() -> void:
+	"""Show the bankruptcy game over screen."""
+	_game_over_shown = true
+	GameManager.is_paused = true
+
+	# Close any active panels
+	if _active_panel and _active_panel.visible:
+		_active_panel.hide()
+		_active_panel = null
+	if pause_menu:
+		_close_pause_menu()
+
+	var game_over = GameOverPanel.new()
+	game_over.name = "GameOverPanel"
+	game_over.retry_requested.connect(func():
+		game_over.queue_free()
+		_game_over_shown = false
+		_on_quit_to_menu()
+	)
+	game_over.load_requested.connect(func():
+		game_over.queue_free()
+		_game_over_shown = false
+		GameManager.is_paused = false
+		_on_menu_pressed()
+	)
+	game_over.quit_to_menu_requested.connect(func():
+		game_over.queue_free()
+		_game_over_shown = false
+		_on_quit_to_menu()
+	)
+	$UI/HUD.add_child(game_over)
 
 # --- Shot Trails ---
 
