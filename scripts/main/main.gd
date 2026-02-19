@@ -571,7 +571,9 @@ func _on_mode_toggle_pressed() -> void:
 	if GameManager.current_mode == GameManager.GameMode.BUILDING:
 		# Start simulation
 		if GameManager.start_simulation():
-			golfer_manager.spawn_initial_group()
+			# Don't spawn regular golfers during a tournament
+			if not tournament_manager.is_tournament_in_progress():
+				golfer_manager.spawn_initial_group()
 	elif GameManager.current_mode == GameManager.GameMode.SIMULATING:
 		GameManager.stop_simulation()
 

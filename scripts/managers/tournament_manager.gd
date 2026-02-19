@@ -37,11 +37,20 @@ func setup(golfer_manager: GolferManager, leaderboard: TournamentLeaderboard) ->
 	_leaderboard = leaderboard
 
 func _ready() -> void:
+	EventBus.day_changed.connect(_on_day_changed)
 	EventBus.end_of_day.connect(_on_end_of_day)
 	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole)
 	EventBus.golfer_finished_round.connect(_on_golfer_finished_round)
 
 func _process(delta: float) -> void:
+	# Safety fallback: start a scheduled tournament if day_changed was missed
+	# (e.g., after save/load on the start day)
+	if current_tournament_state == TournamentSystem.TournamentState.SCHEDULED:
+		if GameManager.current_day >= tournament_start_day and _golfer_manager != null \
+				and GameManager.current_mode == GameManager.GameMode.SIMULATING:
+			_start_tournament()
+		return
+
 	if current_tournament_state != TournamentSystem.TournamentState.IN_PROGRESS:
 		return
 	if _groups_spawned >= _total_groups:
@@ -54,16 +63,16 @@ func _process(delta: float) -> void:
 		_spawn_timer -= GROUP_SPAWN_INTERVAL
 		_spawn_next_group()
 
-func _on_end_of_day(_day: int) -> void:
-	var current_day = GameManager.current_day
+func _on_day_changed(new_day: int) -> void:
+	# Start tournament at the BEGINNING of the scheduled day
+	if current_tournament_state == TournamentSystem.TournamentState.SCHEDULED:
+		if new_day >= tournament_start_day:
+			_start_tournament()
 
-	match current_tournament_state:
-		TournamentSystem.TournamentState.SCHEDULED:
-			if current_day >= tournament_start_day:
-				_start_tournament()
-		TournamentSystem.TournamentState.IN_PROGRESS:
-			# End of day during tournament — simulate remaining and complete
-			simulate_remaining_and_complete()
+func _on_end_of_day(_day: int) -> void:
+	# Complete in-progress tournaments at end of day
+	if current_tournament_state == TournamentSystem.TournamentState.IN_PROGRESS:
+		simulate_remaining_and_complete()
 
 ## Check if a tournament can be scheduled
 func can_schedule_tournament(tier: int) -> Dictionary:
