@@ -6,10 +6,14 @@ var terrain_grid: TerrainGrid
 var _water_positions: Array = []
 var _time: float = 0.0
 var _water_color: Color = Color(0.25, 0.55, 0.85)  # Default, updated by theme
+var _is_web: bool = false
+var _web_redraw_interval: float = 0.25  # Redraw every 250ms on web (~4 FPS)
+var _web_redraw_timer: float = 0.0
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 1  # Render just above terrain tiles
+	_is_web = OS.get_name() == "Web"
 	_scan_water_tiles()
 	_update_water_color()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
@@ -48,7 +52,14 @@ func _on_terrain_tile_changed(position: Vector2i, old_type: int, new_type: int) 
 
 func _process(delta: float) -> void:
 	_time += delta
-	queue_redraw()
+	if _is_web:
+		# Throttle redraws on web to ~4 FPS instead of every frame
+		_web_redraw_timer += delta
+		if _web_redraw_timer >= _web_redraw_interval:
+			_web_redraw_timer = 0.0
+			queue_redraw()
+	else:
+		queue_redraw()
 
 func _draw() -> void:
 	if not terrain_grid or _water_positions.is_empty():
@@ -90,16 +101,18 @@ func _draw() -> void:
 		)
 		draw_rect(streak_rect1, highlight_color)
 
-		var streak_y2 = local_pos.y + terrain_grid.tile_height * 0.6 + sin(_time * 1.2 + wave_offset + 2.0) * 4.0
-		var streak_rect2 = Rect2(
-			Vector2(local_pos.x + terrain_grid.tile_width * 0.3, streak_y2),
-			Vector2(terrain_grid.tile_width * 0.4, 2)
-		)
-		draw_rect(streak_rect2, Color(highlight_color.r, highlight_color.g, highlight_color.b, highlight_alpha * 0.8))
+		# Skip extra streaks and sparkles on web to reduce draw calls
+		if not _is_web:
+			var streak_y2 = local_pos.y + terrain_grid.tile_height * 0.6 + sin(_time * 1.2 + wave_offset + 2.0) * 4.0
+			var streak_rect2 = Rect2(
+				Vector2(local_pos.x + terrain_grid.tile_width * 0.3, streak_y2),
+				Vector2(terrain_grid.tile_width * 0.4, 2)
+			)
+			draw_rect(streak_rect2, Color(highlight_color.r, highlight_color.g, highlight_color.b, highlight_alpha * 0.8))
 
-		# Small sparkle dots
-		var sparkle_alpha = 0.3 + 0.3 * sin(_time * 4.0 + wave_offset * 2.0)
-		if sparkle_alpha > 0.4:
-			var sparkle_x = local_pos.x + 10 + (pos.x % 3) * 15
-			var sparkle_y = local_pos.y + 8 + (pos.y % 2) * 10
-			draw_circle(Vector2(sparkle_x, sparkle_y), 1.5, Color(1.0, 1.0, 1.0, sparkle_alpha * 0.5))
+			# Small sparkle dots
+			var sparkle_alpha = 0.3 + 0.3 * sin(_time * 4.0 + wave_offset * 2.0)
+			if sparkle_alpha > 0.4:
+				var sparkle_x = local_pos.x + 10 + (pos.x % 3) * 15
+				var sparkle_y = local_pos.y + 8 + (pos.y % 2) * 10
+				draw_circle(Vector2(sparkle_x, sparkle_y), 1.5, Color(1.0, 1.0, 1.0, sparkle_alpha * 0.5))
