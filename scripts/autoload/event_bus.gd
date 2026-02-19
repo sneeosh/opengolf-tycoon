@@ -29,18 +29,13 @@ signal terrain_tile_changed(position: Vector2i, old_type: int, new_type: int)
 signal building_placed(building_type: String, position: Vector2i)
 signal building_removed(position: Vector2i)
 signal building_upgraded(building, new_level: int)
-signal terrain_tool_selected(tool_type: String)
 
 # Course Design Signals
 signal hole_created(hole_number: int, par: int, distance_yards: int)
-signal hole_modified(hole_number: int)
 signal hole_updated(hole_number: int)
 signal hole_selected(hole_number: int)
 signal hole_deleted(hole_number: int)
 signal hole_toggled(hole_number: int, is_open: bool)
-signal tee_placed(hole_number: int, position: Vector2i)
-signal green_placed(hole_number: int, position: Vector2i)
-signal par_calculated(hole_number: int, par: int)
 signal hole_difficulty_changed(hole_number: int, difficulty: float)
 
 # Golfer Signals
@@ -54,7 +49,6 @@ signal golfer_thought(golfer_id: int, trigger_type: int, sentiment: String)
 
 # Shot Signals
 signal shot_taken(golfer_id: int, hole_number: int, strokes: int)
-signal ball_landed(golfer_id: int, from_position: Vector2i, position: Vector2i, terrain_type: int)
 signal ball_in_hole(golfer_id: int, hole_number: int)
 signal hazard_penalty(golfer_id: int, hazard_type: String, reset_position: Vector2i)
 signal ball_putt_landed_precise(golfer_id: int, from_screen: Vector2, to_screen: Vector2, distance_yards: int)
@@ -70,15 +64,6 @@ signal wind_changed(direction: float, speed: float)
 
 # Weather Signals
 signal weather_changed(weather_type: int, intensity: float)
-
-# Camera Signals
-signal camera_moved(new_position: Vector2)
-signal camera_zoomed(new_zoom: float)
-
-# Selection Signals
-signal tile_selected(position: Vector2i)
-signal tile_hovered(position: Vector2i)
-signal selection_cleared()
 
 # Day Cycle Signals
 signal end_of_day(day_number: int)

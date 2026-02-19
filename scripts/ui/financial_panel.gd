@@ -64,7 +64,7 @@ func update_display() -> void:
 	balance_label.add_theme_font_size_override("font_size", 13)
 	_content_vbox.add_child(balance_label)
 
-	var balance_row = _create_stat_row("Cash:", "$%d" % GameManager.money, Color(1.0, 1.0, 1.0))
+	var balance_row = _create_stat_row("Cash:", "$%d" % GameManager.money, UIConstants.COLOR_TEXT)
 	_content_vbox.add_child(balance_row)
 
 	# Green Fee control
@@ -103,7 +103,7 @@ func update_display() -> void:
 	var fee_info = Label.new()
 	fee_info.text = "  Round: $%d (%d holes) | Max: $%d/hole" % [total_cost, max(holes, 1), max_fee]
 	fee_info.add_theme_font_size_override("font_size", 11)
-	fee_info.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	fee_info.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	_content_vbox.add_child(fee_info)
 
 	_content_vbox.add_child(HSeparator.new())
@@ -114,7 +114,7 @@ func update_display() -> void:
 	revenue_label.add_theme_font_size_override("font_size", 13)
 	_content_vbox.add_child(revenue_label)
 
-	var dim_green = Color(0.5, 0.8, 0.5)
+	var dim_green = UIConstants.COLOR_SUCCESS_DIM
 	var greenfee_row = _create_stat_row("  Green Fees:", "$%d" % stats.revenue, dim_green)
 	_content_vbox.add_child(greenfee_row)
 
@@ -122,7 +122,7 @@ func update_display() -> void:
 	_content_vbox.add_child(building_row)
 
 	var total_rev = stats.get_total_revenue()
-	var total_rev_row = _create_stat_row("Total Revenue:", "$%d" % total_rev, Color(0.4, 0.9, 0.4))
+	var total_rev_row = _create_stat_row("Total Revenue:", "$%d" % total_rev, UIConstants.COLOR_SUCCESS)
 	_content_vbox.add_child(total_rev_row)
 
 	_content_vbox.add_child(HSeparator.new())
@@ -133,7 +133,7 @@ func update_display() -> void:
 	costs_label.add_theme_font_size_override("font_size", 13)
 	_content_vbox.add_child(costs_label)
 
-	var dim_color = Color(0.7, 0.7, 0.7)
+	var dim_color = UIConstants.COLOR_TEXT_DIM
 	if stats.terrain_maintenance > 0:
 		var terrain_row = _create_stat_row("  Terrain:", "-$%d" % stats.terrain_maintenance, dim_color)
 		_content_vbox.add_child(terrain_row)
@@ -147,14 +147,14 @@ func update_display() -> void:
 		var building_costs_row = _create_stat_row("  Buildings:", "-$%d" % stats.building_operating_costs, dim_color)
 		_content_vbox.add_child(building_costs_row)
 
-	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % stats.operating_costs, Color(0.9, 0.5, 0.5))
+	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % stats.operating_costs, UIConstants.COLOR_DANGER_DIM)
 	_content_vbox.add_child(total_costs_row)
 
 	_content_vbox.add_child(HSeparator.new())
 
 	# Today's Profit/Loss
 	var profit = stats.get_profit()
-	var profit_color = Color(0.4, 0.9, 0.4) if profit >= 0 else Color(0.9, 0.4, 0.4)
+	var profit_color = UIConstants.COLOR_SUCCESS if profit >= 0 else UIConstants.COLOR_DANGER
 	var profit_text = "+$%d" % profit if profit >= 0 else "-$%d" % abs(profit)
 	var profit_row = _create_stat_row("Today's Profit:", profit_text, profit_color)
 	_content_vbox.add_child(profit_row)
@@ -174,7 +174,7 @@ func update_display() -> void:
 		var yest_rev_row = _create_stat_row("  Revenue:", "$%d" % yest_rev, dim_color)
 		_content_vbox.add_child(yest_rev_row)
 
-		var yest_profit_color = Color(0.6, 0.8, 0.6) if yest_profit >= 0 else Color(0.8, 0.6, 0.6)
+		var yest_profit_color = UIConstants.COLOR_SUCCESS_MUTED if yest_profit >= 0 else UIConstants.COLOR_DANGER_MUTED
 		var yest_profit_text = "+$%d" % yest_profit if yest_profit >= 0 else "-$%d" % abs(yest_profit)
 		var yest_profit_row = _create_stat_row("  Profit:", yest_profit_text, yest_profit_color)
 		_content_vbox.add_child(yest_profit_row)
@@ -182,13 +182,13 @@ func update_display() -> void:
 		# Show trend
 		var trend_diff = profit - yest_profit
 		var trend_text = ""
-		var trend_color = Color(0.7, 0.7, 0.7)
+		var trend_color = UIConstants.COLOR_TEXT_DIM
 		if trend_diff > 0:
 			trend_text = "+$%d vs yesterday" % trend_diff
-			trend_color = Color(0.4, 0.9, 0.4)
+			trend_color = UIConstants.COLOR_SUCCESS
 		elif trend_diff < 0:
 			trend_text = "-$%d vs yesterday" % abs(trend_diff)
-			trend_color = Color(0.9, 0.4, 0.4)
+			trend_color = UIConstants.COLOR_DANGER
 		else:
 			trend_text = "Same as yesterday"
 
@@ -204,7 +204,7 @@ func update_display() -> void:
 	_content_vbox.add_child(rep_label)
 
 	var reputation = GameManager.reputation
-	var rep_color = Color(0.4, 0.9, 0.4) if reputation >= 70 else (Color(0.9, 0.9, 0.4) if reputation >= 40 else Color(0.9, 0.4, 0.4))
+	var rep_color = UIConstants.COLOR_SUCCESS if reputation >= 70 else (UIConstants.COLOR_WARNING if reputation >= 40 else UIConstants.COLOR_DANGER)
 	var rep_row = _create_stat_row("Reputation:", "%.0f%%" % reputation, rep_color)
 	_content_vbox.add_child(rep_row)
 
@@ -219,12 +219,12 @@ func update_display() -> void:
 	loan_label.add_theme_font_size_override("font_size", 13)
 	_content_vbox.add_child(loan_label)
 
-	var loan_color = Color(0.9, 0.5, 0.5) if GameManager.loan_balance > 0 else Color(0.7, 0.7, 0.7)
+	var loan_color = UIConstants.COLOR_DANGER_DIM if GameManager.loan_balance > 0 else UIConstants.COLOR_TEXT_DIM
 	var loan_row = _create_stat_row("Outstanding:", "$%d" % GameManager.loan_balance, loan_color)
 	_content_vbox.add_child(loan_row)
 
 	if GameManager.loan_balance > 0:
-		var interest_row = _create_stat_row("Interest:", "5%% / 7 days", Color(0.7, 0.7, 0.7))
+		var interest_row = _create_stat_row("Interest:", "5%% / 7 days", UIConstants.COLOR_TEXT_DIM)
 		_content_vbox.add_child(interest_row)
 
 	var loan_btn_row = HBoxContainer.new()
@@ -267,13 +267,13 @@ func update_display() -> void:
 
 	var spawn_mod = SeasonSystem.get_spawn_modifier(season)
 	var spawn_pct = int(spawn_mod * 100)
-	var spawn_color = Color(0.4, 0.9, 0.4) if spawn_mod >= 1.0 else (Color(0.9, 0.9, 0.4) if spawn_mod >= 0.7 else Color(0.9, 0.5, 0.5))
+	var spawn_color = UIConstants.COLOR_SUCCESS if spawn_mod >= 1.0 else (UIConstants.COLOR_WARNING if spawn_mod >= 0.7 else UIConstants.COLOR_DANGER_DIM)
 	var demand_row = _create_stat_row("Demand:", "%d%%" % spawn_pct, spawn_color)
 	_content_vbox.add_child(demand_row)
 
 	var maint_mod = SeasonSystem.get_maintenance_modifier(season)
 	var maint_pct = int(maint_mod * 100)
-	var maint_color = Color(0.4, 0.9, 0.4) if maint_mod <= 1.0 else (Color(0.9, 0.9, 0.4) if maint_mod <= 1.2 else Color(0.9, 0.5, 0.5))
+	var maint_color = UIConstants.COLOR_SUCCESS if maint_mod <= 1.0 else (UIConstants.COLOR_WARNING if maint_mod <= 1.2 else UIConstants.COLOR_DANGER_DIM)
 	var maint_row = _create_stat_row("Maintenance:", "%d%%" % maint_pct, maint_color)
 	_content_vbox.add_child(maint_row)
 
@@ -298,11 +298,11 @@ func update_display() -> void:
 
 		# Slope Rating (55-155)
 		var slope = rating.get("slope", 113)
-		var slope_color = Color(0.7, 0.8, 1.0)
+		var slope_color = UIConstants.COLOR_INFO_DIM
 		if slope >= 130:
-			slope_color = Color(0.9, 0.6, 0.3)  # Championship difficulty
+			slope_color = UIConstants.COLOR_ORANGE
 		elif slope <= 90:
-			slope_color = Color(0.5, 0.9, 0.5)  # Beginner friendly
+			slope_color = UIConstants.COLOR_SUCCESS_DIM
 		var slope_text = "%d (%s)" % [slope, CourseRatingSystem.get_slope_text(slope)]
 		var slope_row = _create_stat_row("Slope:", slope_text, slope_color)
 		_content_vbox.add_child(slope_row)
@@ -314,11 +314,11 @@ func update_display() -> void:
 
 		# Difficulty
 		var difficulty = rating.get("difficulty", 5.0)
-		var diff_color = Color(0.5, 0.9, 0.5)
+		var diff_color = UIConstants.COLOR_SUCCESS_DIM
 		if difficulty >= 7.0:
-			diff_color = Color(0.9, 0.5, 0.5)
+			diff_color = UIConstants.COLOR_DANGER_DIM
 		elif difficulty >= 5.0:
-			diff_color = Color(0.9, 0.9, 0.5)
+			diff_color = UIConstants.COLOR_WARNING
 		var diff_text = "%.1f (%s)" % [difficulty, CourseRatingSystem.get_difficulty_text(difficulty)]
 		var diff_row = _create_stat_row("Difficulty:", diff_text, diff_color)
 		_content_vbox.add_child(diff_row)

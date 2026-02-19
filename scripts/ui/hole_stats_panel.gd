@@ -88,11 +88,11 @@ func _update_display() -> void:
 	_content_vbox.add_child(yard_row)
 
 	# Difficulty with color coding
-	var diff_color = Color(0.4, 0.9, 0.4)  # Green for easy
+	var diff_color = UIConstants.COLOR_SUCCESS
 	if difficulty >= 7:
-		diff_color = Color(0.9, 0.4, 0.4)  # Red for hard
+		diff_color = UIConstants.COLOR_DANGER
 	elif difficulty >= 4:
-		diff_color = Color(0.9, 0.9, 0.4)  # Yellow for medium
+		diff_color = UIConstants.COLOR_WARNING
 
 	var diff_row = _create_stat_row("Difficulty:", "%.1f / 10" % difficulty, diff_color)
 	_content_vbox.add_child(diff_row)
@@ -115,9 +115,9 @@ func _update_display() -> void:
 		# Average score
 		var avg_score = stats.get_average_score()
 		var avg_to_par = stats.get_average_to_par(par)
-		var avg_color = Color(0.4, 0.9, 0.4) if avg_to_par <= 0 else Color(0.9, 0.9, 0.4)
+		var avg_color = UIConstants.COLOR_SUCCESS if avg_to_par <= 0 else UIConstants.COLOR_WARNING
 		if avg_to_par > 0.5:
-			avg_color = Color(0.9, 0.4, 0.4)
+			avg_color = UIConstants.COLOR_DANGER
 
 		var avg_text = "%.2f" % avg_score
 		if avg_to_par != 0:
@@ -128,7 +128,7 @@ func _update_display() -> void:
 
 		# Best score
 		if stats.best_score > 0:
-			var best_color = Color(1.0, 0.85, 0.0) if stats.best_score == 1 else Color(0.4, 0.8, 1.0)
+			var best_color = UIConstants.COLOR_GOLD if stats.best_score == 1 else UIConstants.COLOR_INFO
 			var best_row = _create_stat_row("Best Score:", str(stats.best_score), best_color)
 			_content_vbox.add_child(best_row)
 
@@ -140,35 +140,35 @@ func _update_display() -> void:
 		dist_label.add_theme_font_size_override("font_size", 14)
 		_content_vbox.add_child(dist_label)
 
-		var dim_color = Color(0.7, 0.7, 0.7)
+		var dim_color = UIConstants.COLOR_TEXT_DIM
 
 		if stats.holes_in_one > 0:
-			var hio_row = _create_stat_row("  Holes-in-One:", str(stats.holes_in_one), Color(1.0, 0.85, 0.0))
+			var hio_row = _create_stat_row("  Holes-in-One:", str(stats.holes_in_one), UIConstants.COLOR_GOLD)
 			_content_vbox.add_child(hio_row)
 
 		if stats.eagles > 0:
-			var eagle_row = _create_stat_row("  Eagles:", str(stats.eagles), Color(0.9, 0.75, 0.2))
+			var eagle_row = _create_stat_row("  Eagles:", str(stats.eagles), UIConstants.COLOR_GOLD_DIM)
 			_content_vbox.add_child(eagle_row)
 
 		if stats.birdies > 0:
-			var birdie_row = _create_stat_row("  Birdies:", str(stats.birdies), Color(0.4, 0.7, 1.0))
+			var birdie_row = _create_stat_row("  Birdies:", str(stats.birdies), UIConstants.COLOR_INFO)
 			_content_vbox.add_child(birdie_row)
 
 		var par_row2 = _create_stat_row("  Pars:", str(stats.pars), dim_color)
 		_content_vbox.add_child(par_row2)
 
 		if stats.bogeys > 0:
-			var bogey_row = _create_stat_row("  Bogeys:", str(stats.bogeys), Color(0.8, 0.6, 0.4))
+			var bogey_row = _create_stat_row("  Bogeys:", str(stats.bogeys), UIConstants.COLOR_DANGER_MUTED)
 			_content_vbox.add_child(bogey_row)
 
 		if stats.double_bogeys_plus > 0:
-			var dbl_row = _create_stat_row("  Double+:", str(stats.double_bogeys_plus), Color(0.9, 0.4, 0.4))
+			var dbl_row = _create_stat_row("  Double+:", str(stats.double_bogeys_plus), UIConstants.COLOR_DANGER)
 			_content_vbox.add_child(dbl_row)
 	else:
 		# No data yet
 		var no_data = Label.new()
 		no_data.text = "No rounds played yet"
-		no_data.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		no_data.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 		no_data.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_content_vbox.add_child(no_data)
 

@@ -64,7 +64,7 @@ func _build_ui() -> void:
 	vbox.add_child(revenue_label)
 
 	# Show green fees
-	var dim_green = Color(0.5, 0.8, 0.5)
+	var dim_green = UIConstants.COLOR_SUCCESS_DIM
 	var greenfee_row = _create_stat_row("  Green Fees:", "$%d" % stats.revenue, dim_green)
 	vbox.add_child(greenfee_row)
 
@@ -80,7 +80,7 @@ func _build_ui() -> void:
 	if yesterday:
 		var yest_rev = yesterday.get_total_revenue()
 		rev_text += " %s" % _trend_arrow(total_rev, yest_rev)
-	var total_rev_row = _create_stat_row("Total Revenue:", rev_text, Color(0.4, 0.9, 0.4))
+	var total_rev_row = _create_stat_row("Total Revenue:", rev_text, UIConstants.COLOR_SUCCESS)
 	vbox.add_child(total_rev_row)
 
 	# Operating costs breakdown
@@ -90,7 +90,7 @@ func _build_ui() -> void:
 	vbox.add_child(costs_label)
 
 	# Show breakdown with indentation
-	var dim_color = Color(0.7, 0.7, 0.7)
+	var dim_color = UIConstants.COLOR_TEXT_DIM
 	if stats.terrain_maintenance > 0:
 		var terrain_row = _create_stat_row("  Terrain:", "-$%d" % stats.terrain_maintenance, dim_color)
 		vbox.add_child(terrain_row)
@@ -104,12 +104,12 @@ func _build_ui() -> void:
 		var building_row = _create_stat_row("  Buildings:", "-$%d" % stats.building_operating_costs, dim_color)
 		vbox.add_child(building_row)
 
-	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % stats.operating_costs, Color(0.9, 0.5, 0.5))
+	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % stats.operating_costs, UIConstants.COLOR_DANGER_DIM)
 	vbox.add_child(total_costs_row)
 
 	# Profit/Loss with trend
 	var profit = stats.get_profit()
-	var profit_color = Color(0.4, 0.9, 0.4) if profit >= 0 else Color(0.9, 0.4, 0.4)
+	var profit_color = UIConstants.COLOR_SUCCESS if profit >= 0 else UIConstants.COLOR_DANGER
 	var profit_text = "+$%d" % profit if profit >= 0 else "-$%d" % abs(profit)
 	if yesterday:
 		var yest_profit = yesterday.get_profit()
@@ -137,11 +137,11 @@ func _build_ui() -> void:
 		star_text += "-"
 	star_text += " (%.1f)" % overall
 
-	var star_color = Color(0.9, 0.9, 0.4)  # Yellow/gold for stars
+	var star_color = UIConstants.COLOR_WARNING
 	if stars >= 4:
-		star_color = Color(0.4, 0.9, 0.4)  # Green for good rating
+		star_color = UIConstants.COLOR_SUCCESS
 	elif stars <= 2:
-		star_color = Color(0.9, 0.4, 0.4)  # Red for poor rating
+		star_color = UIConstants.COLOR_DANGER
 
 	var star_row = _create_stat_row("Overall:", star_text, star_color)
 	vbox.add_child(star_row)
@@ -162,20 +162,20 @@ func _build_ui() -> void:
 	var course_rtg = rating.get("course_rating", 72.0)
 
 	# Difficulty with color coding
-	var diff_color = Color(0.4, 0.9, 0.4)  # Green for easy
+	var diff_color = UIConstants.COLOR_SUCCESS
 	if difficulty >= 7.0:
-		diff_color = Color(0.9, 0.4, 0.4)  # Red for hard
+		diff_color = UIConstants.COLOR_DANGER
 	elif difficulty >= 5.0:
-		diff_color = Color(0.9, 0.9, 0.4)  # Yellow for medium
+		diff_color = UIConstants.COLOR_WARNING
 
 	var diff_text = "%.1f (%s)" % [difficulty, CourseRatingSystem.get_difficulty_text(difficulty)]
 	var diff_row = _create_stat_row("Difficulty:", diff_text, diff_color)
 	vbox.add_child(diff_row)
 
 	# Slope rating
-	var slope_color = Color(0.7, 0.8, 1.0)  # Light blue
+	var slope_color = UIConstants.COLOR_INFO_DIM
 	if slope >= 130:
-		slope_color = Color(0.9, 0.6, 0.3)  # Orange for championship
+		slope_color = UIConstants.COLOR_ORANGE
 	var slope_row = _create_stat_row("Slope Rating:", "%d" % slope, slope_color)
 	vbox.add_child(slope_row)
 
@@ -206,10 +206,10 @@ func _build_ui() -> void:
 			var row = _create_stat_row("  Casual:", "%d" % casuals, dim_color)
 			vbox.add_child(row)
 		if serious > 0:
-			var row = _create_stat_row("  Serious:", "%d" % serious, Color(0.4, 0.7, 1.0))
+			var row = _create_stat_row("  Serious:", "%d" % serious, UIConstants.COLOR_INFO)
 			vbox.add_child(row)
 		if pros > 0:
-			var row = _create_stat_row("  Pro:", "%d" % pros, Color(1.0, 0.85, 0.0))
+			var row = _create_stat_row("  Pro:", "%d" % pros, UIConstants.COLOR_GOLD)
 			vbox.add_child(row)
 
 	# Average score (if any golfers played)
@@ -241,24 +241,24 @@ func _build_ui() -> void:
 
 	# Hole in ones (gold)
 	if stats.holes_in_one > 0:
-		var hio = _create_notable_badge("Hole-in-One", stats.holes_in_one, Color(1.0, 0.85, 0.0))
+		var hio = _create_notable_badge("Hole-in-One", stats.holes_in_one, UIConstants.COLOR_GOLD)
 		notable_container.add_child(hio)
 
 	# Eagles (gold-ish)
 	if stats.eagles > 0:
-		var eagle = _create_notable_badge("Eagle", stats.eagles, Color(0.9, 0.75, 0.2))
+		var eagle = _create_notable_badge("Eagle", stats.eagles, UIConstants.COLOR_GOLD_DIM)
 		notable_container.add_child(eagle)
 
 	# Birdies (blue)
 	if stats.birdies > 0:
-		var birdie = _create_notable_badge("Birdie", stats.birdies, Color(0.4, 0.7, 1.0))
+		var birdie = _create_notable_badge("Birdie", stats.birdies, UIConstants.COLOR_INFO)
 		notable_container.add_child(birdie)
 
 	# If no notable scores
 	if stats.holes_in_one == 0 and stats.eagles == 0 and stats.birdies == 0:
 		var none_label = Label.new()
 		none_label.text = "None today"
-		none_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		none_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 		notable_container.add_child(none_label)
 
 	vbox.add_child(HSeparator.new())
@@ -276,11 +276,11 @@ func _build_ui() -> void:
 	# Determine satisfaction color
 	var sat_color: Color
 	if satisfaction_pct >= 70:
-		sat_color = Color(0.4, 0.9, 0.4)  # Green
+		sat_color = UIConstants.COLOR_SUCCESS
 	elif satisfaction_pct >= 40:
-		sat_color = Color(0.9, 0.9, 0.4)  # Yellow
+		sat_color = UIConstants.COLOR_WARNING
 	else:
-		sat_color = Color(0.9, 0.4, 0.4)  # Red
+		sat_color = UIConstants.COLOR_DANGER
 
 	var sat_row = _create_stat_row("Satisfaction:", "%d%%" % satisfaction_pct, sat_color)
 	vbox.add_child(sat_row)
@@ -290,17 +290,17 @@ func _build_ui() -> void:
 	var top_complaint = feedback_summary["top_complaint"]
 
 	if top_compliment != "":
-		var compliment_row = _create_stat_row("Top praise:", "\"%s\"" % top_compliment, Color(0.6, 0.8, 0.6))
+		var compliment_row = _create_stat_row("Top praise:", "\"%s\"" % top_compliment, UIConstants.COLOR_SUCCESS_MUTED)
 		vbox.add_child(compliment_row)
 
 	if top_complaint != "":
-		var complaint_row = _create_stat_row("Top concern:", "\"%s\"" % top_complaint, Color(0.8, 0.6, 0.6))
+		var complaint_row = _create_stat_row("Top concern:", "\"%s\"" % top_complaint, UIConstants.COLOR_DANGER_MUTED)
 		vbox.add_child(complaint_row)
 
 	if top_compliment == "" and top_complaint == "" and feedback_summary["total_count"] == 0:
 		var no_feedback = Label.new()
 		no_feedback.text = "No feedback recorded"
-		no_feedback.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		no_feedback.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 		no_feedback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(no_feedback)
 
