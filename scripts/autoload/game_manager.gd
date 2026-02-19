@@ -11,6 +11,8 @@ var is_paused: bool = false
 var current_course: CourseData = null
 var course_name: String = "New Course"
 var current_theme: int = CourseTheme.Type.PARKLAND
+var current_difficulty: int = DifficultyPresets.Preset.NORMAL
+var colorblind_mode: int = ColorblindMode.Mode.OFF
 var money: int = 50000
 var reputation: float = 50.0
 var current_day: int = 1
@@ -33,8 +35,8 @@ var green_fee: int = 10  # Default $10/hole (auto-clamped by hole count)
 const MIN_GREEN_FEE: int = 10
 const MAX_GREEN_FEE: int = 200
 
-# Bankruptcy threshold - spending blocked below this amount
-const BANKRUPTCY_THRESHOLD: int = -1000
+# Bankruptcy threshold - dynamic based on difficulty preset
+var bankruptcy_threshold: int = -1000
 
 # Staff tier system
 enum StaffTier { PART_TIME, FULL_TIME, PREMIUM }
@@ -215,10 +217,10 @@ func can_afford(cost: int) -> bool:
 	"""Check if a purchase is allowed (not blocked by bankruptcy threshold)."""
 	if cost <= 0:
 		return true  # Not a purchase
-	return money - cost >= BANKRUPTCY_THRESHOLD
+	return money - cost >= bankruptcy_threshold
 
 func is_bankrupt() -> bool:
-	return money < BANKRUPTCY_THRESHOLD
+	return money < bankruptcy_threshold
 
 func take_loan(amount: int) -> bool:
 	amount = clampi(amount, 10000, MAX_LOAN)
@@ -377,10 +379,16 @@ func check_round_record(golfer_name: String, total_strokes: int) -> bool:
 func reset_course_records() -> void:
 	course_records = CourseRecords.create_empty_records()
 
-func new_game(course_name_input: String = "New Course", theme: int = CourseTheme.Type.PARKLAND) -> void:
+func new_game(course_name_input: String = "New Course", theme: int = CourseTheme.Type.PARKLAND, difficulty: int = DifficultyPresets.Preset.NORMAL) -> void:
 	course_name = course_name_input
 	current_theme = theme
-	money = 50000
+	current_difficulty = difficulty
+
+	# Apply difficulty preset modifiers
+	var diff_mods := DifficultyPresets.get_modifiers(difficulty)
+	money = diff_mods.get("starting_money", 50000)
+	bankruptcy_threshold = diff_mods.get("bankruptcy_threshold", -1000)
+
 	reputation = 50.0
 	current_day = 1
 	current_hour = COURSE_OPEN_HOUR
@@ -401,8 +409,10 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 	loan_balance = 0
 	daily_history.clear()
 
-	# Apply theme colors to tileset generator
-	TilesetGenerator.set_theme_colors(CourseTheme.get_terrain_colors(theme))
+	# Apply theme colors to tileset generator (with colorblind remapping if active)
+	var base_colors := CourseTheme.get_terrain_colors(theme)
+	var remapped := ColorblindMode.remap_colors(base_colors, colorblind_mode)
+	TilesetGenerator.set_theme_colors(remapped)
 	EventBus.theme_changed.emit(theme)
 
 	SaveManager.current_save_name = ""
@@ -450,7 +460,7 @@ func request_end_of_day() -> void:
 
 func advance_to_next_day() -> void:
 	"""Advance to the next morning. Called after end-of-day processing is complete."""
-	# Reputation decay scales with course quality
+	# Reputation decay scales with course quality and difficulty
 	# Below 3 stars: accelerated. Above 3: reduced. Always present.
 	if reputation > 0:
 		var stars = course_rating.get("stars", 3)
@@ -463,6 +473,8 @@ func advance_to_next_day() -> void:
 			decay = 0.25
 		else:
 			decay = 0.1
+		var diff_mods := DifficultyPresets.get_modifiers(current_difficulty)
+		decay *= diff_mods.get("reputation_decay_multiplier", 1.0)
 		modify_reputation(-decay)
 
 	# Loan interest compounds every 7 days
@@ -523,6 +535,26 @@ func stop_simulation() -> void:
 	set_mode(GameMode.BUILDING)
 	set_speed(GameSpeed.PAUSED)
 	EventBus.notify("Returned to building mode", "info")
+
+func get_maintenance_multiplier() -> float:
+	"""Get the combined maintenance cost multiplier from theme and difficulty."""
+	var theme_mods := CourseTheme.get_gameplay_modifiers(current_theme)
+	var diff_mods := DifficultyPresets.get_modifiers(current_difficulty)
+	return theme_mods.get("maintenance_cost_multiplier", 1.0) * diff_mods.get("maintenance_multiplier", 1.0)
+
+func get_spawn_rate_multiplier() -> float:
+	"""Get the difficulty-adjusted golfer spawn rate multiplier."""
+	var diff_mods := DifficultyPresets.get_modifiers(current_difficulty)
+	return diff_mods.get("spawn_rate_multiplier", 1.0)
+
+func set_colorblind_mode(mode: int) -> void:
+	"""Set colorblind mode and refresh terrain visuals."""
+	colorblind_mode = mode
+	# Re-apply theme colors through the colorblind filter
+	var base_colors := CourseTheme.get_terrain_colors(current_theme)
+	var remapped := ColorblindMode.remap_colors(base_colors, colorblind_mode)
+	TilesetGenerator.set_theme_colors(remapped)
+	EventBus.theme_changed.emit(current_theme)
 
 func get_time_string() -> String:
 	var hour_int = int(current_hour)

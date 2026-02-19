@@ -26,6 +26,7 @@ var terrain_grid: TerrainGrid = null
 var entity_layer: EntityLayer = null
 var golfer_manager: Node = null
 var ball_manager: Node = null
+var milestone_manager: MilestoneManager = null
 
 ## Flag to prevent autosave during load operations
 var _is_loading: bool = false
@@ -44,11 +45,12 @@ func _ensure_save_directory() -> void:
 	if dir and not dir.dir_exists("saves"):
 		dir.make_dir("saves")
 
-func set_references(grid: TerrainGrid, entities: EntityLayer, golfers: Node = null, balls: Node = null) -> void:
+func set_references(grid: TerrainGrid, entities: EntityLayer, golfers: Node = null, balls: Node = null, milestones: MilestoneManager = null) -> void:
 	terrain_grid = grid
 	entity_layer = entities
 	golfer_manager = golfers
 	ball_manager = balls
+	milestone_manager = milestones
 
 func save_game(save_name: String = "") -> bool:
 	if save_name.is_empty():
@@ -148,6 +150,7 @@ func _build_save_data() -> Dictionary:
 			"green_fee": GameManager.green_fee,
 			"theme": CourseTheme.to_string_name(GameManager.current_theme),
 			"loan_balance": GameManager.loan_balance,
+			"difficulty": DifficultyPresets.to_string_name(GameManager.current_difficulty),
 		},
 	}
 
@@ -200,6 +203,10 @@ func _build_save_data() -> Dictionary:
 	# Daily history (rolling 30-day analytics)
 	data["daily_history"] = GameManager.daily_history
 
+	# Milestones
+	if milestone_manager:
+		data["milestones"] = milestone_manager.serialize()
+
 	return data
 
 ## Serialize hole data to plain dictionaries
@@ -236,10 +243,18 @@ func _apply_save_data(data: Dictionary) -> void:
 	GameManager.green_fee = clamp(int(game.get("green_fee", 30)), GameManager.MIN_GREEN_FEE, GameManager.MAX_GREEN_FEE)
 	GameManager.loan_balance = int(game.get("loan_balance", 0))
 
+	# Restore difficulty preset (defaults to Normal for older saves)
+	var diff_name = game.get("difficulty", "normal")
+	GameManager.current_difficulty = DifficultyPresets.from_string(diff_name)
+	var diff_mods := DifficultyPresets.get_modifiers(GameManager.current_difficulty)
+	GameManager.bankruptcy_threshold = diff_mods.get("bankruptcy_threshold", -1000)
+
 	# Restore theme (defaults to parkland for saves without theme)
 	var theme_name = game.get("theme", "parkland")
 	GameManager.current_theme = CourseTheme.from_string(theme_name)
-	TilesetGenerator.set_theme_colors(CourseTheme.get_terrain_colors(GameManager.current_theme))
+	var base_colors := CourseTheme.get_terrain_colors(GameManager.current_theme)
+	var remapped := ColorblindMode.remap_colors(base_colors, GameManager.colorblind_mode)
+	TilesetGenerator.set_theme_colors(remapped)
 	EventBus.theme_changed.emit(GameManager.current_theme)
 
 	# Terrain
@@ -294,6 +309,10 @@ func _apply_save_data(data: Dictionary) -> void:
 
 	# Daily history
 	GameManager.daily_history = data.get("daily_history", [])
+
+	# Milestones
+	if milestone_manager and data.has("milestones"):
+		milestone_manager.deserialize(data["milestones"])
 
 	# Golfers: Always clear on load - they will respawn naturally when the user
 	# switches to simulation mode. This avoids complex mid-action state restoration.
@@ -369,6 +388,8 @@ func _load_user_settings() -> void:
 	if config.has_section("audio"):
 		# Defer to after SoundManager is ready
 		call_deferred("_apply_audio_settings", config)
+	if config.has_section("display"):
+		call_deferred("_apply_display_settings", config)
 
 func _apply_audio_settings(config: ConfigFile) -> void:
 	if not SoundManager:
@@ -379,6 +400,19 @@ func _apply_audio_settings(config: ConfigFile) -> void:
 		"ambient_volume": config.get_value("audio", "ambient_volume", 0.6),
 		"is_muted": config.get_value("audio", "is_muted", false),
 	})
+
+func _apply_display_settings(config: ConfigFile) -> void:
+	var vsync = config.get_value("display", "vsync", DisplayServer.VSYNC_ENABLED)
+	DisplayServer.window_set_vsync_mode(vsync)
+
+	# Restore UI scale
+	var ui_scale = config.get_value("display", "ui_scale", 1.0)
+	if ui_scale != 1.0:
+		get_tree().root.content_scale_factor = ui_scale
+
+	# Restore colorblind mode
+	var cb_name = config.get_value("display", "colorblind_mode", "off")
+	GameManager.colorblind_mode = ColorblindMode.from_string(cb_name)
 
 func save_user_settings() -> void:
 	var config := ConfigFile.new()
