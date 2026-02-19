@@ -257,11 +257,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_cancel_action()
 		return
 
-	# Allow building/tree/rock placement in any mode
-	var in_placement_mode = placement_manager.placement_mode != PlacementManager.PlacementMode.NONE
-
-	# Other tools (terrain painting, elevation, hole creation, bulldozer) require BUILDING mode
-	if not in_placement_mode and GameManager.current_mode != GameManager.GameMode.BUILDING:
+	# All tools work in both BUILDING and SIMULATING modes (tycoon-style)
+	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
 		return
 
 	if event.is_action_pressed("select"):
@@ -567,7 +564,7 @@ func _toggle_panel(panel: CenteredPanel) -> void:
 	panel.toggle()
 
 func _on_mode_toggle_pressed() -> void:
-	"""Toggle between build and simulation modes."""
+	"""Start the day or end it early."""
 	if GameManager.current_mode == GameManager.GameMode.BUILDING:
 		# Start simulation
 		if GameManager.start_simulation():
@@ -575,7 +572,10 @@ func _on_mode_toggle_pressed() -> void:
 			if not tournament_manager.is_tournament_in_progress():
 				golfer_manager.spawn_initial_group()
 	elif GameManager.current_mode == GameManager.GameMode.SIMULATING:
-		GameManager.stop_simulation()
+		# End the day early
+		if tournament_manager.is_tournament_in_progress():
+			tournament_manager.simulate_remaining_and_complete()
+		GameManager.force_end_day()
 
 func _update_ui() -> void:
 	# TopHUDBar now handles money/day/reputation/weather/wind updates via signals
@@ -584,37 +584,30 @@ func _update_ui() -> void:
 
 func _update_button_states() -> void:
 	"""Update button appearance based on game mode and speed"""
-	if GameManager.current_mode == GameManager.GameMode.BUILDING:
-		# In building mode, hide speed controls and show Start Day button
-		pause_btn.visible = false
-		play_btn.visible = false
-		fast_btn.visible = false
+	# Speed controls are always visible — tycoon-style, build while playing
+	pause_btn.visible = true
+	play_btn.visible = true
+	fast_btn.visible = true
+	pause_btn.disabled = false
+	play_btn.disabled = false
+	fast_btn.disabled = false
+	play_btn.text = ">"
+	pause_btn.text = "||"
+	fast_btn.text = ">>"
 
-		if build_mode_btn:
-			build_mode_btn.visible = true
+	if build_mode_btn:
+		build_mode_btn.visible = true
+		if GameManager.current_mode == GameManager.GameMode.BUILDING:
 			build_mode_btn.text = "Start Day"
 			build_mode_btn.modulate = Color(0.5, 1.0, 0.5)  # Green tint
-	else:
-		# In simulation mode, show speed controls and Stop & Edit button
-		pause_btn.visible = true
-		play_btn.visible = true
-		fast_btn.visible = true
-		pause_btn.disabled = false
-		play_btn.disabled = false
-		fast_btn.disabled = false
-		play_btn.text = ">"
-		pause_btn.text = "||"
-		fast_btn.text = ">>"
-
-		if build_mode_btn:
-			build_mode_btn.visible = true
-			build_mode_btn.text = "Stop & Edit"
+		else:
+			build_mode_btn.text = "End Day"
 			build_mode_btn.modulate = Color(1.0, 0.8, 0.4)  # Orange tint
 
-		# Highlight active speed button
-		pause_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.PAUSED else Color(1, 1, 1, 1)
-		play_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.NORMAL else Color(1, 1, 1, 1)
-		fast_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.FAST else Color(1, 1, 1, 1)
+	# Highlight active speed button
+	pause_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.PAUSED else Color(1, 1, 1, 1)
+	play_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.NORMAL else Color(1, 1, 1, 1)
+	fast_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.FAST else Color(1, 1, 1, 1)
 
 func _handle_mouse_hover() -> void:
 	# Only show coordinates when a tool is active (reduces clutter)
@@ -1445,6 +1438,9 @@ func _on_quit_to_menu() -> void:
 func _on_load_completed(_success: bool) -> void:
 	if _success:
 		_rebuild_hole_list()
+		# Sync hole creation tool so the next hole gets the correct number
+		if GameManager.current_course:
+			hole_tool.current_hole_number = GameManager.current_course.holes.size() + 1
 		# Regenerate tileset with loaded theme colors
 		if terrain_grid:
 			terrain_grid.regenerate_tileset()
@@ -1464,9 +1460,6 @@ func _on_terrain_tile_changed_for_undo(position: Vector2i, old_type: int, new_ty
 	undo_manager.record_tile_change(position, old_type, new_type)
 
 func _perform_undo() -> void:
-	if GameManager.current_mode != GameManager.GameMode.BUILDING:
-		EventBus.notify("Undo only available in build mode", "info")
-		return
 	if not undo_manager.can_undo():
 		return
 
@@ -1480,9 +1473,6 @@ func _perform_undo() -> void:
 	EventBus.notify("Undo", "info")
 
 func _perform_redo() -> void:
-	if GameManager.current_mode != GameManager.GameMode.BUILDING:
-		EventBus.notify("Redo only available in build mode", "info")
-		return
 	if not undo_manager.can_redo():
 		return
 
