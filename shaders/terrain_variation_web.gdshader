@@ -19,6 +19,13 @@ uniform float hue_variation : hint_range(0.0, 0.1) = 0.04;
 uniform float value_variation : hint_range(0.0, 0.3) = 0.18;
 uniform float saturation_variation : hint_range(0.0, 0.1) = 0.06;
 
+// World-space position passed from vertex shader (stable during camera pan)
+varying vec2 world_position;
+
+void vertex() {
+	world_position = VERTEX;
+}
+
 // Convert RGB to HSV
 vec3 rgb2hsv(vec3 c) {
 	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -105,7 +112,8 @@ void fragment() {
 	vec4 center_color = texture(TEXTURE, tile_center_uv);
 	vec3 center_hsv = rgb2hsv(center_color.rgb);
 
-	vec2 world_pos = FRAGCOORD.xy;
+	// Use world-space position from vertex shader - stable when camera pans
+	vec2 world_pos = world_position;
 
 	// Non-grass terrains: simple hash-based variation (no FBM loops)
 	if (center_hsv.x < 0.15 || center_hsv.x > 0.45) {
