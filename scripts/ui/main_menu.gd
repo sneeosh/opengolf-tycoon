@@ -174,6 +174,16 @@ func _ready() -> void:
 	credits_btn.pressed.connect(_on_credits_pressed)
 	btn_row2.add_child(credits_btn)
 
+	# Download button - only shown in web builds
+	if OS.get_name() == "Web":
+		var download_btn = Button.new()
+		download_btn.text = "Download"
+		download_btn.tooltip_text = "Download the desktop version for better performance"
+		download_btn.custom_minimum_size = Vector2(120, 38)
+		download_btn.add_theme_font_size_override("font_size", 15)
+		download_btn.pressed.connect(_on_download_pressed)
+		btn_row2.add_child(download_btn)
+
 	var quit_btn = Button.new()
 	quit_btn.text = "Quit"
 	quit_btn.custom_minimum_size = Vector2(100, 38)
@@ -321,6 +331,39 @@ func _on_settings_pressed() -> void:
 
 func _on_credits_pressed() -> void:
 	credits_requested.emit()
+
+func _on_download_pressed() -> void:
+	var dialog = AcceptDialog.new()
+	dialog.title = "Download Desktop Version"
+	dialog.ok_button_text = "Close"
+	dialog.min_size = Vector2(360, 200)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+
+	var info = Label.new()
+	info.text = "Desktop versions run faster and support saving to disk."
+	info.add_theme_font_size_override("font_size", 14)
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD
+	vbox.add_child(info)
+
+	var base_url = "https://golf.kennyatx.com/downloads/"
+	var platforms = [
+		["Windows", base_url + "windows"],
+		["macOS", base_url + "macos"],
+		["Linux", base_url + "linux"],
+	]
+	for platform in platforms:
+		var btn = Button.new()
+		btn.text = "Download for " + platform[0]
+		btn.custom_minimum_size = Vector2(300, 36)
+		btn.add_theme_font_size_override("font_size", 15)
+		btn.pressed.connect(OS.shell_open.bind(platform[1]))
+		vbox.add_child(btn)
+
+	dialog.add_child(vbox)
+	add_child(dialog)
+	dialog.popup_centered()
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()

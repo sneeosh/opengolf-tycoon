@@ -51,7 +51,17 @@ jobs:
             echo "GODOT_VERSION=${{ github.event.inputs.godot_version }}" >> $GITHUB_ENV
           fi
 
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/bin/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-${{ env.GODOT_STATUS }}
+
       - name: Install Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
         run: |
           wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip"
           unzip "Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip"
@@ -59,6 +69,7 @@ jobs:
           sudo chmod +x /usr/local/bin/godot
 
       - name: Install export templates
+        if: steps.cache-godot.outputs.cache-hit != 'true'
         run: |
           TEMPLATES_DIR="${HOME}/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}"
           mkdir -p "${TEMPLATES_DIR}"
@@ -85,7 +96,6 @@ jobs:
 
   deploy-web:
     name: Deploy to Cloudflare Workers
-    needs: export
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -95,11 +105,57 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download web artifact
-        uses: actions/download-artifact@v4
+      - name: Resolve Godot version
+        run: |
+          if [ -n "${{ github.event.inputs.godot_version }}" ]; then
+            echo "GODOT_VERSION=${{ github.event.inputs.godot_version }}" >> $GITHUB_ENV
+          fi
+
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
         with:
-          name: "${{ env.PROJECT_NAME }}-web"
-          path: build/web
+          path: |
+            /usr/local/bin/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-${{ env.GODOT_STATUS }}
+
+      - name: Install Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip"
+          unzip "Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip"
+          sudo mv "Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+
+      - name: Install export templates
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          TEMPLATES_DIR="${HOME}/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}"
+          mkdir -p "${TEMPLATES_DIR}"
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz"
+          unzip "Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz"
+          mv templates/* "${TEMPLATES_DIR}/"
+
+      - name: Import project
+        run: |
+          timeout 120 godot --headless --import 2>&1 || true
+
+      - name: Export all platforms
+        run: |
+          mkdir -p build/web build/windows build/macos build/linux
+          godot --headless --export-release "Web" 2>&1
+          godot --headless --export-release "Windows Desktop" 2>&1
+          godot --headless --export-release "macOS" 2>&1
+          godot --headless --export-release "Linux" 2>&1
+
+      - name: Package desktop builds for R2
+        run: |
+          for platform in windows macos linux; do
+            if [ -d "build/${platform}" ]; then
+              (cd "build/${platform}" && zip -r "../../${{ env.PROJECT_NAME }}-${platform}.zip" .)
+            fi
+          done
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
@@ -107,6 +163,16 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
+
+      - name: Upload desktop builds to R2
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: |
+            r2 object put opengolf-assets/downloads/${{ env.PROJECT_NAME }}-windows.zip --file=${{ env.PROJECT_NAME }}-windows.zip --content-type=application/zip &&
+            r2 object put opengolf-assets/downloads/${{ env.PROJECT_NAME }}-macos.zip --file=${{ env.PROJECT_NAME }}-macos.zip --content-type=application/zip &&
+            r2 object put opengolf-assets/downloads/${{ env.PROJECT_NAME }}-linux.zip --file=${{ env.PROJECT_NAME }}-linux.zip --content-type=application/zip
 
   release:
     name: Create Release
