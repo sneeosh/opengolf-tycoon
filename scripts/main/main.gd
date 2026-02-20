@@ -2186,6 +2186,11 @@ func _setup_course_rating_overlay() -> void:
 	)
 	$UI/HUD.add_child(course_rating_overlay)
 	course_rating_overlay.hide()
+	# Update top bar whenever course rating changes (end of day, etc.)
+	EventBus.course_rating_changed.connect(func(rating: Dictionary):
+		if top_hud_bar:
+			top_hud_bar.update_rating(rating.get("overall", 3.0))
+	)
 	# Push initial rating to top bar (deferred so GameManager is ready)
 	_update_top_bar_rating.call_deferred()
 

@@ -26,19 +26,19 @@ body {
 	outline: none;
 }
 
-#status, #status-splash, #status-progress {
+#status {
 	position: absolute;
 	left: 0;
 	right: 0;
 }
 
-#status, #status-splash {
+#status {
 	top: 0;
 	bottom: 0;
 }
 
 #status {
-	background-color: $GODOT_SPLASH_COLOR;
+	background-color: #1a2e0a;
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
@@ -46,24 +46,19 @@ body {
 	visibility: hidden;
 }
 
-#status-splash {
-	max-height: 100%;
-	max-width: 100%;
-	margin: auto;
+#status-logo {
+	width: 128px;
+	height: 128px;
+	margin-bottom: 1rem;
 }
 
-#status-splash.show-image--false {
-	display: none;
-}
-
-#status-splash.fullsize--true {
-	height: 100%;
-	width: 100%;
-	object-fit: contain;
-}
-
-#status-splash.use-filter--false {
-	image-rendering: pixelated;
+#status-title {
+	font-family: 'Georgia', 'Times New Roman', serif;
+	font-size: 1.8rem;
+	font-weight: bold;
+	color: #e0e8d8;
+	letter-spacing: 0.05em;
+	margin-bottom: 2rem;
 }
 
 #status-progress, #status-notice {
@@ -71,9 +66,27 @@ body {
 }
 
 #status-progress {
-	bottom: 10%;
-	width: 50%;
-	margin: 0 auto;
+	width: 220px;
+	height: 6px;
+	border: none;
+	border-radius: 3px;
+	overflow: hidden;
+	background: #2d4a16;
+}
+
+#status-progress::-webkit-progress-bar {
+	background: #2d4a16;
+	border-radius: 3px;
+}
+
+#status-progress::-webkit-progress-value {
+	background: #5ca825;
+	border-radius: 3px;
+}
+
+#status-progress::-moz-progress-bar {
+	background: #5ca825;
+	border-radius: 3px;
 }
 
 #status-notice {
@@ -102,7 +115,18 @@ body {
 		</noscript>
 
 		<div id="status">
-			<img id="status-splash" class="$GODOT_SPLASH_CLASSES" src="$GODOT_SPLASH" alt="">
+			<svg id="status-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+				<circle cx="64" cy="64" r="60" fill="#2d5016"/>
+				<ellipse cx="64" cy="70" rx="35" ry="20" fill="#4a8522"/>
+				<rect x="62" y="30" width="3" height="45" fill="#8b4513"/>
+				<polygon points="65,30 90,40 65,50" fill="#ff4444"/>
+				<circle cx="50" cy="75" r="6" fill="white"/>
+				<circle cx="48" cy="73" r="1" fill="#ddd"/>
+				<circle cx="52" cy="73" r="1" fill="#ddd"/>
+				<circle cx="50" cy="77" r="1" fill="#ddd"/>
+				<text x="64" y="110" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="white">OGT</text>
+			</svg>
+			<div id="status-title">OpenGolf Tycoon</div>
 			<progress id="status-progress"></progress>
 			<div id="status-notice"></div>
 		</div>
