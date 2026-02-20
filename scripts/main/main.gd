@@ -776,7 +776,13 @@ func _paint_at_mouse() -> void:
 
 	var tiles_to_paint = [grid_pos] if brush_size <= 1 else terrain_grid.get_brush_tiles(grid_pos, brush_size)
 	var total_cost = 0
+	var obstacle_removal_cost = 0
 	var blocked_by_land = false
+	# Terrain types that auto-remove trees and rocks when placed
+	var clears_obstacles = current_tool in [
+		TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.BUNKER, TerrainTypes.Type.WATER,
+		TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.GREEN
+	]
 	for tile_pos in tiles_to_paint:
 		# Check land ownership first
 		if GameManager.land_manager and not GameManager.land_manager.is_tile_owned(tile_pos):
@@ -786,12 +792,33 @@ func _paint_at_mouse() -> void:
 		if entity_layer and entity_layer.is_tile_occupied_by_building(tile_pos):
 			continue
 		if terrain_grid.get_tile(tile_pos) != current_tool:
+			# Auto-remove trees and rocks when placing course terrain
+			var tile_removal_cost = 0
+			if clears_obstacles and entity_layer:
+				if entity_layer.get_tree_at(tile_pos):
+					tile_removal_cost += BULLDOZER_COSTS["tree"]
+				if entity_layer.get_rock_at(tile_pos):
+					tile_removal_cost += BULLDOZER_COSTS["rock"]
+			# Check affordability including removal costs
+			var tile_total = cost + tile_removal_cost
+			if tile_total > 0 and not GameManager.can_afford(total_cost + obstacle_removal_cost + tile_total):
+				continue
+			# Perform removals
+			if tile_removal_cost > 0:
+				if entity_layer.get_tree_at(tile_pos):
+					entity_layer.remove_tree(tile_pos)
+				if entity_layer.get_rock_at(tile_pos):
+					entity_layer.remove_rock(tile_pos)
+				obstacle_removal_cost += tile_removal_cost
 			terrain_grid.set_tile(tile_pos, current_tool)
 			total_cost += cost
 
 	if blocked_by_land and total_cost == 0:
 		EventBus.notify("You don't own this land! Press L to buy parcels.", "error")
-	
+
+	if obstacle_removal_cost > 0:
+		GameManager.modify_money(-obstacle_removal_cost)
+		EventBus.log_transaction("Clear obstacles", -obstacle_removal_cost)
 	if total_cost > 0:
 		GameManager.modify_money(-total_cost)
 		EventBus.log_transaction("Terrain: " + TerrainTypes.get_type_name(current_tool), -total_cost)
