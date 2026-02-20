@@ -118,11 +118,17 @@ func _redraw_all_overlays() -> void:
 func _apply_variation_shader() -> void:
 	if not tile_map:
 		return
-	# Check if shader file exists before loading
-	if not ResourceLoader.exists("res://shaders/terrain_variation.gdshader"):
+
+	# Use lighter shader on web for WebGL 2.0 performance
+	var shader_path: String
+	if OS.get_name() == "Web" and ResourceLoader.exists("res://shaders/terrain_variation_web.gdshader"):
+		shader_path = "res://shaders/terrain_variation_web.gdshader"
+	elif ResourceLoader.exists("res://shaders/terrain_variation.gdshader"):
+		shader_path = "res://shaders/terrain_variation.gdshader"
+	else:
 		return
 
-	var shader = load("res://shaders/terrain_variation.gdshader")
+	var shader = load(shader_path)
 	if not shader:
 		return
 

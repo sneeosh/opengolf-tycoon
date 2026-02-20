@@ -4,6 +4,7 @@ class_name GrassOverlay
 
 var _terrain_grid: TerrainGrid = null
 var _grass_positions: Dictionary = {}  # tile_pos -> Array of blade positions
+var _is_web: bool = false
 # Note: Native GRASS excluded to avoid per-tile blade boundaries creating grid pattern
 # The terrain shader provides sufficient procedural variation for GRASS
 const GRASS_TYPES = [TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.ROUGH, TerrainTypes.Type.HEAVY_ROUGH]
@@ -13,6 +14,7 @@ func _ready() -> void:
 
 func setup(terrain_grid: TerrainGrid) -> void:
 	_terrain_grid = terrain_grid
+	_is_web = OS.get_name() == "Web"
 	_regenerate_grass()
 	terrain_grid.tile_changed.connect(_on_tile_changed)
 	EventBus.theme_changed.connect(_on_theme_changed)
@@ -96,6 +98,10 @@ func _generate_grass_for_tile(pos: Vector2i) -> void:
 			blade_count = rng.randi_range(5, 8)
 			blade_height_range = Vector2(3, 5)
 			blade_color_base.a = 0.4
+
+	# Halve blade count on web to reduce draw calls
+	if _is_web:
+		blade_count = maxi(blade_count / 2, 2)
 
 	for i in range(blade_count):
 		var local_x = rng.randf_range(-28, 28)
