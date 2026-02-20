@@ -4,9 +4,12 @@ class_name PathOverlay
 
 var terrain_grid: TerrainGrid
 var _path_positions: Dictionary = {}  # pos -> pebble data
+var _is_web: bool = false
+
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 1
+	_is_web = OS.get_name() == "Web"
 	_scan_path_tiles()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
@@ -36,7 +39,7 @@ func _generate_pebbles_for_tile(pos: Vector2i) -> void:
 	rng.seed = pos.x * 12289 ^ pos.y * 24593
 
 	var pebbles: Array = []
-	var pebble_count = rng.randi_range(12, 20)
+	var pebble_count = rng.randi_range(4, 8) if _is_web else rng.randi_range(12, 20)
 
 	for i in range(pebble_count):
 		var pebble = {
@@ -102,6 +105,6 @@ func _draw_pebble(tile_pos: Vector2, pebble: Dictionary) -> void:
 	# Small irregular pebble
 	draw_circle(center, pebble.size, Color(base_gray, base_gray - 0.02, base_gray - 0.05, 0.4))
 
-	# Tiny highlight
-	if pebble.size > 2.0:
+	# Tiny highlight (skip on web to reduce draw calls)
+	if not _is_web and pebble.size > 2.0:
 		draw_circle(center + Vector2(-0.5, -0.5), pebble.size * 0.4, Color(0.82, 0.8, 0.76, 0.3))

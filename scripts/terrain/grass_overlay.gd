@@ -99,9 +99,10 @@ func _generate_grass_for_tile(pos: Vector2i) -> void:
 			blade_height_range = Vector2(3, 5)
 			blade_color_base.a = 0.4
 
-	# Halve blade count on web to reduce draw calls
+	# Aggressively reduce blade count on web to minimize draw calls
+	# With 128x128 grid, even 2 blades per tile = 32k draw_line calls
 	if _is_web:
-		blade_count = maxi(blade_count / 2, 2)
+		blade_count = maxi(blade_count / 3, 1)
 
 	for i in range(blade_count):
 		var local_x = rng.randf_range(-28, 28)

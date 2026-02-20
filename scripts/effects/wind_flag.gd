@@ -11,8 +11,12 @@ var _flag_color: Color = Color(0.9, 0.15, 0.15)  # Red pennant
 var _pole_height: float = 24.0
 var _flag_length: float = 10.0
 var _phase_offset: float = 0.0  # Per-flag variation
+var _is_web: bool = false
+var _web_redraw_timer: float = 0.0
+const WEB_FLAG_REDRAW_INTERVAL: float = 0.1  # 10 FPS for flag flutter on web
 
 func _ready() -> void:
+	_is_web = OS.get_name() == "Web"
 	EventBus.wind_changed.connect(_on_wind_changed)
 	_phase_offset = randf() * TAU  # Random phase so flags don't all flutter in sync
 	z_index = 5  # Above terrain, below golfers
@@ -27,7 +31,13 @@ func _on_wind_changed(direction: float, speed: float) -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
-	queue_redraw()
+	if _is_web:
+		_web_redraw_timer += delta
+		if _web_redraw_timer >= WEB_FLAG_REDRAW_INTERVAL:
+			_web_redraw_timer = 0.0
+			queue_redraw()
+	else:
+		queue_redraw()
 
 func _draw() -> void:
 	# Pole: vertical line from base to top
@@ -80,11 +90,12 @@ func _draw() -> void:
 		var fill_color := Color(_flag_color.r, _flag_color.g, _flag_color.b, flag_alpha)
 		draw_colored_polygon(polygon, fill_color)
 
-		# Outline for definition
-		var outline_color := Color(_flag_color.r * 0.6, _flag_color.g * 0.6, _flag_color.b * 0.6, flag_alpha)
-		for i in range(polygon.size()):
-			var next := (i + 1) % polygon.size()
-			draw_line(polygon[i], polygon[next], outline_color, 0.5)
+		# Outline for definition (skip on web — N draw_line calls per flag)
+		if not _is_web:
+			var outline_color := Color(_flag_color.r * 0.6, _flag_color.g * 0.6, _flag_color.b * 0.6, flag_alpha)
+			for i in range(polygon.size()):
+				var next := (i + 1) % polygon.size()
+				draw_line(polygon[i], polygon[next], outline_color, 0.5)
 
 	# Small ball at pole top
 	draw_circle(pole_top, 1.5, Color(0.8, 0.8, 0.8))

@@ -4,9 +4,12 @@ class_name RockOverlay
 
 var terrain_grid: TerrainGrid
 var _rock_positions: Dictionary = {}  # pos -> rock data
+var _is_web: bool = false
+
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 10  # Render well above terrain tiles
+	_is_web = OS.get_name() == "Web"
 	_scan_rock_tiles()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
@@ -78,6 +81,17 @@ func _draw_rock(tile_pos: Vector2, rock: Dictionary) -> void:
 	var w = rock.width
 	var h = rock.height
 	var shade = rock.shade
+
+	# On web: simplified 2-polygon rocks (skip shadow + specular = 2 fewer draw calls per rock)
+	if _is_web:
+		var base_gray = 0.45 + shade
+		var base_points = _get_rock_shape(center, w, h, rock.rotation)
+		draw_colored_polygon(base_points, Color(base_gray, base_gray - 0.02, base_gray - 0.05))
+		var highlight_center = center + Vector2(-w * 0.1, -h * 0.2)
+		var highlight_points = _get_rock_shape(highlight_center, w * 0.7, h * 0.6, rock.rotation)
+		var light_gray = 0.58 + shade
+		draw_colored_polygon(highlight_points, Color(light_gray, light_gray - 0.02, light_gray - 0.04))
+		return
 
 	# Shadow
 	var shadow_points = _get_rock_shape(center + Vector2(2, 2), w, h * 0.6, rock.rotation)

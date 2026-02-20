@@ -7,6 +7,15 @@ const TILE_HEIGHT = 32
 const ATLAS_COLS = 16
 const ATLAS_ROWS = 16
 
+## Web platform detection (cached once)
+static var _is_web: bool = false
+static var _web_checked: bool = false
+
+static func _check_web() -> void:
+	if not _web_checked:
+		_is_web = OS.get_name() == "Web"
+		_web_checked = true
+
 # Edge mask bits for autotiling (cardinal directions only for simplified approach)
 const EDGE_N = 1
 const EDGE_E = 2
@@ -67,28 +76,81 @@ static func generate_tileset() -> ImageTexture:
 	return generate_expanded_tileset()
 
 static func generate_expanded_tileset() -> ImageTexture:
+	_check_web()
 	var image = Image.create(TILE_WIDTH * ATLAS_COLS, TILE_HEIGHT * ATLAS_ROWS, false, Image.FORMAT_RGBA8)
 
-	# Generate autotile variants for each terrain type (16 variants per row)
-	_generate_terrain_row(image, TerrainRow.GRASS, "_draw_grass_variant")
-	_generate_terrain_row(image, TerrainRow.FAIRWAY, "_draw_fairway_variant")
-	_generate_terrain_row(image, TerrainRow.GREEN, "_draw_green_variant")
-	_generate_terrain_row(image, TerrainRow.ROUGH, "_draw_rough_variant")
-	_generate_terrain_row(image, TerrainRow.HEAVY_ROUGH, "_draw_heavy_rough_variant")
-	_generate_terrain_row(image, TerrainRow.BUNKER, "_draw_bunker_variant")
-	_generate_terrain_row(image, TerrainRow.WATER, "_draw_water_variant")
+	if _is_web:
+		# Web: Use fast flat-fill tileset with edge blending only (no per-pixel noise)
+		# The shader provides all visual variation — tileset just needs base colors + edges
+		_generate_terrain_row_fast(image, TerrainRow.GRASS, "grass", "rough")
+		_generate_terrain_row_fast(image, TerrainRow.FAIRWAY, "fairway_light", "rough")
+		_generate_terrain_row_fast(image, TerrainRow.GREEN, "green_light", "fringe")
+		_generate_terrain_row_fast(image, TerrainRow.ROUGH, "rough", "heavy_rough")
+		_generate_terrain_row_fast(image, TerrainRow.HEAVY_ROUGH, "heavy_rough", "grass")
+		_generate_terrain_row_fast(image, TerrainRow.BUNKER, "bunker", "grass")
+		_generate_terrain_row_fast(image, TerrainRow.WATER, "water", "grass")
 
-	# Single-tile terrains in row 7
-	_draw_empty_tile(image, 0, TerrainRow.SINGLES)
-	_draw_tee_box_tile(image, 1, TerrainRow.SINGLES)
-	_draw_path_tile(image, 2, TerrainRow.SINGLES)
-	_draw_oob_tile(image, 3, TerrainRow.SINGLES)
-	_draw_trees_tile(image, 4, TerrainRow.SINGLES)
-	_draw_flower_bed_tile(image, 5, TerrainRow.SINGLES)
-	_draw_rocks_tile(image, 6, TerrainRow.SINGLES)
+		# Single-tile terrains — flat fill only
+		_fill_tile(image, 0, TerrainRow.SINGLES, get_color("empty"))
+		_fill_tile(image, 1, TerrainRow.SINGLES, get_color("tee_box_light"))
+		_fill_tile(image, 2, TerrainRow.SINGLES, get_color("path"))
+		_fill_tile(image, 3, TerrainRow.SINGLES, get_color("oob"))
+		_fill_tile(image, 4, TerrainRow.SINGLES, get_color("trees"))
+		_fill_tile(image, 5, TerrainRow.SINGLES, get_color("flower_bed"))
+		_fill_tile(image, 6, TerrainRow.SINGLES, get_color("rocks"))
+	else:
+		# Desktop: Full per-pixel detail tileset
+		_generate_terrain_row(image, TerrainRow.GRASS, "_draw_grass_variant")
+		_generate_terrain_row(image, TerrainRow.FAIRWAY, "_draw_fairway_variant")
+		_generate_terrain_row(image, TerrainRow.GREEN, "_draw_green_variant")
+		_generate_terrain_row(image, TerrainRow.ROUGH, "_draw_rough_variant")
+		_generate_terrain_row(image, TerrainRow.HEAVY_ROUGH, "_draw_heavy_rough_variant")
+		_generate_terrain_row(image, TerrainRow.BUNKER, "_draw_bunker_variant")
+		_generate_terrain_row(image, TerrainRow.WATER, "_draw_water_variant")
+
+		# Single-tile terrains in row 7
+		_draw_empty_tile(image, 0, TerrainRow.SINGLES)
+		_draw_tee_box_tile(image, 1, TerrainRow.SINGLES)
+		_draw_path_tile(image, 2, TerrainRow.SINGLES)
+		_draw_oob_tile(image, 3, TerrainRow.SINGLES)
+		_draw_trees_tile(image, 4, TerrainRow.SINGLES)
+		_draw_flower_bed_tile(image, 5, TerrainRow.SINGLES)
+		_draw_rocks_tile(image, 6, TerrainRow.SINGLES)
 
 	var texture = ImageTexture.create_from_image(image)
 	return texture
+
+## Fast tileset generation for web: flat-fill base color with simple edge blending
+## Uses fill_rect for base and only iterates edge pixels, ~10x faster than per-pixel
+static func _generate_terrain_row_fast(image: Image, row: int, base_key: String, edge_key: String) -> void:
+	var base_color = get_color(base_key)
+	var edge_color = get_color(edge_key)
+
+	for edge_mask in range(16):
+		var col = edge_mask
+		var rect = _get_tile_rect(col, row)
+
+		# Fast base fill
+		image.fill_rect(rect, base_color)
+
+		# Only do edge blending if there are edges
+		if edge_mask == 0:
+			continue
+
+		# Simplified edge blending — only iterate edge zone pixels
+		for x in range(rect.position.x, rect.position.x + rect.size.x):
+			for y in range(rect.position.y, rect.position.y + rect.size.y):
+				var local_x = x - rect.position.x
+				var local_y = y - rect.position.y
+
+				# Quick check: skip interior pixels (not in any edge zone)
+				if not _is_in_edge_zone(local_x, local_y, edge_mask):
+					continue
+
+				var blend = _get_edge_blend_factor(local_x, local_y, edge_mask)
+				if blend > 0.05:
+					var blended = base_color.lerp(edge_color, blend * 0.5)
+					image.set_pixel(x, y, blended)
 
 static func _generate_terrain_row(image: Image, row: int, draw_func_name: String) -> void:
 	# Generate 16 variants (edge_mask 0-15)
@@ -115,9 +177,7 @@ static func _get_tile_rect(col: int, row: int) -> Rect2i:
 
 static func _fill_tile(image: Image, col: int, row: int, color: Color) -> void:
 	var rect = _get_tile_rect(col, row)
-	for x in range(rect.position.x, rect.position.x + rect.size.x):
-		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			image.set_pixel(x, y, color)
+	image.fill_rect(rect, color)
 
 # Edge thickness for transition drawing - larger for smoother gradients
 const EDGE_WIDTH = 16

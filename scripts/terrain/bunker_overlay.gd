@@ -5,10 +5,12 @@ class_name BunkerOverlay
 var terrain_grid: TerrainGrid
 var _bunker_positions: Array = []
 var _dot_offsets: Dictionary = {}  # Cached dot positions per tile
+var _is_web: bool = false
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 1  # Render just above terrain tiles
+	_is_web = OS.get_name() == "Web"
 	_scan_bunker_tiles()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
@@ -42,7 +44,7 @@ func _generate_dots_for_tile(pos: Vector2i) -> void:
 	var rng = RandomNumberGenerator.new()
 	rng.seed = seed_val
 
-	var dot_count = rng.randi_range(6, 12)
+	var dot_count = rng.randi_range(3, 5) if _is_web else rng.randi_range(6, 12)
 	for i in range(dot_count):
 		var dx = rng.randf_range(4.0, terrain_grid.tile_width - 4.0)
 		var dy = rng.randf_range(3.0, terrain_grid.tile_height - 3.0)

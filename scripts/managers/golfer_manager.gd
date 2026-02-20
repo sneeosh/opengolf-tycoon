@@ -12,6 +12,11 @@ var next_golfer_id: int = 0
 var next_group_id: int = 0
 var time_since_last_spawn: float = 0.0
 
+## Cached spawn rate modifier to avoid recalculating every frame
+var _cached_spawn_modifier: float = 1.0
+var _spawn_modifier_cache_timer: float = 0.0
+const SPAWN_MODIFIER_CACHE_DURATION: float = 5.0  # Recalculate every 5 seconds
+
 @onready var golfers_container: Node2D = get_parent().get_node("Entities/Golfers") if get_parent().has_node("Entities/Golfers") else null
 
 signal golfer_spawned(golfer: Golfer)
@@ -77,9 +82,8 @@ func get_spawn_rate_modifier() -> float:
 func get_effective_spawn_cooldown() -> float:
 	"""Get spawn cooldown adjusted by course rating.
 	Higher rating = shorter cooldown = more golfers."""
-	var modifier = get_spawn_rate_modifier()
-	# Invert modifier for cooldown (higher rate = shorter cooldown)
-	return min_spawn_cooldown_seconds / modifier
+	# Use cached modifier to avoid expensive recalculation every frame
+	return min_spawn_cooldown_seconds / _cached_spawn_modifier
 
 ## Landing zone constants
 const LANDING_ZONE_BASE_RADIUS: float = 2.0    # Minimum radius in tiles (~44 yards)
@@ -232,6 +236,12 @@ func _is_area_clear_of_golfers(target: Vector2, radius: float, exclude_group_id:
 func _process(delta: float) -> void:
 	if GameManager.game_mode != GameManager.GameMode.SIMULATING:
 		return
+
+	# Periodically refresh cached spawn rate modifier
+	_spawn_modifier_cache_timer += delta
+	if _spawn_modifier_cache_timer >= SPAWN_MODIFIER_CACHE_DURATION:
+		_spawn_modifier_cache_timer = 0.0
+		_cached_spawn_modifier = get_spawn_rate_modifier()
 
 	# Dynamic spawning: spawn when first tee is clear (with minimum cooldown)
 	# Only spawn during open hours

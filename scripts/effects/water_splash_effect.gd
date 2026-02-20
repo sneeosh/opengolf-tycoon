@@ -18,7 +18,8 @@ func _ready() -> void:
 	_spawn_particles()
 
 func _spawn_particles() -> void:
-	for i in range(PARTICLE_COUNT):
+	var count = 5 if _web_mode else PARTICLE_COUNT
+	for i in range(count):
 		var particle = Polygon2D.new()
 		particle.color = PARTICLE_COLORS[randi() % PARTICLE_COLORS.size()]
 
@@ -50,13 +51,19 @@ func _spawn_particles() -> void:
 		alpha_tween.tween_property(particle, "modulate:a", 0.0, lifetime).set_ease(Tween.EASE_IN)
 
 ## Play the effect at a world position
+## Reduced particle count on web for performance
 static func create_at(parent: Node, world_position: Vector2) -> WaterSplashEffect:
 	var effect = WaterSplashEffect.new()
 	effect.global_position = world_position
+	if OS.get_name() == "Web":
+		effect._web_mode = true
 	parent.add_child(effect)
 	return effect
 
+var _web_mode: bool = false
+
 func _on_particle_finished() -> void:
 	_particles_finished += 1
-	if _particles_finished >= PARTICLE_COUNT:
+	var count = 5 if _web_mode else PARTICLE_COUNT
+	if _particles_finished >= count:
 		queue_free()

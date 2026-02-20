@@ -4,10 +4,12 @@ class_name ElevationShadingOverlay
 ## Higher tiles appear slightly brighter, lower tiles slightly darker
 
 var _terrain_grid: TerrainGrid = null
+var _is_web: bool = false
 const BRIGHTNESS_PER_LEVEL: float = 0.025  # Brightness shift per elevation level
 
 func _ready() -> void:
 	z_index = 2  # Above base terrain and grass overlays
+	_is_web = OS.get_name() == "Web"
 
 func setup(terrain_grid: TerrainGrid) -> void:
 	_terrain_grid = terrain_grid
@@ -21,6 +23,9 @@ func _draw() -> void:
 	if not _terrain_grid:
 		return
 
+	# On web, use simple rectangles instead of isometric diamond polygons
+	# to reduce per-tile polygon vertex count (4-vertex rect vs 4-vertex polygon,
+	# but Rect2 is GPU-optimized vs colored_polygon requiring CPU vertex assembly)
 	var tw = _terrain_grid.tile_width
 	var th = _terrain_grid.tile_height
 
@@ -32,7 +37,12 @@ func _draw() -> void:
 		var screen_pos = _terrain_grid.grid_to_screen(pos)
 		var local_pos = screen_pos - global_position
 
-		if elevation > 0:
+		if _is_web:
+			# Web: fast axis-aligned rect (cheaper than colored_polygon)
+			var alpha = abs(elevation) * BRIGHTNESS_PER_LEVEL
+			var tint_color = Color(1, 1, 1, alpha) if elevation > 0 else Color(0, 0, 0, alpha)
+			draw_rect(Rect2(local_pos, Vector2(tw, th)), tint_color)
+		elif elevation > 0:
 			# Higher ground — subtle white tint
 			var alpha = elevation * BRIGHTNESS_PER_LEVEL
 			var iso_diamond = PackedVector2Array([

@@ -6,8 +6,12 @@ var _canvas_modulate: CanvasModulate = null
 var _current_hour: float = 6.0
 var _weather_tint: Color = Color.WHITE
 var _target_weather_tint: Color = Color.WHITE  # Lerp target for smooth transitions
+var _is_web: bool = false
+var _web_update_timer: float = 0.0
+const WEB_UPDATE_INTERVAL: float = 0.1  # Update tint at 10 FPS on web (smooth enough for gradual changes)
 
 func _ready() -> void:
+	_is_web = OS.get_name() == "Web"
 	_canvas_modulate = CanvasModulate.new()
 	_canvas_modulate.name = "DayNightModulate"
 	_canvas_modulate.color = Color.WHITE
@@ -35,6 +39,14 @@ func _on_weather_changed(_weather_type: int, _intensity: float) -> void:
 func _process(delta: float) -> void:
 	# Smoothly interpolate weather tint toward target (prevents jarring color jumps)
 	_weather_tint = _weather_tint.lerp(_target_weather_tint, clampf(delta * 2.0, 0.0, 1.0))
+
+	# On web, throttle CanvasModulate updates since they affect all rendered pixels
+	if _is_web:
+		_web_update_timer += delta
+		if _web_update_timer < WEB_UPDATE_INTERVAL:
+			return
+		_web_update_timer = 0.0
+
 	_update_tint()
 
 func _update_tint() -> void:
