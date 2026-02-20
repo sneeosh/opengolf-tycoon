@@ -5,11 +5,13 @@ class_name FairwayOverlay
 var terrain_grid: TerrainGrid
 var _fairway_positions: Array = []
 var _green_positions: Array = []
+var _is_web: bool = false
 const STRIPE_TYPES = [TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.GREEN, TerrainTypes.Type.TEE_BOX]
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 1
+	_is_web = OS.get_name() == "Web"
 	_scan_tiles()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
@@ -86,7 +88,11 @@ func _draw_fairway_stripes(pos: Vector2i, screen_pos: Vector2) -> void:
 	# Draw the stripe as a subtle overlay
 	draw_rect(Rect2(local_pos, Vector2(tw, th)), stripe_color)
 
-	# Add subtle mowing line details
+	# Skip mowing detail lines on web — the stripe rect alone is sufficient
+	if _is_web:
+		return
+
+	# Add subtle mowing line details (desktop only)
 	var line_color = Color(0.45, 0.82, 0.45, 0.08)
 	var line_count = 3
 	for i in range(line_count):
@@ -112,7 +118,11 @@ func _draw_green_pattern(pos: Vector2i, screen_pos: Vector2) -> void:
 
 	draw_rect(Rect2(local_pos, Vector2(tw, th)), stripe_color)
 
-	# Fine horizontal lines for putting green effect
+	# Skip putting green detail lines on web
+	if _is_web:
+		return
+
+	# Fine horizontal lines for putting green effect (desktop only)
 	var line_color = Color(0.4, 0.9, 0.5, 0.06)
 	for i in range(4):
 		var y_offset = th * (0.15 + i * 0.22)

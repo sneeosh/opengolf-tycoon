@@ -74,7 +74,10 @@ func _on_particle_finished() -> void:
 		queue_free()
 
 ## Create impact effect at a world position with terrain-aware coloring
+## On web, skip the effect entirely to reduce node creation + tween overhead
 static func create_at(parent: Node, world_position: Vector2, terrain_type: String = "default") -> LandingImpactEffect:
+	if OS.get_name() == "Web":
+		return null
 	var effect = LandingImpactEffect.new()
 	effect._terrain_type = terrain_type
 	effect.global_position = world_position

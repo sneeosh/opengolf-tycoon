@@ -4,9 +4,12 @@ class_name TreeOverlay
 
 var terrain_grid: TerrainGrid
 var _tree_positions: Dictionary = {}  # pos -> tree data
+var _is_web: bool = false
+
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 10  # Render well above terrain tiles
+	_is_web = OS.get_name() == "Web"
 	_scan_tree_tiles()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
@@ -82,14 +85,16 @@ func _draw_pine_tree(center: Vector2, data: Dictionary) -> void:
 	var size = data.size * 1.4  # Make trees bigger
 	var gs = data.green_shift
 
-	# Shadow on ground
-	var shadow_points = PackedVector2Array([
-		center + Vector2(-12, 10) * size,
-		center + Vector2(12, 10) * size,
-		center + Vector2(8, 14) * size,
-		center + Vector2(-8, 14) * size
-	])
-	draw_colored_polygon(shadow_points, Color(0, 0, 0, 0.25))
+	# On web: skip shadow, reduce to 2 foliage layers (3 polygons instead of 6)
+	if not _is_web:
+		# Shadow on ground
+		var shadow_points = PackedVector2Array([
+			center + Vector2(-12, 10) * size,
+			center + Vector2(12, 10) * size,
+			center + Vector2(8, 14) * size,
+			center + Vector2(-8, 14) * size
+		])
+		draw_colored_polygon(shadow_points, Color(0, 0, 0, 0.25))
 
 	# Trunk
 	var trunk_color = Color(0.5, 0.35, 0.22)
@@ -101,14 +106,15 @@ func _draw_pine_tree(center: Vector2, data: Dictionary) -> void:
 	])
 	draw_colored_polygon(trunk_points, trunk_color)
 
-	# Three layers of foliage (bottom to top) - more vibrant colors
+	# Foliage layers
 	var foliage_colors = [
 		Color(0.15 + gs, 0.45 + gs, 0.18),
 		Color(0.18 + gs, 0.52 + gs, 0.22),
 		Color(0.22 + gs, 0.58 + gs, 0.26)
 	]
 
-	for i in range(3):
+	var layer_count = 2 if _is_web else 3
+	for i in range(layer_count):
 		var layer_y = -6 - i * 12
 		var layer_width = (22 - i * 5) * size
 		var layer_height = 14 * size
@@ -124,14 +130,15 @@ func _draw_oak_tree(center: Vector2, data: Dictionary) -> void:
 	var size = data.size * 1.4  # Make trees bigger
 	var gs = data.green_shift
 
-	# Shadow on ground
-	var shadow_points = PackedVector2Array([
-		center + Vector2(-14, 10) * size,
-		center + Vector2(14, 10) * size,
-		center + Vector2(10, 16) * size,
-		center + Vector2(-10, 16) * size
-	])
-	draw_colored_polygon(shadow_points, Color(0, 0, 0, 0.25))
+	# Shadow on ground (skip on web)
+	if not _is_web:
+		var shadow_points = PackedVector2Array([
+			center + Vector2(-14, 10) * size,
+			center + Vector2(14, 10) * size,
+			center + Vector2(10, 16) * size,
+			center + Vector2(-10, 16) * size
+		])
+		draw_colored_polygon(shadow_points, Color(0, 0, 0, 0.25))
 
 	# Trunk
 	var trunk_color = Color(0.45, 0.32, 0.2)
@@ -143,35 +150,36 @@ func _draw_oak_tree(center: Vector2, data: Dictionary) -> void:
 	])
 	draw_colored_polygon(trunk_points, trunk_color)
 
-	# Round, fluffy foliage - more vibrant colors
 	var dark_green = Color(0.18 + gs, 0.48 + gs, 0.2)
 	var mid_green = Color(0.25 + gs, 0.58 + gs, 0.28)
 	var light_green = Color(0.32 + gs, 0.65 + gs, 0.35)
 
-	# Shadow/back layer
-	_draw_foliage_blob(center + Vector2(0, -14) * size, 20 * size, dark_green)
-
-	# Main canopy
-	_draw_foliage_blob(center + Vector2(-8, -16) * size, 14 * size, mid_green)
-	_draw_foliage_blob(center + Vector2(8, -16) * size, 14 * size, mid_green)
-	_draw_foliage_blob(center + Vector2(0, -22) * size, 15 * size, mid_green)
-
-	# Highlights
-	_draw_foliage_blob(center + Vector2(-5, -20) * size, 10 * size, light_green)
-	_draw_foliage_blob(center + Vector2(5, -24) * size, 8 * size, light_green)
+	if _is_web:
+		# Web: 2 blobs instead of 6 (trunk + 2 foliage = 3 total polygons)
+		_draw_foliage_blob(center + Vector2(0, -14) * size, 20 * size, dark_green)
+		_draw_foliage_blob(center + Vector2(0, -20) * size, 15 * size, mid_green)
+	else:
+		# Desktop: Full detail
+		_draw_foliage_blob(center + Vector2(0, -14) * size, 20 * size, dark_green)
+		_draw_foliage_blob(center + Vector2(-8, -16) * size, 14 * size, mid_green)
+		_draw_foliage_blob(center + Vector2(8, -16) * size, 14 * size, mid_green)
+		_draw_foliage_blob(center + Vector2(0, -22) * size, 15 * size, mid_green)
+		_draw_foliage_blob(center + Vector2(-5, -20) * size, 10 * size, light_green)
+		_draw_foliage_blob(center + Vector2(5, -24) * size, 8 * size, light_green)
 
 func _draw_bushy_tree(center: Vector2, data: Dictionary) -> void:
 	var size = data.size * 1.4  # Make trees bigger
 	var gs = data.green_shift
 
-	# Shadow on ground
-	var shadow_points = PackedVector2Array([
-		center + Vector2(-16, 8) * size,
-		center + Vector2(16, 8) * size,
-		center + Vector2(12, 14) * size,
-		center + Vector2(-12, 14) * size
-	])
-	draw_colored_polygon(shadow_points, Color(0, 0, 0, 0.25))
+	# Shadow on ground (skip on web)
+	if not _is_web:
+		var shadow_points = PackedVector2Array([
+			center + Vector2(-16, 8) * size,
+			center + Vector2(16, 8) * size,
+			center + Vector2(12, 14) * size,
+			center + Vector2(-12, 14) * size
+		])
+		draw_colored_polygon(shadow_points, Color(0, 0, 0, 0.25))
 
 	# Short trunk
 	var trunk_color = Color(0.48, 0.35, 0.22)
@@ -183,18 +191,20 @@ func _draw_bushy_tree(center: Vector2, data: Dictionary) -> void:
 	])
 	draw_colored_polygon(trunk_points, trunk_color)
 
-	# Wide, bushy foliage - more vibrant
 	var dark_green = Color(0.2 + gs, 0.52 + gs, 0.25)
 	var light_green = Color(0.3 + gs, 0.62 + gs, 0.32)
 
-	# Base bush shape
-	_draw_foliage_blob(center + Vector2(0, -8) * size, 22 * size, dark_green)
-	_draw_foliage_blob(center + Vector2(-10, -6) * size, 16 * size, dark_green)
-	_draw_foliage_blob(center + Vector2(10, -6) * size, 16 * size, dark_green)
-
-	# Top highlights
-	_draw_foliage_blob(center + Vector2(0, -14) * size, 16 * size, light_green)
-	_draw_foliage_blob(center + Vector2(-6, -10) * size, 10 * size, light_green)
+	if _is_web:
+		# Web: 2 blobs instead of 5
+		_draw_foliage_blob(center + Vector2(0, -8) * size, 22 * size, dark_green)
+		_draw_foliage_blob(center + Vector2(0, -14) * size, 16 * size, light_green)
+	else:
+		# Desktop: Full detail
+		_draw_foliage_blob(center + Vector2(0, -8) * size, 22 * size, dark_green)
+		_draw_foliage_blob(center + Vector2(-10, -6) * size, 16 * size, dark_green)
+		_draw_foliage_blob(center + Vector2(10, -6) * size, 16 * size, dark_green)
+		_draw_foliage_blob(center + Vector2(0, -14) * size, 16 * size, light_green)
+		_draw_foliage_blob(center + Vector2(-6, -10) * size, 10 * size, light_green)
 
 func _draw_foliage_blob(center: Vector2, radius: float, color: Color) -> void:
 	# Draw an irregular blob shape for natural-looking foliage

@@ -15,9 +15,12 @@ const FLOWER_COLORS = [
 	Color(0.82, 0.58, 0.35),  # Muted orange
 ]
 
+var _is_web: bool = false
+
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 10  # Render well above terrain tiles
+	_is_web = OS.get_name() == "Web"
 	_scan_flower_tiles()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
@@ -47,7 +50,7 @@ func _generate_flowers_for_tile(pos: Vector2i) -> void:
 	rng.seed = pos.x * 31337 ^ pos.y * 65537
 
 	var flowers: Array = []
-	var flower_count = rng.randi_range(4, 7)
+	var flower_count = rng.randi_range(2, 3) if _is_web else rng.randi_range(4, 7)
 
 	# Pick 1-2 colors for this bed (restrained palette)
 	var bed_colors: Array = []
@@ -66,9 +69,9 @@ func _generate_flowers_for_tile(pos: Vector2i) -> void:
 		}
 		flowers.append(flower)
 
-	# Also add some green foliage patches
+	# Also add some green foliage patches (fewer on web)
 	var foliage: Array = []
-	var foliage_count = rng.randi_range(2, 3)
+	var foliage_count = 1 if _is_web else rng.randi_range(2, 3)
 	for i in range(foliage_count):
 		foliage.append({
 			"x": rng.randf_range(4, terrain_grid.tile_width - 4),
@@ -108,10 +111,14 @@ func _draw_foliage(tile_pos: Vector2, leaf: Dictionary) -> void:
 
 	# Small green leaf clusters
 	var leaf_color = Color(0.3, 0.55, 0.28)
-	for i in range(3):
-		var angle = i * TAU / 3
-		var leaf_center = center + Vector2(cos(angle), sin(angle)) * size * 0.5
-		draw_circle(leaf_center, size * 0.4, leaf_color)
+	if _is_web:
+		# Single circle on web instead of 3
+		draw_circle(center, size * 0.6, leaf_color)
+	else:
+		for i in range(3):
+			var angle = i * TAU / 3
+			var leaf_center = center + Vector2(cos(angle), sin(angle)) * size * 0.5
+			draw_circle(leaf_center, size * 0.4, leaf_color)
 
 func _draw_flower(tile_pos: Vector2, flower: Dictionary) -> void:
 	var center = tile_pos + Vector2(flower.x, flower.y)

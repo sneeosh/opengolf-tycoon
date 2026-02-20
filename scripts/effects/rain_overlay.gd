@@ -10,11 +10,17 @@ var _wind_direction: float = 0.0
 var _wind_speed: float = 0.0
 
 const MAX_DROPS: int = 500
+const MAX_DROPS_WEB: int = 150  # Reduced for web performance
 const DROP_SPEED: float = 900.0  # Pixels per second
 const DROP_LENGTH: float = 24.0
 
+var _is_web: bool = false
+var _web_redraw_timer: float = 0.0
+const WEB_REDRAW_INTERVAL: float = 0.05  # 20 FPS for rain on web (vs 60 on desktop)
+
 func _ready() -> void:
 	z_index = 100  # Render above everything
+	_is_web = OS.get_name() == "Web"
 	EventBus.weather_changed.connect(_on_weather_changed)
 	EventBus.wind_changed.connect(_on_wind_changed)
 	EventBus.game_mode_changed.connect(_on_game_mode_changed)
@@ -62,8 +68,9 @@ func _initialize_drops() -> void:
 	_rain_drops.clear()
 	var viewport_size = get_viewport_rect().size
 
-	# Number of drops based on intensity
-	var drop_count = int(MAX_DROPS * _weather_system.intensity)
+	# Number of drops based on intensity (fewer on web)
+	var max_drops = MAX_DROPS_WEB if _is_web else MAX_DROPS
+	var drop_count = int(max_drops * _weather_system.intensity)
 
 	for i in range(drop_count):
 		_rain_drops.append({
@@ -92,7 +99,14 @@ func _process(delta: float) -> void:
 			drop.y = -DROP_LENGTH
 			drop.x = randf() * viewport_size.x
 
-	queue_redraw()
+	# Throttle redraws on web to ~20 FPS
+	if _is_web:
+		_web_redraw_timer += delta
+		if _web_redraw_timer >= WEB_REDRAW_INTERVAL:
+			_web_redraw_timer = 0.0
+			queue_redraw()
+	else:
+		queue_redraw()
 
 func _draw() -> void:
 	if not _is_active or not _weather_system:
@@ -116,8 +130,8 @@ func _draw() -> void:
 
 		draw_line(start_pos, end_pos, drop_color, 2.0)
 
-	# Draw ground splash effects for heavy rain
-	if intensity > 0.5:
+	# Draw ground splash effects for heavy rain (skip on web to reduce draw calls)
+	if intensity > 0.5 and not _is_web:
 		_draw_splashes()
 
 func _draw_splashes() -> void:
