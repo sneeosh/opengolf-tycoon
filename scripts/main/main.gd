@@ -63,6 +63,7 @@ var milestones_panel: MilestonesPanel = null
 var seasonal_calendar_panel: SeasonalCalendarPanel = null
 var tutorial_system: TutorialSystem = null
 var course_rating_overlay: CourseRatingOverlay = null
+var shot_heatmap_tracker: ShotHeatmapTracker = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
@@ -181,6 +182,7 @@ func _ready() -> void:
 	_setup_course_rating_overlay()
 	_setup_floating_text()
 	_setup_shot_trails()
+	_setup_shot_heatmap()
 	_setup_audio_controls()
 	_initialize_game()
 	print("Main scene ready")
@@ -288,6 +290,13 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_V:
+				if event.shift_pressed:
+					if terrain_grid.is_shot_heatmap_enabled():
+						terrain_grid.cycle_shot_heatmap_mode()
+				else:
+					terrain_grid.toggle_shot_heatmap()
 				get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1197,6 +1206,10 @@ func _on_new_game_started() -> void:
 	# Regenerate tileset with the selected theme colors
 	if terrain_grid:
 		terrain_grid.regenerate_tileset()
+
+	# Clear shot heatmap data for new game
+	if shot_heatmap_tracker:
+		shot_heatmap_tracker.clear()
 
 	# Generate natural terrain features
 	NaturalTerrainGenerator.generate(terrain_grid, entity_layer)
@@ -2336,6 +2349,16 @@ func _show_game_over() -> void:
 		_on_quit_to_menu()
 	)
 	$UI/HUD.add_child(game_over)
+
+# --- Shot Heatmap ---
+
+func _setup_shot_heatmap() -> void:
+	shot_heatmap_tracker = ShotHeatmapTracker.new()
+	shot_heatmap_tracker.name = "ShotHeatmapTracker"
+	add_child(shot_heatmap_tracker)
+	shot_heatmap_tracker.initialize()
+	GameManager.shot_heatmap_tracker = shot_heatmap_tracker
+	terrain_grid.setup_shot_heatmap_overlay(shot_heatmap_tracker)
 
 # --- Shot Trails ---
 

@@ -82,6 +82,9 @@ var tournament_manager: TournamentManager = null
 # Reference to entity layer for building queries (set by main scene)
 var entity_layer = null
 
+# Shot heatmap tracker (set by main scene)
+var shot_heatmap_tracker: ShotHeatmapTracker = null
+
 # Economy system references (set by main scene)
 var land_manager: LandManager = null
 var staff_manager: StaffManager = null
@@ -406,6 +409,8 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 	yesterday_stats = null  # No yesterday on day 1
 	hole_statistics.clear()  # Clear per-hole stats for new game
 	reset_course_records()  # Clear records for new game
+	if shot_heatmap_tracker:
+		shot_heatmap_tracker.clear()
 	loan_balance = 0
 	daily_history.clear()
 

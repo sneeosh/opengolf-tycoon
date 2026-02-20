@@ -31,6 +31,7 @@ var _noise_overlay: TerrainNoiseOverlay = null
 var _land_boundary_overlay: LandBoundaryOverlay = null
 var _wind_flag_overlay: WindFlagOverlay = null
 var _elevation_shading_overlay: ElevationShadingOverlay = null
+var _shot_heatmap_overlay: ShotHeatmapOverlay = null
 
 func _ready() -> void:
 	_generate_tileset()
@@ -114,6 +115,8 @@ func _redraw_all_overlays() -> void:
 		_flower_overlay.queue_redraw()
 	if _path_overlay:
 		_path_overlay.queue_redraw()
+	if _shot_heatmap_overlay:
+		_shot_heatmap_overlay.queue_redraw()
 
 func _apply_variation_shader() -> void:
 	if not tile_map:
@@ -389,6 +392,27 @@ func _setup_elevation_shading_overlay() -> void:
 	_elevation_shading_overlay.name = "ElevationShadingOverlay"
 	add_child(_elevation_shading_overlay)
 	_elevation_shading_overlay.setup(self)
+
+## Set up shot heatmap overlay (called from main.gd after tracker is created)
+func setup_shot_heatmap_overlay(tracker: ShotHeatmapTracker) -> void:
+	_shot_heatmap_overlay = ShotHeatmapOverlay.new()
+	_shot_heatmap_overlay.name = "ShotHeatmapOverlay"
+	add_child(_shot_heatmap_overlay)
+	_shot_heatmap_overlay.initialize(self, tracker)
+
+## Toggle shot heatmap visibility
+func toggle_shot_heatmap() -> void:
+	if _shot_heatmap_overlay:
+		_shot_heatmap_overlay.toggle()
+
+## Cycle shot heatmap mode (density <-> trouble)
+func cycle_shot_heatmap_mode() -> void:
+	if _shot_heatmap_overlay:
+		_shot_heatmap_overlay.cycle_mode()
+
+## Check if shot heatmap is enabled
+func is_shot_heatmap_enabled() -> bool:
+	return _shot_heatmap_overlay and _shot_heatmap_overlay.is_enabled()
 
 ## Toggle debug overlay visibility
 func toggle_debug_overlay() -> void:

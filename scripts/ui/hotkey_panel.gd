@@ -82,6 +82,8 @@ func _build_ui() -> void:
 		["Scroll", "Zoom in/out"],
 		["Q", "Rotate camera"],
 		["Tab", "Toggle minimap"],
+		["V", "Shot heatmap"],
+		["Shift+V", "Cycle heatmap mode"],
 		["F3", "Debug overlay"],
 	])
 
