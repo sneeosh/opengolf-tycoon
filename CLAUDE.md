@@ -64,6 +64,14 @@ Main (Node2D) ← main.gd
     └── HUD (Control) → TopBar, HoleInfoPanel, ToolPanel, BottomBar
 ```
 
+## Algorithm Documentation
+
+Detailed algorithm docs live in **`docs/algorithms/`** — see [`docs/algorithms/README.md`](docs/algorithms/README.md) for the full index. Each doc has a plain-English explanation and the actual math/code, plus a tuning levers table.
+
+**When modifying any algorithm or adding a new one, update the corresponding doc in `docs/algorithms/`.** If adding a new system, create a new markdown file and add it to the README index.
+
+Key docs: [shot-accuracy](docs/algorithms/shot-accuracy.md) · [putting](docs/algorithms/putting-system.md) · [shot-ai](docs/algorithms/shot-ai-target-finding.md) · [ball-physics](docs/algorithms/ball-physics.md) · [wind](docs/algorithms/wind-system.md) · [weather](docs/algorithms/weather-system.md) · [course-rating](docs/algorithms/course-rating.md) · [difficulty](docs/algorithms/difficulty-calculator.md) · [economy](docs/algorithms/economy.md) · [reputation](docs/algorithms/reputation.md) · [golfer-spawning](docs/algorithms/golfer-spawning.md) · [satisfaction](docs/algorithms/satisfaction-feedback.md) · [tournaments](docs/algorithms/tournament-system.md) · [day-night](docs/algorithms/day-night-cycle.md)
+
 ## Core Systems
 
 ### Terrain
@@ -73,30 +81,32 @@ Main (Node2D) ← main.gd
 
 ### Golfer Simulation
 - **Golfer** (`scripts/entities/golfer.gd`, ~61KB — most complex file): Skills (driving/accuracy/putting/recovery 0.0-1.0), personality (aggression/patience), 5 clubs (DRIVER/FAIRWAY_WOOD/IRON/WEDGE/PUTTER) with range/accuracy data. Shot calculation, target evaluation, tree collision, hazard avoidance. Group play (1-4 per group, "away" rule, double-par pickup).
-- **GolferManager**: Spawns groups based on green fee, max 8 concurrent golfers, spawn rate modified by course rating and weather. 4 tiers: BEGINNER/CASUAL/SERIOUS/PRO.
-- **Ball**: Parabolic flight animation, terrain-based rolling distances, wind visual offset. Signals: `ball_landed`, `ball_state_changed`.
+- **ShotAI** (`scripts/systems/shot_ai.gd`): Structured decision pipeline for club selection and target finding. Multi-shot planning, wind compensation, recovery mode, Monte Carlo risk analysis. See [shot-ai docs](docs/algorithms/shot-ai-target-finding.md).
+- **GolferManager**: Spawns groups based on green fee, max 8 concurrent golfers, spawn rate modified by course rating and weather. 4 tiers: BEGINNER/CASUAL/SERIOUS/PRO. See [golfer-spawning docs](docs/algorithms/golfer-spawning.md).
+- **Ball**: Parabolic flight animation, terrain-based rolling distances, wind visual offset. Signals: `ball_landed`, `ball_state_changed`. See [ball-physics docs](docs/algorithms/ball-physics.md).
 
 #### Shot Accuracy — Angular Dispersion Model
-Shot error uses an **angular dispersion** model rather than absolute tile offsets. The shot direction is rotated by a miss angle sampled from a **gaussian (bell curve) distribution**, so most shots land near the target line with occasional big hooks/slices in the tails. Key properties:
+Shot error uses an **angular dispersion** model rather than absolute tile offsets. The shot direction is rotated by a miss angle sampled from a **gaussian (bell curve) distribution**, so most shots land near the target line with occasional big hooks/slices in the tails. Full details: [shot-accuracy docs](docs/algorithms/shot-accuracy.md). Key properties:
 
 - **`miss_tendency`** (per-golfer, -1.0 to +1.0): Persistent hook/slice bias. Negative = hook, positive = slice. Amplitude set by tier (beginners: 0.4–0.8, pros: 0.0–0.15). Generated in `GolferTier.generate_skills()`.
 - **Angular spread**: `max_spread_deg = (1.0 - total_accuracy) * 12.0`, with `spread_std_dev = max_spread / 2.5`. ~95% of shots land within `max_spread_deg` of target line.
 - **Tendency bias**: `miss_tendency * (1.0 - total_accuracy) * 6.0` degrees added to every shot — lower-skill golfers can't compensate for their natural shot shape.
-- **Shanks**: Rare catastrophic miss (35–55° off-line, 30–60% distance). Probability: `(1.0 - total_accuracy) * 6%`. Only on full swings (not putts/wedges). Direction follows `miss_tendency` sign.
+- **Shanks**: Rare catastrophic miss (35–55° off-line, 30–60% distance). Probability: `(1.0 - total_accuracy) * 4%`. Only on full swings (not putts/wedges). Direction follows `miss_tendency` sign.
 - **Distance loss**: Topped/fat shots use gaussian distribution: `abs(gaussian) * (1.0 - accuracy) * 12%` max distance loss. Most shots near full distance.
 - **Gaussian helper** (`_gaussian_random()`): Central Limit Theorem approximation using sum of 4 `randf()` calls. Mean ~0, std dev ~1, range ~±3.5.
 - **Accuracy factors**: `total_accuracy = club_accuracy_modifier * skill_accuracy * lie_modifier`, with floors for wedges (0.80–0.96) and putts (skill-scaled). Club modifiers: Driver 0.70, FW 0.78, Iron 0.85, Wedge 0.95, Putter 0.98.
 
 ### Economy
-- Green fee configurable $10-$200. Bankruptcy threshold at -$1000.
+- Green fee configurable $10-$200. Bankruptcy threshold at -$1000. See [economy docs](docs/algorithms/economy.md).
 - Buildings: 8 types (Clubhouse, Pro Shop, Restaurant, Snack Bar, Driving Range, Cart Shed, Restroom, Bench). Proximity-based revenue. Clubhouse has 3 upgrade tiers.
-- CourseRatingSystem: 4-star rating from Condition (30%), Design (20%), Value (30%), Pace (20%).
+- CourseRatingSystem: 4-star rating from Condition (30%), Design (20%), Value (30%), Pace (20%). See [course-rating docs](docs/algorithms/course-rating.md).
+- Reputation: 0-100, daily decay by star level, per-golfer mood-based gains. See [reputation docs](docs/algorithms/reputation.md).
 
 ### Weather & Time
-- **WindSystem**: Per-day random direction/speed (0-30 mph), hourly drift. Club-specific sensitivity (Driver 1.0x, Putter 0.0x). Crosswind displacement and distance modifiers.
-- **WeatherSystem**: 6 types (SUNNY → HEAVY_RAIN). Affects spawn rate (100% → 30%), accuracy (95-100%), sky tint.
-- **DayNightSystem**: 6 AM - 8 PM course hours. Visual dimming. 1 real minute = 1 game hour at normal speed.
-- **TournamentSystem**: 4 tiers (Local/Regional/National/Championship) with escalating hole/rating/difficulty requirements and prize pools.
+- **WindSystem**: Per-day random direction/speed (0-30 mph), hourly drift. Club-specific sensitivity (Driver 1.0x, Putter 0.0x). See [wind docs](docs/algorithms/wind-system.md).
+- **WeatherSystem**: 6 types (SUNNY → HEAVY_RAIN). State machine transitions. See [weather docs](docs/algorithms/weather-system.md).
+- **DayNightSystem**: 6 AM - 8 PM course hours. Visual tinting with sunrise/sunset. See [day-night docs](docs/algorithms/day-night-cycle.md).
+- **TournamentSystem**: 4 tiers (Local/Regional/National/Championship) with escalating requirements. See [tournament docs](docs/algorithms/tournament-system.md).
 
 ### Course Themes
 - **CourseTheme** (`scripts/systems/course_theme.gd`): Static class with 6 theme types (PARKLAND, DESERT, LINKS, MOUNTAIN, CITY, RESORT). Each theme provides:
