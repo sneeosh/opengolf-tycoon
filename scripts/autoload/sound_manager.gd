@@ -12,7 +12,7 @@ const IMPACT_COOLDOWN := 0.2  # Seconds between impact sounds
 var master_volume: float = 0.8
 var sfx_volume: float = 1.0
 var ambient_volume: float = 0.6
-var is_muted: bool = false
+var is_muted: bool = true
 
 # ─── Internal state ───────────────────────────────────────────────
 var _sfx_pool: Array[AudioStreamPlayer] = []
