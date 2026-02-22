@@ -2,6 +2,17 @@ extends Node2D
 class_name ShotHeatmapOverlay
 ## ShotHeatmapOverlay - Renders shot landing heatmap over terrain tiles
 
+const TerrainTypes = preload("res://scripts/terrain/terrain_types.gd")
+
+const ARC_POINTS: int = 12
+const ARC_WIDTH: float = 1.5
+const ARC_ALPHA: float = 0.45
+
+const ARC_COLOR_PUTT := Color(1.0, 1.0, 1.0, ARC_ALPHA)
+const ARC_COLOR_GOOD := Color(0.3, 0.9, 0.3, ARC_ALPHA)
+const ARC_COLOR_OK := Color(0.9, 0.9, 0.3, ARC_ALPHA)
+const ARC_COLOR_TROUBLE := Color(0.9, 0.3, 0.3, ARC_ALPHA)
+
 enum HeatmapMode { DENSITY, TROUBLE }
 
 var terrain_grid: TerrainGrid = null
@@ -47,6 +58,8 @@ func _draw() -> void:
 		_draw_density(tw, th)
 	else:
 		_draw_trouble(tw, th)
+
+	_draw_shot_arcs()
 
 func _draw_density(tw: int, th: int) -> void:
 	var max_count: int = tracker.get_max_landing_count()
@@ -100,3 +113,56 @@ func _trouble_color(score: float) -> Color:
 	else:
 		var t: float = clamped / 3.0
 		return Color(0.4 + t * 0.6, 0.0, 0.0, alpha)
+
+## --- Shot Arc Rendering ---
+
+func _draw_shot_arcs() -> void:
+	for arc in tracker.shot_arcs:
+		var points: PackedVector2Array = _build_arc_points(arc)
+		if points.size() < 2:
+			continue
+		var color: Color = _arc_color(arc["is_putt"], arc["landing_terrain"])
+		# Convert to local coordinates
+		var local_points: PackedVector2Array = PackedVector2Array()
+		for pt in points:
+			local_points.append(to_local(pt))
+		draw_polyline(local_points, color, ARC_WIDTH, true)
+
+func _build_arc_points(arc: Dictionary) -> PackedVector2Array:
+	var from_pos: Vector2 = arc["from"]
+	var carry_pos: Vector2 = arc["carry"]
+	var to_pos: Vector2 = arc["to"]
+	var is_putt: bool = arc["is_putt"]
+
+	var points: PackedVector2Array = PackedVector2Array()
+	if is_putt:
+		points.append(from_pos)
+		points.append(to_pos)
+		return points
+
+	# Parabolic arc from launch to carry point
+	var arc_height: float = minf(from_pos.distance_to(carry_pos) * 0.3, 150.0)
+	for i in range(ARC_POINTS + 1):
+		var t: float = float(i) / ARC_POINTS
+		var pos: Vector2 = from_pos.lerp(carry_pos, t)
+		pos.y -= arc_height * 4.0 * t * (1.0 - t)
+		points.append(pos)
+
+	# Straight rollout from carry to final position
+	if carry_pos.distance_to(to_pos) > 2.0:
+		points.append(to_pos)
+
+	return points
+
+func _arc_color(is_putt: bool, landing_terrain: int) -> Color:
+	if is_putt:
+		return ARC_COLOR_PUTT
+	match landing_terrain:
+		TerrainTypes.Type.GREEN, TerrainTypes.Type.FAIRWAY:
+			return ARC_COLOR_GOOD
+		TerrainTypes.Type.ROUGH, TerrainTypes.Type.HEAVY_ROUGH, TerrainTypes.Type.BUNKER:
+			return ARC_COLOR_OK
+		TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS:
+			return ARC_COLOR_TROUBLE
+		_:
+			return ARC_COLOR_GOOD
