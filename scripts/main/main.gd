@@ -1298,6 +1298,7 @@ func _place_building(grid_pos: Vector2i, cost: int) -> void:
 	if building:
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Building: %s" % building_name, -cost)
+		EventBus.building_placed.emit(building_type, grid_pos)
 		undo_manager.record_entity_placement("building", grid_pos, building_type, cost)
 		print("Placed %s at %s" % [building_type, grid_pos])
 		# Placement feedback
