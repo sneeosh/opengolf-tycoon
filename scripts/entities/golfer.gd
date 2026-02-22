@@ -2308,6 +2308,12 @@ func _check_building_proximity() -> void:
 		if distance <= effect_radius:
 			_visited_buildings[building_id] = true
 
+			# Check if golfer decides to stop at this building
+			# Lower needs = higher chance of interacting; prevents revenue spam
+			var interact_chance = needs.get_interaction_chance(building.building_type)
+			if randf() > interact_chance:
+				continue  # Golfer walks past without stopping
+
 			# Apply effect based on type
 			# Use building methods to get upgrade-aware values
 			if effect_type == "revenue":
