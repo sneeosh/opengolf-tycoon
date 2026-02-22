@@ -44,6 +44,9 @@ static func build(terrain_grid: TerrainGrid, entity_layer: EntityLayer, hole_too
 		if not bench_data.is_empty():
 			entity_layer.place_building("bench", bench_pos, {"bench": bench_data})
 
+	# Remove trees and rocks that ended up on fairways, greens, tee boxes, or bunkers
+	_clear_entities_on_course(terrain_grid, entity_layer)
+
 	EventBus.notify("Quick Start course created! Press Start Day to play.", "success")
 
 
@@ -118,6 +121,35 @@ static func _create_hole(terrain_grid: TerrainGrid, hole_tool: HoleCreationTool,
 	GameManager.current_course.add_hole(hole)
 	EventBus.hole_created.emit(hole.hole_number, hole.par, hole.distance_yards)
 	hole_tool.current_hole_number += 1
+
+
+## Remove trees and rocks that sit on course surfaces (fairway, green, tee box, bunker)
+static func _clear_entities_on_course(terrain_grid: TerrainGrid, entity_layer: EntityLayer) -> void:
+	if not entity_layer:
+		return
+
+	var course_terrain := [
+		TerrainTypes.Type.FAIRWAY,
+		TerrainTypes.Type.GREEN,
+		TerrainTypes.Type.TEE_BOX,
+		TerrainTypes.Type.BUNKER,
+	]
+
+	# Remove trees on course surfaces
+	var tree_positions_to_remove: Array[Vector2i] = []
+	for pos in entity_layer.trees.keys():
+		if terrain_grid.get_tile(pos) in course_terrain:
+			tree_positions_to_remove.append(pos)
+	for pos in tree_positions_to_remove:
+		entity_layer.remove_tree(pos)
+
+	# Remove rocks on course surfaces
+	var rock_positions_to_remove: Array[Vector2i] = []
+	for pos in entity_layer.rocks.keys():
+		if terrain_grid.get_tile(pos) in course_terrain:
+			rock_positions_to_remove.append(pos)
+	for pos in rock_positions_to_remove:
+		entity_layer.remove_rock(pos)
 
 
 ## Load a single building definition from buildings.json
