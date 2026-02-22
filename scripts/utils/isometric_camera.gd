@@ -45,6 +45,11 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
+		# Skip camera input when mouse is over a UI control.
+		# On web exports, wheel events may not be consumed by the GUI system
+		# even when hovering over panels/menus, causing unwanted zoom.
+		if get_viewport().gui_get_hovered_control() != null:
+			return
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_zoom_camera_smooth(-zoom_speed)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
