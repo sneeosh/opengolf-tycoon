@@ -67,7 +67,23 @@ on_waiting(wait_seconds):
 
 Pace is checked in 5-second chunks during the golfer's `_process()` loop to avoid per-frame overhead.
 
-### 3. Building Need Restoration
+### 3. Building Interaction Chance
+
+When a golfer walks within a building's `effect_radius`, they don't automatically stop — they roll against an **interaction chance** based on how much they need that building. This prevents revenue spam from placing many buildings and makes need levels matter for building placement strategy.
+
+```
+relevant_need = need mapped to building type (bench→energy, restroom→comfort, etc.)
+
+if relevant_need < 0.30:  interaction_chance = 1.00   # Desperate — always stop
+elif relevant_need < 0.70: interaction_chance = 0.50   # Could use it — coin flip
+else:                      interaction_chance = 0.20   # Doing fine — usually walk past
+
+# Buildings with no need mapping (pro_shop): flat 0.30 base chance
+```
+
+Golfers do NOT pathfind to buildings — they only interact when they happen to walk within proximity range. The interaction check is one-time-per-round per building (tracked via `_visited_buildings`).
+
+### 4. Building Need Restoration
 
 | Building | Need | Restore Amount | Mood Boost |
 | --- | --- | --- | --- |
@@ -77,7 +93,7 @@ Pace is checked in 5-second chunks during the golfer's `_process()` loop to avoi
 | Restaurant | Hunger | +0.50 | +0.05 |
 | Clubhouse | All | +0.15 each | +0.03 |
 
-Buildings are one-time-per-round (tracked via `_visited_buildings` dict).
+Restoration only happens when the golfer decides to interact (passes the chance roll above). Clubhouse interaction happens at end of round and is always guaranteed.
 
 ### 4. Feedback Triggers
 
@@ -115,7 +131,7 @@ overall = energy * 0.30 + comfort * 0.20 + hunger * 0.20 + pace * 0.30
 ```
 1. Golfer plays hole → needs.on_hole_completed() → decay energy/comfort/hunger
 2. Golfer waits (IDLE) → needs.on_waiting() → decay pace
-3. Golfer walks near building → needs.apply_building_effect() → restore need + mood boost
+3. Golfer walks near building → needs.get_interaction_chance() → random roll → apply_building_effect() if passed
 4. Need drops below 0.30 → needs.check_need_triggers() → show_thought() → EventBus.golfer_thought
 5. Need drops below 0.15 → needs.get_mood_penalty() → _adjust_mood() → EventBus.golfer_mood_changed
 6. FeedbackManager receives golfer_thought → tracks needs_complaints for daily summary
@@ -136,5 +152,9 @@ overall = energy * 0.30 + comfort * 0.20 + hunger * 0.20 + pace * 0.30
 | SNACK_BAR_HUNGER_RESTORE | `golfer_needs.gd:44` | 0.30 | Higher = snack bars more effective |
 | RESTAURANT_HUNGER_RESTORE | `golfer_needs.gd:45` | 0.50 | Higher = restaurants more effective |
 | CLUBHOUSE_ALL_RESTORE | `golfer_needs.gd:46` | 0.15 | Higher = clubhouse more effective |
+| INTERACT_CHANCE_HIGH_NEED | `golfer_needs.gd` | 0.20 | Chance of stopping when need > 0.7. Lower = buildings less useful when golfer is satisfied |
+| INTERACT_CHANCE_MID_NEED | `golfer_needs.gd` | 0.50 | Chance of stopping when need is 0.3–0.7 |
+| INTERACT_CHANCE_LOW_NEED | `golfer_needs.gd` | 1.00 | Chance of stopping when need < 0.3 (guaranteed) |
+| INTERACT_CHANCE_BASE | `golfer_needs.gd` | 0.30 | Fallback chance for buildings with no need mapping (pro_shop) |
 | Tier decay modifiers | `golfer_needs.gd:_get_tier_decay_modifier()` | 0.8–1.3 | Higher = tier is more demanding |
 | Overall satisfaction weights | `golfer_needs.gd:get_overall_satisfaction()` | E:0.30 C:0.20 H:0.20 P:0.30 | Adjust relative importance of each need |

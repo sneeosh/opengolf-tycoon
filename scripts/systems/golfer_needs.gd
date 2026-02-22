@@ -37,6 +37,13 @@ const HUNGER_DECAY_PER_HOLE: float = 0.05    # ~20 holes before hunger is low
 ## Decay rate for pace (per second of waiting)
 const PACE_DECAY_PER_WAIT_SECOND: float = 0.02
 
+## Interaction chance thresholds — determines if golfer stops at a building
+## Need > HIGH: low chance (they're fine). Need < LOW: guaranteed (they seek it out).
+const INTERACT_CHANCE_HIGH_NEED: float = 0.20   # 20% chance when need is above 0.7
+const INTERACT_CHANCE_MID_NEED: float = 0.50    # 50% chance when need is 0.3–0.7
+const INTERACT_CHANCE_LOW_NEED: float = 1.0     # 100% when need is below 0.3
+const INTERACT_CHANCE_BASE: float = 0.30        # Fallback for buildings with no need mapping
+
 ## Satisfaction amounts from buildings
 const BENCH_ENERGY_RESTORE: float = 0.20
 const RESTROOM_COMFORT_RESTORE: float = 0.35
@@ -71,6 +78,33 @@ func on_waiting(wait_seconds: float) -> void:
 	var patience_modifier = 1.0 + (1.0 - patience) * 1.5  # Range: 1.0 (patient) to 2.5 (impatient)
 	var decay = wait_seconds * PACE_DECAY_PER_WAIT_SECOND * patience_modifier
 	pace = maxf(pace - decay, 0.0)
+
+## Get the chance (0.0–1.0) that a golfer interacts with a nearby building.
+## Lower need = higher chance. Golfers don't seek buildings out (no pathfinding),
+## but when they happen to walk within range, needier golfers are more likely to stop.
+func get_interaction_chance(building_type: String) -> float:
+	var relevant_need: float = -1.0
+
+	match building_type:
+		"bench":
+			relevant_need = energy
+		"restroom":
+			relevant_need = comfort
+		"snack_bar":
+			relevant_need = hunger
+		"restaurant":
+			relevant_need = hunger
+		_:
+			# Buildings with no need mapping (pro_shop, etc.) use a flat base chance
+			return INTERACT_CHANCE_BASE
+
+	# Map need level to interaction probability
+	if relevant_need < LOW_NEED_THRESHOLD:
+		return INTERACT_CHANCE_LOW_NEED      # Desperate — always stop
+	elif relevant_need < 0.7:
+		return INTERACT_CHANCE_MID_NEED      # Could use it — coin flip
+	else:
+		return INTERACT_CHANCE_HIGH_NEED     # Doing fine — usually walk past
 
 ## Apply building effect to needs based on building type
 ## Returns the mood boost amount (0.0 if no mood change)
