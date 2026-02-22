@@ -13,6 +13,14 @@ var daily_counts: Dictionary = {
 ## Track specific trigger counts for detailed feedback
 var trigger_counts: Dictionary = {}
 
+## Track needs-related complaints separately for actionable insights
+var needs_complaints: Dictionary = {
+	"tired": 0,
+	"hungry": 0,
+	"restroom": 0,
+	"slow_pace": 0,
+}
+
 func _ready() -> void:
 	EventBus.golfer_thought.connect(_on_golfer_thought)
 	EventBus.day_changed.connect(_on_day_changed)
@@ -28,6 +36,17 @@ func _on_golfer_thought(_golfer_id: int, trigger_type: int, sentiment: String) -
 		trigger_counts[trigger_type] = 0
 	trigger_counts[trigger_type] += 1
 
+	# Track needs-related complaints for actionable feedback
+	match trigger_type:
+		FeedbackTriggers.TriggerType.TIRED:
+			needs_complaints["tired"] += 1
+		FeedbackTriggers.TriggerType.HUNGRY:
+			needs_complaints["hungry"] += 1
+		FeedbackTriggers.TriggerType.NEEDS_RESTROOM:
+			needs_complaints["restroom"] += 1
+		FeedbackTriggers.TriggerType.SLOW_PACE:
+			needs_complaints["slow_pace"] += 1
+
 func _on_day_changed(_new_day: int) -> void:
 	reset_daily_stats()
 
@@ -39,6 +58,12 @@ func reset_daily_stats() -> void:
 		"neutral": 0,
 	}
 	trigger_counts.clear()
+	needs_complaints = {
+		"tired": 0,
+		"hungry": 0,
+		"restroom": 0,
+		"slow_pace": 0,
+	}
 
 ## Get overall satisfaction rating (0.0 to 1.0)
 ## Returns 0.5 if no feedback recorded
@@ -96,7 +121,19 @@ func get_daily_summary() -> Dictionary:
 		"total_count": get_total_count(),
 		"top_complaint": get_top_complaint(),
 		"top_compliment": get_top_compliment(),
+		"needs_complaints": needs_complaints.duplicate(),
 	}
+
+## Get the top unmet need (most complained about)
+## Returns empty string if no needs complaints
+func get_top_unmet_need() -> String:
+	var worst_need: String = ""
+	var worst_count: int = 0
+	for need_name in needs_complaints:
+		if needs_complaints[need_name] > worst_count:
+			worst_count = needs_complaints[need_name]
+			worst_need = need_name
+	return worst_need
 
 func _exit_tree() -> void:
 	# Disconnect signals to prevent memory leaks on reload
