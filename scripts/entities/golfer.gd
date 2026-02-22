@@ -84,7 +84,12 @@ var miss_tendency: float = 0.0
 ## Current state
 var current_state: State = State.IDLE
 var current_mood: float = 0.5  # 0.0 = angry, 1.0 = happy
-var fatigue: float = 0.0       # 0.0 = fresh, 1.0 = exhausted
+
+## Needs system — tracks energy, comfort, hunger, pace satisfaction
+var needs: GolferNeeds = GolferNeeds.new()
+
+## Waiting time accumulator (seconds spent in IDLE waiting for turn)
+var _wait_time_accumulated: float = 0.0
 
 ## Course progress
 var current_hole: int = 0
@@ -399,6 +404,9 @@ func initialize_from_tier(tier: int) -> void:
 	aggression = personality.aggression
 	patience = personality.patience
 
+	# Initialize needs system with tier and patience
+	needs.setup(tier, patience)
+
 	# Apply tier-based visual differentiation
 	_apply_tier_visuals(tier)
 
@@ -487,6 +495,16 @@ func _apply_tier_name_color() -> void:
 
 func _process(delta: float) -> void:
 	_update_highlight_ring()
+
+	# Track waiting time for pace satisfaction decay
+	if current_state == State.IDLE and current_hole > 0:
+		_wait_time_accumulated += delta
+		# Apply waiting decay in 5-second chunks to avoid per-frame overhead
+		if _wait_time_accumulated >= 5.0:
+			needs.on_waiting(_wait_time_accumulated)
+			_wait_time_accumulated = 0.0
+			_check_need_triggers()
+
 	match current_state:
 		State.WALKING:
 			_process_walking(delta)
@@ -694,9 +712,10 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	current_strokes = 0
 	ball_position = tee_position
 	ball_position_precise = Vector2(tee_position)
-	# Clear visited buildings at start of round
+	# Clear visited buildings and reset wait timer at start of round
 	if hole_number == 0:
 		_visited_buildings.clear()
+		_wait_time_accumulated = 0.0
 
 	var screen_pos = GameManager.terrain_grid.grid_to_screen_center(tee_position) if GameManager.terrain_grid else Vector2.ZERO
 	global_position = screen_pos
@@ -923,6 +942,17 @@ func finish_hole(par: int) -> void:
 	else:                         # Much worse than expected
 		_adjust_mood(-0.2)
 
+	# Decay needs after completing a hole
+	needs.on_hole_completed()
+	# Apply mood penalty from critically low needs
+	var need_penalty = needs.get_mood_penalty()
+	if need_penalty < 0.0:
+		_adjust_mood(need_penalty)
+	# Check for needs-based feedback triggers
+	_check_need_triggers()
+	# Reset wait timer (golfer is actively playing)
+	_wait_time_accumulated = 0.0
+
 	# Show thought bubble for notable scores
 	var score_trigger = FeedbackTriggers.get_score_trigger(current_strokes, par, avg_skill)
 	if score_trigger != -1:
@@ -1003,12 +1033,14 @@ func finish_round() -> void:
 		else: _triples_plus += 1
 	var _vs_par = total_strokes - total_par
 	var _vs_par_str = "E" if _vs_par == 0 else ("%+d" % _vs_par)
-	print("[ROUND] %s (%s): %s (%d/%d) | %d holes | %dE %dB %dP %dBo %dDB %d+3 | Skills: D%.2f A%.2f P%.2f R%.2f | Tendency: %.2f" % [
+	var _needs = needs.to_dict()
+	print("[ROUND] %s (%s): %s (%d/%d) | %d holes | %dE %dB %dP %dBo %dDB %d+3 | Skills: D%.2f A%.2f P%.2f R%.2f | Tendency: %.2f | Needs: E%.2f C%.2f H%.2f P%.2f" % [
 		golfer_name, GolferTier.get_tier_name(golfer_tier),
 		_vs_par_str, total_strokes, total_par,
 		hole_scores.size(),
 		_eagles, _birdies, _pars, _bogeys, _doubles, _triples_plus,
-		driving_skill, accuracy_skill, putting_skill, recovery_skill, miss_tendency
+		driving_skill, accuracy_skill, putting_skill, recovery_skill, miss_tendency,
+		_needs.energy, _needs.comfort, _needs.hunger, _needs.pace,
 	])
 
 	EventBus.golfer_finished_round.emit(golfer_id, total_strokes)
@@ -2096,6 +2128,12 @@ func _adjust_mood(amount: float) -> void:
 	if abs(old_mood - current_mood) > 0.05:
 		EventBus.golfer_mood_changed.emit(golfer_id, current_mood)
 
+## Check needs and show thought bubbles for unmet needs
+func _check_need_triggers() -> void:
+	var triggers = needs.check_need_triggers()
+	for trigger in triggers:
+		show_thought(trigger)
+
 ## Create highlight ring node for active golfer indication
 func _create_highlight_ring() -> void:
 	_highlight_ring = Polygon2D.new()
@@ -2280,11 +2318,10 @@ func _check_building_proximity() -> void:
 					EventBus.log_transaction("%s at %s" % [golfer_name, building.building_type], income)
 					_show_building_revenue_notification(income, building.building_type)
 
-			elif effect_type == "satisfaction":
-				var bonus = building.get_satisfaction_bonus()
-				if bonus > 0:
-					# Boost mood slightly when passing amenities
-					current_mood = clampf(current_mood + bonus, 0.0, 1.0)
+			# Apply needs-based satisfaction from buildings
+			var mood_boost = needs.apply_building_effect(building.building_type)
+			if mood_boost > 0.0:
+				_adjust_mood(mood_boost)
 
 ## Show floating notification for building revenue
 func _show_building_revenue_notification(amount: int, _building_type: String) -> void:
@@ -2332,10 +2369,14 @@ func _apply_clubhouse_effects() -> void:
 			EventBus.log_transaction("%s at Clubhouse" % golfer_name, income)
 			_show_building_revenue_notification(income, "clubhouse")
 
-		# Apply satisfaction from upgraded clubhouse
-		var bonus = building.get_satisfaction_bonus()
-		if bonus > 0:
-			current_mood = clampf(current_mood + bonus, 0.0, 1.0)
+		# Apply needs-based satisfaction from clubhouse visit
+		var mood_boost = needs.apply_building_effect("clubhouse")
+		# Also apply upgrade-specific satisfaction bonus on top
+		var upgrade_bonus = building.get_satisfaction_bonus()
+		if upgrade_bonus > 0:
+			_adjust_mood(upgrade_bonus)
+		if mood_boost > 0.0:
+			_adjust_mood(mood_boost)
 
 		break  # Only one clubhouse
 

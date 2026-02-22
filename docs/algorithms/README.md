@@ -26,6 +26,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Reputation System](reputation.md) — Daily decay, per-golfer mood-based gains, tournament bonuses, prestige multiplier
 - [Golfer Spawning & Tier System](golfer-spawning.md) — Spawn rates, tier selection weights, group sizes, landing zone safety
 - [Satisfaction & Feedback](satisfaction-feedback.md) — Thought bubble triggers, price sensitivity, daily satisfaction metric
+- [Golfer Needs](golfer-needs.md) — Energy, comfort, hunger, pace needs that decay over time and are satisfied by buildings
 
 ### Events & Time
 - [Tournament System](tournament-system.md) — 4 tiers, qualification, scheduling, live scoring, revenue/reputation rewards
@@ -51,7 +52,9 @@ Golfer Spawning ← Course Rating + Reputation + Weather + Season
      ↓
 Golfer Play ← Shot AI → Shot Accuracy → Ball Physics → Rollout
      ↓
-Satisfaction ← Feedback Triggers ← Scoring + Pricing + Pace
+Golfer Needs ← Holes Played + Wait Time + Buildings (energy/comfort/hunger/pace)
+     ↓
+Satisfaction ← Feedback Triggers ← Scoring + Pricing + Needs
      ↓
 Reputation ← Satisfaction + Tier + Prestige Multiplier
      ↓
