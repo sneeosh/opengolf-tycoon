@@ -812,12 +812,14 @@ func _paint_at_mouse() -> void:
 			var tile_total = cost + tile_removal_cost
 			if tile_total > 0 and not GameManager.can_afford(total_cost + obstacle_removal_cost + tile_total):
 				continue
-			# Perform removals
+			# Perform removals (suppress tile undo since the paint will set the final tile)
 			if tile_removal_cost > 0:
+				_suppress_tile_undo = true
 				if entity_layer.get_tree_at(tile_pos):
 					entity_layer.remove_tree(tile_pos)
 				if entity_layer.get_rock_at(tile_pos):
 					entity_layer.remove_rock(tile_pos)
+				_suppress_tile_undo = false
 				obstacle_removal_cost += tile_removal_cost
 			terrain_grid.set_tile(tile_pos, current_tool)
 			total_cost += cost
@@ -1271,7 +1273,9 @@ func _handle_placement_click(grid_pos: Vector2i) -> void:
 
 func _place_tree(grid_pos: Vector2i, cost: int) -> void:
 	"""Place a tree at the grid position"""
+	_suppress_tile_undo = true
 	var tree = entity_layer.place_tree(grid_pos, selected_tree_type)
+	_suppress_tile_undo = false
 	if tree:
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Tree: %s" % selected_tree_type.capitalize(), -cost)
@@ -1310,7 +1314,9 @@ func _place_building(grid_pos: Vector2i, cost: int) -> void:
 
 func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 	"""Place a rock at the grid position"""
+	_suppress_tile_undo = true
 	var rock = entity_layer.place_rock(grid_pos, selected_rock_size)
+	_suppress_tile_undo = false
 	if rock:
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Rock: %s" % selected_rock_size.capitalize(), -cost)
@@ -1407,7 +1413,9 @@ func _handle_bulldozer_click(grid_pos: Vector2i, mouse_world: Vector2 = Vector2.
 			return
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Remove tree", -cost)
+		_suppress_tile_undo = true
 		entity_layer.remove_tree(hit_tree_pos)
+		_suppress_tile_undo = false
 		_bulldoze_drag_count += 1
 		_bulldoze_drag_cost += cost
 		if not dragging:
@@ -1426,7 +1434,9 @@ func _handle_bulldozer_click(grid_pos: Vector2i, mouse_world: Vector2 = Vector2.
 			return
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Remove rock", -cost)
+		_suppress_tile_undo = true
 		entity_layer.remove_rock(hit_rock_pos)
+		_suppress_tile_undo = false
 		_bulldoze_drag_count += 1
 		_bulldoze_drag_cost += cost
 		if not dragging:
@@ -1591,10 +1601,10 @@ func _on_load_completed(_success: bool) -> void:
 # --- Undo/Redo System ---
 
 var _is_undoing: bool = false  # Prevent re-recording changes triggered by undo/redo
+var _suppress_tile_undo: bool = false  # Suppress tile change recording during entity placement/removal
 
 func _on_terrain_tile_changed_for_undo(position: Vector2i, old_type: int, new_type: int) -> void:
-	if _is_undoing:
-		# Tile change during undo/redo, don't re-record
+	if _is_undoing or _suppress_tile_undo:
 		return
 	undo_manager.record_tile_change(position, old_type, new_type)
 
