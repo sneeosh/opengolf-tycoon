@@ -38,6 +38,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Decorations System](decorations-system.md) — 16 decorative items across 5 categories with satisfaction radius bonuses
 - [Loyalty System](loyalty-system.md) — Golfer loyalty tracking, word-of-mouth, and membership tiers
 - [Dynamic Pricing](dynamic-pricing.md) — Demand-based green fee suggestions with auto-pricing
+- [Scenario System](scenario-system.md) — 10 hand-crafted challenges with objectives, star ratings, and unlock chains
 
 ## How to Use for Tuning
 

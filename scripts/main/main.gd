@@ -61,6 +61,9 @@ var loyalty_system: LoyaltySystem = null
 var loyalty_panel: LoyaltyPanel = null
 var dynamic_pricing_system: DynamicPricingSystem = null
 var pricing_panel: PricingPanel = null
+var scenario_system: ScenarioSystem = null
+var scenario_panel: ScenarioPanel = null
+var scenario_objectives_hud: ScenarioObjectivesHUD = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
 var season_debug_panel: SeasonDebugPanel = null
@@ -199,6 +202,10 @@ func _ready() -> void:
 	add_child(dynamic_pricing_system)
 	GameManager.dynamic_pricing_system = dynamic_pricing_system
 
+	# Set up scenario system
+	scenario_system = ScenarioSystem.new()
+	GameManager.scenario_system = scenario_system
+
 	# Set up save manager references
 	SaveManager.set_references(terrain_grid, entity_layer, golfer_manager, ball_manager)
 
@@ -236,6 +243,8 @@ func _ready() -> void:
 	_setup_shot_trails()
 	_setup_shot_heatmap()
 	_setup_audio_controls()
+	_setup_scenario_panel()
+	_setup_scenario_objectives_hud()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -450,6 +459,7 @@ func _show_main_menu() -> void:
 	main_menu.load_game_requested.connect(_on_main_menu_load)
 	main_menu.settings_requested.connect(_on_main_menu_settings)
 	main_menu.credits_requested.connect(_on_main_menu_credits)
+	main_menu.scenarios_requested.connect(_on_main_menu_scenarios)
 	$UI/HUD.add_child(main_menu)
 	# Hide gameplay UI while in menu
 	_set_gameplay_ui_visible(false)
@@ -536,6 +546,11 @@ func _on_main_menu_credits() -> void:
 	credits.name = "CreditsScreen"
 	credits.close_requested.connect(func(): pass)
 	$UI/HUD.add_child(credits)
+
+func _on_main_menu_scenarios() -> void:
+	"""Show scenario selection panel from main menu."""
+	if scenario_panel:
+		scenario_panel.show_centered()
 
 func _on_main_menu_load_panel_closed() -> void:
 	"""Save/load panel closed without loading — return to main menu."""
@@ -1827,6 +1842,10 @@ func _on_end_of_day(day_number: int) -> void:
 	# Update course rating before showing summary
 	GameManager.update_course_rating()
 
+	# Check scenario progress
+	if scenario_system and scenario_system.is_scenario_active:
+		scenario_system.check_progress()
+
 	# Prevent duplicate panels
 	var hud = $UI/HUD
 	var existing = hud.get_node_or_null("EndOfDaySummary")
@@ -1915,6 +1934,9 @@ func _on_load_completed(_success: bool) -> void:
 		var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
 		var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
 		camera.focus_on(Vector2(center_x, center_y), true)
+		# Show scenario objectives HUD if a scenario is active
+		if scenario_system and scenario_system.is_scenario_active and scenario_objectives_hud:
+			scenario_objectives_hud.show_objectives()
 
 # --- Undo/Redo System ---
 
@@ -2565,6 +2587,69 @@ func _setup_pricing_panel() -> void:
 func _toggle_pricing_panel() -> void:
 	if pricing_panel:
 		_toggle_panel(pricing_panel)
+
+# --- Scenario System ---
+
+func _setup_scenario_panel() -> void:
+	scenario_panel = ScenarioPanel.new()
+	scenario_panel.name = "ScenarioPanel"
+	scenario_panel.setup(scenario_system)
+	scenario_panel.scenario_selected.connect(_on_scenario_selected)
+	$UI/HUD.add_child(scenario_panel)
+	scenario_panel.hide()
+
+func _setup_scenario_objectives_hud() -> void:
+	scenario_objectives_hud = ScenarioObjectivesHUD.new()
+	scenario_objectives_hud.name = "ScenarioObjectivesHUD"
+	scenario_objectives_hud.setup(scenario_system)
+	# Position in top-right corner
+	scenario_objectives_hud.anchor_left = 1.0
+	scenario_objectives_hud.anchor_right = 1.0
+	scenario_objectives_hud.anchor_top = 0.0
+	scenario_objectives_hud.anchor_bottom = 0.0
+	scenario_objectives_hud.offset_left = -240
+	scenario_objectives_hud.offset_right = -10
+	scenario_objectives_hud.offset_top = 50
+	$UI/HUD.add_child(scenario_objectives_hud)
+
+func _on_scenario_selected(scenario_id: String, theme_type: int) -> void:
+	"""Start a scenario — similar to new game but with scenario constraints."""
+	var scenario = scenario_system.get_scenario(scenario_id)
+	if scenario.is_empty():
+		return
+
+	# Determine theme — use scenario's theme or default to parkland
+	var actual_theme = theme_type if theme_type >= 0 else CourseTheme.Type.PARKLAND
+	var difficulty = scenario.get("difficulty", -1)
+	var actual_difficulty = difficulty if difficulty >= 0 else DifficultyPresets.Preset.NORMAL
+
+	# Start new game with scenario settings
+	if main_menu and is_instance_valid(main_menu):
+		main_menu.queue_free()
+		main_menu = null
+	_set_gameplay_ui_visible(true)
+
+	GameManager.new_game(scenario.get("name", "Scenario"), actual_theme, actual_difficulty)
+
+	# Apply scenario-specific settings (starting money override)
+	scenario_system.apply_scenario_settings(scenario)
+	scenario_system.start_scenario(scenario_id)
+
+	# Regenerate tileset after theme change
+	if terrain_grid:
+		terrain_grid.regenerate_tileset()
+
+	# Center camera
+	var center = terrain_grid.grid_to_screen_center(Vector2i(terrain_grid.grid_width / 2, terrain_grid.grid_height / 2))
+	camera.focus_on(center, false)
+
+	# Show objectives HUD
+	if scenario_objectives_hud:
+		scenario_objectives_hud.show_objectives()
+
+func _toggle_scenario_panel() -> void:
+	if scenario_panel:
+		_toggle_panel(scenario_panel)
 
 # --- Course Rating Overlay ---
 
