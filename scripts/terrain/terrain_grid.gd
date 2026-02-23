@@ -267,13 +267,13 @@ func paint_tiles(positions: Array, terrain_type: int) -> void:
 		if pos is Vector2i:
 			set_tile(pos, terrain_type)
 
-func get_brush_tiles(center: Vector2i, radius: int) -> Array:
+func get_brush_tiles(center: Vector2i, brush_size: int) -> Array:
 	var tiles: Array = []
-	for x in range(-radius, radius + 1):
-		for y in range(-radius, radius + 1):
-			var offset = Vector2i(x, y)
-			var pos = center + offset
-			if Vector2(offset).length() <= radius and is_valid_position(pos):
+	var half = (brush_size - 1) / 2
+	for x in range(-half, half + 1):
+		for y in range(-half, half + 1):
+			var pos = center + Vector2i(x, y)
+			if is_valid_position(pos):
 				tiles.append(pos)
 	return tiles
 

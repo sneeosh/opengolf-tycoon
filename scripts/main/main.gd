@@ -891,11 +891,14 @@ func _on_tool_selected(tool_type: int) -> void:
 	# Update placement preview for terrain painting
 	if placement_preview:
 		placement_preview.set_terrain_tool(tool_type)
+		placement_preview.set_brush_size(brush_size)
 		placement_preview.set_terrain_painting_enabled(true)
 	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
 
 func _on_brush_size_changed(new_size: int) -> void:
 	brush_size = new_size
+	if placement_preview:
+		placement_preview.set_brush_size(new_size)
 
 func _on_create_hole_pressed() -> void:
 	# Cancel any building/tree placement, elevation, bulldozer, or terrain painting
