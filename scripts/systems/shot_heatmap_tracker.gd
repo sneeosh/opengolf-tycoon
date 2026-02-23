@@ -2,6 +2,8 @@ extends Node
 class_name ShotHeatmapTracker
 ## ShotHeatmapTracker - Collects shot landing data for heatmap visualization
 
+const MAX_SHOT_ARCS: int = 50
+
 # Shot landing density: grid_pos (Vector2i) -> count (int)
 var landing_counts: Dictionary = {}
 
@@ -10,6 +12,10 @@ var trouble_data: Dictionary = {}
 
 # Buffer: golfer_id -> Array[Vector2i] of shot landing positions during current hole
 var _active_hole_shots: Dictionary = {}
+
+# Recent shot arcs for heatmap overlay rendering (ring buffer, newest last)
+# Each entry: { "from": Vector2, "to": Vector2, "carry": Vector2, "is_putt": bool, "landing_terrain": int }
+var shot_arcs: Array = []
 
 func initialize() -> void:
 	EventBus.golfer_started_hole.connect(_on_golfer_started_hole)
@@ -41,13 +47,30 @@ func _record_landing(golfer_id: int, to_screen: Vector2) -> void:
 func _on_golfer_started_hole(golfer_id: int, _hole_number: int) -> void:
 	_active_hole_shots[golfer_id] = []
 
-func _on_shot_landed(golfer_id: int, _from_screen: Vector2, to_screen: Vector2,
-		_distance_yards: int, _carry_screen: Vector2) -> void:
+func _on_shot_landed(golfer_id: int, from_screen: Vector2, to_screen: Vector2,
+		_distance_yards: int, carry_screen: Vector2) -> void:
 	_record_landing(golfer_id, to_screen)
+	var landing_terrain: int = -1
+	if GameManager.terrain_grid:
+		landing_terrain = GameManager.terrain_grid.get_tile(GameManager.terrain_grid.screen_to_grid(to_screen))
+	_record_arc(from_screen, to_screen, carry_screen, false, landing_terrain)
 
-func _on_putt_landed(golfer_id: int, _from_screen: Vector2, to_screen: Vector2,
+func _on_putt_landed(golfer_id: int, from_screen: Vector2, to_screen: Vector2,
 		_distance_yards: int) -> void:
 	_record_landing(golfer_id, to_screen)
+	_record_arc(from_screen, to_screen, to_screen, true, -1)
+
+func _record_arc(from_screen: Vector2, to_screen: Vector2, carry_screen: Vector2,
+		is_putt: bool, landing_terrain: int) -> void:
+	shot_arcs.append({
+		"from": from_screen,
+		"to": to_screen,
+		"carry": carry_screen,
+		"is_putt": is_putt,
+		"landing_terrain": landing_terrain,
+	})
+	if shot_arcs.size() > MAX_SHOT_ARCS:
+		shot_arcs.pop_front()
 
 func _on_golfer_finished_hole(_golfer_id: int, _hole_number: int, strokes: int, par: int) -> void:
 	var score_diff: int = strokes - par
@@ -66,6 +89,7 @@ func clear() -> void:
 	landing_counts.clear()
 	trouble_data.clear()
 	_active_hole_shots.clear()
+	shot_arcs.clear()
 
 ## Returns the maximum landing count across all tiles
 func get_max_landing_count() -> int:
@@ -93,7 +117,17 @@ func serialize() -> Dictionary:
 	for pos in trouble_data:
 		trouble["%d,%d" % [pos.x, pos.y]] = trouble_data[pos]
 
-	return { "landing_counts": landings, "trouble_data": trouble }
+	var arcs: Array = []
+	for arc in shot_arcs:
+		arcs.append({
+			"from_x": arc["from"].x, "from_y": arc["from"].y,
+			"to_x": arc["to"].x, "to_y": arc["to"].y,
+			"carry_x": arc["carry"].x, "carry_y": arc["carry"].y,
+			"is_putt": arc["is_putt"],
+			"landing_terrain": arc["landing_terrain"],
+		})
+
+	return { "landing_counts": landings, "trouble_data": trouble, "shot_arcs": arcs }
 
 ## Deserialize from save
 func deserialize(data: Dictionary) -> void:
@@ -110,3 +144,12 @@ func deserialize(data: Dictionary) -> void:
 			if parts.size() == 2:
 				var pos = Vector2i(int(parts[0]), int(parts[1]))
 				trouble_data[pos] = data["trouble_data"][key]
+	if data.has("shot_arcs"):
+		for arc_data in data["shot_arcs"]:
+			shot_arcs.append({
+				"from": Vector2(arc_data["from_x"], arc_data["from_y"]),
+				"to": Vector2(arc_data["to_x"], arc_data["to_y"]),
+				"carry": Vector2(arc_data["carry_x"], arc_data["carry_y"]),
+				"is_putt": arc_data["is_putt"],
+				"landing_terrain": int(arc_data["landing_terrain"]),
+			})
