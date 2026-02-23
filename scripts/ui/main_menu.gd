@@ -30,7 +30,7 @@ func _ready() -> void:
 
 	var main_vbox = VBoxContainer.new()
 	main_vbox.add_theme_constant_override("separation", 16)
-	main_vbox.custom_minimum_size = Vector2(900, 650)
+	main_vbox.custom_minimum_size = Vector2(900, 720)
 	center.add_child(main_vbox)
 
 	# Title
@@ -99,12 +99,18 @@ func _ready() -> void:
 	theme_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_vbox.add_child(theme_label)
 
-	# Theme cards grid (3x2)
+	# Theme cards grid — scrollable to accommodate all themes
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(900, 300)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	main_vbox.add_child(scroll)
+
 	var grid = GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 12)
-	main_vbox.add_child(grid)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(grid)
 
 	for theme_type in CourseTheme.get_all_types():
 		var card = _create_theme_card(theme_type)
@@ -201,7 +207,7 @@ func _ready() -> void:
 
 func _create_theme_card(theme_type: int) -> PanelContainer:
 	var card = PanelContainer.new()
-	card.custom_minimum_size = Vector2(280, 100)
+	card.custom_minimum_size = Vector2(280, 82)
 	card.set_meta("theme_type", theme_type)
 
 	# Make clickable
