@@ -81,6 +81,9 @@ signal tournament_completed(tier: int, results: Dictionary)
 signal random_event_started(event_id: String, title: String, category: int)
 signal random_event_ended(event_id: String, title: String)
 
+# Prestige Signals
+signal prestige_changed(old_tier: int, new_tier: int)
+
 # Save/Load Signals
 signal save_requested()
 signal save_completed(success: bool)

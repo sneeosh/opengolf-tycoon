@@ -100,6 +100,9 @@ var advisor_system: AdvisorSystem = null
 # Awards system (set by main scene)
 var awards_system: AwardsSystem = null
 
+# Prestige system (set by main scene)
+var prestige_system: PrestigeSystem = null
+
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
 var yesterday_stats: DailyStatistics = null  # Previous day's stats for comparison
@@ -322,13 +325,17 @@ func get_open_hole_count() -> int:
 	return current_course.get_open_holes().size()
 
 func get_effective_max_green_fee() -> int:
-	"""Get the maximum green fee allowed based on hole count.
-	More holes = higher max fee. Prevents 1-hole courses charging $200."""
+	"""Get the maximum green fee allowed based on hole count and prestige.
+	More holes = higher max fee. Prestige tiers raise the cap further."""
 	var holes = get_open_hole_count()
 	if holes <= 0:
 		return MIN_GREEN_FEE
 	# $15 per hole, minimum $10
-	return max(MIN_GREEN_FEE, min(holes * 15, MAX_GREEN_FEE))
+	var base_max = max(MIN_GREEN_FEE, min(holes * 15, MAX_GREEN_FEE))
+	# Prestige bonus raises the cap
+	if prestige_system:
+		base_max += prestige_system.get_green_fee_bonus()
+	return min(base_max, MAX_GREEN_FEE)
 
 func clamp_green_fee_to_max() -> void:
 	"""Re-clamp green fee after hole count changes."""
@@ -490,6 +497,9 @@ func advance_to_next_day() -> void:
 			decay = 0.1
 		var diff_mods := DifficultyPresets.get_modifiers(current_difficulty)
 		decay *= diff_mods.get("reputation_decay_multiplier", 1.0)
+		# Prestige reduces reputation decay
+		if prestige_system:
+			decay *= (1.0 - prestige_system.get_reputation_decay_reduction())
 		modify_reputation(-decay)
 
 	# Loan interest compounds every 7 days
@@ -558,6 +568,9 @@ func get_maintenance_multiplier() -> float:
 	var base = theme_mods.get("maintenance_cost_multiplier", 1.0) * diff_mods.get("maintenance_multiplier", 1.0)
 	if random_event_system:
 		base *= random_event_system.get_maintenance_multiplier()
+	# Prestige tier discount
+	if prestige_system:
+		base *= (1.0 - prestige_system.get_maintenance_discount())
 	return base
 
 func get_spawn_rate_multiplier() -> float:

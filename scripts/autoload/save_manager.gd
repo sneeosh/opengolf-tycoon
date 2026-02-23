@@ -223,6 +223,10 @@ func _build_save_data() -> Dictionary:
 	if GameManager.awards_system:
 		data["awards"] = GameManager.awards_system.serialize()
 
+	# Prestige
+	if GameManager.prestige_system:
+		data["prestige"] = GameManager.prestige_system.serialize()
+
 	return data
 
 ## Serialize hole data to plain dictionaries
@@ -345,6 +349,10 @@ func _apply_save_data(data: Dictionary) -> void:
 	# Awards
 	if GameManager.awards_system and data.has("awards"):
 		GameManager.awards_system.deserialize(data["awards"])
+
+	# Prestige
+	if GameManager.prestige_system and data.has("prestige"):
+		GameManager.prestige_system.deserialize(data["prestige"])
 
 	# Golfers: Always clear on load - they will respawn naturally when the user
 	# switches to simulation mode. This avoids complex mid-action state restoration.

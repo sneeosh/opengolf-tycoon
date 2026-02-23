@@ -81,6 +81,10 @@ func get_spawn_rate_modifier() -> float:
 	if GameManager.random_event_system:
 		base_modifier *= GameManager.random_event_system.get_spawn_rate_modifier()
 
+	# Apply prestige tier bonus (higher prestige = more golfer interest)
+	if GameManager.prestige_system:
+		base_modifier *= (1.0 + GameManager.prestige_system.get_spawn_rate_bonus())
+
 	return base_modifier
 
 func get_effective_spawn_cooldown() -> float:

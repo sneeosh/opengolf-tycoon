@@ -33,6 +33,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Random Events](random-events.md) — Weather disasters, VIP visits, equipment breakdowns, economic shifts, sponsorships
 - [Advisor System](advisor-system.md) — Context-sensitive tips for pricing, design, amenities, staffing, finances, progression
 - [Awards System](awards-system.md) — End-of-year ceremony with Bronze/Silver/Gold awards and Hall of Fame
+- [Prestige System](prestige-system.md) — Course prestige tiers (Unranked to Platinum) with progressive unlocks
 
 ## How to Use for Tuning
 
