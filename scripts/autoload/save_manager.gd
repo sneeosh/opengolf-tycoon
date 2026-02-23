@@ -211,6 +211,10 @@ func _build_save_data() -> Dictionary:
 	if GameManager.shot_heatmap_tracker:
 		data["shot_heatmap"] = GameManager.shot_heatmap_tracker.serialize()
 
+	# Random events
+	if GameManager.random_event_system:
+		data["random_events"] = GameManager.random_event_system.serialize()
+
 	return data
 
 ## Serialize hole data to plain dictionaries
@@ -321,6 +325,10 @@ func _apply_save_data(data: Dictionary) -> void:
 	# Shot heatmap
 	if GameManager.shot_heatmap_tracker and data.has("shot_heatmap"):
 		GameManager.shot_heatmap_tracker.deserialize(data["shot_heatmap"])
+
+	# Random events
+	if GameManager.random_event_system and data.has("random_events"):
+		GameManager.random_event_system.deserialize(data["random_events"])
 
 	# Golfers: Always clear on load - they will respawn naturally when the user
 	# switches to simulation mode. This avoids complex mid-action state restoration.

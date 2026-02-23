@@ -91,6 +91,9 @@ var land_manager: LandManager = null
 var staff_manager: StaffManager = null
 var marketing_manager: MarketingManager = null
 
+# Random events (set by main scene)
+var random_event_system: RandomEventSystem = null
+
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
 var yesterday_stats: DailyStatistics = null  # Previous day's stats for comparison
@@ -543,10 +546,13 @@ func stop_simulation() -> void:
 	EventBus.notify("Returned to building mode", "info")
 
 func get_maintenance_multiplier() -> float:
-	"""Get the combined maintenance cost multiplier from theme and difficulty."""
+	"""Get the combined maintenance cost multiplier from theme, difficulty, and events."""
 	var theme_mods := CourseTheme.get_gameplay_modifiers(current_theme)
 	var diff_mods := DifficultyPresets.get_modifiers(current_difficulty)
-	return theme_mods.get("maintenance_cost_multiplier", 1.0) * diff_mods.get("maintenance_multiplier", 1.0)
+	var base = theme_mods.get("maintenance_cost_multiplier", 1.0) * diff_mods.get("maintenance_multiplier", 1.0)
+	if random_event_system:
+		base *= random_event_system.get_maintenance_multiplier()
+	return base
 
 func get_spawn_rate_multiplier() -> float:
 	"""Get the difficulty-adjusted golfer spawn rate multiplier."""

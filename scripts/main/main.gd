@@ -50,6 +50,7 @@ var tournament_manager: TournamentManager = null
 var tournament_panel: TournamentPanel = null
 var land_panel: LandPanel = null
 var marketing_panel: MarketingPanel = null
+var random_event_system: RandomEventSystem = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
 var season_debug_panel: SeasonDebugPanel = null
@@ -151,6 +152,12 @@ func _ready() -> void:
 	marketing_mgr.name = "MarketingManager"
 	add_child(marketing_mgr)
 	GameManager.marketing_manager = marketing_mgr
+
+	# Set up random event system
+	random_event_system = RandomEventSystem.new()
+	random_event_system.name = "RandomEventSystem"
+	add_child(random_event_system)
+	GameManager.random_event_system = random_event_system
 
 	# Set up save manager references
 	SaveManager.set_references(terrain_grid, entity_layer, golfer_manager, ball_manager)

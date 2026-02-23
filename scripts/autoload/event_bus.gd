@@ -77,6 +77,10 @@ signal tournament_scheduled(tier: int, start_day: int)
 signal tournament_started(tier: int)
 signal tournament_completed(tier: int, results: Dictionary)
 
+# Random Event Signals
+signal random_event_started(event_id: String, title: String, category: int)
+signal random_event_ended(event_id: String, title: String)
+
 # Save/Load Signals
 signal save_requested()
 signal save_completed(success: bool)

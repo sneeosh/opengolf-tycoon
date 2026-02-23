@@ -183,6 +183,13 @@ static func _calculate_condition_rating(terrain_grid, course_data) -> float:
 	if GameManager.staff_manager:
 		var course_condition = GameManager.staff_manager.course_condition
 		condition_mod = 0.5 + (course_condition * 0.5)  # Range: 0.5 to 1.0
+
+	# Apply random event condition penalties (flooding, drought, wildlife damage)
+	var event_penalty = 0.0
+	if GameManager.random_event_system:
+		event_penalty = GameManager.random_event_system.get_condition_penalty()
+	condition_mod *= (1.0 - event_penalty)
+
 	return clampf(base_rating * condition_mod, 1.0, 5.0)
 
 ## Design rating: variety of hole pars

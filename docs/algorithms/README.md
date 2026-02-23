@@ -30,6 +30,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 ### Events & Time
 - [Tournament System](tournament-system.md) — 4 tiers, qualification, scheduling, live scoring, revenue/reputation rewards
 - [Day/Night Cycle](day-night-cycle.md) — Time progression, sunrise/sunset tinting, weather tint blending, course hours
+- [Random Events](random-events.md) — Weather disasters, VIP visits, equipment breakdowns, economic shifts, sponsorships
 
 ## How to Use for Tuning
 

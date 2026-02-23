@@ -77,6 +77,10 @@ func get_spawn_rate_modifier() -> float:
 	if active_event:
 		base_modifier *= active_event.spawn_modifier
 
+	# Apply random event modifier (VIP visits, economic events, etc.)
+	if GameManager.random_event_system:
+		base_modifier *= GameManager.random_event_system.get_spawn_rate_modifier()
+
 	return base_modifier
 
 func get_effective_spawn_cooldown() -> float:
