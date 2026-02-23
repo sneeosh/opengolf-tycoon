@@ -109,7 +109,7 @@ Shot error uses an **angular dispersion** model rather than absolute tile offset
 - **TournamentSystem**: 4 tiers (Local/Regional/National/Championship) with escalating requirements. See [tournament docs](docs/algorithms/tournament-system.md).
 
 ### Course Themes
-- **CourseTheme** (`scripts/systems/course_theme.gd`): Static class with 6 theme types (PARKLAND, DESERT, LINKS, MOUNTAIN, CITY, RESORT). Each theme provides:
+- **CourseTheme** (`scripts/systems/course_theme.gd`): Static class with 10 theme types (PARKLAND, DESERT, LINKS, MOUNTAIN, CITY, RESORT, HEATHLAND, WOODLAND, TROPICAL, MARSHLAND). Each theme provides:
   - `get_terrain_colors()` → per-theme color palette for all terrain types
   - `get_gameplay_modifiers()` → wind_base_strength, distance_modifier, maintenance_cost_multiplier, green_fee_baseline
   - `get_accent_color()`, `get_description()` → UI display helpers

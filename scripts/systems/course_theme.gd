@@ -8,7 +8,11 @@ enum Type {
 	LINKS,      # Coastal Scottish-style, fescue rough, pot bunkers, strong wind
 	MOUNTAIN,   # Dramatic elevation, pine forests, thinner air (+distance)
 	CITY,       # Flat, urban, chain-link OB, cheaper maintenance
-	RESORT      # Tropical lush, palms, vibrant flowers, premium pricing
+	RESORT,     # Tropical lush, palms, vibrant flowers, premium pricing
+	HEATHLAND,  # Inland sandy soil, heather/gorse rough, scattered pines, pot bunkers
+	WOODLAND,   # Dense forest corridors, tight fairways, tree-lined, accuracy-focused
+	TROPICAL,   # Volcanic island, ocean carries, jungle rough, trade winds
+	MARSHLAND   # Coastal wetlands, marsh grass, omnipresent water, tidal lowcountry
 }
 
 ## Theme display information
@@ -20,6 +24,10 @@ static func get_theme_name(theme_type: int) -> String:
 		Type.MOUNTAIN: return "Mountain"
 		Type.CITY: return "City/Municipal"
 		Type.RESORT: return "Resort"
+		Type.HEATHLAND: return "Heathland"
+		Type.WOODLAND: return "Woodland"
+		Type.TROPICAL: return "Tropical"
+		Type.MARSHLAND: return "Marshland"
 	return "Unknown"
 
 static func get_description(theme_type: int) -> String:
@@ -36,6 +44,14 @@ static func get_description(theme_type: int) -> String:
 			return "Urban municipal course. Flat and affordable with lower maintenance costs, but a lower satisfaction ceiling."
 		Type.RESORT:
 			return "Tropical resort course with palm trees, vibrant flowers, and lagoon-style water. Premium atmosphere commands higher fees."
+		Type.HEATHLAND:
+			return "Inland course on sandy soil with penal heather and gorse rough. Scattered pines and deep pot bunkers demand accuracy over power."
+		Type.WOODLAND:
+			return "Dense forest course with tight, tree-lined fairways. Trees are the primary hazard — shot shaping and club selection are paramount."
+		Type.TROPICAL:
+			return "Volcanic island course with ocean carries, jungle rough, and trade winds. Dramatic forced carries over lava rock and sea."
+		Type.MARSHLAND:
+			return "Coastal lowcountry course woven through marshes and tidal creeks. Water is everywhere — strategic routing is essential."
 	return ""
 
 ## Gameplay modifiers per theme
@@ -93,6 +109,44 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"maintenance_cost_multiplier": 1.4,  # Tropical gardens cost more
 				"green_fee_baseline": 50,  # Premium pricing
 				"land_cost_multiplier": 1.3,
+				"satisfaction_ceiling": 1.0,
+			}
+		Type.HEATHLAND:
+			return {
+				"wind_base_strength": 1.2,   # Moderate — open inland terrain
+				"distance_modifier": 1.01,   # Firm turf gives extra roll
+				"maintenance_cost_multiplier": 0.75,  # Heathland is low-maintenance
+				"green_fee_baseline": 35,
+				"land_cost_multiplier": 1.1,  # Desirable heathland is limited
+				"satisfaction_ceiling": 1.0,
+				"rough_penalty_multiplier": 1.4,  # Heather/gorse is brutally penal
+			}
+		Type.WOODLAND:
+			return {
+				"wind_base_strength": 0.6,   # Dense canopy blocks wind heavily
+				"distance_modifier": 0.98,   # Trees limit club choices
+				"maintenance_cost_multiplier": 0.9,  # Natural forest, less landscaping
+				"green_fee_baseline": 35,
+				"land_cost_multiplier": 0.7,  # Forested land is affordable
+				"satisfaction_ceiling": 1.0,
+				"tree_collision_multiplier": 1.5,  # Dense trees punish errant shots
+			}
+		Type.TROPICAL:
+			return {
+				"wind_base_strength": 1.4,   # Persistent trade winds
+				"distance_modifier": 1.02,   # Warm sea-level air
+				"maintenance_cost_multiplier": 1.2,  # Tropical growth requires management
+				"green_fee_baseline": 45,    # Destination premium
+				"land_cost_multiplier": 1.4,  # Island real estate
+				"satisfaction_ceiling": 1.0,
+			}
+		Type.MARSHLAND:
+			return {
+				"wind_base_strength": 1.3,   # Coastal, open terrain
+				"distance_modifier": 1.0,
+				"maintenance_cost_multiplier": 1.1,  # Drainage and environmental mgmt
+				"green_fee_baseline": 40,
+				"land_cost_multiplier": 0.5,  # Swampland is cheap
 				"satisfaction_ceiling": 1.0,
 			}
 	return {}
@@ -226,6 +280,90 @@ static func get_terrain_colors(theme_type: int) -> Dictionary:
 				"flower_bed": Color(0.55, 0.30, 0.35),   # Hibiscus red
 				"rocks": Color(0.55, 0.52, 0.45),        # Coral stone
 			}
+		Type.HEATHLAND:
+			return {
+				"grass": Color(0.50, 0.52, 0.35),        # Sandy golden-brown base
+				"fairway_light": Color(0.45, 0.68, 0.38),# Muted green on sandy soil
+				"fairway_dark": Color(0.40, 0.62, 0.34),
+				"green_light": Color(0.40, 0.80, 0.44),
+				"green_dark": Color(0.36, 0.74, 0.40),
+				"fringe": Color(0.42, 0.72, 0.40),
+				"rough": Color(0.48, 0.38, 0.42),        # Purple-brown heather
+				"heavy_rough": Color(0.42, 0.30, 0.38),  # Dense heather/gorse
+				"bunker": Color(0.88, 0.82, 0.58),       # Deep pot bunker sand
+				"water": Color(0.28, 0.52, 0.72),        # Inland pond blue
+				"empty": Color(0.52, 0.48, 0.36),        # Sandy heath ground
+				"tee_box_light": Color(0.48, 0.70, 0.42),
+				"tee_box_dark": Color(0.42, 0.64, 0.38),
+				"path": Color(0.65, 0.60, 0.48),         # Sandy path
+				"oob": Color(0.45, 0.38, 0.32),          # Scrubby edge
+				"trees": Color(0.22, 0.38, 0.22),        # Scattered pine/birch
+				"flower_bed": Color(0.55, 0.35, 0.48),   # Heather purple accent
+				"rocks": Color(0.52, 0.50, 0.45),        # Sandy stone
+			}
+		Type.WOODLAND:
+			return {
+				"grass": Color(0.28, 0.42, 0.25),        # Dark forest floor
+				"fairway_light": Color(0.35, 0.65, 0.35),# Emerald green corridor
+				"fairway_dark": Color(0.30, 0.58, 0.30),
+				"green_light": Color(0.34, 0.80, 0.42),
+				"green_dark": Color(0.30, 0.74, 0.38),
+				"fringe": Color(0.32, 0.72, 0.38),
+				"rough": Color(0.32, 0.40, 0.25),        # Undergrowth
+				"heavy_rough": Color(0.26, 0.32, 0.20),  # Dense bracken/fern
+				"bunker": Color(0.82, 0.76, 0.55),       # Pine needle-tinted sand
+				"water": Color(0.22, 0.45, 0.62),        # Shaded forest pond
+				"empty": Color(0.30, 0.28, 0.22),        # Pine needle ground
+				"tee_box_light": Color(0.38, 0.68, 0.38),
+				"tee_box_dark": Color(0.32, 0.62, 0.32),
+				"path": Color(0.55, 0.48, 0.35),         # Bark/mulch path
+				"oob": Color(0.22, 0.24, 0.18),          # Deep forest
+				"trees": Color(0.12, 0.30, 0.14),        # Dense pine canopy
+				"flower_bed": Color(0.38, 0.28, 0.18),   # Fern brown-green
+				"rocks": Color(0.42, 0.40, 0.38),        # Mossy stone
+			}
+		Type.TROPICAL:
+			return {
+				"grass": Color(0.35, 0.58, 0.32),        # Lush tropical green
+				"fairway_light": Color(0.38, 0.78, 0.42),# Vivid fairway
+				"fairway_dark": Color(0.33, 0.72, 0.38),
+				"green_light": Color(0.36, 0.88, 0.48),
+				"green_dark": Color(0.32, 0.82, 0.44),
+				"fringe": Color(0.36, 0.80, 0.44),
+				"rough": Color(0.28, 0.48, 0.28),        # Jungle undergrowth
+				"heavy_rough": Color(0.22, 0.40, 0.22),  # Dense jungle
+				"bunker": Color(0.92, 0.88, 0.80),       # Coral-white sand
+				"water": Color(0.15, 0.58, 0.82),        # Vivid turquoise ocean
+				"empty": Color(0.25, 0.22, 0.20),        # Black volcanic rock
+				"tee_box_light": Color(0.42, 0.76, 0.45),
+				"tee_box_dark": Color(0.36, 0.70, 0.40),
+				"path": Color(0.72, 0.68, 0.58),         # Crushed coral path
+				"oob": Color(0.20, 0.18, 0.16),          # Dark lava rock
+				"trees": Color(0.15, 0.42, 0.20),        # Dense tropical canopy
+				"flower_bed": Color(0.65, 0.32, 0.28),   # Plumeria/orchid red
+				"rocks": Color(0.30, 0.28, 0.26),        # Volcanic basalt
+			}
+		Type.MARSHLAND:
+			return {
+				"grass": Color(0.45, 0.52, 0.35),        # Sage-green marsh grass
+				"fairway_light": Color(0.42, 0.72, 0.40),# Green fairway amid marsh
+				"fairway_dark": Color(0.38, 0.66, 0.36),
+				"green_light": Color(0.40, 0.82, 0.45),
+				"green_dark": Color(0.36, 0.76, 0.42),
+				"fringe": Color(0.40, 0.74, 0.42),
+				"rough": Color(0.42, 0.48, 0.32),        # Marsh grass rough
+				"heavy_rough": Color(0.38, 0.42, 0.28),  # Dense reeds/cattails
+				"bunker": Color(0.82, 0.78, 0.62),       # Muddy sand
+				"water": Color(0.32, 0.45, 0.48),        # Murky tidal brown-grey
+				"empty": Color(0.38, 0.36, 0.30),        # Muddy ground
+				"tee_box_light": Color(0.45, 0.72, 0.42),
+				"tee_box_dark": Color(0.40, 0.66, 0.38),
+				"path": Color(0.62, 0.58, 0.48),         # Oyster shell path
+				"oob": Color(0.35, 0.32, 0.28),          # Tidal mud flat
+				"trees": Color(0.28, 0.40, 0.25),        # Live oak with Spanish moss
+				"flower_bed": Color(0.52, 0.45, 0.30),   # Golden marsh reed
+				"rocks": Color(0.45, 0.42, 0.38),        # Weathered tabby/oyster
+			}
 	# Default fallback
 	return get_terrain_colors(Type.PARKLAND)
 
@@ -238,6 +376,10 @@ static func get_tree_types(theme_type: int) -> Array:
 		Type.MOUNTAIN: return ["pine", "birch", "bush", "heather"]
 		Type.CITY: return ["oak", "maple", "bush", "cattails"]
 		Type.RESORT: return ["palm", "oak", "cactus", "bush", "birch"]
+		Type.HEATHLAND: return ["pine", "birch", "heather", "bush", "fescue"]
+		Type.WOODLAND: return ["pine", "oak", "birch", "maple", "bush"]
+		Type.TROPICAL: return ["palm", "dead_tree", "bush", "oak", "cactus"]
+		Type.MARSHLAND: return ["oak", "pine", "cattails", "bush", "birch"]
 	return ["oak", "pine", "maple", "birch"]
 
 ## Natural terrain generation parameters per theme
@@ -331,11 +473,71 @@ static func get_generation_params(theme_type: int) -> Dictionary:
 				"heavy_rough_patches": Vector2i(3, 6),
 				"flower_patches": Vector2i(5, 10),       # Abundant tropical flowers
 			}
+		Type.HEATHLAND:
+			return {
+				"elevation_range": 2,                  # Gentle undulation
+				"water_ponds": Vector2i(0, 2),
+				"large_water_body": false,
+				"tree_clusters": Vector2i(4, 8),       # Scattered pine clusters
+				"scattered_trees": Vector2i(15, 35),   # Open, not heavily wooded
+				"tree_cluster_radius": Vector2(6, 14),
+				"tree_density": Vector2(0.15, 0.30),
+				"rocks": Vector2i(30, 60),
+				"rough_patches": Vector2i(16, 26),     # Heavy heather coverage
+				"heavy_rough_patches": Vector2i(10, 18), # Dense gorse thickets
+				"flower_patches": Vector2i(4, 8),       # Heather blooms
+			}
+		Type.WOODLAND:
+			return {
+				"elevation_range": 2,                  # Gentle forest hills
+				"water_ponds": Vector2i(0, 2),         # Occasional forest pond
+				"large_water_body": false,
+				"tree_clusters": Vector2i(20, 32),     # Very dense forest — highest
+				"scattered_trees": Vector2i(120, 200), # Heavily forested
+				"tree_cluster_radius": Vector2(12, 30), # Large forest blocks
+				"tree_density": Vector2(0.35, 0.55),   # Very dense within clusters
+				"rocks": Vector2i(30, 60),             # Forest floor rocks
+				"rough_patches": Vector2i(6, 10),      # Undergrowth
+				"heavy_rough_patches": Vector2i(4, 8),  # Bracken/fern patches
+				"flower_patches": Vector2i(1, 3),       # Sparse forest wildflowers
+			}
+		Type.TROPICAL:
+			return {
+				"elevation_range": 3,                  # Volcanic terrain variation
+				"water_ponds": Vector2i(1, 3),
+				"large_water_body": true,              # Coastal ocean
+				"large_water_edge": "random",          # Ocean on random map edge
+				"large_water_depth": Vector2i(6, 12),  # Moderate coastline
+				"tree_clusters": Vector2i(10, 16),     # Tropical groves
+				"scattered_trees": Vector2i(50, 100),
+				"tree_cluster_radius": Vector2(8, 20),
+				"tree_density": Vector2(0.25, 0.45),
+				"rocks": Vector2i(80, 140),            # Volcanic rock outcroppings
+				"rough_patches": Vector2i(8, 14),      # Jungle undergrowth
+				"heavy_rough_patches": Vector2i(5, 10), # Dense jungle
+				"flower_patches": Vector2i(4, 8),       # Tropical flowers
+			}
+		Type.MARSHLAND:
+			return {
+				"elevation_range": 1,                  # Very flat lowcountry
+				"water_ponds": Vector2i(3, 6),         # Lots of water features
+				"large_water_body": true,              # Tidal creek/marsh edge
+				"large_water_edge": "random",          # Water on random map edge
+				"large_water_depth": Vector2i(6, 10),  # Tidal marsh extent
+				"tree_clusters": Vector2i(6, 12),      # Live oak groves
+				"scattered_trees": Vector2i(30, 60),   # Spanish moss oaks
+				"tree_cluster_radius": Vector2(8, 18),
+				"tree_density": Vector2(0.20, 0.35),
+				"rocks": Vector2i(15, 30),             # Minimal rocks
+				"rough_patches": Vector2i(12, 20),     # Marsh grass everywhere
+				"heavy_rough_patches": Vector2i(8, 14), # Dense reed beds
+				"flower_patches": Vector2i(2, 5),       # Marsh wildflowers
+			}
 	return get_generation_params(Type.PARKLAND)
 
 ## Get all theme types for iteration
 static func get_all_types() -> Array:
-	return [Type.PARKLAND, Type.DESERT, Type.LINKS, Type.MOUNTAIN, Type.CITY, Type.RESORT]
+	return [Type.PARKLAND, Type.DESERT, Type.LINKS, Type.MOUNTAIN, Type.CITY, Type.RESORT, Type.HEATHLAND, Type.WOODLAND, Type.TROPICAL, Type.MARSHLAND]
 
 ## Convert string to theme type (for save/load)
 static func from_string(theme_name: String) -> int:
@@ -346,6 +548,10 @@ static func from_string(theme_name: String) -> int:
 		"mountain": return Type.MOUNTAIN
 		"city": return Type.CITY
 		"resort": return Type.RESORT
+		"heathland": return Type.HEATHLAND
+		"woodland": return Type.WOODLAND
+		"tropical": return Type.TROPICAL
+		"marshland": return Type.MARSHLAND
 	return Type.PARKLAND
 
 ## Convert theme type to string (for save/load)
@@ -357,6 +563,10 @@ static func to_string_name(theme_type: int) -> String:
 		Type.MOUNTAIN: return "mountain"
 		Type.CITY: return "city"
 		Type.RESORT: return "resort"
+		Type.HEATHLAND: return "heathland"
+		Type.WOODLAND: return "woodland"
+		Type.TROPICAL: return "tropical"
+		Type.MARSHLAND: return "marshland"
 	return "parkland"
 
 ## Get theme accent color (for UI elements)
@@ -368,4 +578,8 @@ static func get_accent_color(theme_type: int) -> Color:
 		Type.MOUNTAIN: return Color(0.40, 0.55, 0.70)   # Steel blue
 		Type.CITY: return Color(0.55, 0.55, 0.55)       # Urban gray
 		Type.RESORT: return Color(0.30, 0.70, 0.80)     # Turquoise
+		Type.HEATHLAND: return Color(0.62, 0.42, 0.58)  # Heather purple
+		Type.WOODLAND: return Color(0.30, 0.52, 0.30)   # Forest green
+		Type.TROPICAL: return Color(0.85, 0.55, 0.25)   # Volcanic orange
+		Type.MARSHLAND: return Color(0.55, 0.62, 0.42)  # Sage green
 	return Color(0.35, 0.70, 0.35)
