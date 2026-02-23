@@ -318,6 +318,27 @@ func _build_controls_tab() -> void:
 	var inner = VBoxContainer.new()
 	inner.add_theme_constant_override("separation", 6)
 
+	# Invert scroll zoom toggle
+	var invert_row = HBoxContainer.new()
+	invert_row.add_theme_constant_override("separation", 12)
+	var invert_label = Label.new()
+	invert_label.text = "Invert Scroll Zoom"
+	invert_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
+	invert_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	invert_row.add_child(invert_label)
+	var invert_check = CheckButton.new()
+	invert_check.button_pressed = GameManager.invert_zoom_scroll
+	invert_check.tooltip_text = "Reverse the scroll wheel zoom direction"
+	invert_check.toggled.connect(func(toggled: bool):
+		GameManager.invert_zoom_scroll = toggled
+		_save_controls_settings()
+	)
+	invert_row.add_child(invert_check)
+	inner.add_child(invert_row)
+
+	var sep = HSeparator.new()
+	inner.add_child(sep)
+
 	var header = Label.new()
 	header.text = "Keyboard Shortcuts"
 	header.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
@@ -420,6 +441,13 @@ func _load_ui_scale() -> float:
 	if config.load(SaveManager.SETTINGS_PATH) == OK:
 		return config.get_value("display", "ui_scale", 1.0)
 	return 1.0
+
+func _save_controls_settings() -> void:
+	"""Persist controls settings to user settings file."""
+	var config := ConfigFile.new()
+	config.load(SaveManager.SETTINGS_PATH)
+	config.set_value("controls", "invert_zoom_scroll", GameManager.invert_zoom_scroll)
+	config.save(SaveManager.SETTINGS_PATH)
 
 func _save_display_settings() -> void:
 	"""Persist display settings to user settings file."""
