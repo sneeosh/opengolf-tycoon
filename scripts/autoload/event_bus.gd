@@ -46,6 +46,7 @@ signal golfer_finished_round(golfer_id: int, total_score: int)
 signal golfer_mood_changed(golfer_id: int, new_mood: float)
 signal golfer_left_course(golfer_id: int)
 signal golfer_thought(golfer_id: int, trigger_type: int, sentiment: String)
+signal golfer_need_changed(golfer_id: int, need_name: String, new_value: float)
 
 # Shot Signals
 signal shot_taken(golfer_id: int, hole_number: int, strokes: int)
