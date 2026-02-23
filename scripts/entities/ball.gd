@@ -131,6 +131,9 @@ func _process_flight(delta: float) -> void:
 
 		scale = Vector2.ONE  # Reset scale from flight
 
+		# Spawn impact effect at the carry spot (where ball first hits ground)
+		_spawn_landing_impact()
+
 		# Check if rollout was configured — if so, start rolling instead of landing
 		if _has_pending_rollout and roll_end_pos.distance_to(flight_end_pos) > 1.0:
 			_has_pending_rollout = false
@@ -184,6 +187,29 @@ func _finish_rollout() -> void:
 		grid_position = terrain_grid.screen_to_grid(roll_end_pos)
 	_land_ball()
 
+## Spawn landing impact effect at the carry spot (where ball first hits ground)
+func _spawn_landing_impact() -> void:
+	if not terrain_grid:
+		return
+	# Skip putts and short chips
+	if flight_max_height <= 10.0:
+		return
+
+	var carry_terrain = terrain_grid.get_tile(grid_position)
+	var impact_terrain = "default"
+	match carry_terrain:
+		TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.TEE_BOX:
+			impact_terrain = "fairway"
+		TerrainTypes.Type.GRASS, TerrainTypes.Type.ROUGH, TerrainTypes.Type.HEAVY_ROUGH:
+			impact_terrain = "grass"
+		TerrainTypes.Type.BUNKER:
+			impact_terrain = "bunker"
+		TerrainTypes.Type.WATER:
+			impact_terrain = "water"
+		TerrainTypes.Type.GREEN:
+			impact_terrain = "fairway"
+	LandingImpactEffect.create_at(get_parent(), global_position, impact_terrain)
+
 func _land_ball() -> void:
 	if not terrain_grid:
 		_change_state(BallState.AT_REST)
@@ -193,22 +219,6 @@ func _land_ball() -> void:
 
 	# Check terrain type at final resting position
 	var terrain_type = terrain_grid.get_tile(grid_position)
-
-	# Spawn landing impact effect for full shots only (skip putts and short chips)
-	if flight_max_height > 10.0:
-		var impact_terrain = "default"
-		match terrain_type:
-			TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.TEE_BOX:
-				impact_terrain = "fairway"
-			TerrainTypes.Type.GRASS, TerrainTypes.Type.ROUGH, TerrainTypes.Type.HEAVY_ROUGH:
-				impact_terrain = "grass"
-			TerrainTypes.Type.BUNKER:
-				impact_terrain = "bunker"
-			TerrainTypes.Type.WATER:
-				impact_terrain = "water"
-			TerrainTypes.Type.GREEN:
-				impact_terrain = "fairway"
-		LandingImpactEffect.create_at(get_parent(), global_position, impact_terrain)
 
 	match terrain_type:
 		TerrainTypes.Type.WATER:
