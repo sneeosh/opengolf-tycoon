@@ -3,8 +3,8 @@ extends Node
 ## Generates all sounds procedurally via AudioStreamGenerator.
 ## Subscribes to EventBus signals — zero coupling to game systems.
 
-const SAMPLE_RATE := 22050
-const SFX_POOL_SIZE := 4  # Max concurrent one-shot SFX
+const SAMPLE_RATE := 44100
+const SFX_POOL_SIZE := 6  # Max concurrent one-shot SFX
 const SWING_COOLDOWN := 0.3  # Seconds between swing sounds
 const IMPACT_COOLDOWN := 0.2  # Seconds between impact sounds
 
@@ -212,9 +212,9 @@ func _on_ball_putt_landed(_golfer_id: int, _from_screen: Vector2, to_screen: Vec
 		return
 	_last_impact_time = now
 
-	# Putts always land on green — crisp short sound
-	var buffer := ProceduralAudio.generate_impact(SAMPLE_RATE, 0.0, 0.3)
-	_play_buffer(buffer, sfx_volume * master_volume * 0.6)
+	# Putts always land on green — soft roll sound
+	var buffer := ProceduralAudio.generate_green_landing(SAMPLE_RATE, 0.2)
+	_play_buffer(buffer, sfx_volume * master_volume * 0.5)
 
 func _on_ball_in_hole(_golfer_id: int, _hole_number: int) -> void:
 	if is_muted:
@@ -267,20 +267,7 @@ func _on_game_mode_changed(_old_mode: int, new_mode: int) -> void:
 # ─── Swing sound generation ──────────────────────────────────────
 
 func _generate_swing_buffer(club_type: int) -> PackedVector2Array:
-	# Club type maps to Golfer.Club enum: 0=DRIVER, 1=FW, 2=IRON, 3=WEDGE, 4=PUTTER
-	match club_type:
-		0:  # DRIVER — deep powerful whoosh
-			return ProceduralAudio.generate_noise_burst(SAMPLE_RATE, 0.25, 80.0, 250.0, 0.5)
-		1:  # FAIRWAY_WOOD — medium whoosh
-			return ProceduralAudio.generate_noise_burst(SAMPLE_RATE, 0.2, 120.0, 350.0, 0.4)
-		2:  # IRON — sharp mid whoosh
-			return ProceduralAudio.generate_noise_burst(SAMPLE_RATE, 0.15, 200.0, 500.0, 0.35)
-		3:  # WEDGE — short crisp swish
-			return ProceduralAudio.generate_noise_burst(SAMPLE_RATE, 0.1, 300.0, 700.0, 0.25)
-		4:  # PUTTER — very soft tap
-			return ProceduralAudio.generate_noise_burst(SAMPLE_RATE, 0.05, 800.0, 1200.0, 0.15)
-		_:
-			return ProceduralAudio.generate_noise_burst(SAMPLE_RATE, 0.15, 200.0, 500.0, 0.3)
+	return ProceduralAudio.generate_swing_sound(SAMPLE_RATE, club_type, 0.5)
 
 # ─── Impact at screen position ───────────────────────────────────
 
@@ -313,17 +300,17 @@ func _play_impact_at_screen_position(world_pos: Vector2) -> void:
 	_play_buffer(buffer, sfx_volume * master_volume * vol_scale)
 
 func _generate_impact_for_terrain(terrain_type: int) -> PackedVector2Array:
-	# TerrainTypes.Type enum values
+	# TerrainTypes.Type enum values — use specialized sounds where available
 	match terrain_type:
-		5:  # GREEN — crisp tick
-			return ProceduralAudio.generate_impact(SAMPLE_RATE, 0.0, 0.35)
+		5:  # GREEN — distinctive landing thud
+			return ProceduralAudio.generate_green_landing(SAMPLE_RATE, 0.35)
 		1, 2:  # GRASS, FAIRWAY — medium thud
 			return ProceduralAudio.generate_impact(SAMPLE_RATE, 0.4, 0.3)
 		3, 4:  # ROUGH, HEAVY_ROUGH — soft thud
 			return ProceduralAudio.generate_impact(SAMPLE_RATE, 0.6, 0.25)
-		7:  # BUNKER — muffled crunch
-			return ProceduralAudio.generate_impact(SAMPLE_RATE, 0.9, 0.35)
-		8:  # WATER — splash
+		7:  # BUNKER — sand crunch with scatter
+			return ProceduralAudio.generate_bunker_impact(SAMPLE_RATE, 0.35)
+		8:  # WATER — splash with bubbling
 			return ProceduralAudio.generate_splash(SAMPLE_RATE, 0.4)
 		_:  # Default — generic thud
 			return ProceduralAudio.generate_impact(SAMPLE_RATE, 0.5, 0.3)
@@ -392,48 +379,80 @@ func _stop_ambient() -> void:
 	_ambient_rain.stop()
 	_ambient_birds.stop()
 
-# ─── Bird chirps ──────────────────────────────────────────────────
+# ─── Bird calls ──────────────────────────────────────────────────
+
+# Track recent species to avoid repetition
+var _recent_bird_species: Array[int] = []
+const MAX_RECENT_SPECIES := 3
 
 func _schedule_next_bird() -> void:
 	if not _bird_timer:
 		return
-	# Birds chirp more at dawn/dusk, less at night
+	# Birds are most active at dawn (6-8) and dusk (17-19), moderate midday, rare at night
 	var hour: float = GameManager.current_hour if GameManager else 12.0
 	var base_interval: float
-	if hour < 6.0 or hour > 20.0:
-		base_interval = 30.0  # Rare at night
-	elif hour < 8.0 or hour > 18.0:
-		base_interval = 3.0  # Frequent at dawn/dusk
+	if hour < 5.5 or hour > 20.5:
+		base_interval = 40.0  # Very rare at night
+	elif hour < 8.0:
+		# Dawn chorus — most active time
+		var dawn_factor := 1.0 - absf(hour - 6.5) / 2.5
+		base_interval = lerpf(6.0, 2.0, clampf(dawn_factor, 0.0, 1.0))
+	elif hour > 17.0 and hour <= 20.0:
+		# Dusk activity
+		var dusk_factor := 1.0 - (hour - 17.0) / 3.0
+		base_interval = lerpf(10.0, 3.0, clampf(dusk_factor, 0.0, 1.0))
 	else:
-		base_interval = 6.0  # Moderate during day
-	_bird_timer.start(randf_range(base_interval * 0.5, base_interval * 1.5))
+		base_interval = 7.0  # Moderate during midday
+	# Add randomness
+	_bird_timer.start(randf_range(base_interval * 0.6, base_interval * 1.5))
 
 func _on_bird_timer() -> void:
 	if is_muted or GameManager.game_mode == GameManager.GameMode.MAIN_MENU:
 		_schedule_next_bird()
 		return
 
-	# Don't chirp during rain
-	if _current_weather_type >= 3:
+	# Reduce bird activity in rain (but don't stop entirely in light rain)
+	if _current_weather_type >= 4:  # Rain or heavier — no birds
+		_schedule_next_bird()
+		return
+	if _current_weather_type == 3 and randf() < 0.7:  # Light rain — mostly quiet
 		_schedule_next_bird()
 		return
 
-	# Random chirp parameters
-	var freq_start := randf_range(2000.0, 3500.0)
-	var freq_end := randf_range(freq_start * 0.8, freq_start * 1.3)
-	var duration := randf_range(0.08, 0.15)
-	var buffer := ProceduralAudio.generate_chirp(SAMPLE_RATE, duration, freq_start, freq_end, 0.15)
-	_play_buffer(buffer, ambient_volume * master_volume * 0.5)
+	# Pick a species, avoiding recent repeats for variety
+	var species := _pick_bird_species()
+	var buffer := ProceduralAudio.generate_bird_call_species(SAMPLE_RATE, 0.15, species)
 
-	# Sometimes do a double chirp
-	if randf() < 0.4:
-		await get_tree().create_timer(randf_range(0.1, 0.2)).timeout
-		freq_start = randf_range(2500.0, 4000.0)
-		freq_end = randf_range(freq_start * 0.9, freq_start * 1.2)
-		buffer = ProceduralAudio.generate_chirp(SAMPLE_RATE, duration * 0.8, freq_start, freq_end, 0.12)
-		_play_buffer(buffer, ambient_volume * master_volume * 0.4)
+	# Volume varies slightly per call for natural feel
+	var vol := ambient_volume * master_volume * randf_range(0.35, 0.6)
+	_play_buffer(buffer, vol)
+
+	# Occasionally a second bird responds after a short delay (duet/call-response)
+	if randf() < 0.25:
+		await get_tree().create_timer(randf_range(0.3, 0.8)).timeout
+		if is_muted:
+			_schedule_next_bird()
+			return
+		# Response is typically a different species
+		var response_species := _pick_bird_species()
+		var response := ProceduralAudio.generate_bird_call_species(
+			SAMPLE_RATE, 0.12, response_species)
+		_play_buffer(response, ambient_volume * master_volume * randf_range(0.25, 0.45))
 
 	_schedule_next_bird()
+
+func _pick_bird_species() -> int:
+	# Pick a random species, avoiding recent repeats
+	var species := randi() % 6
+	var attempts := 0
+	while species in _recent_bird_species and attempts < 4:
+		species = randi() % 6
+		attempts += 1
+	# Track recent species
+	_recent_bird_species.append(species)
+	if _recent_bird_species.size() > MAX_RECENT_SPECIES:
+		_recent_bird_species.remove_at(0)
+	return species
 
 # ─── Playback helpers ─────────────────────────────────────────────
 
