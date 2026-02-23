@@ -5,6 +5,7 @@ class_name EntityLayer
 var buildings: Dictionary = {}  # key: Vector2i (grid_pos), value: Building node
 var trees: Dictionary = {}      # key: Vector2i (grid_pos), value: TreeEntity node
 var rocks: Dictionary = {}      # key: Vector2i (grid_pos), value: Rock node
+var _original_terrain: Dictionary = {}  # key: Vector2i, value: int (terrain type before entity was placed)
 
 var terrain_grid: TerrainGrid
 var building_registry: Dictionary = {}  # Can accept either Node or Dictionary
@@ -121,10 +122,16 @@ func place_tree(grid_pos: Vector2i, tree_type: String = "oak") -> TreeEntity:
 
 	# Set tree type after adding to tree so node is fully initialized
 	tree.set_tree_type(tree_type)
-	
+
 	# Store by grid position
 	trees[grid_pos] = tree
-	
+
+	# Stamp the terrain tile so golfer AI can see the tree
+	if terrain_grid and not _original_terrain.has(grid_pos):
+		_original_terrain[grid_pos] = terrain_grid.get_tile(grid_pos)
+	if terrain_grid:
+		terrain_grid.set_tile(grid_pos, TerrainTypes.Type.TREES)
+
 	# Connect signals
 	tree.tree_selected.connect(_on_tree_selected)
 	tree.tree_destroyed.connect(_on_tree_destroyed)
@@ -147,6 +154,12 @@ func place_rock(grid_pos: Vector2i, rock_size: String = "medium") -> Rock:
 
 	# Store by grid position
 	rocks[grid_pos] = rock
+
+	# Stamp the terrain tile so golfer AI can see the rock
+	if terrain_grid and not _original_terrain.has(grid_pos):
+		_original_terrain[grid_pos] = terrain_grid.get_tile(grid_pos)
+	if terrain_grid:
+		terrain_grid.set_tile(grid_pos, TerrainTypes.Type.ROCKS)
 
 	# Connect signals
 	rock.rock_selected.connect(_on_rock_selected)
@@ -205,6 +218,7 @@ func remove_tree(grid_pos: Vector2i) -> void:
 	if tree:
 		tree.destroy()
 		trees.erase(grid_pos)
+		_restore_terrain(grid_pos)
 		tree_removed.emit(grid_pos)
 
 func remove_rock(grid_pos: Vector2i) -> void:
@@ -212,7 +226,16 @@ func remove_rock(grid_pos: Vector2i) -> void:
 	if rock:
 		rock.destroy()
 		rocks.erase(grid_pos)
+		_restore_terrain(grid_pos)
 		rock_removed.emit(grid_pos)
+
+func _restore_terrain(grid_pos: Vector2i) -> void:
+	"""Restore the original terrain type after removing an entity"""
+	if not terrain_grid:
+		return
+	var original = _original_terrain.get(grid_pos, TerrainTypes.Type.GRASS)
+	terrain_grid.set_tile(grid_pos, original)
+	_original_terrain.erase(grid_pos)
 
 func get_all_buildings() -> Array:
 	return buildings.values()
@@ -264,7 +287,8 @@ func serialize() -> Dictionary:
 		"map_seed": map_seed,
 		"buildings": {},
 		"trees": {},
-		"rocks": {}
+		"rocks": {},
+		"original_terrain": {}
 	}
 
 	for pos in buildings:
@@ -275,6 +299,9 @@ func serialize() -> Dictionary:
 
 	for pos in rocks:
 		data["rocks"]["%d,%d" % [pos.x, pos.y]] = rocks[pos].get_rock_info()
+
+	for pos in _original_terrain:
+		data["original_terrain"]["%d,%d" % [pos.x, pos.y]] = _original_terrain[pos]
 
 	return data
 
@@ -289,6 +316,7 @@ func clear_all() -> void:
 	for pos in rocks.keys():
 		rocks[pos].destroy()
 	rocks.clear()
+	_original_terrain.clear()
 
 func deserialize(data: Dictionary) -> void:
 	"""Reconstruct entities from saved data."""
@@ -297,6 +325,15 @@ func deserialize(data: Dictionary) -> void:
 	# Restore map seed for consistent prop variations
 	if data.has("map_seed"):
 		set_map_seed(data["map_seed"])
+
+	# Restore original terrain map before placing entities
+	# so place_tree/place_rock don't overwrite with TREES/ROCKS tile values
+	if data.has("original_terrain"):
+		for key in data["original_terrain"]:
+			var parts = key.split(",")
+			if parts.size() == 2:
+				var pos = Vector2i(int(parts[0]), int(parts[1]))
+				_original_terrain[pos] = int(data["original_terrain"][key])
 
 	if data.has("trees"):
 		for key in data["trees"]:

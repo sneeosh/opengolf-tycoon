@@ -99,9 +99,9 @@ func set_terrain_grid(grid: TerrainGrid) -> void:
 func set_position_in_grid(pos: Vector2i) -> void:
 	var old_pos = grid_position
 	grid_position = pos
-	# Calculate world position from grid position
+	# Calculate world position from center of tile
 	if terrain_grid:
-		var world_pos = terrain_grid.grid_to_screen(pos)
+		var world_pos = terrain_grid.grid_to_screen_center(pos)
 		global_position = world_pos
 
 	# Regenerate variation if position changed (deterministic based on position)
