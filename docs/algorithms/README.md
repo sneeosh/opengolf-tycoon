@@ -36,6 +36,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Prestige System](prestige-system.md) — Course prestige tiers (Unranked to Platinum) with progressive unlocks
 - [Decorations System](decorations-system.md) — 16 decorative items across 5 categories with satisfaction radius bonuses
 - [Loyalty System](loyalty-system.md) — Golfer loyalty tracking, word-of-mouth, and membership tiers
+- [Dynamic Pricing](dynamic-pricing.md) — Demand-based green fee suggestions with auto-pricing
 
 ## How to Use for Tuning
 

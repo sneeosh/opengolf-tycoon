@@ -231,6 +231,10 @@ func _build_save_data() -> Dictionary:
 	if GameManager.loyalty_system:
 		data["loyalty"] = GameManager.loyalty_system.serialize()
 
+	# Dynamic pricing
+	if GameManager.dynamic_pricing_system:
+		data["dynamic_pricing"] = GameManager.dynamic_pricing_system.serialize()
+
 	return data
 
 ## Serialize hole data to plain dictionaries
@@ -361,6 +365,10 @@ func _apply_save_data(data: Dictionary) -> void:
 	# Loyalty
 	if GameManager.loyalty_system and data.has("loyalty"):
 		GameManager.loyalty_system.deserialize(data["loyalty"])
+
+	# Dynamic pricing
+	if GameManager.dynamic_pricing_system and data.has("dynamic_pricing"):
+		GameManager.dynamic_pricing_system.deserialize(data["dynamic_pricing"])
 
 	# Golfers: Always clear on load - they will respawn naturally when the user
 	# switches to simulation mode. This avoids complex mid-action state restoration.

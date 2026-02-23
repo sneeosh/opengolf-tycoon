@@ -59,6 +59,8 @@ var prestige_system: PrestigeSystem = null
 var prestige_panel: PrestigePanel = null
 var loyalty_system: LoyaltySystem = null
 var loyalty_panel: LoyaltyPanel = null
+var dynamic_pricing_system: DynamicPricingSystem = null
+var pricing_panel: PricingPanel = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
 var season_debug_panel: SeasonDebugPanel = null
@@ -191,6 +193,12 @@ func _ready() -> void:
 	add_child(loyalty_system)
 	GameManager.loyalty_system = loyalty_system
 
+	# Set up dynamic pricing system
+	dynamic_pricing_system = DynamicPricingSystem.new()
+	dynamic_pricing_system.name = "DynamicPricingSystem"
+	add_child(dynamic_pricing_system)
+	GameManager.dynamic_pricing_system = dynamic_pricing_system
+
 	# Set up save manager references
 	SaveManager.set_references(terrain_grid, entity_layer, golfer_manager, ball_manager)
 
@@ -222,6 +230,7 @@ func _ready() -> void:
 	_setup_awards_panel()
 	_setup_prestige_panel()
 	_setup_loyalty_panel()
+	_setup_pricing_panel()
 	_setup_course_rating_overlay()
 	_setup_floating_text()
 	_setup_shot_trails()
@@ -345,6 +354,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_K:
 				_toggle_loyalty_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_I:
+				_toggle_pricing_panel()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
@@ -2361,6 +2373,18 @@ func _setup_loyalty_panel() -> void:
 func _toggle_loyalty_panel() -> void:
 	if loyalty_panel:
 		_toggle_panel(loyalty_panel)
+
+func _setup_pricing_panel() -> void:
+	"""Add dynamic pricing panel to the HUD."""
+	pricing_panel = PricingPanel.new()
+	pricing_panel.name = "PricingPanel"
+	pricing_panel.setup(dynamic_pricing_system)
+	$UI/HUD.add_child(pricing_panel)
+	pricing_panel.hide()
+
+func _toggle_pricing_panel() -> void:
+	if pricing_panel:
+		_toggle_panel(pricing_panel)
 
 # --- Course Rating Overlay ---
 

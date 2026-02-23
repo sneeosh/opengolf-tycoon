@@ -106,6 +106,9 @@ var prestige_system: PrestigeSystem = null
 # Loyalty system (set by main scene)
 var loyalty_system: LoyaltySystem = null
 
+# Dynamic pricing system (set by main scene)
+var dynamic_pricing_system: DynamicPricingSystem = null
+
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
 var yesterday_stats: DailyStatistics = null  # Previous day's stats for comparison
