@@ -57,6 +57,8 @@ var awards_system: AwardsSystem = null
 var awards_panel: AwardsPanel = null
 var prestige_system: PrestigeSystem = null
 var prestige_panel: PrestigePanel = null
+var loyalty_system: LoyaltySystem = null
+var loyalty_panel: LoyaltyPanel = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
 var season_debug_panel: SeasonDebugPanel = null
@@ -183,6 +185,12 @@ func _ready() -> void:
 	add_child(prestige_system)
 	GameManager.prestige_system = prestige_system
 
+	# Set up loyalty system
+	loyalty_system = LoyaltySystem.new()
+	loyalty_system.name = "LoyaltySystem"
+	add_child(loyalty_system)
+	GameManager.loyalty_system = loyalty_system
+
 	# Set up save manager references
 	SaveManager.set_references(terrain_grid, entity_layer, golfer_manager, ball_manager)
 
@@ -213,6 +221,7 @@ func _ready() -> void:
 	_setup_advisor_panel()
 	_setup_awards_panel()
 	_setup_prestige_panel()
+	_setup_loyalty_panel()
 	_setup_course_rating_overlay()
 	_setup_floating_text()
 	_setup_shot_trails()
@@ -333,6 +342,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_D:
 				_on_decoration_placement_pressed()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_K:
+				_toggle_loyalty_panel()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
@@ -2337,6 +2349,18 @@ func _setup_prestige_panel() -> void:
 func _toggle_prestige_panel() -> void:
 	if prestige_panel:
 		_toggle_panel(prestige_panel)
+
+func _setup_loyalty_panel() -> void:
+	"""Add loyalty/membership panel to the HUD."""
+	loyalty_panel = LoyaltyPanel.new()
+	loyalty_panel.name = "LoyaltyPanel"
+	loyalty_panel.setup(loyalty_system)
+	$UI/HUD.add_child(loyalty_panel)
+	loyalty_panel.hide()
+
+func _toggle_loyalty_panel() -> void:
+	if loyalty_panel:
+		_toggle_panel(loyalty_panel)
 
 # --- Course Rating Overlay ---
 

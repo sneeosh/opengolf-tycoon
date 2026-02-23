@@ -35,6 +35,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Awards System](awards-system.md) — End-of-year ceremony with Bronze/Silver/Gold awards and Hall of Fame
 - [Prestige System](prestige-system.md) — Course prestige tiers (Unranked to Platinum) with progressive unlocks
 - [Decorations System](decorations-system.md) — 16 decorative items across 5 categories with satisfaction radius bonuses
+- [Loyalty System](loyalty-system.md) — Golfer loyalty tracking, word-of-mouth, and membership tiers
 
 ## How to Use for Tuning
 

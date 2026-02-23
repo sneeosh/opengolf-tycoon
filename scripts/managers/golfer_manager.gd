@@ -85,6 +85,10 @@ func get_spawn_rate_modifier() -> float:
 	if GameManager.prestige_system:
 		base_modifier *= (1.0 + GameManager.prestige_system.get_spawn_rate_bonus())
 
+	# Apply loyalty/word-of-mouth bonus (happy golfers attract more visitors)
+	if GameManager.loyalty_system:
+		base_modifier *= (1.0 + GameManager.loyalty_system.get_spawn_rate_bonus())
+
 	return base_modifier
 
 func get_effective_spawn_cooldown() -> float:

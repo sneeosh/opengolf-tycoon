@@ -103,6 +103,9 @@ var awards_system: AwardsSystem = null
 # Prestige system (set by main scene)
 var prestige_system: PrestigeSystem = null
 
+# Loyalty system (set by main scene)
+var loyalty_system: LoyaltySystem = null
+
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
 var yesterday_stats: DailyStatistics = null  # Previous day's stats for comparison
