@@ -241,7 +241,7 @@ func _build_save_data() -> Dictionary:
 func _serialize_holes(holes: Array) -> Array:
 	var result: Array = []
 	for hole in holes:
-		result.append({
+		var hole_dict = {
 			"hole_number": hole.hole_number,
 			"par": hole.par,
 			"tee_position": {"x": hole.tee_position.x, "y": hole.tee_position.y},
@@ -250,7 +250,13 @@ func _serialize_holes(holes: Array) -> Array:
 			"distance_yards": hole.distance_yards,
 			"is_open": hole.is_open,
 			"difficulty_rating": hole.difficulty_rating,
-		})
+		}
+		# Multiple tee boxes (only save if they exist)
+		if hole.has_forward_tee():
+			hole_dict["forward_tee"] = {"x": hole.forward_tee.x, "y": hole.forward_tee.y}
+		if hole.has_back_tee():
+			hole_dict["back_tee"] = {"x": hole.back_tee.x, "y": hole.back_tee.y}
+		result.append(hole_dict)
 	return result
 
 ## Apply loaded save data
@@ -400,6 +406,13 @@ func _deserialize_holes(holes_data: Array) -> void:
 		hole.distance_yards = int(h.get("distance_yards", 0))
 		hole.is_open = h.get("is_open", true)
 		hole.difficulty_rating = float(h.get("difficulty_rating", 1.0))
+		# Multiple tee boxes (backward compatible — absent means no extra tees)
+		if h.has("forward_tee"):
+			var ft = h["forward_tee"]
+			hole.forward_tee = Vector2i(int(ft.get("x", -1)), int(ft.get("y", -1)))
+		if h.has("back_tee"):
+			var bt = h["back_tee"]
+			hole.back_tee = Vector2i(int(bt.get("x", -1)), int(bt.get("y", -1)))
 		GameManager.current_course.holes.append(hole)
 
 	GameManager.current_course._recalculate_par()

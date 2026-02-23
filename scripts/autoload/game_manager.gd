@@ -646,7 +646,7 @@ class CourseData:
 class HoleData:
 	var hole_number: int = 1
 	var par: int = 4
-	var tee_position: Vector2i = Vector2i.ZERO
+	var tee_position: Vector2i = Vector2i.ZERO  # Middle tee (default for all tiers)
 	var green_position: Vector2i = Vector2i.ZERO
 	var hole_position: Vector2i = Vector2i.ZERO  # Actual cup position on green
 	var fairway_tiles: Array = []
@@ -654,6 +654,41 @@ class HoleData:
 	var distance_yards: int = 0
 	var is_open: bool = true  # Whether the hole is open for play
 	var difficulty_rating: float = 1.0  # Hole difficulty (1.0-10.0)
+
+	# Multiple tee boxes: forward (shorter) and back (longer)
+	var forward_tee: Vector2i = Vector2i(-1, -1)  # Forward tee for beginners
+	var back_tee: Vector2i = Vector2i(-1, -1)      # Back tee for pros/tournaments
+
+	func has_forward_tee() -> bool:
+		return forward_tee != Vector2i(-1, -1)
+
+	func has_back_tee() -> bool:
+		return back_tee != Vector2i(-1, -1)
+
+	func get_tee_count() -> int:
+		var count = 1  # Middle tee always exists
+		if has_forward_tee():
+			count += 1
+		if has_back_tee():
+			count += 1
+		return count
+
+	func get_tee_for_tier(tier: int) -> Vector2i:
+		"""Return the appropriate tee position for a golfer tier."""
+		match tier:
+			GolferTier.Tier.BEGINNER:
+				if has_forward_tee():
+					return forward_tee
+			GolferTier.Tier.PRO:
+				if has_back_tee():
+					return back_tee
+		return tee_position  # Default: middle tee
+
+	func get_tee_for_tournament() -> Vector2i:
+		"""Tournament golfers always play from the back tee if available."""
+		if has_back_tee():
+			return back_tee
+		return tee_position
 
 ## DailyStatistics - Tracks statistics for the current day
 class DailyStatistics:

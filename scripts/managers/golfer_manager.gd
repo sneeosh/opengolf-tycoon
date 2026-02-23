@@ -537,9 +537,16 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 	# Start the hole or prepare for next shot
 	if golfer.current_strokes == 0:
+		# Select tee based on golfer tier (forward/middle/back)
+		var tee_pos: Vector2i
+		if golfer.is_tournament_golfer:
+			tee_pos = hole_data.get_tee_for_tournament()
+		else:
+			tee_pos = hole_data.get_tee_for_tier(golfer.golfer_tier)
+
 		# For holes after the first, walk from previous green to the next tee
 		if next_hole_index > 0 and GameManager.terrain_grid:
-			var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(hole_data.tee_position)
+			var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(tee_pos)
 			var distance_to_tee = golfer.global_position.distance_to(tee_screen_pos)
 			if distance_to_tee > 10.0:
 				# Walk to the next tee first
@@ -548,7 +555,7 @@ func _advance_golfer(golfer: Golfer) -> void:
 				golfer._change_state(Golfer.State.WALKING)
 				return
 		# At the tee (or first hole) - start the hole
-		golfer.start_hole(next_hole_index, hole_data.tee_position)
+		golfer.start_hole(next_hole_index, tee_pos)
 	else:
 		# Already hit at least one shot
 		# Check if close enough to hole it (use sub-tile precision for putting accuracy)
@@ -592,11 +599,17 @@ func _advance_golfer(golfer: Golfer) -> void:
 			# Don't wait for turn - golfers should move off the green right away
 			if GameManager.terrain_grid and golfer.current_hole < course_data.holes.size():
 				var next_hole_data = course_data.holes[golfer.current_hole]
+				# Select tee based on golfer tier
+				var next_tee: Vector2i
+				if golfer.is_tournament_golfer:
+					next_tee = next_hole_data.get_tee_for_tournament()
+				else:
+					next_tee = next_hole_data.get_tee_for_tier(golfer.golfer_tier)
 				# Update ball position to next tee immediately to prevent visual glitch
 				# where ball briefly appears at old hole position while walking
-				golfer.ball_position = next_hole_data.tee_position
-				golfer.ball_position_precise = Vector2(next_hole_data.tee_position)
-				var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(next_hole_data.tee_position)
+				golfer.ball_position = next_tee
+				golfer.ball_position_precise = Vector2(next_tee)
+				var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(next_tee)
 				golfer.path = golfer._find_path_to(tee_screen_pos)
 				golfer.path_index = 0
 				golfer._change_state(Golfer.State.WALKING)

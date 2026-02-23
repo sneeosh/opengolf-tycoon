@@ -397,6 +397,7 @@ func _connect_signals() -> void:
 	EventBus.hole_created.connect(_on_hole_created)
 	EventBus.hole_deleted.connect(_on_hole_deleted)
 	EventBus.hole_toggled.connect(_on_hole_toggled)
+	hole_tool.tee_added.connect(_on_tee_added)
 	EventBus.end_of_day.connect(_on_end_of_day)
 	EventBus.load_completed.connect(_on_load_completed)
 	EventBus.new_game_started.connect(_on_new_game_started)
@@ -669,6 +670,12 @@ func _update_selection_indicator() -> void:
 	elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_GREEN:
 		text += "Place Green"
 		color = Color(0.5, 1.0, 0.5)  # Green
+	elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_FORWARD_TEE:
+		text += "Place Forward Tee"
+		color = Color(0.9, 0.4, 0.4)  # Red
+	elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_BACK_TEE:
+		text += "Place Back Tee"
+		color = Color(0.3, 0.4, 0.9)  # Blue
 	elif placement_manager.placement_mode == PlacementManager.PlacementMode.TREE:
 		text += "Tree (%s)" % selected_tree_type.capitalize()
 		color = Color(0.4, 0.8, 0.4)  # Forest green
@@ -1016,6 +1023,15 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	hole_btn.pressed.connect(_show_hole_stats.bind(hole_number))
 	row.add_child(hole_btn)
 
+	# Tees button — manage forward/back tees
+	var tees_btn = Button.new()
+	tees_btn.name = "TeesBtn"
+	tees_btn.text = "Tees"
+	tees_btn.custom_minimum_size = Vector2(42, 0)
+	tees_btn.tooltip_text = "Add forward/back tee boxes"
+	tees_btn.pressed.connect(_on_tees_pressed.bind(hole_number))
+	row.add_child(tees_btn)
+
 	var toggle_btn = Button.new()
 	toggle_btn.name = "ToggleBtn"
 	toggle_btn.text = "Open"
@@ -1031,6 +1047,12 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	row.add_child(delete_btn)
 
 	hole_list.add_child(row)
+
+	# Update tees button label if extra tees exist
+	_update_tees_button(hole_number)
+
+func _on_tee_added(hole_number: int, _tee_type: String) -> void:
+	_update_tees_button(hole_number)
 
 func _on_hole_toggle_pressed(hole_number: int) -> void:
 	if not GameManager.current_course:
@@ -1077,6 +1099,164 @@ func _rebuild_hole_list() -> void:
 			# Re-apply closed state
 			if not hole.is_open:
 				_on_hole_toggled(hole.hole_number, false)
+
+var _tee_dialog: AcceptDialog = null
+
+func _on_tees_pressed(hole_number: int) -> void:
+	"""Show tee management dialog for a hole."""
+	if GameManager.current_mode == GameManager.GameMode.SIMULATING:
+		EventBus.notify("Cannot modify tees while playing!", "error")
+		return
+
+	if not GameManager.current_course:
+		return
+
+	var hole: GameManager.HoleData = null
+	var hole_index: int = -1
+	for i in range(GameManager.current_course.holes.size()):
+		if GameManager.current_course.holes[i].hole_number == hole_number:
+			hole = GameManager.current_course.holes[i]
+			hole_index = i
+			break
+	if not hole:
+		return
+
+	# Clean up any existing dialog
+	if _tee_dialog and is_instance_valid(_tee_dialog):
+		_tee_dialog.queue_free()
+		_tee_dialog = null
+
+	_tee_dialog = AcceptDialog.new()
+	_tee_dialog.title = "Tee Boxes — Hole %d" % hole_number
+	_tee_dialog.size = Vector2i(360, 280)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+
+	# Current tees status
+	var status_label = Label.new()
+	var middle_yds = hole.distance_yards
+	status_label.text = "Middle Tee: %d yards (Par %d)" % [middle_yds, hole.par]
+	vbox.add_child(status_label)
+
+	# Forward tee
+	var fwd_row = HBoxContainer.new()
+	fwd_row.add_theme_constant_override("separation", 8)
+	if hole.has_forward_tee():
+		var fwd_dist = terrain_grid.calculate_distance_yards(hole.forward_tee, hole.green_position) if terrain_grid else 0
+		var fwd_label = Label.new()
+		fwd_label.text = "Forward Tee: %d yards" % fwd_dist
+		fwd_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fwd_row.add_child(fwd_label)
+		var remove_fwd = Button.new()
+		remove_fwd.text = "Remove"
+		remove_fwd.pressed.connect(func():
+			hole_tool.remove_extra_tee(hole_number, "forward")
+			_update_tees_button(hole_number)
+			_tee_dialog.queue_free()
+			_tee_dialog = null
+		)
+		fwd_row.add_child(remove_fwd)
+	else:
+		var fwd_label = Label.new()
+		fwd_label.text = "Forward Tee: Not set"
+		fwd_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fwd_row.add_child(fwd_label)
+		var add_fwd = Button.new()
+		add_fwd.text = "Place Forward Tee"
+		add_fwd.pressed.connect(func():
+			_tee_dialog.queue_free()
+			_tee_dialog = null
+			_cancel_all_modes()
+			hole_tool.start_forward_tee_placement(hole_index)
+		)
+		fwd_row.add_child(add_fwd)
+	vbox.add_child(fwd_row)
+
+	# Back tee
+	var back_row = HBoxContainer.new()
+	back_row.add_theme_constant_override("separation", 8)
+	if hole.has_back_tee():
+		var back_dist = terrain_grid.calculate_distance_yards(hole.back_tee, hole.green_position) if terrain_grid else 0
+		var back_label = Label.new()
+		back_label.text = "Back Tee: %d yards" % back_dist
+		back_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		back_row.add_child(back_label)
+		var remove_back = Button.new()
+		remove_back.text = "Remove"
+		remove_back.pressed.connect(func():
+			hole_tool.remove_extra_tee(hole_number, "back")
+			_update_tees_button(hole_number)
+			_tee_dialog.queue_free()
+			_tee_dialog = null
+		)
+		back_row.add_child(remove_back)
+	else:
+		var back_label = Label.new()
+		back_label.text = "Back Tee: Not set"
+		back_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		back_row.add_child(back_label)
+		var add_back = Button.new()
+		add_back.text = "Place Back Tee"
+		add_back.pressed.connect(func():
+			_tee_dialog.queue_free()
+			_tee_dialog = null
+			_cancel_all_modes()
+			hole_tool.start_back_tee_placement(hole_index)
+		)
+		back_row.add_child(add_back)
+	vbox.add_child(back_row)
+
+	vbox.add_child(HSeparator.new())
+
+	# Explanation
+	var help_label = Label.new()
+	help_label.text = "Forward tees: shorter distance for beginners.\nBack tees: longer distance for pros & tournaments.\nGolfers auto-select tee based on skill tier."
+	help_label.add_theme_font_size_override("font_size", 12)
+	help_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	help_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	vbox.add_child(help_label)
+
+	_tee_dialog.add_child(vbox)
+	_tee_dialog.canceled.connect(func():
+		_tee_dialog.queue_free()
+		_tee_dialog = null
+	)
+
+	add_child(_tee_dialog)
+	_tee_dialog.popup_centered()
+
+func _update_tees_button(hole_number: int) -> void:
+	"""Update the tees button label to show tee count."""
+	var row_name = "HoleRow%d" % hole_number
+	if not hole_list.has_node(row_name):
+		return
+	var row = hole_list.get_node(row_name)
+	var tees_btn = row.get_node_or_null("TeesBtn")
+	if not tees_btn:
+		return
+	# Find the hole data
+	if not GameManager.current_course:
+		return
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number == hole_number:
+			var count = hole.get_tee_count()
+			if count > 1:
+				tees_btn.text = "Tees(%d)" % count
+			else:
+				tees_btn.text = "Tees"
+			break
+
+func _cancel_all_modes() -> void:
+	"""Cancel all active placement/painting modes."""
+	hole_tool.cancel_placement()
+	placement_manager.cancel_placement()
+	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
+	_disable_terrain_painting_preview()
+	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
 
 func _on_tree_placement_pressed() -> void:
 	"""Show tree selection menu and start tree placement mode"""
@@ -2623,6 +2803,8 @@ func _exit_tree() -> void:
 		EventBus.hole_deleted.disconnect(_on_hole_deleted)
 	if EventBus.hole_toggled.is_connected(_on_hole_toggled):
 		EventBus.hole_toggled.disconnect(_on_hole_toggled)
+	if hole_tool.tee_added.is_connected(_on_tee_added):
+		hole_tool.tee_added.disconnect(_on_tee_added)
 	if EventBus.end_of_day.is_connected(_on_end_of_day):
 		EventBus.end_of_day.disconnect(_on_end_of_day)
 	if EventBus.load_completed.is_connected(_on_load_completed):

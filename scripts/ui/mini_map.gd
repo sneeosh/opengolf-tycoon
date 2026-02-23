@@ -180,9 +180,19 @@ func _draw_holes() -> void:
 		return
 
 	for hole in GameManager.current_course.holes:
-		# Tee position - small circle
+		# Tee position - small circle (middle tee = yellow)
 		var tee_px = _grid_to_map_pos(hole.tee_position)
 		draw_circle(tee_px, 3, Color(1.0, 1.0, 0.5))  # Yellow
+
+		# Forward tee - small circle (red)
+		if hole.has_forward_tee():
+			var fwd_px = _grid_to_map_pos(hole.forward_tee)
+			draw_circle(fwd_px, 2, Color(0.9, 0.3, 0.3))
+
+		# Back tee - small circle (blue)
+		if hole.has_back_tee():
+			var back_px = _grid_to_map_pos(hole.back_tee)
+			draw_circle(back_px, 2, Color(0.3, 0.3, 0.9))
 
 		# Green position - small square
 		var green_px = _grid_to_map_pos(hole.green_position)

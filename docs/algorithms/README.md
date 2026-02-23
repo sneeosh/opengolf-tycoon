@@ -20,6 +20,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 ### Course Design
 - [Difficulty Calculator](difficulty-calculator.md) — Per-hole difficulty from hazards, elevation, doglegs, green size, landing zones
 - [Course Rating (Stars)](course-rating.md) — 4-category weighted rating: condition, design, value, pace. Slope and course rating
+- [Multiple Tee Boxes](multiple-tee-boxes.md) — Forward/middle/back tees per hole with tier-based golfer selection
 
 ### Economy & Progression
 - [Economy & Financial System](economy.md) — Green fees, operating costs, loans, staff tiers, profit calculation
