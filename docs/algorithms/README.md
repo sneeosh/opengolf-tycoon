@@ -32,6 +32,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Day/Night Cycle](day-night-cycle.md) — Time progression, sunrise/sunset tinting, weather tint blending, course hours
 - [Random Events](random-events.md) — Weather disasters, VIP visits, equipment breakdowns, economic shifts, sponsorships
 - [Advisor System](advisor-system.md) — Context-sensitive tips for pricing, design, amenities, staffing, finances, progression
+- [Awards System](awards-system.md) — End-of-year ceremony with Bronze/Silver/Gold awards and Hall of Fame
 
 ## How to Use for Tuning
 

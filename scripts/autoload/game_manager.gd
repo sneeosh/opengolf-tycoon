@@ -97,6 +97,9 @@ var random_event_system: RandomEventSystem = null
 # Advisor system (set by main scene)
 var advisor_system: AdvisorSystem = null
 
+# Awards system (set by main scene)
+var awards_system: AwardsSystem = null
+
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
 var yesterday_stats: DailyStatistics = null  # Previous day's stats for comparison

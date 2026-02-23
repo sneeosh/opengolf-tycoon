@@ -76,6 +76,7 @@ func _build_ui() -> void:
 		["M", "Marketing"],
 		["Z", "Analytics"],
 		["A", "Advisor"],
+		["N", "Awards"],
 	])
 
 	_add_section(vbox, "Camera & View", [
