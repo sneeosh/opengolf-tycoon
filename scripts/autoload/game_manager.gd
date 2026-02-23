@@ -13,6 +13,7 @@ var course_name: String = "New Course"
 var current_theme: int = CourseTheme.Type.PARKLAND
 var current_difficulty: int = DifficultyPresets.Preset.NORMAL
 var colorblind_mode: int = ColorblindMode.Mode.OFF
+var invert_zoom_scroll: bool = false
 var money: int = 50000
 var reputation: float = 50.0
 var current_day: int = 1

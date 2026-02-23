@@ -50,10 +50,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		# even when hovering over panels/menus, causing unwanted zoom.
 		if get_viewport().gui_get_hovered_control() != null:
 			return
+		var scroll_direction := 1.0 if GameManager.invert_zoom_scroll else -1.0
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_zoom_camera_smooth(-zoom_speed)
+			_zoom_camera_smooth(scroll_direction * zoom_speed)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_zoom_camera_smooth(zoom_speed)
+			_zoom_camera_smooth(-scroll_direction * zoom_speed)
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
 			_is_dragging = event.pressed
 			if event.pressed:
@@ -67,7 +68,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Mac trackpad pinch-to-zoom gesture
 	if event is InputEventMagnifyGesture:
 		var pinch_zoom_speed = 0.5
-		_zoom_camera_smooth((1.0 - event.factor) * pinch_zoom_speed)
+		var pinch_direction := -1.0 if GameManager.invert_zoom_scroll else 1.0
+		_zoom_camera_smooth((1.0 - event.factor) * pinch_zoom_speed * pinch_direction)
 
 	# Keyboard zoom hotkeys: ] to zoom in, [ to zoom out
 	if event is InputEventKey and event.pressed:

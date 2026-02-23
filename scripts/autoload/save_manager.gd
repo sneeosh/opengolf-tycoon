@@ -398,6 +398,8 @@ func _load_user_settings() -> void:
 		call_deferred("_apply_audio_settings", config)
 	if config.has_section("display"):
 		call_deferred("_apply_display_settings", config)
+	if config.has_section("controls"):
+		_apply_controls_settings(config)
 
 func _apply_audio_settings(config: ConfigFile) -> void:
 	if not SoundManager:
@@ -421,6 +423,9 @@ func _apply_display_settings(config: ConfigFile) -> void:
 	# Restore colorblind mode
 	var cb_name = config.get_value("display", "colorblind_mode", "off")
 	GameManager.colorblind_mode = ColorblindMode.from_string(cb_name)
+
+func _apply_controls_settings(config: ConfigFile) -> void:
+	GameManager.invert_zoom_scroll = config.get_value("controls", "invert_zoom_scroll", false)
 
 func save_user_settings() -> void:
 	var config := ConfigFile.new()
