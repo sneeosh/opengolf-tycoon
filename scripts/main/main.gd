@@ -51,6 +51,8 @@ var tournament_panel: TournamentPanel = null
 var land_panel: LandPanel = null
 var marketing_panel: MarketingPanel = null
 var random_event_system: RandomEventSystem = null
+var advisor_system: AdvisorSystem = null
+var advisor_panel: AdvisorPanel = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
 var season_debug_panel: SeasonDebugPanel = null
@@ -159,6 +161,12 @@ func _ready() -> void:
 	add_child(random_event_system)
 	GameManager.random_event_system = random_event_system
 
+	# Set up advisor system
+	advisor_system = AdvisorSystem.new()
+	advisor_system.name = "AdvisorSystem"
+	add_child(advisor_system)
+	GameManager.advisor_system = advisor_system
+
 	# Set up save manager references
 	SaveManager.set_references(terrain_grid, entity_layer, golfer_manager, ball_manager)
 
@@ -186,6 +194,7 @@ func _ready() -> void:
 	_setup_seasonal_calendar()
 	_setup_autosave_indicator()
 	_setup_notification_toast()
+	_setup_advisor_panel()
 	_setup_course_rating_overlay()
 	_setup_floating_text()
 	_setup_shot_trails()
@@ -294,6 +303,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_C:
 				_toggle_seasonal_calendar()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_A:
+				_toggle_advisor_panel()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
@@ -492,7 +504,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard", "CourseRatingOverlay"]
+	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard", "CourseRatingOverlay", "AdvisorPanel"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -2176,6 +2188,22 @@ func _setup_notification_toast() -> void:
 	var toast = NotificationToast.new()
 	toast.name = "NotificationToast"
 	$UI.add_child(toast)
+
+# --- Advisor Panel ---
+
+func _setup_advisor_panel() -> void:
+	"""Add advisor panel to the HUD."""
+	advisor_panel = AdvisorPanel.new()
+	advisor_panel.name = "AdvisorPanel"
+	advisor_panel.setup(advisor_system)
+	$UI/HUD.add_child(advisor_panel)
+	advisor_panel.hide()
+
+func _toggle_advisor_panel() -> void:
+	if advisor_panel:
+		if not advisor_panel.visible and advisor_system:
+			advisor_system.refresh_tips()
+		_toggle_panel(advisor_panel)
 
 # --- Course Rating Overlay ---
 
