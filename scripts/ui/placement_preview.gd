@@ -10,6 +10,7 @@ var camera: IsometricCamera
 var hole_tool: HoleCreationTool  # Reference for hole creation preview
 var current_terrain_tool: int = -1  # Current terrain painting tool
 var terrain_painting_enabled: bool = false  # Whether to show terrain preview
+var brush_size: int = 1  # Current brush size (1, 3, or 5)
 
 # Preview state
 var current_grid_pos: Vector2i = Vector2i(-1, -1)
@@ -71,6 +72,9 @@ func set_terrain_tool(tool_type: int) -> void:
 func set_terrain_painting_enabled(enabled: bool) -> void:
 	terrain_painting_enabled = enabled
 
+func set_brush_size(size: int) -> void:
+	brush_size = size
+
 func set_hole_tool(tool: HoleCreationTool) -> void:
 	hole_tool = tool
 
@@ -101,9 +105,11 @@ func _update_preview(delta: float) -> void:
 		# Check overall validity for entity placement
 		current_preview_valid = placement_manager.can_place_at(grid_pos, terrain_grid)
 	else:
-		# Terrain painting mode - single tile preview
-		current_preview_positions = [grid_pos]
-		# Terrain is always valid to paint on valid positions
+		# Terrain painting mode - show full brush area
+		if brush_size <= 1:
+			current_preview_positions = [grid_pos]
+		else:
+			current_preview_positions = terrain_grid.get_brush_tiles(grid_pos, brush_size)
 		current_preview_valid = terrain_grid.is_valid_position(grid_pos)
 
 	queue_redraw()
