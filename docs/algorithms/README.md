@@ -34,6 +34,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Advisor System](advisor-system.md) — Context-sensitive tips for pricing, design, amenities, staffing, finances, progression
 - [Awards System](awards-system.md) — End-of-year ceremony with Bronze/Silver/Gold awards and Hall of Fame
 - [Prestige System](prestige-system.md) — Course prestige tiers (Unranked to Platinum) with progressive unlocks
+- [Decorations System](decorations-system.md) — 16 decorative items across 5 categories with satisfaction radius bonuses
 
 ## How to Use for Tuning
 

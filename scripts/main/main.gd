@@ -331,6 +331,9 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_J:
 				_toggle_prestige_panel()
 				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_D:
+				_on_decoration_placement_pressed()
+				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
 				get_viewport().set_input_as_handled()
@@ -844,13 +847,15 @@ func _paint_at_mouse() -> void:
 		if entity_layer and entity_layer.is_tile_occupied_by_building(tile_pos):
 			continue
 		if terrain_grid.get_tile(tile_pos) != current_tool:
-			# Auto-remove trees and rocks when placing course terrain
+			# Auto-remove trees, rocks, and decorations when placing course terrain
 			var tile_removal_cost = 0
 			if clears_obstacles and entity_layer:
 				if entity_layer.get_tree_at(tile_pos):
 					tile_removal_cost += BULLDOZER_COSTS["tree"]
 				if entity_layer.get_rock_at(tile_pos):
 					tile_removal_cost += BULLDOZER_COSTS["rock"]
+				if entity_layer.get_decoration_at(tile_pos):
+					tile_removal_cost += BULLDOZER_COSTS["decoration"]
 			# Check affordability including removal costs
 			var tile_total = cost + tile_removal_cost
 			if tile_total > 0 and not GameManager.can_afford(total_cost + obstacle_removal_cost + tile_total):
@@ -861,6 +866,8 @@ func _paint_at_mouse() -> void:
 					entity_layer.remove_tree(tile_pos)
 				if entity_layer.get_rock_at(tile_pos):
 					entity_layer.remove_rock(tile_pos)
+				if entity_layer.get_decoration_at(tile_pos):
+					entity_layer.remove_decoration(tile_pos)
 				obstacle_removal_cost += tile_removal_cost
 			terrain_grid.set_tile(tile_pos, current_tool)
 			total_cost += cost
@@ -1198,6 +1205,44 @@ func _on_rock_size_selected(rock_size: String, dialog: AcceptDialog) -> void:
 	placement_manager.start_rock_placement(rock_size)
 	print("Rock placement mode: %s" % rock_size)
 
+func _on_decoration_placement_pressed() -> void:
+	"""Show decoration selection menu and start decoration placement mode"""
+	hole_tool.cancel_placement()
+	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
+	_disable_terrain_painting_preview()
+	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
+
+	var dialog = AcceptDialog.new()
+	dialog.title = "Select Decoration"
+
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(350, 300)
+	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var theme_decos = Decoration.get_theme_decorations(GameManager.current_theme)
+	for deco_type in theme_decos:
+		var deco_data = Decoration.DECORATION_PROPERTIES.get(deco_type, {})
+		var btn = Button.new()
+		btn.text = "%s ($%d)" % [deco_data.get("name", deco_type.capitalize()), deco_data.get("cost", 100)]
+		btn.custom_minimum_size = Vector2(300, 36)
+		btn.pressed.connect(_on_decoration_type_selected.bind(deco_type, dialog))
+		vbox.add_child(btn)
+
+	scroll.add_child(vbox)
+	dialog.add_child(scroll)
+	dialog.size = Vector2i(400, 350)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered_ratio(0.35)
+
+func _on_decoration_type_selected(deco_type: String, dialog: AcceptDialog) -> void:
+	"""Handle decoration type selection"""
+	dialog.queue_free()
+	placement_manager.start_decoration_placement(deco_type)
+
 func _on_raise_elevation_pressed() -> void:
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
@@ -1311,6 +1356,8 @@ func _handle_placement_click(grid_pos: Vector2i) -> void:
 		_place_building(grid_pos, cost)
 	elif placement_manager.placement_mode == PlacementManager.PlacementMode.ROCK:
 		_place_rock(grid_pos, cost)
+	elif placement_manager.placement_mode == PlacementManager.PlacementMode.DECORATION:
+		_place_decoration(grid_pos, cost)
 
 func _place_tree(grid_pos: Vector2i, cost: int) -> void:
 	"""Place a tree at the grid position"""
@@ -1364,6 +1411,19 @@ func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 	else:
 		EventBus.notify("Failed to place rock!", "error")
 
+func _place_decoration(grid_pos: Vector2i, cost: int) -> void:
+	"""Place a decoration at the grid position"""
+	var deco_type = placement_manager.selected_decoration_type
+	var decoration = entity_layer.place_decoration(grid_pos, deco_type)
+	if decoration:
+		var deco_name = decoration.decoration_data.get("name", deco_type.capitalize())
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Decoration: %s" % deco_name, -cost)
+		undo_manager.record_entity_placement("decoration", grid_pos, deco_type, cost)
+		_play_placement_feedback(grid_pos, "decoration")
+	else:
+		EventBus.notify("Failed to place decoration!", "error")
+
 func _play_placement_feedback(grid_pos: Vector2i, placement_type: String) -> void:
 	"""Play visual feedback effects when placing an entity"""
 	var world_pos = terrain_grid.grid_to_screen_center(grid_pos)
@@ -1407,6 +1467,7 @@ func _bulldoze_at_mouse() -> void:
 const BULLDOZER_COSTS = {
 	"tree": 15,
 	"rock": 10,
+	"decoration": 25,
 	"flower_bed": 20
 }
 
@@ -1474,6 +1535,26 @@ func _handle_bulldozer_click(grid_pos: Vector2i, mouse_world: Vector2 = Vector2.
 		_bulldoze_drag_cost += cost
 		if not dragging:
 			EventBus.notify("Rock removed (-$%d)" % cost, "info")
+		return
+
+	# Remove decoration at exact tile position
+	var decoration = entity_layer.get_decoration_at(grid_pos)
+	if decoration:
+		var cost = BULLDOZER_COSTS["decoration"]
+		if not GameManager.can_afford(cost):
+			if not dragging:
+				if GameManager.is_bankrupt():
+					EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+				else:
+					EventBus.notify("Not enough money to remove decoration ($%d)" % cost, "error")
+			return
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Remove decoration", -cost)
+		entity_layer.remove_decoration(grid_pos)
+		_bulldoze_drag_count += 1
+		_bulldoze_drag_cost += cost
+		if not dragging:
+			EventBus.notify("Decoration removed (-$%d)" % cost, "info")
 		return
 
 	# Check for flower bed terrain (exact tile only — flower beds fill their tile)
