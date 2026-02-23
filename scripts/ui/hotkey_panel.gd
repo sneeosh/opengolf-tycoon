@@ -58,6 +58,7 @@ func _build_ui() -> void:
 	_add_section(vbox, "Objects & Placement", [
 		["T", "Trees"],
 		["R", "Rocks"],
+		["D", "Decorations"],
 		["F", "Flower Bed"],
 		["B", "Buildings"],
 		["H", "Create Hole"],
@@ -75,6 +76,11 @@ func _build_ui() -> void:
 		["L", "Land"],
 		["M", "Marketing"],
 		["Z", "Analytics"],
+		["A", "Advisor"],
+		["N", "Awards"],
+		["J", "Prestige"],
+		["K", "Loyalty"],
+		["I", "Pricing"],
 	])
 
 	_add_section(vbox, "Camera & View", [

@@ -50,6 +50,20 @@ var tournament_manager: TournamentManager = null
 var tournament_panel: TournamentPanel = null
 var land_panel: LandPanel = null
 var marketing_panel: MarketingPanel = null
+var random_event_system: RandomEventSystem = null
+var advisor_system: AdvisorSystem = null
+var advisor_panel: AdvisorPanel = null
+var awards_system: AwardsSystem = null
+var awards_panel: AwardsPanel = null
+var prestige_system: PrestigeSystem = null
+var prestige_panel: PrestigePanel = null
+var loyalty_system: LoyaltySystem = null
+var loyalty_panel: LoyaltyPanel = null
+var dynamic_pricing_system: DynamicPricingSystem = null
+var pricing_panel: PricingPanel = null
+var scenario_system: ScenarioSystem = null
+var scenario_panel: ScenarioPanel = null
+var scenario_objectives_hud: ScenarioObjectivesHUD = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
 var season_debug_panel: SeasonDebugPanel = null
@@ -152,6 +166,46 @@ func _ready() -> void:
 	add_child(marketing_mgr)
 	GameManager.marketing_manager = marketing_mgr
 
+	# Set up random event system
+	random_event_system = RandomEventSystem.new()
+	random_event_system.name = "RandomEventSystem"
+	add_child(random_event_system)
+	GameManager.random_event_system = random_event_system
+
+	# Set up advisor system
+	advisor_system = AdvisorSystem.new()
+	advisor_system.name = "AdvisorSystem"
+	add_child(advisor_system)
+	GameManager.advisor_system = advisor_system
+
+	# Set up awards system
+	awards_system = AwardsSystem.new()
+	awards_system.name = "AwardsSystem"
+	add_child(awards_system)
+	GameManager.awards_system = awards_system
+
+	# Set up prestige system
+	prestige_system = PrestigeSystem.new()
+	prestige_system.name = "PrestigeSystem"
+	add_child(prestige_system)
+	GameManager.prestige_system = prestige_system
+
+	# Set up loyalty system
+	loyalty_system = LoyaltySystem.new()
+	loyalty_system.name = "LoyaltySystem"
+	add_child(loyalty_system)
+	GameManager.loyalty_system = loyalty_system
+
+	# Set up dynamic pricing system
+	dynamic_pricing_system = DynamicPricingSystem.new()
+	dynamic_pricing_system.name = "DynamicPricingSystem"
+	add_child(dynamic_pricing_system)
+	GameManager.dynamic_pricing_system = dynamic_pricing_system
+
+	# Set up scenario system
+	scenario_system = ScenarioSystem.new()
+	GameManager.scenario_system = scenario_system
+
 	# Set up save manager references
 	SaveManager.set_references(terrain_grid, entity_layer, golfer_manager, ball_manager)
 
@@ -179,11 +233,18 @@ func _ready() -> void:
 	_setup_seasonal_calendar()
 	_setup_autosave_indicator()
 	_setup_notification_toast()
+	_setup_advisor_panel()
+	_setup_awards_panel()
+	_setup_prestige_panel()
+	_setup_loyalty_panel()
+	_setup_pricing_panel()
 	_setup_course_rating_overlay()
 	_setup_floating_text()
 	_setup_shot_trails()
 	_setup_shot_heatmap()
 	_setup_audio_controls()
+	_setup_scenario_panel()
+	_setup_scenario_objectives_hud()
 	_initialize_game()
 	print("Main scene ready")
 
@@ -288,6 +349,24 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_C:
 				_toggle_seasonal_calendar()
 				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_A:
+				_toggle_advisor_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_N:
+				_toggle_awards_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_J:
+				_toggle_prestige_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_D:
+				_on_decoration_placement_pressed()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_K:
+				_toggle_loyalty_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_I:
+				_toggle_pricing_panel()
+				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
 				get_viewport().set_input_as_handled()
@@ -327,6 +406,7 @@ func _connect_signals() -> void:
 	EventBus.hole_created.connect(_on_hole_created)
 	EventBus.hole_deleted.connect(_on_hole_deleted)
 	EventBus.hole_toggled.connect(_on_hole_toggled)
+	hole_tool.tee_added.connect(_on_tee_added)
 	EventBus.end_of_day.connect(_on_end_of_day)
 	EventBus.load_completed.connect(_on_load_completed)
 	EventBus.new_game_started.connect(_on_new_game_started)
@@ -379,6 +459,7 @@ func _show_main_menu() -> void:
 	main_menu.load_game_requested.connect(_on_main_menu_load)
 	main_menu.settings_requested.connect(_on_main_menu_settings)
 	main_menu.credits_requested.connect(_on_main_menu_credits)
+	main_menu.scenarios_requested.connect(_on_main_menu_scenarios)
 	$UI/HUD.add_child(main_menu)
 	# Hide gameplay UI while in menu
 	_set_gameplay_ui_visible(false)
@@ -466,6 +547,11 @@ func _on_main_menu_credits() -> void:
 	credits.close_requested.connect(func(): pass)
 	$UI/HUD.add_child(credits)
 
+func _on_main_menu_scenarios() -> void:
+	"""Show scenario selection panel from main menu."""
+	if scenario_panel:
+		scenario_panel.show_centered()
+
 func _on_main_menu_load_panel_closed() -> void:
 	"""Save/load panel closed without loading — return to main menu."""
 	_disconnect_main_menu_load_signal()
@@ -485,7 +571,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard", "CourseRatingOverlay"]
+	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard", "CourseRatingOverlay", "AdvisorPanel", "AwardsPanel", "PrestigePanel"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -599,6 +685,12 @@ func _update_selection_indicator() -> void:
 	elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_GREEN:
 		text += "Place Green"
 		color = Color(0.5, 1.0, 0.5)  # Green
+	elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_FORWARD_TEE:
+		text += "Place Forward Tee"
+		color = Color(0.9, 0.4, 0.4)  # Red
+	elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_BACK_TEE:
+		text += "Place Back Tee"
+		color = Color(0.3, 0.4, 0.9)  # Blue
 	elif placement_manager.placement_mode == PlacementManager.PlacementMode.TREE:
 		text += "Tree (%s)" % selected_tree_type.capitalize()
 		color = Color(0.4, 0.8, 0.4)  # Forest green
@@ -801,13 +893,15 @@ func _paint_at_mouse() -> void:
 		if entity_layer and entity_layer.is_tile_occupied_by_building(tile_pos):
 			continue
 		if terrain_grid.get_tile(tile_pos) != current_tool:
-			# Auto-remove trees and rocks when placing course terrain
+			# Auto-remove trees, rocks, and decorations when placing course terrain
 			var tile_removal_cost = 0
 			if clears_obstacles and entity_layer:
 				if entity_layer.get_tree_at(tile_pos):
 					tile_removal_cost += BULLDOZER_COSTS["tree"]
 				if entity_layer.get_rock_at(tile_pos):
 					tile_removal_cost += BULLDOZER_COSTS["rock"]
+				if entity_layer.get_decoration_at(tile_pos):
+					tile_removal_cost += BULLDOZER_COSTS["decoration"]
 			# Check affordability including removal costs
 			var tile_total = cost + tile_removal_cost
 			if tile_total > 0 and not GameManager.can_afford(total_cost + obstacle_removal_cost + tile_total):
@@ -818,6 +912,8 @@ func _paint_at_mouse() -> void:
 					entity_layer.remove_tree(tile_pos)
 				if entity_layer.get_rock_at(tile_pos):
 					entity_layer.remove_rock(tile_pos)
+				if entity_layer.get_decoration_at(tile_pos):
+					entity_layer.remove_decoration(tile_pos)
 				obstacle_removal_cost += tile_removal_cost
 			terrain_grid.set_tile(tile_pos, current_tool)
 			total_cost += cost
@@ -942,6 +1038,15 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	hole_btn.pressed.connect(_show_hole_stats.bind(hole_number))
 	row.add_child(hole_btn)
 
+	# Tees button — manage forward/back tees
+	var tees_btn = Button.new()
+	tees_btn.name = "TeesBtn"
+	tees_btn.text = "Tees"
+	tees_btn.custom_minimum_size = Vector2(42, 0)
+	tees_btn.tooltip_text = "Add forward/back tee boxes"
+	tees_btn.pressed.connect(_on_tees_pressed.bind(hole_number))
+	row.add_child(tees_btn)
+
 	var toggle_btn = Button.new()
 	toggle_btn.name = "ToggleBtn"
 	toggle_btn.text = "Open"
@@ -957,6 +1062,12 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	row.add_child(delete_btn)
 
 	hole_list.add_child(row)
+
+	# Update tees button label if extra tees exist
+	_update_tees_button(hole_number)
+
+func _on_tee_added(hole_number: int, _tee_type: String) -> void:
+	_update_tees_button(hole_number)
 
 func _on_hole_toggle_pressed(hole_number: int) -> void:
 	if not GameManager.current_course:
@@ -1003,6 +1114,164 @@ func _rebuild_hole_list() -> void:
 			# Re-apply closed state
 			if not hole.is_open:
 				_on_hole_toggled(hole.hole_number, false)
+
+var _tee_dialog: AcceptDialog = null
+
+func _on_tees_pressed(hole_number: int) -> void:
+	"""Show tee management dialog for a hole."""
+	if GameManager.current_mode == GameManager.GameMode.SIMULATING:
+		EventBus.notify("Cannot modify tees while playing!", "error")
+		return
+
+	if not GameManager.current_course:
+		return
+
+	var hole: GameManager.HoleData = null
+	var hole_index: int = -1
+	for i in range(GameManager.current_course.holes.size()):
+		if GameManager.current_course.holes[i].hole_number == hole_number:
+			hole = GameManager.current_course.holes[i]
+			hole_index = i
+			break
+	if not hole:
+		return
+
+	# Clean up any existing dialog
+	if _tee_dialog and is_instance_valid(_tee_dialog):
+		_tee_dialog.queue_free()
+		_tee_dialog = null
+
+	_tee_dialog = AcceptDialog.new()
+	_tee_dialog.title = "Tee Boxes — Hole %d" % hole_number
+	_tee_dialog.size = Vector2i(360, 280)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+
+	# Current tees status
+	var status_label = Label.new()
+	var middle_yds = hole.distance_yards
+	status_label.text = "Middle Tee: %d yards (Par %d)" % [middle_yds, hole.par]
+	vbox.add_child(status_label)
+
+	# Forward tee
+	var fwd_row = HBoxContainer.new()
+	fwd_row.add_theme_constant_override("separation", 8)
+	if hole.has_forward_tee():
+		var fwd_dist = terrain_grid.calculate_distance_yards(hole.forward_tee, hole.green_position) if terrain_grid else 0
+		var fwd_label = Label.new()
+		fwd_label.text = "Forward Tee: %d yards" % fwd_dist
+		fwd_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fwd_row.add_child(fwd_label)
+		var remove_fwd = Button.new()
+		remove_fwd.text = "Remove"
+		remove_fwd.pressed.connect(func():
+			hole_tool.remove_extra_tee(hole_number, "forward")
+			_update_tees_button(hole_number)
+			_tee_dialog.queue_free()
+			_tee_dialog = null
+		)
+		fwd_row.add_child(remove_fwd)
+	else:
+		var fwd_label = Label.new()
+		fwd_label.text = "Forward Tee: Not set"
+		fwd_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fwd_row.add_child(fwd_label)
+		var add_fwd = Button.new()
+		add_fwd.text = "Place Forward Tee"
+		add_fwd.pressed.connect(func():
+			_tee_dialog.queue_free()
+			_tee_dialog = null
+			_cancel_all_modes()
+			hole_tool.start_forward_tee_placement(hole_index)
+		)
+		fwd_row.add_child(add_fwd)
+	vbox.add_child(fwd_row)
+
+	# Back tee
+	var back_row = HBoxContainer.new()
+	back_row.add_theme_constant_override("separation", 8)
+	if hole.has_back_tee():
+		var back_dist = terrain_grid.calculate_distance_yards(hole.back_tee, hole.green_position) if terrain_grid else 0
+		var back_label = Label.new()
+		back_label.text = "Back Tee: %d yards" % back_dist
+		back_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		back_row.add_child(back_label)
+		var remove_back = Button.new()
+		remove_back.text = "Remove"
+		remove_back.pressed.connect(func():
+			hole_tool.remove_extra_tee(hole_number, "back")
+			_update_tees_button(hole_number)
+			_tee_dialog.queue_free()
+			_tee_dialog = null
+		)
+		back_row.add_child(remove_back)
+	else:
+		var back_label = Label.new()
+		back_label.text = "Back Tee: Not set"
+		back_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		back_row.add_child(back_label)
+		var add_back = Button.new()
+		add_back.text = "Place Back Tee"
+		add_back.pressed.connect(func():
+			_tee_dialog.queue_free()
+			_tee_dialog = null
+			_cancel_all_modes()
+			hole_tool.start_back_tee_placement(hole_index)
+		)
+		back_row.add_child(add_back)
+	vbox.add_child(back_row)
+
+	vbox.add_child(HSeparator.new())
+
+	# Explanation
+	var help_label = Label.new()
+	help_label.text = "Forward tees: shorter distance for beginners.\nBack tees: longer distance for pros & tournaments.\nGolfers auto-select tee based on skill tier."
+	help_label.add_theme_font_size_override("font_size", 12)
+	help_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	help_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	vbox.add_child(help_label)
+
+	_tee_dialog.add_child(vbox)
+	_tee_dialog.canceled.connect(func():
+		_tee_dialog.queue_free()
+		_tee_dialog = null
+	)
+
+	add_child(_tee_dialog)
+	_tee_dialog.popup_centered()
+
+func _update_tees_button(hole_number: int) -> void:
+	"""Update the tees button label to show tee count."""
+	var row_name = "HoleRow%d" % hole_number
+	if not hole_list.has_node(row_name):
+		return
+	var row = hole_list.get_node(row_name)
+	var tees_btn = row.get_node_or_null("TeesBtn")
+	if not tees_btn:
+		return
+	# Find the hole data
+	if not GameManager.current_course:
+		return
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number == hole_number:
+			var count = hole.get_tee_count()
+			if count > 1:
+				tees_btn.text = "Tees(%d)" % count
+			else:
+				tees_btn.text = "Tees"
+			break
+
+func _cancel_all_modes() -> void:
+	"""Cancel all active placement/painting modes."""
+	hole_tool.cancel_placement()
+	placement_manager.cancel_placement()
+	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
+	_disable_terrain_painting_preview()
+	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
 
 func _on_tree_placement_pressed() -> void:
 	"""Show tree selection menu and start tree placement mode"""
@@ -1155,6 +1424,44 @@ func _on_rock_size_selected(rock_size: String, dialog: AcceptDialog) -> void:
 	placement_manager.start_rock_placement(rock_size)
 	print("Rock placement mode: %s" % rock_size)
 
+func _on_decoration_placement_pressed() -> void:
+	"""Show decoration selection menu and start decoration placement mode"""
+	hole_tool.cancel_placement()
+	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
+	_disable_terrain_painting_preview()
+	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
+
+	var dialog = AcceptDialog.new()
+	dialog.title = "Select Decoration"
+
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(350, 300)
+	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var theme_decos = Decoration.get_theme_decorations(GameManager.current_theme)
+	for deco_type in theme_decos:
+		var deco_data = Decoration.DECORATION_PROPERTIES.get(deco_type, {})
+		var btn = Button.new()
+		btn.text = "%s ($%d)" % [deco_data.get("name", deco_type.capitalize()), deco_data.get("cost", 100)]
+		btn.custom_minimum_size = Vector2(300, 36)
+		btn.pressed.connect(_on_decoration_type_selected.bind(deco_type, dialog))
+		vbox.add_child(btn)
+
+	scroll.add_child(vbox)
+	dialog.add_child(scroll)
+	dialog.size = Vector2i(400, 350)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered_ratio(0.35)
+
+func _on_decoration_type_selected(deco_type: String, dialog: AcceptDialog) -> void:
+	"""Handle decoration type selection"""
+	dialog.queue_free()
+	placement_manager.start_decoration_placement(deco_type)
+
 func _on_raise_elevation_pressed() -> void:
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
@@ -1268,6 +1575,8 @@ func _handle_placement_click(grid_pos: Vector2i) -> void:
 		_place_building(grid_pos, cost)
 	elif placement_manager.placement_mode == PlacementManager.PlacementMode.ROCK:
 		_place_rock(grid_pos, cost)
+	elif placement_manager.placement_mode == PlacementManager.PlacementMode.DECORATION:
+		_place_decoration(grid_pos, cost)
 
 func _place_tree(grid_pos: Vector2i, cost: int) -> void:
 	"""Place a tree at the grid position"""
@@ -1321,6 +1630,19 @@ func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 	else:
 		EventBus.notify("Failed to place rock!", "error")
 
+func _place_decoration(grid_pos: Vector2i, cost: int) -> void:
+	"""Place a decoration at the grid position"""
+	var deco_type = placement_manager.selected_decoration_type
+	var decoration = entity_layer.place_decoration(grid_pos, deco_type)
+	if decoration:
+		var deco_name = decoration.decoration_data.get("name", deco_type.capitalize())
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Decoration: %s" % deco_name, -cost)
+		undo_manager.record_entity_placement("decoration", grid_pos, deco_type, cost)
+		_play_placement_feedback(grid_pos, "decoration")
+	else:
+		EventBus.notify("Failed to place decoration!", "error")
+
 func _play_placement_feedback(grid_pos: Vector2i, placement_type: String) -> void:
 	"""Play visual feedback effects when placing an entity"""
 	var world_pos = terrain_grid.grid_to_screen_center(grid_pos)
@@ -1364,6 +1686,7 @@ func _bulldoze_at_mouse() -> void:
 const BULLDOZER_COSTS = {
 	"tree": 15,
 	"rock": 10,
+	"decoration": 25,
 	"flower_bed": 20
 }
 
@@ -1433,6 +1756,26 @@ func _handle_bulldozer_click(grid_pos: Vector2i, mouse_world: Vector2 = Vector2.
 			EventBus.notify("Rock removed (-$%d)" % cost, "info")
 		return
 
+	# Remove decoration at exact tile position
+	var decoration = entity_layer.get_decoration_at(grid_pos)
+	if decoration:
+		var cost = BULLDOZER_COSTS["decoration"]
+		if not GameManager.can_afford(cost):
+			if not dragging:
+				if GameManager.is_bankrupt():
+					EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+				else:
+					EventBus.notify("Not enough money to remove decoration ($%d)" % cost, "error")
+			return
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Remove decoration", -cost)
+		entity_layer.remove_decoration(grid_pos)
+		_bulldoze_drag_count += 1
+		_bulldoze_drag_cost += cost
+		if not dragging:
+			EventBus.notify("Decoration removed (-$%d)" % cost, "info")
+		return
+
 	# Check for flower bed terrain (exact tile only — flower beds fill their tile)
 	var tile_type = terrain_grid.get_tile(grid_pos)
 	if tile_type == TerrainTypes.Type.FLOWER_BED:
@@ -1498,6 +1841,10 @@ func _on_end_of_day(day_number: int) -> void:
 
 	# Update course rating before showing summary
 	GameManager.update_course_rating()
+
+	# Check scenario progress
+	if scenario_system and scenario_system.is_scenario_active:
+		scenario_system.check_progress()
 
 	# Prevent duplicate panels
 	var hud = $UI/HUD
@@ -1587,6 +1934,9 @@ func _on_load_completed(_success: bool) -> void:
 		var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
 		var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
 		camera.focus_on(Vector2(center_x, center_y), true)
+		# Show scenario objectives HUD if a scenario is active
+		if scenario_system and scenario_system.is_scenario_active and scenario_objectives_hud:
+			scenario_objectives_hud.show_objectives()
 
 # --- Undo/Redo System ---
 
@@ -2170,6 +2520,137 @@ func _setup_notification_toast() -> void:
 	toast.name = "NotificationToast"
 	$UI.add_child(toast)
 
+# --- Advisor Panel ---
+
+func _setup_advisor_panel() -> void:
+	"""Add advisor panel to the HUD."""
+	advisor_panel = AdvisorPanel.new()
+	advisor_panel.name = "AdvisorPanel"
+	advisor_panel.setup(advisor_system)
+	$UI/HUD.add_child(advisor_panel)
+	advisor_panel.hide()
+
+func _toggle_advisor_panel() -> void:
+	if advisor_panel:
+		if not advisor_panel.visible and advisor_system:
+			advisor_system.refresh_tips()
+		_toggle_panel(advisor_panel)
+
+# --- Awards Panel ---
+
+func _setup_awards_panel() -> void:
+	"""Add awards panel to the HUD."""
+	awards_panel = AwardsPanel.new()
+	awards_panel.name = "AwardsPanel"
+	awards_panel.setup(awards_system)
+	$UI/HUD.add_child(awards_panel)
+	awards_panel.hide()
+
+func _toggle_awards_panel() -> void:
+	if awards_panel:
+		_toggle_panel(awards_panel)
+
+# --- Prestige Panel ---
+
+func _setup_prestige_panel() -> void:
+	"""Add prestige panel to the HUD."""
+	prestige_panel = PrestigePanel.new()
+	prestige_panel.name = "PrestigePanel"
+	prestige_panel.setup(prestige_system)
+	$UI/HUD.add_child(prestige_panel)
+	prestige_panel.hide()
+
+func _toggle_prestige_panel() -> void:
+	if prestige_panel:
+		_toggle_panel(prestige_panel)
+
+func _setup_loyalty_panel() -> void:
+	"""Add loyalty/membership panel to the HUD."""
+	loyalty_panel = LoyaltyPanel.new()
+	loyalty_panel.name = "LoyaltyPanel"
+	loyalty_panel.setup(loyalty_system)
+	$UI/HUD.add_child(loyalty_panel)
+	loyalty_panel.hide()
+
+func _toggle_loyalty_panel() -> void:
+	if loyalty_panel:
+		_toggle_panel(loyalty_panel)
+
+func _setup_pricing_panel() -> void:
+	"""Add dynamic pricing panel to the HUD."""
+	pricing_panel = PricingPanel.new()
+	pricing_panel.name = "PricingPanel"
+	pricing_panel.setup(dynamic_pricing_system)
+	$UI/HUD.add_child(pricing_panel)
+	pricing_panel.hide()
+
+func _toggle_pricing_panel() -> void:
+	if pricing_panel:
+		_toggle_panel(pricing_panel)
+
+# --- Scenario System ---
+
+func _setup_scenario_panel() -> void:
+	scenario_panel = ScenarioPanel.new()
+	scenario_panel.name = "ScenarioPanel"
+	scenario_panel.setup(scenario_system)
+	scenario_panel.scenario_selected.connect(_on_scenario_selected)
+	$UI/HUD.add_child(scenario_panel)
+	scenario_panel.hide()
+
+func _setup_scenario_objectives_hud() -> void:
+	scenario_objectives_hud = ScenarioObjectivesHUD.new()
+	scenario_objectives_hud.name = "ScenarioObjectivesHUD"
+	scenario_objectives_hud.setup(scenario_system)
+	# Position in top-right corner
+	scenario_objectives_hud.anchor_left = 1.0
+	scenario_objectives_hud.anchor_right = 1.0
+	scenario_objectives_hud.anchor_top = 0.0
+	scenario_objectives_hud.anchor_bottom = 0.0
+	scenario_objectives_hud.offset_left = -240
+	scenario_objectives_hud.offset_right = -10
+	scenario_objectives_hud.offset_top = 50
+	$UI/HUD.add_child(scenario_objectives_hud)
+
+func _on_scenario_selected(scenario_id: String, theme_type: int) -> void:
+	"""Start a scenario — similar to new game but with scenario constraints."""
+	var scenario = scenario_system.get_scenario(scenario_id)
+	if scenario.is_empty():
+		return
+
+	# Determine theme — use scenario's theme or default to parkland
+	var actual_theme = theme_type if theme_type >= 0 else CourseTheme.Type.PARKLAND
+	var difficulty = scenario.get("difficulty", -1)
+	var actual_difficulty = difficulty if difficulty >= 0 else DifficultyPresets.Preset.NORMAL
+
+	# Start new game with scenario settings
+	if main_menu and is_instance_valid(main_menu):
+		main_menu.queue_free()
+		main_menu = null
+	_set_gameplay_ui_visible(true)
+
+	GameManager.new_game(scenario.get("name", "Scenario"), actual_theme, actual_difficulty)
+
+	# Apply scenario-specific settings (starting money override)
+	scenario_system.apply_scenario_settings(scenario)
+	scenario_system.start_scenario(scenario_id)
+
+	# Regenerate tileset after theme change
+	if terrain_grid:
+		terrain_grid.regenerate_tileset()
+
+	# Center camera
+	var center = terrain_grid.grid_to_screen_center(Vector2i(terrain_grid.grid_width / 2, terrain_grid.grid_height / 2))
+	camera.focus_on(center, false)
+
+	# Show objectives HUD
+	if scenario_objectives_hud:
+		scenario_objectives_hud.show_objectives()
+
+func _toggle_scenario_panel() -> void:
+	if scenario_panel:
+		_toggle_panel(scenario_panel)
+
 # --- Course Rating Overlay ---
 
 func _setup_course_rating_overlay() -> void:
@@ -2407,6 +2888,8 @@ func _exit_tree() -> void:
 		EventBus.hole_deleted.disconnect(_on_hole_deleted)
 	if EventBus.hole_toggled.is_connected(_on_hole_toggled):
 		EventBus.hole_toggled.disconnect(_on_hole_toggled)
+	if hole_tool.tee_added.is_connected(_on_tee_added):
+		hole_tool.tee_added.disconnect(_on_tee_added)
 	if EventBus.end_of_day.is_connected(_on_end_of_day):
 		EventBus.end_of_day.disconnect(_on_end_of_day)
 	if EventBus.load_completed.is_connected(_on_load_completed):

@@ -123,6 +123,10 @@ func _draw() -> void:
 	if hole_tool and hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE:
 		if hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_TEE:
 			_draw_tee_placement_preview()
+		elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_FORWARD_TEE:
+			_draw_extra_tee_preview("Forward Tee", Color(0.9, 0.35, 0.35, 0.5))
+		elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_BACK_TEE:
+			_draw_extra_tee_preview("Back Tee", Color(0.3, 0.35, 0.9, 0.5))
 		else:
 			_draw_hole_creation_preview()
 
@@ -576,6 +580,39 @@ func _draw_tee_placement_preview() -> void:
 	var font = ThemeDB.fallback_font
 	var center = terrain_grid.grid_to_screen_center(hover_grid_pos)
 	draw_string(font, center + Vector2(-28, -20), "Place Tee", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(1, 1, 1, 0.9))
+
+func _draw_extra_tee_preview(label_text: String, base_color: Color) -> void:
+	"""Draw preview for forward/back tee placement."""
+	if not hole_tool or not camera or not terrain_grid:
+		return
+
+	var mouse_world = camera.get_mouse_world_position()
+	var hover_grid_pos = terrain_grid.screen_to_grid(mouse_world)
+	if not terrain_grid.is_valid_position(hover_grid_pos):
+		return
+
+	var pulse = 0.7 + sin(_pulse_time) * 0.3
+	var color = Color(base_color.r, base_color.g, base_color.b, base_color.a * pulse)
+	var screen_pos = terrain_grid.grid_to_screen(hover_grid_pos)
+	var tw = terrain_grid.tile_width
+	var th = terrain_grid.tile_height
+	draw_rect(Rect2(screen_pos, Vector2(tw, th)), color)
+	draw_rect(Rect2(screen_pos, Vector2(tw, th)), Color(1.0, 1.0, 1.0, 0.7 * pulse), false, 2.0)
+
+	# Show distance to green
+	var font = ThemeDB.fallback_font
+	var center = terrain_grid.grid_to_screen_center(hover_grid_pos)
+
+	if hole_tool.target_hole_index >= 0 and GameManager.current_course:
+		var hole = GameManager.current_course.holes[hole_tool.target_hole_index]
+		var dist = terrain_grid.calculate_distance_yards(hover_grid_pos, hole.green_position)
+		draw_string(font, center + Vector2(-40, -20), "%s (%d yds)" % [label_text, dist], HORIZONTAL_ALIGNMENT_CENTER, -1, 11, Color(1, 1, 1, 0.9))
+
+		# Draw line from this tee to the green
+		var green_screen = terrain_grid.grid_to_screen_center(hole.green_position)
+		draw_line(center, green_screen, Color(1, 1, 1, 0.3 * pulse), 1.5, true)
+	else:
+		draw_string(font, center + Vector2(-32, -20), label_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(1, 1, 1, 0.9))
 
 func _draw_hole_creation_preview() -> void:
 	"""Draw preview line and info label during green placement"""

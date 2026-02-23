@@ -211,13 +211,41 @@ func _build_save_data() -> Dictionary:
 	if GameManager.shot_heatmap_tracker:
 		data["shot_heatmap"] = GameManager.shot_heatmap_tracker.serialize()
 
+	# Random events
+	if GameManager.random_event_system:
+		data["random_events"] = GameManager.random_event_system.serialize()
+
+	# Advisor
+	if GameManager.advisor_system:
+		data["advisor"] = GameManager.advisor_system.serialize()
+
+	# Awards
+	if GameManager.awards_system:
+		data["awards"] = GameManager.awards_system.serialize()
+
+	# Prestige
+	if GameManager.prestige_system:
+		data["prestige"] = GameManager.prestige_system.serialize()
+
+	# Loyalty
+	if GameManager.loyalty_system:
+		data["loyalty"] = GameManager.loyalty_system.serialize()
+
+	# Dynamic pricing
+	if GameManager.dynamic_pricing_system:
+		data["dynamic_pricing"] = GameManager.dynamic_pricing_system.serialize()
+
+	# Scenario
+	if GameManager.scenario_system:
+		data["scenario"] = GameManager.scenario_system.serialize()
+
 	return data
 
 ## Serialize hole data to plain dictionaries
 func _serialize_holes(holes: Array) -> Array:
 	var result: Array = []
 	for hole in holes:
-		result.append({
+		var hole_dict = {
 			"hole_number": hole.hole_number,
 			"par": hole.par,
 			"tee_position": {"x": hole.tee_position.x, "y": hole.tee_position.y},
@@ -226,7 +254,13 @@ func _serialize_holes(holes: Array) -> Array:
 			"distance_yards": hole.distance_yards,
 			"is_open": hole.is_open,
 			"difficulty_rating": hole.difficulty_rating,
-		})
+		}
+		# Multiple tee boxes (only save if they exist)
+		if hole.has_forward_tee():
+			hole_dict["forward_tee"] = {"x": hole.forward_tee.x, "y": hole.forward_tee.y}
+		if hole.has_back_tee():
+			hole_dict["back_tee"] = {"x": hole.back_tee.x, "y": hole.back_tee.y}
+		result.append(hole_dict)
 	return result
 
 ## Apply loaded save data
@@ -322,6 +356,34 @@ func _apply_save_data(data: Dictionary) -> void:
 	if GameManager.shot_heatmap_tracker and data.has("shot_heatmap"):
 		GameManager.shot_heatmap_tracker.deserialize(data["shot_heatmap"])
 
+	# Random events
+	if GameManager.random_event_system and data.has("random_events"):
+		GameManager.random_event_system.deserialize(data["random_events"])
+
+	# Advisor
+	if GameManager.advisor_system and data.has("advisor"):
+		GameManager.advisor_system.deserialize(data["advisor"])
+
+	# Awards
+	if GameManager.awards_system and data.has("awards"):
+		GameManager.awards_system.deserialize(data["awards"])
+
+	# Prestige
+	if GameManager.prestige_system and data.has("prestige"):
+		GameManager.prestige_system.deserialize(data["prestige"])
+
+	# Loyalty
+	if GameManager.loyalty_system and data.has("loyalty"):
+		GameManager.loyalty_system.deserialize(data["loyalty"])
+
+	# Dynamic pricing
+	if GameManager.dynamic_pricing_system and data.has("dynamic_pricing"):
+		GameManager.dynamic_pricing_system.deserialize(data["dynamic_pricing"])
+
+	# Scenario
+	if GameManager.scenario_system and data.has("scenario"):
+		GameManager.scenario_system.deserialize(data["scenario"])
+
 	# Golfers: Always clear on load - they will respawn naturally when the user
 	# switches to simulation mode. This avoids complex mid-action state restoration.
 	if golfer_manager and golfer_manager.has_method("clear_all_golfers"):
@@ -352,6 +414,13 @@ func _deserialize_holes(holes_data: Array) -> void:
 		hole.distance_yards = int(h.get("distance_yards", 0))
 		hole.is_open = h.get("is_open", true)
 		hole.difficulty_rating = float(h.get("difficulty_rating", 1.0))
+		# Multiple tee boxes (backward compatible — absent means no extra tees)
+		if h.has("forward_tee"):
+			var ft = h["forward_tee"]
+			hole.forward_tee = Vector2i(int(ft.get("x", -1)), int(ft.get("y", -1)))
+		if h.has("back_tee"):
+			var bt = h["back_tee"]
+			hole.back_tee = Vector2i(int(bt.get("x", -1)), int(bt.get("y", -1)))
 		GameManager.current_course.holes.append(hole)
 
 	GameManager.current_course._recalculate_par()

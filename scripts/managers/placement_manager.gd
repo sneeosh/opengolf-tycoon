@@ -9,13 +9,15 @@ enum PlacementMode {
 	NONE = 0,
 	BUILDING = 1,
 	TREE = 2,
-	ROCK = 3
+	ROCK = 3,
+	DECORATION = 4
 }
 
 var placement_mode: PlacementMode = PlacementMode.NONE
 var selected_building_type: String = ""
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
+var selected_decoration_type: String = "fountain"
 var current_placement_data: Dictionary = {}
 
 func start_building_placement(building_type: String, building_data: Dictionary) -> void:
@@ -41,6 +43,14 @@ func start_rock_placement(rock_size: String = "medium") -> void:
 	placement_mode_changed.emit(placement_mode)
 	print("Started rock placement: %s" % rock_size)
 
+func start_decoration_placement(decoration_type: String = "fountain") -> void:
+	placement_mode = PlacementMode.DECORATION
+	selected_building_type = ""
+	selected_decoration_type = decoration_type
+	current_placement_data = {}
+	placement_mode_changed.emit(placement_mode)
+	print("Started decoration placement: %s" % decoration_type)
+
 func cancel_placement() -> void:
 	placement_mode = PlacementMode.NONE
 	selected_building_type = ""
@@ -57,6 +67,8 @@ func can_place_at(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 		return _can_place_building(grid_pos, terrain_grid)
 	elif placement_mode == PlacementMode.ROCK:
 		return _can_place_rock(grid_pos, terrain_grid)
+	elif placement_mode == PlacementMode.DECORATION:
+		return _can_place_decoration(grid_pos, terrain_grid)
 
 	return false
 
@@ -85,6 +97,20 @@ func _can_place_rock(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 		TerrainTypes.Type.FAIRWAY,
 		TerrainTypes.Type.ROUGH,
 		TerrainTypes.Type.HEAVY_ROUGH
+	]
+
+func _can_place_decoration(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
+	# Decorations can be placed on grass, rough, fairway, heavy rough, and path
+	if not terrain_grid.is_valid_position(grid_pos):
+		return false
+
+	var tile_type = terrain_grid.get_tile(grid_pos)
+	return tile_type in [
+		TerrainTypes.Type.GRASS,
+		TerrainTypes.Type.FAIRWAY,
+		TerrainTypes.Type.ROUGH,
+		TerrainTypes.Type.HEAVY_ROUGH,
+		TerrainTypes.Type.PATH
 	]
 
 func _can_place_building(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
@@ -135,6 +161,9 @@ func get_placement_cost() -> int:
 		return rock_costs.get(selected_rock_size, 15)
 	elif placement_mode == PlacementMode.BUILDING:
 		return current_placement_data.get("cost", 0)
+	elif placement_mode == PlacementMode.DECORATION:
+		var deco_data = Decoration.DECORATION_PROPERTIES.get(selected_decoration_type, {})
+		return deco_data.get("cost", 100)
 
 	return 0
 

@@ -2,9 +2,10 @@ extends Node2D
 class_name EntityLayer
 ## EntityLayer - Manages all placed buildings and trees on the course
 
-var buildings: Dictionary = {}  # key: Vector2i (grid_pos), value: Building node
-var trees: Dictionary = {}      # key: Vector2i (grid_pos), value: TreeEntity node
-var rocks: Dictionary = {}      # key: Vector2i (grid_pos), value: Rock node
+var buildings: Dictionary = {}     # key: Vector2i (grid_pos), value: Building node
+var trees: Dictionary = {}        # key: Vector2i (grid_pos), value: TreeEntity node
+var rocks: Dictionary = {}        # key: Vector2i (grid_pos), value: Rock node
+var decorations: Dictionary = {}  # key: Vector2i (grid_pos), value: Decoration node
 
 var terrain_grid: TerrainGrid
 var building_registry: Dictionary = {}  # Can accept either Node or Dictionary
@@ -16,29 +17,35 @@ var map_seed: int = 0
 signal building_placed(building: Building, cost: int)
 signal tree_placed(tree: TreeEntity, cost: int)
 signal rock_placed(rock: Rock, cost: int)
+signal decoration_placed(decoration: Decoration, cost: int)
 signal building_removed(grid_pos: Vector2i)
 signal tree_removed(grid_pos: Vector2i)
 signal rock_removed(grid_pos: Vector2i)
+signal decoration_removed(grid_pos: Vector2i)
 signal building_selected(building: Building)
 
 @onready var buildings_container = Node2D.new()
 @onready var trees_container = Node2D.new()
 @onready var rocks_container = Node2D.new()
+@onready var decorations_container = Node2D.new()
 
 func _ready() -> void:
 	buildings_container.name = "Buildings"
 	trees_container.name = "Trees"
 	rocks_container.name = "Rocks"
+	decorations_container.name = "Decorations"
 
 	# Enable Y-sorting for proper isometric depth ordering
 	# Objects lower on screen (higher Y) render in front of objects higher on screen
 	buildings_container.y_sort_enabled = true
 	trees_container.y_sort_enabled = true
 	rocks_container.y_sort_enabled = true
+	decorations_container.y_sort_enabled = true
 
 	add_child(buildings_container)
 	add_child(trees_container)
 	add_child(rocks_container)
+	add_child(decorations_container)
 
 	# Generate a random map seed if not set (new game)
 	if map_seed == 0:
@@ -157,6 +164,25 @@ func place_rock(grid_pos: Vector2i, rock_size: String = "medium") -> Rock:
 	rock_placed.emit(rock, rock_cost)
 	return rock
 
+func place_decoration(grid_pos: Vector2i, decoration_type: String = "fountain") -> Decoration:
+	"""Place a decoration at the specified grid position"""
+	var decoration = Decoration.new()
+	decoration.set_terrain_grid(terrain_grid)
+	decoration.set_position_in_grid(grid_pos)
+
+	decorations_container.add_child(decoration)
+
+	decoration.set_decoration_type(decoration_type)
+
+	decorations[grid_pos] = decoration
+
+	decoration.decoration_selected.connect(_on_decoration_selected)
+	decoration.decoration_destroyed.connect(_on_decoration_destroyed)
+
+	var deco_cost = decoration.decoration_data.get("cost", 100)
+	decoration_placed.emit(decoration, deco_cost)
+	return decoration
+
 func get_building_at(grid_pos: Vector2i) -> Building:
 	return buildings.get(grid_pos, null)
 
@@ -165,6 +191,9 @@ func get_tree_at(grid_pos: Vector2i) -> TreeEntity:
 
 func get_rock_at(grid_pos: Vector2i) -> Rock:
 	return rocks.get(grid_pos, null)
+
+func get_decoration_at(grid_pos: Vector2i) -> Decoration:
+	return decorations.get(grid_pos, null)
 
 func get_buildings_in_area(top_left: Vector2i, bottom_right: Vector2i) -> Array:
 	"""Get all buildings within the specified area"""
@@ -193,6 +222,15 @@ func get_rocks_in_area(top_left: Vector2i, bottom_right: Vector2i) -> Array:
 			result.append(rocks[pos])
 	return result
 
+func get_decorations_in_area(top_left: Vector2i, bottom_right: Vector2i) -> Array:
+	"""Get all decorations within the specified area"""
+	var result: Array = []
+	for pos in decorations.keys():
+		if pos.x >= top_left.x and pos.x <= bottom_right.x and \
+		   pos.y >= top_left.y and pos.y <= bottom_right.y:
+			result.append(decorations[pos])
+	return result
+
 func remove_building(grid_pos: Vector2i) -> void:
 	var building = buildings.get(grid_pos, null)
 	if building:
@@ -213,6 +251,13 @@ func remove_rock(grid_pos: Vector2i) -> void:
 		rock.destroy()
 		rocks.erase(grid_pos)
 		rock_removed.emit(grid_pos)
+
+func remove_decoration(grid_pos: Vector2i) -> void:
+	var decoration = decorations.get(grid_pos, null)
+	if decoration:
+		decoration.destroy()
+		decorations.erase(grid_pos)
+		decoration_removed.emit(grid_pos)
 
 func get_all_buildings() -> Array:
 	return buildings.values()
@@ -259,12 +304,28 @@ func get_all_trees() -> Array:
 func get_all_rocks() -> Array:
 	return rocks.values()
 
+func get_all_decorations() -> Array:
+	return decorations.values()
+
+## Get total satisfaction bonus from decorations near a grid position
+func get_decoration_satisfaction_bonus(grid_pos: Vector2i) -> float:
+	var total_bonus: float = 0.0
+	for deco_pos in decorations.keys():
+		var decoration = decorations[deco_pos]
+		var distance = abs(grid_pos.x - deco_pos.x) + abs(grid_pos.y - deco_pos.y)
+		if distance <= decoration.get_effect_radius():
+			# Linear falloff: full bonus at center, zero at edge
+			var falloff = 1.0 - (float(distance) / float(decoration.get_effect_radius() + 1))
+			total_bonus += decoration.get_satisfaction_bonus() * falloff
+	return total_bonus
+
 func serialize() -> Dictionary:
 	var data: Dictionary = {
 		"map_seed": map_seed,
 		"buildings": {},
 		"trees": {},
-		"rocks": {}
+		"rocks": {},
+		"decorations": {}
 	}
 
 	for pos in buildings:
@@ -275,6 +336,9 @@ func serialize() -> Dictionary:
 
 	for pos in rocks:
 		data["rocks"]["%d,%d" % [pos.x, pos.y]] = rocks[pos].get_rock_info()
+
+	for pos in decorations:
+		data["decorations"]["%d,%d" % [pos.x, pos.y]] = decorations[pos].get_decoration_info()
 
 	return data
 
@@ -289,6 +353,9 @@ func clear_all() -> void:
 	for pos in rocks.keys():
 		rocks[pos].destroy()
 	rocks.clear()
+	for pos in decorations.keys():
+		decorations[pos].destroy()
+	decorations.clear()
 
 func deserialize(data: Dictionary) -> void:
 	"""Reconstruct entities from saved data."""
@@ -336,6 +403,17 @@ func deserialize(data: Dictionary) -> void:
 					rock_size_val = rock_data_saved.get("size", rock_data_saved.get("rock_size", "medium"))
 				place_rock(pos, rock_size_val)
 
+	if data.has("decorations"):
+		for key in data["decorations"]:
+			var parts = key.split(",")
+			if parts.size() == 2:
+				var pos = Vector2i(int(parts[0]), int(parts[1]))
+				var deco_data_saved = data["decorations"][key]
+				var deco_type_val = "fountain"
+				if deco_data_saved is Dictionary:
+					deco_type_val = deco_data_saved.get("type", "fountain")
+				place_decoration(pos, deco_type_val)
+
 func _on_building_selected(building: Building) -> void:
 	building_selected.emit(building)
 
@@ -352,4 +430,10 @@ func _on_rock_selected(rock: Rock) -> void:
 	pass  # Handle rock selection if needed
 
 func _on_rock_destroyed(rock: Rock) -> void:
+	pass  # Clean up if needed
+
+func _on_decoration_selected(decoration: Decoration) -> void:
+	pass  # Handle decoration selection if needed
+
+func _on_decoration_destroyed(decoration: Decoration) -> void:
 	pass  # Clean up if needed

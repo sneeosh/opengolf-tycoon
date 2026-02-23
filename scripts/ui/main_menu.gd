@@ -7,6 +7,7 @@ signal quick_start_requested(course_name: String, theme_type: int)
 signal load_game_requested()
 signal settings_requested()
 signal credits_requested()
+signal scenarios_requested()
 
 var _theme_cards: Array = []
 var _selected_theme: int = CourseTheme.Type.PARKLAND
@@ -153,6 +154,20 @@ func _ready() -> void:
 	load_btn.add_theme_font_size_override("font_size", 16)
 	load_btn.pressed.connect(_on_load_pressed)
 	btn_row.add_child(load_btn)
+
+	# Buttons row 1.5: Scenarios
+	var btn_row_scenarios = HBoxContainer.new()
+	btn_row_scenarios.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row_scenarios.add_theme_constant_override("separation", 16)
+	main_vbox.add_child(btn_row_scenarios)
+
+	var scenarios_btn = Button.new()
+	scenarios_btn.text = "Scenarios"
+	scenarios_btn.tooltip_text = "Play hand-crafted challenges with objectives and star ratings"
+	scenarios_btn.custom_minimum_size = Vector2(200, 40)
+	scenarios_btn.add_theme_font_size_override("font_size", 16)
+	scenarios_btn.pressed.connect(_on_scenarios_pressed)
+	btn_row_scenarios.add_child(scenarios_btn)
 
 	# Buttons row 2: Settings, Credits, Quit
 	var btn_row2 = HBoxContainer.new()
@@ -331,6 +346,9 @@ func _on_settings_pressed() -> void:
 
 func _on_credits_pressed() -> void:
 	credits_requested.emit()
+
+func _on_scenarios_pressed() -> void:
+	scenarios_requested.emit()
 
 func _on_download_pressed() -> void:
 	var dialog = AcceptDialog.new()

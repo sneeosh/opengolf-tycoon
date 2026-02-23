@@ -91,6 +91,27 @@ var land_manager: LandManager = null
 var staff_manager: StaffManager = null
 var marketing_manager: MarketingManager = null
 
+# Random events (set by main scene)
+var random_event_system: RandomEventSystem = null
+
+# Advisor system (set by main scene)
+var advisor_system: AdvisorSystem = null
+
+# Awards system (set by main scene)
+var awards_system: AwardsSystem = null
+
+# Prestige system (set by main scene)
+var prestige_system: PrestigeSystem = null
+
+# Loyalty system (set by main scene)
+var loyalty_system: LoyaltySystem = null
+
+# Dynamic pricing system (set by main scene)
+var dynamic_pricing_system: DynamicPricingSystem = null
+
+# Scenario system (set by main scene)
+var scenario_system: ScenarioSystem = null
+
 # Daily statistics tracking
 var daily_stats: DailyStatistics = DailyStatistics.new()
 var yesterday_stats: DailyStatistics = null  # Previous day's stats for comparison
@@ -313,13 +334,17 @@ func get_open_hole_count() -> int:
 	return current_course.get_open_holes().size()
 
 func get_effective_max_green_fee() -> int:
-	"""Get the maximum green fee allowed based on hole count.
-	More holes = higher max fee. Prevents 1-hole courses charging $200."""
+	"""Get the maximum green fee allowed based on hole count and prestige.
+	More holes = higher max fee. Prestige tiers raise the cap further."""
 	var holes = get_open_hole_count()
 	if holes <= 0:
 		return MIN_GREEN_FEE
 	# $15 per hole, minimum $10
-	return max(MIN_GREEN_FEE, min(holes * 15, MAX_GREEN_FEE))
+	var base_max = max(MIN_GREEN_FEE, min(holes * 15, MAX_GREEN_FEE))
+	# Prestige bonus raises the cap
+	if prestige_system:
+		base_max += prestige_system.get_green_fee_bonus()
+	return min(base_max, MAX_GREEN_FEE)
 
 func clamp_green_fee_to_max() -> void:
 	"""Re-clamp green fee after hole count changes."""
@@ -481,6 +506,9 @@ func advance_to_next_day() -> void:
 			decay = 0.1
 		var diff_mods := DifficultyPresets.get_modifiers(current_difficulty)
 		decay *= diff_mods.get("reputation_decay_multiplier", 1.0)
+		# Prestige reduces reputation decay
+		if prestige_system:
+			decay *= (1.0 - prestige_system.get_reputation_decay_reduction())
 		modify_reputation(-decay)
 
 	# Loan interest compounds every 7 days
@@ -543,10 +571,16 @@ func stop_simulation() -> void:
 	EventBus.notify("Returned to building mode", "info")
 
 func get_maintenance_multiplier() -> float:
-	"""Get the combined maintenance cost multiplier from theme and difficulty."""
+	"""Get the combined maintenance cost multiplier from theme, difficulty, and events."""
 	var theme_mods := CourseTheme.get_gameplay_modifiers(current_theme)
 	var diff_mods := DifficultyPresets.get_modifiers(current_difficulty)
-	return theme_mods.get("maintenance_cost_multiplier", 1.0) * diff_mods.get("maintenance_multiplier", 1.0)
+	var base = theme_mods.get("maintenance_cost_multiplier", 1.0) * diff_mods.get("maintenance_multiplier", 1.0)
+	if random_event_system:
+		base *= random_event_system.get_maintenance_multiplier()
+	# Prestige tier discount
+	if prestige_system:
+		base *= (1.0 - prestige_system.get_maintenance_discount())
+	return base
 
 func get_spawn_rate_multiplier() -> float:
 	"""Get the difficulty-adjusted golfer spawn rate multiplier."""
@@ -615,7 +649,7 @@ class CourseData:
 class HoleData:
 	var hole_number: int = 1
 	var par: int = 4
-	var tee_position: Vector2i = Vector2i.ZERO
+	var tee_position: Vector2i = Vector2i.ZERO  # Middle tee (default for all tiers)
 	var green_position: Vector2i = Vector2i.ZERO
 	var hole_position: Vector2i = Vector2i.ZERO  # Actual cup position on green
 	var fairway_tiles: Array = []
@@ -623,6 +657,41 @@ class HoleData:
 	var distance_yards: int = 0
 	var is_open: bool = true  # Whether the hole is open for play
 	var difficulty_rating: float = 1.0  # Hole difficulty (1.0-10.0)
+
+	# Multiple tee boxes: forward (shorter) and back (longer)
+	var forward_tee: Vector2i = Vector2i(-1, -1)  # Forward tee for beginners
+	var back_tee: Vector2i = Vector2i(-1, -1)      # Back tee for pros/tournaments
+
+	func has_forward_tee() -> bool:
+		return forward_tee != Vector2i(-1, -1)
+
+	func has_back_tee() -> bool:
+		return back_tee != Vector2i(-1, -1)
+
+	func get_tee_count() -> int:
+		var count = 1  # Middle tee always exists
+		if has_forward_tee():
+			count += 1
+		if has_back_tee():
+			count += 1
+		return count
+
+	func get_tee_for_tier(tier: int) -> Vector2i:
+		"""Return the appropriate tee position for a golfer tier."""
+		match tier:
+			GolferTier.Tier.BEGINNER:
+				if has_forward_tee():
+					return forward_tee
+			GolferTier.Tier.PRO:
+				if has_back_tee():
+					return back_tee
+		return tee_position  # Default: middle tee
+
+	func get_tee_for_tournament() -> Vector2i:
+		"""Tournament golfers always play from the back tee if available."""
+		if has_back_tee():
+			return back_tee
+		return tee_position
 
 ## DailyStatistics - Tracks statistics for the current day
 class DailyStatistics:

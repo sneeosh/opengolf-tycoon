@@ -20,6 +20,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 ### Course Design
 - [Difficulty Calculator](difficulty-calculator.md) — Per-hole difficulty from hazards, elevation, doglegs, green size, landing zones
 - [Course Rating (Stars)](course-rating.md) — 4-category weighted rating: condition, design, value, pace. Slope and course rating
+- [Multiple Tee Boxes](multiple-tee-boxes.md) — Forward/middle/back tees per hole with tier-based golfer selection
 
 ### Economy & Progression
 - [Economy & Financial System](economy.md) — Green fees, operating costs, loans, staff tiers, profit calculation
@@ -30,6 +31,14 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 ### Events & Time
 - [Tournament System](tournament-system.md) — 4 tiers, qualification, scheduling, live scoring, revenue/reputation rewards
 - [Day/Night Cycle](day-night-cycle.md) — Time progression, sunrise/sunset tinting, weather tint blending, course hours
+- [Random Events](random-events.md) — Weather disasters, VIP visits, equipment breakdowns, economic shifts, sponsorships
+- [Advisor System](advisor-system.md) — Context-sensitive tips for pricing, design, amenities, staffing, finances, progression
+- [Awards System](awards-system.md) — End-of-year ceremony with Bronze/Silver/Gold awards and Hall of Fame
+- [Prestige System](prestige-system.md) — Course prestige tiers (Unranked to Platinum) with progressive unlocks
+- [Decorations System](decorations-system.md) — 16 decorative items across 5 categories with satisfaction radius bonuses
+- [Loyalty System](loyalty-system.md) — Golfer loyalty tracking, word-of-mouth, and membership tiers
+- [Dynamic Pricing](dynamic-pricing.md) — Demand-based green fee suggestions with auto-pricing
+- [Scenario System](scenario-system.md) — 10 hand-crafted challenges with objectives, star ratings, and unlock chains
 
 ## How to Use for Tuning
 
