@@ -616,7 +616,8 @@ static func _draw_oob_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
 
 static func _draw_trees_tile(image: Image, col: int, row: int) -> void:
-	var base = get_color("trees")
+	# Use grass color so the tile blends invisibly — tree entity sprites provide the visual
+	var base = get_color("grass")
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 3456
@@ -642,7 +643,8 @@ static func _draw_flower_bed_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise + mulch, base.g + noise * 0.8 + mulch, base.b + noise * 0.6 + mulch))
 
 static func _draw_rocks_tile(image: Image, col: int, row: int) -> void:
-	var base = get_color("rocks")
+	# Use grass color so the tile blends invisibly — rock entity sprites provide the visual
+	var base = get_color("grass")
 	var rect = _get_tile_rect(col, row)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 5678

@@ -1,12 +1,12 @@
 [gd_scene format=3 uid="uid://dj8qvx2f3c5hy"]
 
-[ext_resource type="Script" uid="uid://dum1ja7t3drvq" path="res://scripts/main/main.gd" id="1_main"]
-[ext_resource type="Script" uid="uid://i45x1qoe26ha" path="res://scripts/utils/isometric_camera.gd" id="2_camera"]
-[ext_resource type="Script" uid="uid://cnm8rnhd4kvyr" path="res://scripts/terrain/terrain_grid.gd" id="3_terrain"]
+[ext_resource type="Script" uid="uid://pr1o1y74276a" path="res://scripts/main/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://6r4wvbqfiqh4" path="res://scripts/utils/isometric_camera.gd" id="2_camera"]
+[ext_resource type="Script" uid="uid://deon6118qoj5m" path="res://scripts/terrain/terrain_grid.gd" id="3_terrain"]
 [ext_resource type="TileSet" path="res://assets/tilesets/terrain_tileset.tres" id="4_tileset"]
-[ext_resource type="Script" uid="uid://q8q0lftfutsn" path="res://scripts/managers/golfer_manager.gd" id="5_golfer_manager"]
-[ext_resource type="Script" uid="uid://cya5ceakmh8n2" path="res://scripts/managers/ball_manager.gd" id="6_ball_manager"]
-[ext_resource type="Script" uid="uid://cs6h2r5udole0" path="res://scripts/managers/hole_manager.gd" id="7_hole_manager"]
+[ext_resource type="Script" uid="uid://vrbmttnjavdh" path="res://scripts/managers/golfer_manager.gd" id="5_golfer_manager"]
+[ext_resource type="Script" uid="uid://b553if6sdqr2o" path="res://scripts/managers/ball_manager.gd" id="6_ball_manager"]
+[ext_resource type="Script" uid="uid://dtiy6dga88tfe" path="res://scripts/managers/hole_manager.gd" id="7_hole_manager"]
 [ext_resource type="Theme" uid="uid://c6xth2qvp8yxk" path="res://assets/themes/game_theme.tres" id="8_theme"]
 
 [node name="Main" type="Node2D" unique_id=1113796788]

@@ -109,6 +109,11 @@ func handle_water_penalty(golfer_id: int, previous_position: Vector2i) -> void:
 	# Wait a moment to show the splash, then drop at previous position
 	await get_tree().create_timer(1.5).timeout
 
+	# Re-validate ball after await (may have been freed during timer)
+	ball = get_ball(golfer_id)
+	if not ball or not is_instance_valid(ball):
+		return
+
 	# Drop ball at previous position (or designated drop zone)
 	ball.set_position_in_grid(previous_position)
 	ball.ball_state = Ball.BallState.AT_REST
@@ -125,6 +130,11 @@ func handle_ob_penalty(golfer_id: int, previous_position: Vector2i) -> void:
 	# Ball visual already shows OB state
 	# Wait a moment, then reset to previous position
 	await get_tree().create_timer(1.5).timeout
+
+	# Re-validate ball after await (may have been freed during timer)
+	ball = get_ball(golfer_id)
+	if not ball or not is_instance_valid(ball):
+		return
 
 	# Re-hit from previous position (stroke and distance)
 	ball.set_position_in_grid(previous_position)
@@ -329,6 +339,6 @@ func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 	# Flight goes to the carry position (where ball first hits ground)
 	ball.start_flight_screen_with_arc(from_screen, carry_screen, duration, wind_offset)
 
-func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
+func _on_golfer_finished_round(golfer_id: int, _total_strokes: int, _total_par: int) -> void:
 	# Remove ball when golfer finishes their round
 	remove_ball(golfer_id)

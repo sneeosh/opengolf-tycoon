@@ -494,7 +494,7 @@ func _is_landing_area_clear(shooting_golfer: Golfer, _group_golfers: Array) -> b
 
 	# Get the golfer's intended target and calculate shot distance
 	var ball_pos = Vector2(shooting_golfer.ball_position)
-	var target = Vector2(shooting_golfer.decide_shot_target(hole_position))
+	var target = Vector2(shooting_golfer.get_cached_or_compute_shot_target(hole_position))
 
 	# Calculate lateral radius for cone check
 	var shot_distance = ball_pos.distance_to(target)
@@ -776,7 +776,7 @@ func remove_golfer(golfer_id: int) -> void:
 			golfer_removed.emit(golfer_id)
 			return
 
-func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
+func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: int) -> void:
 	# Find the golfer to get their tier and group_id
 	var finished_golfer = get_golfer(golfer_id)
 	if not finished_golfer:

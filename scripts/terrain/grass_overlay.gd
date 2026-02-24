@@ -18,19 +18,34 @@ func setup(terrain_grid: TerrainGrid) -> void:
 	_regenerate_grass()
 	terrain_grid.tile_changed.connect(_on_tile_changed)
 	EventBus.theme_changed.connect(_on_theme_changed)
+	EventBus.building_placed.connect(_on_building_changed)
+	EventBus.building_removed.connect(_on_building_changed)
 
 func _exit_tree() -> void:
 	if EventBus.theme_changed.is_connected(_on_theme_changed):
 		EventBus.theme_changed.disconnect(_on_theme_changed)
+	if EventBus.building_placed.is_connected(_on_building_changed):
+		EventBus.building_placed.disconnect(_on_building_changed)
+	if EventBus.building_removed.is_connected(_on_building_changed):
+		EventBus.building_removed.disconnect(_on_building_changed)
 
 func _on_theme_changed(_theme_type: int) -> void:
 	# Regenerate grass with new theme colors
 	_regenerate_grass()
 	queue_redraw()
 
+func _on_building_changed(_arg1, _arg2 = null) -> void:
+	# Regenerate to skip/restore tiles under buildings
+	_regenerate_grass()
+	queue_redraw()
+
 func _on_tile_changed(pos: Vector2i, _old_type: int, new_type: int) -> void:
 	if new_type in GRASS_TYPES:
-		_generate_grass_for_tile(pos)
+		var el = GameManager.entity_layer if GameManager else null
+		if el and el.is_tile_occupied_by_building(pos):
+			_grass_positions.erase(pos)
+		else:
+			_generate_grass_for_tile(pos)
 	else:
 		_grass_positions.erase(pos)
 	queue_redraw()
@@ -40,11 +55,14 @@ func _regenerate_grass() -> void:
 	if not _terrain_grid:
 		return
 
+	var el = GameManager.entity_layer if GameManager else null
 	for x in range(_terrain_grid.grid_width):
 		for y in range(_terrain_grid.grid_height):
 			var pos = Vector2i(x, y)
 			var terrain_type = _terrain_grid.get_tile(pos)
 			if terrain_type in GRASS_TYPES:
+				if el and el.is_tile_occupied_by_building(pos):
+					continue
 				_generate_grass_for_tile(pos)
 
 func _get_blade_color_for_terrain(terrain_type: int) -> Color:

@@ -170,7 +170,7 @@ func _on_building_placed(_type: String, _pos: Vector2i) -> void:
 	_check("first_building", building_count >= 1)
 	_check("five_buildings", building_count >= 5)
 
-func _on_golfer_finished_round(_golfer_id: int, _total_strokes: int) -> void:
+func _on_golfer_finished_round(_golfer_id: int, _total_strokes: int, _total_par: int) -> void:
 	_check("first_golfer", true)
 
 func _on_golfer_spawned(_golfer_id: int, _golfer_name: String) -> void:

@@ -9,14 +9,15 @@ var _is_active: bool = false
 var _wind_direction: float = 0.0
 var _wind_speed: float = 0.0
 
-const MAX_DROPS: int = 500
+const MAX_DROPS: int = 300
 const MAX_DROPS_WEB: int = 150  # Reduced for web performance
 const DROP_SPEED: float = 900.0  # Pixels per second
 const DROP_LENGTH: float = 24.0
 
 var _is_web: bool = false
-var _web_redraw_timer: float = 0.0
-const WEB_REDRAW_INTERVAL: float = 0.05  # 20 FPS for rain on web (vs 60 on desktop)
+var _redraw_timer: float = 0.0
+const REDRAW_INTERVAL_WEB: float = 0.05  # 20 FPS for rain on web
+const REDRAW_INTERVAL_DESKTOP: float = 0.033  # 30 FPS for rain on desktop
 
 func _ready() -> void:
 	z_index = 100  # Render above everything
@@ -77,7 +78,8 @@ func _initialize_drops() -> void:
 			"x": randf() * viewport_size.x,
 			"y": randf() * viewport_size.y,
 			"speed": randf_range(0.8, 1.2),
-			"offset": randf() * TAU
+			"offset": randf() * TAU,
+			"alpha": randf_range(0.7, 1.0)
 		})
 
 func _process(delta: float) -> void:
@@ -98,14 +100,13 @@ func _process(delta: float) -> void:
 		if drop.y > viewport_size.y + DROP_LENGTH or drop.x < -50 or drop.x > viewport_size.x + 50:
 			drop.y = -DROP_LENGTH
 			drop.x = randf() * viewport_size.x
+			drop.alpha = randf_range(0.7, 1.0)  # Re-randomize alpha on reset
 
-	# Throttle redraws on web to ~20 FPS
-	if _is_web:
-		_web_redraw_timer += delta
-		if _web_redraw_timer >= WEB_REDRAW_INTERVAL:
-			_web_redraw_timer = 0.0
-			queue_redraw()
-	else:
+	# Throttle redraws on both web and desktop
+	var interval = REDRAW_INTERVAL_WEB if _is_web else REDRAW_INTERVAL_DESKTOP
+	_redraw_timer += delta
+	if _redraw_timer >= interval:
+		_redraw_timer = 0.0
 		queue_redraw()
 
 func _draw() -> void:
@@ -124,8 +125,8 @@ func _draw() -> void:
 		var start_pos = Vector2(drop.x, drop.y)
 		var end_pos = Vector2(drop.x + wind_angle_x + 3, drop.y + DROP_LENGTH * drop.speed)
 
-		# Vary alpha slightly per drop
-		var drop_alpha = base_alpha * randf_range(0.7, 1.0)
+		# Use cached per-drop alpha (randomized on init/reset, not per-frame)
+		var drop_alpha = base_alpha * drop.alpha
 		var drop_color = Color(rain_color.r, rain_color.g, rain_color.b, drop_alpha)
 
 		draw_line(start_pos, end_pos, drop_color, 2.0)
@@ -136,7 +137,7 @@ func _draw() -> void:
 
 func _draw_splashes() -> void:
 	var viewport_size = get_viewport_rect().size
-	var splash_count = int(20 * _weather_system.intensity)
+	var splash_count = int(10 * _weather_system.intensity)
 
 	for i in range(splash_count):
 		# Use deterministic positions based on time for consistent animation
@@ -156,7 +157,7 @@ func _draw_splashes() -> void:
 		_draw_puddles(viewport_size)
 
 func _draw_puddles(viewport_size: Vector2) -> void:
-	var puddle_count := int(12 * _weather_system.intensity)
+	var puddle_count := int(6 * _weather_system.intensity)
 	var puddle_color := Color(0.5, 0.6, 0.8, 0.12)
 
 	for i in range(puddle_count):

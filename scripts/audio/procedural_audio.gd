@@ -762,7 +762,7 @@ static func generate_chime(sample_rate: int, amplitude: float) -> PackedVector2A
 
 		for n in 4:
 			if time_s >= note_starts[n]:
-				var nt := time_s - note_starts[n]
+				var nt: float = time_s - note_starts[n]
 				# Each note has attack + long decay with shimmer
 				var note_env := minf(nt * 20.0, 1.0) * exp(-nt * 4.0) * amplitude * 0.4
 				phases[n] += TWO_PI * freqs[n] / sample_rate

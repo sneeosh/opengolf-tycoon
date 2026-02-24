@@ -99,18 +99,13 @@ func _ready() -> void:
 	theme_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_vbox.add_child(theme_label)
 
-	# Theme cards grid — scrollable to accommodate all themes
-	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(900, 300)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	main_vbox.add_child(scroll)
-
+	# Theme cards grid
 	var grid = GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 8)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(grid)
+	main_vbox.add_child(grid)
 
 	for theme_type in CourseTheme.get_all_types():
 		var card = _create_theme_card(theme_type)

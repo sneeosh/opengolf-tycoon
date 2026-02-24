@@ -125,6 +125,19 @@ func _update_display() -> void:
 
 	_content_vbox.add_child(HSeparator.new())
 
+	# Needs section
+	var needs_label := Label.new()
+	needs_label.text = "Needs"
+	needs_label.add_theme_font_size_override("font_size", 13)
+	_content_vbox.add_child(needs_label)
+
+	_content_vbox.add_child(_create_need_bar("Energy", _golfer.needs.energy))
+	_content_vbox.add_child(_create_need_bar("Comfort", _golfer.needs.comfort))
+	_content_vbox.add_child(_create_need_bar("Hunger", _golfer.needs.hunger))
+	_content_vbox.add_child(_create_need_bar("Pace", _golfer.needs.pace))
+
+	_content_vbox.add_child(HSeparator.new())
+
 	# Scorecard (hole-by-hole)
 	if _golfer.hole_scores.size() > 0:
 		var scorecard_label := Label.new()
@@ -188,6 +201,42 @@ func _create_skill_bar(skill_name: String, value: float) -> HBoxContainer:
 	val_label.text = "%d" % int(value * 100)
 	val_label.add_theme_font_size_override("font_size", 11)
 	val_label.custom_minimum_size = Vector2(30, 0)
+	val_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(val_label)
+
+	return row
+
+func _create_need_bar(need_name: String, value: float) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+
+	var label := Label.new()
+	label.text = need_name
+	label.add_theme_font_size_override("font_size", 11)
+	label.custom_minimum_size = Vector2(65, 0)
+	row.add_child(label)
+
+	var bg := ColorRect.new()
+	bg.color = UIConstants.COLOR_BG_BUTTON
+	bg.custom_minimum_size = Vector2(140, 12)
+	bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(bg)
+
+	var fill := ColorRect.new()
+	if value > 0.5:
+		fill.color = UIConstants.COLOR_MOOD_HAPPY
+	elif value > 0.3:
+		fill.color = UIConstants.COLOR_MOOD_NEUTRAL
+	else:
+		fill.color = UIConstants.COLOR_MOOD_UNHAPPY
+	fill.custom_minimum_size = Vector2(140.0 * value, 12)
+	fill.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	bg.add_child(fill)
+
+	var val_label := Label.new()
+	val_label.text = "%d%%" % int(value * 100)
+	val_label.add_theme_font_size_override("font_size", 11)
+	val_label.custom_minimum_size = Vector2(35, 0)
 	val_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(val_label)
 

@@ -115,61 +115,59 @@ void fragment() {
 	// Skip transparent pixels
 	if (tile_color.a < 0.1) {
 		COLOR = tile_color;
-		return;
+	} else {
+		// Calculate the actual tile center UV within the atlas
+		// UV is in atlas space, so we need to find which tile we're in and sample its center
+		vec2 atlas_uv = UV * atlas_size;  // Convert to pixel coordinates in atlas
+		vec2 tile_index = floor(atlas_uv / tile_size);  // Which tile (0-15, 0-15)
+		vec2 tile_center_uv = (tile_index * tile_size + tile_size * 0.5) / atlas_size;  // Center of this tile
+
+		vec4 center_color = texture(TEXTURE, tile_center_uv);
+		vec3 center_hsv = rgb2hsv(center_color.rgb);
+
+		// Use world-space position from vertex shader - stable when camera pans
+		vec2 world_pos = world_position;
+
+		// For non-grass terrains (bunker, water, etc.), use original with minor variation
+		if (center_hsv.x < 0.15 || center_hsv.x > 0.45) {
+			// Not a grass-type terrain, apply subtle variation only
+			float subtle_noise = fbm(world_pos * 0.02, 3) - 0.5;
+			vec3 hsv = rgb2hsv(tile_color.rgb);
+			hsv.z += subtle_noise * 0.1;
+			hsv.z = clamp(hsv.z, 0.0, 1.0);
+			COLOR = vec4(hsv2rgb(hsv), 1.0);
+		} else {
+			// Get fixed base color using CENTER sample (consistent across entire tile)
+			vec3 base_color = get_terrain_base_color(center_color.rgb);
+			vec3 base_hsv = rgb2hsv(base_color);
+
+			// Generate multi-scale procedural noise using world_pos
+			// Different scales and offsets create organic, non-repeating patterns
+			float n_large = fbm(world_pos * 0.008, 4);           // Large rolling patches
+			float n_medium = fbm(world_pos * 0.025 + 100.0, 3);  // Medium clumps
+			float n_fine = fbm(world_pos * 0.06 + 200.0, 2);     // Fine detail
+			float n_micro = value_noise(world_pos * 0.15 + 300.0); // Micro grain
+
+			// Combine into value pattern (brightness variation) - centered around 0
+			float value_pattern = (n_large * 0.35 + n_medium * 0.30 + n_fine * 0.25 + n_micro * 0.10) - 0.5;
+
+			// Separate noise for hue and saturation (use different coordinates)
+			float hue_pattern = fbm(world_pos * 0.012 + 500.0, 3) - 0.5;
+			float sat_pattern = fbm(world_pos * 0.03 + 700.0, 2) - 0.5;
+
+			// Apply variations to base HSV
+			vec3 final_hsv = base_hsv;
+			final_hsv.x += hue_pattern * hue_variation;
+			final_hsv.y += sat_pattern * saturation_variation;
+			final_hsv.z += value_pattern * value_variation;
+
+			// Clamp to valid ranges
+			final_hsv.x = fract(final_hsv.x);
+			final_hsv.y = clamp(final_hsv.y, 0.1, 0.9);
+			final_hsv.z = clamp(final_hsv.z, 0.12, 0.88);
+
+			// Use solid alpha to ensure no tile edge artifacts
+			COLOR = vec4(hsv2rgb(final_hsv), 1.0);
+		}
 	}
-
-	// Calculate the actual tile center UV within the atlas
-	// UV is in atlas space, so we need to find which tile we're in and sample its center
-	vec2 atlas_uv = UV * atlas_size;  // Convert to pixel coordinates in atlas
-	vec2 tile_index = floor(atlas_uv / tile_size);  // Which tile (0-15, 0-15)
-	vec2 tile_center_uv = (tile_index * tile_size + tile_size * 0.5) / atlas_size;  // Center of this tile
-
-	vec4 center_color = texture(TEXTURE, tile_center_uv);
-	vec3 center_hsv = rgb2hsv(center_color.rgb);
-
-	// Use world-space position from vertex shader - stable when camera pans
-	vec2 world_pos = world_position;
-
-	// For non-grass terrains (bunker, water, etc.), use original with minor variation
-	if (center_hsv.x < 0.15 || center_hsv.x > 0.45) {
-		// Not a grass-type terrain, apply subtle variation only
-		float subtle_noise = fbm(world_pos * 0.02, 3) - 0.5;
-		vec3 hsv = rgb2hsv(tile_color.rgb);
-		hsv.z += subtle_noise * 0.1;
-		hsv.z = clamp(hsv.z, 0.0, 1.0);
-		COLOR = vec4(hsv2rgb(hsv), 1.0);
-		return;
-	}
-
-	// Get fixed base color using CENTER sample (consistent across entire tile)
-	vec3 base_color = get_terrain_base_color(center_color.rgb);
-	vec3 base_hsv = rgb2hsv(base_color);
-
-	// Generate multi-scale procedural noise using world_pos
-	// Different scales and offsets create organic, non-repeating patterns
-	float n_large = fbm(world_pos * 0.008, 4);           // Large rolling patches
-	float n_medium = fbm(world_pos * 0.025 + 100.0, 3);  // Medium clumps
-	float n_fine = fbm(world_pos * 0.06 + 200.0, 2);     // Fine detail
-	float n_micro = value_noise(world_pos * 0.15 + 300.0); // Micro grain
-
-	// Combine into value pattern (brightness variation) - centered around 0
-	float value_pattern = (n_large * 0.35 + n_medium * 0.30 + n_fine * 0.25 + n_micro * 0.10) - 0.5;
-
-	// Separate noise for hue and saturation (use different coordinates)
-	float hue_pattern = fbm(world_pos * 0.012 + 500.0, 3) - 0.5;
-	float sat_pattern = fbm(world_pos * 0.03 + 700.0, 2) - 0.5;
-
-	// Apply variations to base HSV
-	vec3 final_hsv = base_hsv;
-	final_hsv.x += hue_pattern * hue_variation;
-	final_hsv.y += sat_pattern * saturation_variation;
-	final_hsv.z += value_pattern * value_variation;
-
-	// Clamp to valid ranges
-	final_hsv.x = fract(final_hsv.x);
-	final_hsv.y = clamp(final_hsv.y, 0.1, 0.9);
-	final_hsv.z = clamp(final_hsv.z, 0.12, 0.88);
-
-	// Use solid alpha to ensure no tile edge artifacts
-	COLOR = vec4(hsv2rgb(final_hsv), 1.0);
 }

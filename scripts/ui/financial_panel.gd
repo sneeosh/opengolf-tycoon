@@ -77,7 +77,10 @@ func update_display() -> void:
 	var fee_decrease = Button.new()
 	fee_decrease.text = "-"
 	fee_decrease.custom_minimum_size = Vector2(28, 28)
-	fee_decrease.pressed.connect(func(): GameManager.set_green_fee(GameManager.green_fee - 5))
+	fee_decrease.pressed.connect(func():
+		GameManager.set_green_fee(GameManager.green_fee - 5)
+		update_display()
+	)
 	fee_row.add_child(fee_decrease)
 
 	var fee_value = Label.new()
@@ -91,7 +94,10 @@ func update_display() -> void:
 	var fee_increase = Button.new()
 	fee_increase.text = "+"
 	fee_increase.custom_minimum_size = Vector2(28, 28)
-	fee_increase.pressed.connect(func(): GameManager.set_green_fee(GameManager.green_fee + 5))
+	fee_increase.pressed.connect(func():
+		GameManager.set_green_fee(GameManager.green_fee + 5)
+		update_display()
+	)
 	fee_row.add_child(fee_increase)
 
 	_content_vbox.add_child(fee_row)

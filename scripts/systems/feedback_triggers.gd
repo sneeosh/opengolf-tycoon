@@ -20,6 +20,9 @@ enum TriggerType {
 	BAD_LIE,
 	TOO_FEW_HOLES,
 	SHANK,
+	TIRED,
+	HUNGRY,
+	NEEDS_RESTROOM,
 }
 
 ## Trigger data: messages array and sentiment
@@ -93,6 +96,21 @@ const TRIGGERS: Dictionary = {
 		"messages": ["D'oh! Shank!", "Shank city!!", "Hosel rocket!", "Yikes!! Shank!"],
 		"sentiment": "negative",
 		"probability": 1.0,  # Always show — shanks are rare enough already
+	},
+	TriggerType.TIRED: {
+		"messages": ["Getting tired...", "Need a break", "Legs are heavy", "Long walk..."],
+		"sentiment": "negative",
+		"probability": 0.7,
+	},
+	TriggerType.HUNGRY: {
+		"messages": ["Getting hungry...", "Need a snack", "Where's the snack bar?", "Starving!"],
+		"sentiment": "negative",
+		"probability": 0.6,
+	},
+	TriggerType.NEEDS_RESTROOM: {
+		"messages": ["Need a restroom!", "Where's the restroom?", "Nature calls...", "Bathroom break?"],
+		"sentiment": "negative",
+		"probability": 0.7,
 	},
 }
 

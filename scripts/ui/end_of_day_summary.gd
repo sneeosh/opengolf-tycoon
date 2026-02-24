@@ -73,6 +73,11 @@ func _build_ui() -> void:
 		var building_row = _create_stat_row("  Amenities:", "$%d" % stats.building_revenue, dim_green)
 		vbox.add_child(building_row)
 
+	# Show tournament revenue if any
+	if stats.tournament_revenue > 0:
+		var tourn_rev_row = _create_stat_row("  Tournament:", "$%d" % stats.tournament_revenue, dim_green)
+		vbox.add_child(tourn_rev_row)
+
 	# Total revenue with trend
 	var total_rev = stats.get_total_revenue()
 	var rev_text = "$%d" % total_rev
@@ -103,8 +108,12 @@ func _build_ui() -> void:
 	if stats.building_operating_costs > 0:
 		var building_row = _create_stat_row("  Buildings:", "-$%d" % stats.building_operating_costs, dim_color)
 		vbox.add_child(building_row)
+	if stats.tournament_entry_fee > 0:
+		var tourn_fee_row = _create_stat_row("  Tournament Fee:", "-$%d" % stats.tournament_entry_fee, dim_color)
+		vbox.add_child(tourn_fee_row)
 
-	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % stats.operating_costs, UIConstants.COLOR_DANGER_DIM)
+	var total_costs = stats.operating_costs + stats.tournament_entry_fee
+	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % total_costs, UIConstants.COLOR_DANGER_DIM)
 	vbox.add_child(total_costs_row)
 
 	# Profit/Loss with trend

@@ -19,6 +19,7 @@ class_name IsometricCamera
 @export var subtle_follow_deadzone: float = 100.0
 
 var _target_position: Vector2
+var _smoothed_position: Vector2
 var _target_zoom: float
 var _is_dragging: bool = false
 var _drag_start_mouse: Vector2
@@ -34,9 +35,11 @@ var _shake_tween: Tween = null
 
 func _ready() -> void:
 	_target_position = global_position
+	_smoothed_position = global_position
 	_target_zoom = zoom.x
-	position_smoothing_enabled = true
-	position_smoothing_speed = smoothing_speed
+	# Disable Godot's built-in smoothing — we handle it manually in _apply_movement
+	# to avoid the one-frame lag that causes bouncing on rapid direction changes.
+	position_smoothing_enabled = false
 
 func _process(delta: float) -> void:
 	_handle_keyboard_input(delta)
@@ -135,13 +138,17 @@ func _apply_movement(delta: float) -> void:
 		_target_position.x = clamp(_target_position.x, bounds_min.x, bounds_max.x)
 		_target_position.y = clamp(_target_position.y, bounds_min.y, bounds_max.y)
 
-	# Smooth zoom with easing
+	# Smooth zoom with easing (clamped to prevent overshoot on frame spikes)
 	var zoom_diff = _target_zoom - zoom.x
-	var new_zoom = zoom.x + zoom_diff * zoom_smoothing_speed * delta
+	var new_zoom = zoom.x + zoom_diff * min(zoom_smoothing_speed * delta, 1.0)
 	zoom = Vector2(new_zoom, new_zoom)
 
+	# Manual position smoothing (exponential decay, same frame as input)
+	var weight = 1.0 - exp(-smoothing_speed * delta)
+	_smoothed_position = _smoothed_position.lerp(_target_position, weight)
+
 	# Apply position with shake offset
-	global_position = _target_position + _shake_offset
+	global_position = _smoothed_position + _shake_offset
 
 # =============================================================================
 # PUBLIC API
@@ -150,6 +157,7 @@ func _apply_movement(delta: float) -> void:
 func focus_on(world_position: Vector2, instant: bool = false) -> void:
 	_target_position = world_position
 	if instant:
+		_smoothed_position = world_position
 		global_position = world_position
 
 func focus_on_smooth(world_position: Vector2, duration: float = 0.5) -> void:

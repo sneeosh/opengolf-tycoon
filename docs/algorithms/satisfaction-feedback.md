@@ -34,7 +34,7 @@ At the end of each day, the FeedbackManager calculates a satisfaction rating fro
 | BOGEY_PLUS | negative | 50% | 2+ strokes worse than personal expectation |
 | OVERPRICED | negative | 60% | Round cost > 1.5x fair price |
 | GOOD_VALUE | positive | 50% | Round cost < 0.6x fair price |
-| SLOW_PACE | negative | 70% | Pace-related delays |
+| SLOW_PACE | negative | 70% | Pace satisfaction need drops below 0.30 |
 | NICE_COURSE | positive | 60% | Final score within 3 strokes of expected total |
 | HAZARD_WATER | negative | 80% | Ball lands in water |
 | HAZARD_BUNKER | neutral | 60% | Ball lands in bunker |
@@ -42,6 +42,9 @@ At the end of each day, the FeedbackManager calculates a satisfaction rating fro
 | BAD_LIE | neutral | 40% | Ball in difficult terrain |
 | TOO_FEW_HOLES | negative | 80% | Course has very few holes |
 | SHANK | negative | 100% | Catastrophic miss (shanks are rare enough) |
+| TIRED | negative | 70% | Energy need drops below 0.30 |
+| HUNGRY | negative | 60% | Hunger need drops below 0.30 |
+| NEEDS_RESTROOM | negative | 70% | Comfort need drops below 0.30 |
 
 ### 2. Score-Based Trigger Logic
 

@@ -84,7 +84,12 @@ var miss_tendency: float = 0.0
 ## Current state
 var current_state: State = State.IDLE
 var current_mood: float = 0.5  # 0.0 = angry, 1.0 = happy
-var fatigue: float = 0.0       # 0.0 = fresh, 1.0 = exhausted
+
+## Needs system — tracks energy, comfort, hunger, pace satisfaction
+var needs: GolferNeeds = GolferNeeds.new()
+
+## Waiting time accumulator (seconds spent in IDLE waiting for turn)
+var _wait_time_accumulated: float = 0.0
 
 ## Course progress
 var current_hole: int = 0
@@ -102,6 +107,8 @@ const PREPARATION_DURATION: float = 1.0  # 1 second to prepare shot
 
 ## Club chosen by decide_shot_target() — used by _calculate_shot() to avoid mismatch
 var _chosen_club: Club = Club.DRIVER
+var _cached_shot_target: Vector2i = Vector2i.ZERO
+var _cached_shot_target_valid: bool = false
 ## Strategy chosen by ShotAI (normal/recovery/layup/attack) — for debug/feedback
 var _shot_strategy: String = "normal"
 
@@ -112,6 +119,8 @@ var path_index: int = 0
 
 ## Building interaction tracking (for proximity-based revenue)
 var _visited_buildings: Dictionary = {}  # instance_id -> true
+var _building_check_timer: float = 0.0
+const BUILDING_CHECK_INTERVAL: float = 0.5
 
 ## Z-ordering: visual offset to prevent stacking when golfers share a tile
 var visual_offset: Vector2 = Vector2.ZERO
@@ -399,6 +408,9 @@ func initialize_from_tier(tier: int) -> void:
 	aggression = personality.aggression
 	patience = personality.patience
 
+	# Initialize needs system with tier and patience
+	needs.setup(tier, patience)
+
 	# Apply tier-based visual differentiation
 	_apply_tier_visuals(tier)
 
@@ -474,19 +486,31 @@ func _apply_tier_name_color() -> void:
 	var tier_color: Color
 	match golfer_tier:
 		GolferTier.Tier.BEGINNER:
-			tier_color = Color(0.6, 0.8, 0.6)   # Light green
+			tier_color = Color(0.7, 1.0, 0.7)   # Bright green
 		GolferTier.Tier.CASUAL:
-			tier_color = Color(0.6, 0.6, 0.9)   # Blue
+			tier_color = Color(0.7, 0.7, 1.0)   # Bright blue
 		GolferTier.Tier.SERIOUS:
-			tier_color = Color(0.9, 0.7, 0.3)   # Gold
+			tier_color = Color(1.0, 0.85, 0.4)  # Bright gold
 		GolferTier.Tier.PRO:
-			tier_color = Color(0.9, 0.3, 0.9)   # Purple
+			tier_color = Color(1.0, 0.5, 1.0)   # Bright purple
 		_:
 			tier_color = Color.WHITE
 	name_label.add_theme_color_override("font_color", tier_color)
+	name_label.add_theme_constant_override("outline_size", 3)
+	name_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 
 func _process(delta: float) -> void:
 	_update_highlight_ring()
+
+	# Track waiting time for pace satisfaction decay
+	if current_state == State.IDLE and current_hole > 0:
+		_wait_time_accumulated += delta
+		# Apply waiting decay in 5-second chunks to avoid per-frame overhead
+		if _wait_time_accumulated >= 5.0:
+			needs.on_waiting(_wait_time_accumulated)
+			_wait_time_accumulated = 0.0
+			_check_need_triggers()
+
 	match current_state:
 		State.WALKING:
 			_process_walking(delta)
@@ -522,8 +546,11 @@ func _process_walking(delta: float) -> void:
 	velocity = direction * effective_speed
 	move_and_slide()
 
-	# Check for building proximity (revenue/satisfaction effects)
-	_check_building_proximity()
+	# Check for building proximity (throttled — buildings don't move)
+	_building_check_timer += delta
+	if _building_check_timer >= BUILDING_CHECK_INTERVAL:
+		_building_check_timer = 0.0
+		_check_building_proximity()
 
 	# Walking animation - bob + leg swap
 	if visual:
@@ -694,9 +721,10 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	current_strokes = 0
 	ball_position = tee_position
 	ball_position_precise = Vector2(tee_position)
-	# Clear visited buildings at start of round
+	# Clear visited buildings and reset wait timer at start of round
 	if hole_number == 0:
 		_visited_buildings.clear()
+		_wait_time_accumulated = 0.0
 
 	var screen_pos = GameManager.terrain_grid.grid_to_screen_center(tee_position) if GameManager.terrain_grid else Vector2.ZERO
 	global_position = screen_pos
@@ -729,6 +757,7 @@ func _take_ai_shot() -> void:
 ## Take a shot
 func take_shot(target: Vector2i) -> void:
 	current_strokes += 1
+	_cached_shot_target_valid = false
 	_change_state(State.SWINGING)
 
 	var terrain_grid = GameManager.terrain_grid
@@ -923,6 +952,17 @@ func finish_hole(par: int) -> void:
 	else:                         # Much worse than expected
 		_adjust_mood(-0.2)
 
+	# Decay needs after completing a hole
+	needs.on_hole_completed()
+	# Apply mood penalty from critically low needs
+	var need_penalty = needs.get_mood_penalty()
+	if need_penalty < 0.0:
+		_adjust_mood(need_penalty)
+	# Check for needs-based feedback triggers
+	_check_need_triggers()
+	# Reset wait timer (golfer is actively playing)
+	_wait_time_accumulated = 0.0
+
 	# Show thought bubble for notable scores
 	var score_trigger = FeedbackTriggers.get_score_trigger(current_strokes, par, avg_skill)
 	if score_trigger != -1:
@@ -1003,15 +1043,17 @@ func finish_round() -> void:
 		else: _triples_plus += 1
 	var _vs_par = total_strokes - total_par
 	var _vs_par_str = "E" if _vs_par == 0 else ("%+d" % _vs_par)
-	print("[ROUND] %s (%s): %s (%d/%d) | %d holes | %dE %dB %dP %dBo %dDB %d+3 | Skills: D%.2f A%.2f P%.2f R%.2f | Tendency: %.2f" % [
+	var _needs = needs.to_dict()
+	print("[ROUND] %s (%s): %s (%d/%d) | %d holes | %dE %dB %dP %dBo %dDB %d+3 | Skills: D%.2f A%.2f P%.2f R%.2f | Tendency: %.2f | Needs: E%.2f C%.2f H%.2f P%.2f" % [
 		golfer_name, GolferTier.get_tier_name(golfer_tier),
 		_vs_par_str, total_strokes, total_par,
 		hole_scores.size(),
 		_eagles, _birdies, _pars, _bogeys, _doubles, _triples_plus,
-		driving_skill, accuracy_skill, putting_skill, recovery_skill, miss_tendency
+		driving_skill, accuracy_skill, putting_skill, recovery_skill, miss_tendency,
+		_needs.energy, _needs.comfort, _needs.hunger, _needs.pace,
 	])
 
-	EventBus.golfer_finished_round.emit(golfer_id, total_strokes)
+	EventBus.golfer_finished_round.emit(golfer_id, total_strokes, total_par)
 
 ## Select appropriate club based on distance and terrain (legacy compatibility).
 ## Primary club selection is now handled by ShotAI.decide_shot().
@@ -1057,7 +1099,15 @@ func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 	var decision: ShotAI.ShotDecision = ShotAI.decide_shot(self, hole_position)
 	_chosen_club = decision.club
 	_shot_strategy = decision.strategy
+	_cached_shot_target = decision.target
+	_cached_shot_target_valid = true
 	return decision.target
+
+func get_cached_or_compute_shot_target(hole_position: Vector2i) -> Vector2i:
+	"""Return cached shot target if available, otherwise compute it."""
+	if _cached_shot_target_valid:
+		return _cached_shot_target
+	return decide_shot_target(hole_position)
 
 ## Legacy club selection (kept for ShotPathCalculator compatibility).
 ## New shot AI uses ShotAI.decide_shot() which handles club selection internally.
@@ -1460,9 +1510,9 @@ func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2
 
 	var carry_terrain = terrain_grid.get_tile(carry_grid)
 
-	# No rollout if ball lands in water, OB, bunker (plugs in sand), or flower beds
+	# No rollout if ball lands in water, OB/empty, bunker (plugs in sand), or flower beds
 	if carry_terrain in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS,
-			TerrainTypes.Type.BUNKER, TerrainTypes.Type.FLOWER_BED]:
+			TerrainTypes.Type.EMPTY, TerrainTypes.Type.BUNKER, TerrainTypes.Type.FLOWER_BED]:
 		return no_rollout
 
 	# --- Base rollout fraction (proportion of carry distance) ---
@@ -1596,8 +1646,8 @@ func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2
 		if check_terrain == TerrainTypes.Type.WATER:
 			final_position = check_point  # Ball goes in the water
 			break
-		if check_terrain == TerrainTypes.Type.OUT_OF_BOUNDS:
-			final_position = check_point  # Ball goes OB
+		if check_terrain == TerrainTypes.Type.OUT_OF_BOUNDS or check_terrain == TerrainTypes.Type.EMPTY:
+			final_position = check_point  # Ball goes OB (EMPTY = outside property)
 			break
 		if check_terrain == TerrainTypes.Type.BUNKER:
 			final_position = check_point  # Ball plugs into bunker
@@ -1752,7 +1802,7 @@ func _find_water_drop_position(entry_position: Vector2i) -> Vector2i:
 
 				var candidate_terrain = terrain_grid.get_tile(candidate)
 				# Must be playable terrain
-				if candidate_terrain in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS]:
+				if candidate_terrain in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.EMPTY]:
 					continue
 
 				# Must not be closer to the hole than the point of entry
@@ -1859,8 +1909,8 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 		var terrain_type = terrain_grid.get_tile(sample_pos)
 
 		if walking:
-			# When walking, only avoid water and OB
-			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS:
+			# When walking, only avoid water, OB, and empty (outside property)
+			if terrain_type in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.EMPTY]:
 				return true
 		else:
 			# Ball flight: the ball flies through the air and clears water/OB below.
@@ -1882,9 +1932,7 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
-		var result: Array[Vector2] = []
-		result.append(terrain_grid.grid_to_screen_center(end))
-		return result
+		return [] as Array[Vector2]
 
 	# A* with 8-directional movement
 	var open_set: Dictionary = {}  # Vector2i -> f_score
@@ -1931,7 +1979,7 @@ func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector
 				continue
 
 			var terrain_type = terrain_grid.get_tile(neighbor)
-			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS:
+			if terrain_type in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.EMPTY]:
 				continue
 
 			# Diagonal costs sqrt(2), cardinal costs 1
@@ -2095,6 +2143,12 @@ func _adjust_mood(amount: float) -> void:
 
 	if abs(old_mood - current_mood) > 0.05:
 		EventBus.golfer_mood_changed.emit(golfer_id, current_mood)
+
+## Check needs and show thought bubbles for unmet needs
+func _check_need_triggers() -> void:
+	var triggers = needs.check_need_triggers()
+	for trigger in triggers:
+		show_thought(trigger)
 
 ## Create highlight ring node for active golfer indication
 func _create_highlight_ring() -> void:
@@ -2270,6 +2324,12 @@ func _check_building_proximity() -> void:
 		if distance <= effect_radius:
 			_visited_buildings[building_id] = true
 
+			# Check if golfer decides to stop at this building
+			# Lower needs = higher chance of interacting; prevents revenue spam
+			var interact_chance = needs.get_interaction_chance(building.building_type)
+			if randf() > interact_chance:
+				continue  # Golfer walks past without stopping
+
 			# Apply effect based on type
 			# Use building methods to get upgrade-aware values
 			if effect_type == "revenue":
@@ -2277,14 +2337,14 @@ func _check_building_proximity() -> void:
 				if income > 0:
 					GameManager.modify_money(income)
 					GameManager.daily_stats.building_revenue += income
+					building.total_revenue += income
 					EventBus.log_transaction("%s at %s" % [golfer_name, building.building_type], income)
 					_show_building_revenue_notification(income, building.building_type)
 
-			elif effect_type == "satisfaction":
-				var bonus = building.get_satisfaction_bonus()
-				if bonus > 0:
-					# Boost mood slightly when passing amenities
-					current_mood = clampf(current_mood + bonus, 0.0, 1.0)
+			# Apply needs-based satisfaction from buildings
+			var mood_boost = needs.apply_building_effect(building.building_type)
+			if mood_boost > 0.0:
+				_adjust_mood(mood_boost)
 
 ## Show floating notification for building revenue
 func _show_building_revenue_notification(amount: int, _building_type: String) -> void:
@@ -2329,13 +2389,18 @@ func _apply_clubhouse_effects() -> void:
 		if income > 0:
 			GameManager.modify_money(income)
 			GameManager.daily_stats.building_revenue += income
+			building.total_revenue += income
 			EventBus.log_transaction("%s at Clubhouse" % golfer_name, income)
 			_show_building_revenue_notification(income, "clubhouse")
 
-		# Apply satisfaction from upgraded clubhouse
-		var bonus = building.get_satisfaction_bonus()
-		if bonus > 0:
-			current_mood = clampf(current_mood + bonus, 0.0, 1.0)
+		# Apply needs-based satisfaction from clubhouse visit
+		var mood_boost = needs.apply_building_effect("clubhouse")
+		# Also apply upgrade-specific satisfaction bonus on top
+		var upgrade_bonus = building.get_satisfaction_bonus()
+		if upgrade_bonus > 0:
+			_adjust_mood(upgrade_bonus)
+		if mood_boost > 0.0:
+			_adjust_mood(mood_boost)
 
 		break  # Only one clubhouse
 

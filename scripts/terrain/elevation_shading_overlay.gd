@@ -29,19 +29,12 @@ func _draw() -> void:
 	var tw = _terrain_grid.tile_width
 	var th = _terrain_grid.tile_height
 
-	# Viewport culling
-	var visible_rect = _terrain_grid.get_visible_world_rect()
-	var margin = Vector2(tw, th)
-	visible_rect = visible_rect.grow_individual(margin.x, margin.y, margin.x, margin.y)
-
 	for pos in _terrain_grid._elevation_grid:
 		var elevation = _terrain_grid._elevation_grid[pos]
 		if elevation == 0:
 			continue
 
 		var screen_pos = _terrain_grid.grid_to_screen(pos)
-		if not visible_rect.has_point(screen_pos):
-			continue
 		var local_pos = screen_pos - global_position
 
 		if _is_web:

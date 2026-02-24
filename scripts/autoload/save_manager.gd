@@ -235,6 +235,11 @@ func _apply_save_data(data: Dictionary) -> void:
 	# processing golfers while we're still loading
 	GameManager.set_mode(GameManager.GameMode.BUILDING)
 
+	# Reset day-cycle flags so loaded games don't inherit stale state
+	GameManager._closing_announced = false
+	GameManager._end_of_day_triggered = false
+	GameManager._end_of_day_emitted = false
+
 	var version = data.get("version", 1)
 
 	# Game state (with fallbacks for older save versions)
@@ -270,6 +275,10 @@ func _apply_save_data(data: Dictionary) -> void:
 		terrain_grid.deserialize_player_placed(data["player_placed"])
 	if terrain_grid:
 		terrain_grid.queue_redraw()
+
+	# Milestones — restore BEFORE holes so hole_created signals don't re-award
+	if milestone_manager and data.has("milestones"):
+		milestone_manager.deserialize(data["milestones"])
 
 	# Entities
 	if entity_layer and data.has("entities"):
@@ -314,10 +323,6 @@ func _apply_save_data(data: Dictionary) -> void:
 	# Daily history
 	GameManager.daily_history = data.get("daily_history", [])
 
-	# Milestones
-	if milestone_manager and data.has("milestones"):
-		milestone_manager.deserialize(data["milestones"])
-
 	# Shot heatmap
 	if GameManager.shot_heatmap_tracker and data.has("shot_heatmap"):
 		GameManager.shot_heatmap_tracker.deserialize(data["shot_heatmap"])
@@ -331,7 +336,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	if ball_manager and ball_manager.has_method("clear_all_balls"):
 		ball_manager.clear_all_balls()
 
-	EventBus.load_completed.emit(true)
+	# NOTE: load_completed is emitted by load_game() after _apply_save_data returns
 
 ## Deserialize holes into GameManager.current_course
 func _deserialize_holes(holes_data: Array) -> void:

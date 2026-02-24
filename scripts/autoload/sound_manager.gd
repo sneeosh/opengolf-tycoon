@@ -14,6 +14,8 @@ var sfx_volume: float = 1.0
 var ambient_volume: float = 0.6
 var is_muted: bool = true
 
+signal mute_state_changed(muted: bool)
+
 # ─── Internal state ───────────────────────────────────────────────
 var _sfx_pool: Array[AudioStreamPlayer] = []
 var _sfx_pool_index: int = 0
@@ -43,6 +45,8 @@ func _ready() -> void:
 	_create_bird_timer()
 	_pregenerate_buffers()
 	_connect_signals()
+	# Ensure audio is fully stopped on startup (game starts muted)
+	_stop_ambient()
 
 # ─── Setup ────────────────────────────────────────────────────────
 
@@ -146,6 +150,7 @@ func set_muted(muted: bool) -> void:
 		_stop_ambient()
 	else:
 		_update_ambient()
+	mute_state_changed.emit(muted)
 	_save_settings()
 
 func set_master_volume(vol: float) -> void:
@@ -169,11 +174,12 @@ func load_settings_data(data: Dictionary) -> void:
 	master_volume = data.get("master_volume", 0.8)
 	sfx_volume = data.get("sfx_volume", 1.0)
 	ambient_volume = data.get("ambient_volume", 0.6)
-	is_muted = data.get("is_muted", false)
+	is_muted = data.get("is_muted", true)
 	if is_muted:
 		_stop_ambient()
 	else:
 		_update_ambient()
+	mute_state_changed.emit(is_muted)
 
 # ─── Signal handlers ──────────────────────────────────────────────
 
@@ -322,8 +328,10 @@ func _update_ambient() -> void:
 		_stop_ambient()
 		return
 
-	_update_wind_ambient()
-	_update_rain_ambient()
+	# Wind and rain ambient removed — filtered noise sounded like static.
+	# Keep bird calls only (handled by _bird_timer).
+	_ambient_wind.stop()
+	_ambient_rain.stop()
 	_update_ambient_volumes()
 
 func _update_wind_ambient() -> void:
@@ -421,10 +429,10 @@ func _on_bird_timer() -> void:
 
 	# Pick a species, avoiding recent repeats for variety
 	var species := _pick_bird_species()
-	var buffer := ProceduralAudio.generate_bird_call_species(SAMPLE_RATE, 0.15, species)
+	var buffer := ProceduralAudio.generate_bird_call_species(SAMPLE_RATE, 0.3, species)
 
 	# Volume varies slightly per call for natural feel
-	var vol := ambient_volume * master_volume * randf_range(0.35, 0.6)
+	var vol := ambient_volume * master_volume * randf_range(0.5, 0.8)
 	_play_buffer(buffer, vol)
 
 	# Occasionally a second bird responds after a short delay (duet/call-response)
@@ -436,8 +444,8 @@ func _on_bird_timer() -> void:
 		# Response is typically a different species
 		var response_species := _pick_bird_species()
 		var response := ProceduralAudio.generate_bird_call_species(
-			SAMPLE_RATE, 0.12, response_species)
-		_play_buffer(response, ambient_volume * master_volume * randf_range(0.25, 0.45))
+			SAMPLE_RATE, 0.25, response_species)
+		_play_buffer(response, ambient_volume * master_volume * randf_range(0.4, 0.65))
 
 	_schedule_next_bird()
 

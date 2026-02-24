@@ -41,7 +41,6 @@ func set_elevation_mode_active(active: bool) -> void:
 
 func _on_elevation_changed(_pos: Vector2i, _old: int, _new: int) -> void:
 	_needs_redraw = true
-	_rebuild_relevant_tiles()
 	queue_redraw()
 
 ## Rebuild the set of tiles that need drawing: any tile with elevation + neighbors
@@ -70,17 +69,9 @@ func _draw() -> void:
 	var tw = terrain_grid.tile_width
 	var th = terrain_grid.tile_height
 
-	# Viewport culling
-	var visible_rect = terrain_grid.get_visible_world_rect()
-	var margin = Vector2(tw * 2, th * 2)
-	visible_rect = visible_rect.grow_individual(margin.x, margin.y, margin.x, margin.y)
-
 	for pos in _relevant_tiles:
-		var screen_pos = terrain_grid.grid_to_screen(pos)
-		if not visible_rect.has_point(screen_pos):
-			continue
-
 		var elevation = terrain_grid.get_elevation(pos)
+		var screen_pos = terrain_grid.grid_to_screen(pos)
 		var local_pos = to_local(screen_pos)
 
 		# --- Gradient elevation shading (always drawn if non-zero) ---
