@@ -264,40 +264,10 @@ func _build_gameplay_tab() -> void:
 	var inner = VBoxContainer.new()
 	inner.add_theme_constant_override("separation", 16)
 
-	# Auto-save toggle
-	var autosave_row = HBoxContainer.new()
-	autosave_row.add_theme_constant_override("separation", 12)
-	var autosave_label = Label.new()
-	autosave_label.text = "Auto-save at End of Day"
-	autosave_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
-	autosave_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	autosave_row.add_child(autosave_label)
-	var autosave_check = CheckButton.new()
-	autosave_check.button_pressed = true
-	autosave_check.tooltip_text = "Automatically saves your game at the end of each day"
-	autosave_row.add_child(autosave_check)
-	inner.add_child(autosave_row)
-
-	# Default game speed
-	var speed_row = HBoxContainer.new()
-	speed_row.add_theme_constant_override("separation", 12)
-	var speed_label = Label.new()
-	speed_label.text = "Default Game Speed"
-	speed_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
-	speed_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	speed_row.add_child(speed_label)
-	var speed_options = OptionButton.new()
-	speed_options.add_item("Normal (1x)", 0)
-	speed_options.add_item("Fast (2x)", 1)
-	speed_options.custom_minimum_size = Vector2(150, 0)
-	speed_options.selected = 0
-	speed_row.add_child(speed_options)
-	inner.add_child(speed_row)
-
 	# Info text
 	var info = Label.new()
-	info.text = "More gameplay options coming soon."
-	info.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	info.text = "Gameplay options coming soon."
+	info.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
 	info.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	inner.add_child(info)
 
@@ -361,6 +331,8 @@ func _build_controls_tab() -> void:
 		["M", "Marketing"],
 		["U", "Tournaments"],
 		["Z", "Analytics"],
+		["G", "Milestones"],
+		["C", "Calendar"],
 		["WASD", "Pan Camera"],
 		["Q", "Rotate Camera"],
 		["Scroll", "Zoom In/Out"],
