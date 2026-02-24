@@ -66,6 +66,9 @@ func _place_tee(position: Vector2i) -> bool:
 			EventBus.notify("Not enough money to place tee box (need $%d)" % cost, "error")
 		return false
 
+	# Auto-remove obstacles at placement position
+	_remove_obstacles_at(position)
+
 	# Place a single tee box tile
 	GameManager.terrain_grid.set_tile(position, TerrainTypes.Type.TEE_BOX)
 
@@ -96,6 +99,9 @@ func _place_green(position: Vector2i) -> bool:
 		else:
 			EventBus.notify("Not enough money to place green (need $%d)" % cost, "error")
 		return false
+
+	# Auto-remove obstacles at placement position
+	_remove_obstacles_at(position)
 
 	# Place the green
 	GameManager.terrain_grid.set_tile(position, TerrainTypes.Type.GREEN)
@@ -168,6 +174,16 @@ func get_total_par() -> int:
 	return 0
 
 ## Delete a hole
+## Remove tree and rock entities at a grid position before placing tee/green
+func _remove_obstacles_at(position: Vector2i) -> void:
+	var el = GameManager.entity_layer
+	if not el:
+		return
+	if el.get_tree_at(position):
+		el.remove_tree(position)
+	if el.get_rock_at(position):
+		el.remove_rock(position)
+
 func delete_hole(hole_number: int) -> bool:
 	if not GameManager.current_course:
 		return false

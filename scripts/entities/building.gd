@@ -7,6 +7,7 @@ var grid_position: Vector2i = Vector2i(0, 0)
 var width: int = 4
 var height: int = 4
 var upgrade_level: int = 1  # Current upgrade level (1-3 for clubhouse)
+var total_revenue: int = 0  # Lifetime revenue collected by this building
 
 var terrain_grid: TerrainGrid
 var building_data: Dictionary = {}
@@ -146,6 +147,10 @@ func get_satisfaction_bonus() -> float:
 	if upgrade_data.has("satisfaction_bonus"):
 		return upgrade_data["satisfaction_bonus"]
 	return 0.0
+
+## Get daily operating cost from building data
+func get_operating_cost() -> int:
+	return building_data.get("operating_cost", 0)
 
 func destroy() -> void:
 	building_destroyed.emit(self)

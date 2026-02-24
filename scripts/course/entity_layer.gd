@@ -126,7 +126,8 @@ func place_tree(grid_pos: Vector2i, tree_type: String = "oak") -> TreeEntity:
 	# Store by grid position
 	trees[grid_pos] = tree
 
-	# Stamp the terrain tile so golfer AI can see the tree
+	# Stamp terrain at the tree's grid position (the visual base is shifted
+	# to align with this tile, so no offset needed for any tree type)
 	if terrain_grid and not _original_terrain.has(grid_pos):
 		_original_terrain[grid_pos] = terrain_grid.get_tile(grid_pos)
 	if terrain_grid:
@@ -155,7 +156,7 @@ func place_rock(grid_pos: Vector2i, rock_size: String = "medium") -> Rock:
 	# Store by grid position
 	rocks[grid_pos] = rock
 
-	# Stamp the terrain tile so golfer AI can see the rock
+	# Stamp the terrain tile at the rock position (rocks sit on the ground)
 	if terrain_grid and not _original_terrain.has(grid_pos):
 		_original_terrain[grid_pos] = terrain_grid.get_tile(grid_pos)
 	if terrain_grid:

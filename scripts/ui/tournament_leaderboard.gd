@@ -12,6 +12,7 @@ var _grid: GridContainer = null
 var _title_label: Label = null
 var _close_btn: Button = null
 var _tournament_name: String = ""
+var _participant_count: int = 0
 var _is_final: bool = false
 
 func _ready() -> void:
@@ -78,11 +79,15 @@ func _build_ui() -> void:
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_grid)
 
-func show_for_tournament(tournament_name: String) -> void:
+func show_for_tournament(tournament_name: String, participant_count: int = 0) -> void:
 	_tournament_name = tournament_name
+	_participant_count = participant_count
 	_is_final = false
 	_entries.clear()
-	_title_label.text = "%s — LIVE" % tournament_name
+	if participant_count > 0:
+		_title_label.text = "%s (%d players) — LIVE" % [tournament_name, participant_count]
+	else:
+		_title_label.text = "%s — LIVE" % tournament_name
 	_close_btn.visible = false
 	_refresh_display()
 	_position_panel()
@@ -129,7 +134,10 @@ func set_simulated_results(results: Array) -> void:
 
 func show_final_results() -> void:
 	_is_final = true
-	_title_label.text = "%s — FINAL" % _tournament_name
+	if _participant_count > 0:
+		_title_label.text = "%s (%d players) — FINAL" % [_tournament_name, _participant_count]
+	else:
+		_title_label.text = "%s — FINAL" % _tournament_name
 	_close_btn.visible = true
 	_refresh_display()
 
@@ -192,6 +200,7 @@ func _create_row(rank: String, player_name: String, score: String, thru: String,
 	var name_label := Label.new()
 	name_label.text = player_name
 	name_label.add_theme_font_size_override("font_size", 11)
+	name_label.add_theme_color_override("font_color", Color.WHITE)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.clip_text = true
 	row.add_child(name_label)

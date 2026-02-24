@@ -760,7 +760,7 @@ func remove_golfer(golfer_id: int) -> void:
 			golfer_removed.emit(golfer_id)
 			return
 
-func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
+func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: int) -> void:
 	# Find the golfer to get their tier and group_id
 	var finished_golfer = get_golfer(golfer_id)
 	if not finished_golfer:

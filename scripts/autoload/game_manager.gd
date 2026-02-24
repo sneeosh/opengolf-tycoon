@@ -105,7 +105,10 @@ var course_rating: Dictionary = {
 	"value": 3.0,
 	"pace": 3.0,
 	"overall": 3.0,
-	"stars": 3
+	"stars": 3,
+	"difficulty": 0.0,
+	"slope": 113,
+	"course_rating": 72.0
 }
 
 # Course records tracking
@@ -153,12 +156,7 @@ func _on_golfer_finished_hole_for_stats(_golfer_id: int, hole_index: int, stroke
 		hole_statistics[hole_number] = HoleStatistics.new(hole_number)
 	hole_statistics[hole_number].record_score(strokes, par)
 
-func _on_golfer_finished_round_for_stats(_golfer_id: int, total_strokes: int) -> void:
-	# Get total par from course
-	var total_par = 0
-	if current_course:
-		for hole in current_course.get_open_holes():
-			total_par += hole.par
+func _on_golfer_finished_round_for_stats(_golfer_id: int, total_strokes: int, total_par: int) -> void:
 	daily_stats.record_round_finished(total_strokes, total_par)
 
 func _process(delta: float) -> void:
@@ -645,6 +643,10 @@ class DailyStatistics:
 	# Building revenue from amenities
 	var building_revenue: int = 0
 
+	# Tournament financials
+	var tournament_revenue: int = 0  # Spectator + sponsorship income
+	var tournament_entry_fee: int = 0  # Cost to host tournament
+
 	# Golfer tier counts
 	var tier_counts: Dictionary = {
 		GolferTier.Tier.BEGINNER: 0,
@@ -661,6 +663,8 @@ class DailyStatistics:
 		birdies = 0
 		bogeys_or_worse = 0
 		building_revenue = 0
+		tournament_revenue = 0
+		tournament_entry_fee = 0
 		total_strokes_today = 0
 		total_par_today = 0
 		operating_costs = 0
@@ -700,10 +704,10 @@ class DailyStatistics:
 		operating_costs = terrain_maintenance + base_operating_cost + staff_wages + building_operating_costs
 
 	func get_profit() -> int:
-		return revenue + building_revenue - operating_costs
+		return revenue + building_revenue + tournament_revenue - operating_costs - tournament_entry_fee
 
 	func get_total_revenue() -> int:
-		return revenue + building_revenue
+		return revenue + building_revenue + tournament_revenue
 
 	func get_average_score_to_par() -> float:
 		if total_par_today == 0:

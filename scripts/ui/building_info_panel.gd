@@ -56,6 +56,17 @@ func _update_display() -> void:
 		var sat_row = _create_stat_row("Satisfaction:", "+%d%%" % int(satisfaction * 100), Color(0.4, 0.8, 1.0))
 		_vbox.add_child(sat_row)
 
+	# Operating cost
+	var operating_cost = _building.get_operating_cost()
+	if operating_cost > 0:
+		var cost_row = _create_stat_row("Operating Cost:", "$%d/day" % operating_cost, Color(1.0, 0.6, 0.3))
+		_vbox.add_child(cost_row)
+
+	# Total revenue collected
+	if _building.total_revenue > 0:
+		var rev_row = _create_stat_row("Total Revenue:", "$%d" % _building.total_revenue, Color(0.4, 0.9, 0.4))
+		_vbox.add_child(rev_row)
+
 	# Level indicator
 	if _building.building_data.get("upgradeable", false):
 		var level_row = _create_stat_row("Level:", "%d / 3" % _building.upgrade_level, Color.WHITE)

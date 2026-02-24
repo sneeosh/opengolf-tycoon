@@ -14,7 +14,7 @@ When a golfer's turn comes, they need to decide **where to aim** and **which clu
 
 ### Recovery Mode
 
-When in trees, deep rough, bunkers, or rocks, the golfer enters recovery mode. Club selection is restricted (no woods through trees, wedge-only from rocks). The AI scans a full 360 degrees for escape routes — even sideways or backwards is a valid option. It rewards advancing toward the hole but doesn't require it.
+When in trees, deep rough, bunkers, or rocks, the golfer enters recovery mode. Club selection is restricted (no woods through trees, wedge-only from rocks). The AI scans a full 360 degrees for escape routes — even sideways or backwards is a valid option. It strongly prefers nearby safe targets (distance penalty of 2.0 per tile from ball) and rewards advancing toward the hole, with modest bonuses for landing on fairway (+30) or green (+50). This prevents golfers from choosing a distant fairway over a nearby green strip when escaping bunkers.
 
 ### Wind Compensation
 
@@ -86,6 +86,7 @@ For each candidate club, scan angles and distances:
 **Scan parameters:**
 - Approach shots (can reach green): +/-15 degrees, 15 angle samples, 7 distance samples
 - Layup shots: +/-50 degrees, 25 angle samples, 7 distance samples
+- **Wide re-scan**: If approach scan's best candidate lands on grass/rough (not fairway/green/tee), re-scans at +/-50 degrees filtering for good terrain only. Prevents AI from aiming through grass when fairway is at an angle.
 
 **Distance scan range:**
 - Wedge approach: from 0.25 tiles (~5.5 yards) up to 110% of effective max
@@ -119,9 +120,10 @@ score  = terrain_score[landing_terrain]
 if path_crosses_trees(ball_pos, landing) at low altitude:
     score = -2000
 
-# Graduated tree overfly penalty
+# Graduated tree overfly penalty (density scaling for tree lines)
 trees_overflown = count_trees_along_path(ball_pos, landing)
-tree_penalty = 15.0 * trees_overflown * (1.0 - accuracy_skill * 0.3)
+density_multiplier = 1.0 + max(trees_overflown - 2, 0) * 0.5  # 3+ trees = near-impassable
+tree_penalty = 50.0 * trees_overflown * (1.0 - accuracy_skill * 0.3) * density_multiplier
 score -= tree_penalty
 
 # Advancement toward hole
@@ -144,8 +146,10 @@ if shots_remaining > 1 and terrain is fairway/grass/tee:
 
 # Nearby hazard penalty
 for each tile within 2-tile radius:
-    if water or OB:
+    if water or OB or EMPTY:
         penalty += (20.0 / distance_to_hazard) * (1.0 - aggression * 0.5)
+    elif TREES:
+        penalty += (10.0 / distance_to_hazard) * (1.0 - aggression * 0.3)
 score -= nearby_hazard_penalty
 ```
 
@@ -228,9 +232,11 @@ max_distance = club_max * skill_factor * 0.7  # Don't try max distance from trou
 for each direction (24 samples):
     for each distance (4 samples, 30%-100% of max):
         score = terrain_score
+        score -= distance_from_ball * 2.0  # Prefer nearby safe targets
         if advancing toward hole: score += advancement * 3.0
         if going backwards: score -= 50
-        if landing on fairway: score += 80
+        if landing on fairway: score += 30
+        if landing on green: score += 50   # Escaping onto green is ideal
         score -= nearby_hazard_penalty
         score += recovery_skill * 30.0
 ```

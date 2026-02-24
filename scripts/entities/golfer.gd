@@ -117,6 +117,8 @@ var path_index: int = 0
 
 ## Building interaction tracking (for proximity-based revenue)
 var _visited_buildings: Dictionary = {}  # instance_id -> true
+var _building_check_timer: float = 0.0
+const BUILDING_CHECK_INTERVAL: float = 0.5
 
 ## Z-ordering: visual offset to prevent stacking when golfers share a tile
 var visual_offset: Vector2 = Vector2.ZERO
@@ -482,16 +484,18 @@ func _apply_tier_name_color() -> void:
 	var tier_color: Color
 	match golfer_tier:
 		GolferTier.Tier.BEGINNER:
-			tier_color = Color(0.6, 0.8, 0.6)   # Light green
+			tier_color = Color(0.7, 1.0, 0.7)   # Bright green
 		GolferTier.Tier.CASUAL:
-			tier_color = Color(0.6, 0.6, 0.9)   # Blue
+			tier_color = Color(0.7, 0.7, 1.0)   # Bright blue
 		GolferTier.Tier.SERIOUS:
-			tier_color = Color(0.9, 0.7, 0.3)   # Gold
+			tier_color = Color(1.0, 0.85, 0.4)  # Bright gold
 		GolferTier.Tier.PRO:
-			tier_color = Color(0.9, 0.3, 0.9)   # Purple
+			tier_color = Color(1.0, 0.5, 1.0)   # Bright purple
 		_:
 			tier_color = Color.WHITE
 	name_label.add_theme_color_override("font_color", tier_color)
+	name_label.add_theme_constant_override("outline_size", 3)
+	name_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 
 func _process(delta: float) -> void:
 	_update_highlight_ring()
@@ -540,8 +544,11 @@ func _process_walking(delta: float) -> void:
 	velocity = direction * effective_speed
 	move_and_slide()
 
-	# Check for building proximity (revenue/satisfaction effects)
-	_check_building_proximity()
+	# Check for building proximity (throttled — buildings don't move)
+	_building_check_timer += delta
+	if _building_check_timer >= BUILDING_CHECK_INTERVAL:
+		_building_check_timer = 0.0
+		_check_building_proximity()
 
 	# Walking animation - bob + leg swap
 	if visual:
@@ -1043,7 +1050,7 @@ func finish_round() -> void:
 		_needs.energy, _needs.comfort, _needs.hunger, _needs.pace,
 	])
 
-	EventBus.golfer_finished_round.emit(golfer_id, total_strokes)
+	EventBus.golfer_finished_round.emit(golfer_id, total_strokes, total_par)
 
 ## Select appropriate club based on distance and terrain (legacy compatibility).
 ## Primary club selection is now handled by ShotAI.decide_shot().
@@ -1492,9 +1499,9 @@ func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2
 
 	var carry_terrain = terrain_grid.get_tile(carry_grid)
 
-	# No rollout if ball lands in water, OB, bunker (plugs in sand), or flower beds
+	# No rollout if ball lands in water, OB/empty, bunker (plugs in sand), or flower beds
 	if carry_terrain in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS,
-			TerrainTypes.Type.BUNKER, TerrainTypes.Type.FLOWER_BED]:
+			TerrainTypes.Type.EMPTY, TerrainTypes.Type.BUNKER, TerrainTypes.Type.FLOWER_BED]:
 		return no_rollout
 
 	# --- Base rollout fraction (proportion of carry distance) ---
@@ -1628,8 +1635,8 @@ func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2
 		if check_terrain == TerrainTypes.Type.WATER:
 			final_position = check_point  # Ball goes in the water
 			break
-		if check_terrain == TerrainTypes.Type.OUT_OF_BOUNDS:
-			final_position = check_point  # Ball goes OB
+		if check_terrain == TerrainTypes.Type.OUT_OF_BOUNDS or check_terrain == TerrainTypes.Type.EMPTY:
+			final_position = check_point  # Ball goes OB (EMPTY = outside property)
 			break
 		if check_terrain == TerrainTypes.Type.BUNKER:
 			final_position = check_point  # Ball plugs into bunker
@@ -1784,7 +1791,7 @@ func _find_water_drop_position(entry_position: Vector2i) -> Vector2i:
 
 				var candidate_terrain = terrain_grid.get_tile(candidate)
 				# Must be playable terrain
-				if candidate_terrain in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS]:
+				if candidate_terrain in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.EMPTY]:
 					continue
 
 				# Must not be closer to the hole than the point of entry
@@ -1891,8 +1898,8 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 		var terrain_type = terrain_grid.get_tile(sample_pos)
 
 		if walking:
-			# When walking, only avoid water and OB
-			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS:
+			# When walking, only avoid water, OB, and empty (outside property)
+			if terrain_type in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.EMPTY]:
 				return true
 		else:
 			# Ball flight: the ball flies through the air and clears water/OB below.
@@ -1963,7 +1970,7 @@ func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector
 				continue
 
 			var terrain_type = terrain_grid.get_tile(neighbor)
-			if terrain_type == TerrainTypes.Type.WATER or terrain_type == TerrainTypes.Type.OUT_OF_BOUNDS:
+			if terrain_type in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.EMPTY]:
 				continue
 
 			# Diagonal costs sqrt(2), cardinal costs 1
@@ -2321,6 +2328,7 @@ func _check_building_proximity() -> void:
 				if income > 0:
 					GameManager.modify_money(income)
 					GameManager.daily_stats.building_revenue += income
+					building.total_revenue += income
 					EventBus.log_transaction("%s at %s" % [golfer_name, building.building_type], income)
 					_show_building_revenue_notification(income, building.building_type)
 
@@ -2372,6 +2380,7 @@ func _apply_clubhouse_effects() -> void:
 		if income > 0:
 			GameManager.modify_money(income)
 			GameManager.daily_stats.building_revenue += income
+			building.total_revenue += income
 			EventBus.log_transaction("%s at Clubhouse" % golfer_name, income)
 			_show_building_revenue_notification(income, "clubhouse")
 

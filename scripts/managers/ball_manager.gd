@@ -329,6 +329,6 @@ func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 	# Flight goes to the carry position (where ball first hits ground)
 	ball.start_flight_screen_with_arc(from_screen, carry_screen, duration, wind_offset)
 
-func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
+func _on_golfer_finished_round(golfer_id: int, _total_strokes: int, _total_par: int) -> void:
 	# Remove ball when golfer finishes their round
 	remove_ball(golfer_id)

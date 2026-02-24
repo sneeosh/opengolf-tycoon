@@ -76,6 +76,13 @@ const DISTANCE_SAMPLES: int = 7           ## Distance steps per angle
 const APPROACH_HALF_ANGLE: float = 0.26   ## ±15° in radians
 const LAYUP_HALF_ANGLE: float = 0.87      ## ±50° in radians
 
+## Lateral offsets perpendicular to shot direction (in tiles) to discover nearby fairway
+const LATERAL_OFFSETS: Array = [0, -1, 1, -2, 2]
+
+## Re-scan parameters (lighter than full layup scan)
+const RESCAN_ANGLE_SAMPLES: int = 12
+const RESCAN_LATERAL_OFFSETS: Array = [0, -1, 1]
+
 ## Miss distribution sampling for risk analysis
 const MISS_SAMPLE_COUNT: int = 8          ## Monte Carlo samples for hazard risk
 
@@ -94,7 +101,7 @@ const TERRAIN_SCORES: Dictionary = {
 	TerrainTypes.Type.WATER: -1000.0,
 	TerrainTypes.Type.OUT_OF_BOUNDS: -1000.0,
 	TerrainTypes.Type.FLOWER_BED: -40.0,
-	TerrainTypes.Type.EMPTY: -200.0,
+	TerrainTypes.Type.EMPTY: -1000.0,  # Treat as OB — outside property line
 }
 
 # ============================================================================
@@ -239,6 +246,10 @@ static func _decide_recovery_shot(
 				var terrain_type: int = terrain_grid.get_tile(test_pos)
 				var score: float = TERRAIN_SCORES.get(terrain_type, -50.0)
 
+				# Prefer nearby safe targets over distant ones — recovery shots
+				# should escape trouble, not try to advance aggressively
+				score -= test_dist * 2.0
+
 				# Bonus for advancing toward the hole (but not required)
 				var new_dist_to_hole: float = Vector2(test_pos).distance_to(Vector2(hole_position))
 				var advancement: float = distance_to_hole - new_dist_to_hole
@@ -248,9 +259,11 @@ static func _decide_recovery_shot(
 				else:
 					score -= 50.0  # Mild penalty for going backwards (but allowed)
 
-				# Bonus for ending up on fairway (sets up next shot well)
+				# Bonus for ending up on fairway or green (sets up next shot well)
 				if terrain_type == TerrainTypes.Type.FAIRWAY:
-					score += 80.0
+					score += 30.0
+				elif terrain_type == TerrainTypes.Type.GREEN:
+					score += 50.0  # Getting on the green from trouble is ideal
 
 				# Penalty for nearby hazards at landing zone
 				score -= _nearby_hazard_penalty(test_pos, terrain_grid, gd.aggression)
@@ -419,60 +432,135 @@ static func _evaluate_all_candidates(
 				if not is_wedge_approach and test_dist < min_dist * 0.7:
 					continue
 
-				var test_pos: Vector2i = ball_pos + Vector2i((scan_dir * test_dist).round())
-				if test_pos == ball_pos:
-					continue
-				if not terrain_grid.is_valid_position(test_pos):
+				var base_pos: Vector2i = ball_pos + Vector2i((scan_dir * test_dist).round())
+				if base_pos == ball_pos:
 					continue
 
-				# --- Wind compensation: adjust aim to account for wind ---
-				var wind_adjusted_landing: Vector2i = test_pos
-				var aim_point: Vector2i = test_pos
-				if GameManager.wind_system:
-					var wind_disp: Vector2 = GameManager.wind_system.get_wind_displacement(
-						scan_dir, test_dist, club
+				# Check the base position plus lateral offsets perpendicular to
+				# the scan direction. This discovers nearby fairway that the
+				# direct scan line might miss.
+				var perp: Vector2 = Vector2(-scan_dir.y, scan_dir.x)
+
+				for lat_offset in LATERAL_OFFSETS:
+					var test_pos: Vector2i = base_pos
+					if lat_offset != 0:
+						test_pos = base_pos + Vector2i((perp * lat_offset).round())
+					if not terrain_grid.is_valid_position(test_pos):
+						continue
+
+					# --- Wind compensation: adjust aim to account for wind ---
+					var wind_adjusted_landing: Vector2i = test_pos
+					var aim_point: Vector2i = test_pos
+					if GameManager.wind_system:
+						var wind_disp: Vector2 = GameManager.wind_system.get_wind_displacement(
+							scan_dir, test_dist, club
+						)
+						wind_adjusted_landing = Vector2i((Vector2(test_pos) + wind_disp).round())
+						var compensation_factor: float = 0.2 + gd.accuracy_skill * 0.6
+						aim_point = Vector2i((Vector2(test_pos) - wind_disp * compensation_factor).round())
+
+						if not terrain_grid.is_valid_position(wind_adjusted_landing):
+							wind_adjusted_landing = test_pos
+						if not terrain_grid.is_valid_position(aim_point):
+							aim_point = test_pos
+
+					# --- Score the landing zone ---
+					var score: float = _score_landing_zone(
+						gd, ball_pos, wind_adjusted_landing, hole_position,
+						terrain_grid, club, shots_remaining
 					)
-					# The ball will be pushed by wind_disp. Evaluate the wind-affected landing.
-					wind_adjusted_landing = Vector2i((Vector2(test_pos) + wind_disp).round())
-					# Aim INTO the wind: shift aim point opposite to wind displacement.
-					# Compensation scales with accuracy skill (pros compensate ~80%, beginners ~20%)
-					var compensation_factor: float = 0.2 + gd.accuracy_skill * 0.6
-					aim_point = Vector2i((Vector2(test_pos) - wind_disp * compensation_factor).round())
 
-					if not terrain_grid.is_valid_position(wind_adjusted_landing):
-						wind_adjusted_landing = test_pos
-					if not terrain_grid.is_valid_position(aim_point):
-						aim_point = test_pos
+					# --- Risk analysis: sample miss distribution against hazards ---
+					var risk_penalty: float = _assess_miss_risk(
+						gd, ball_pos, wind_adjusted_landing, terrain_grid, club
+					)
+					score -= risk_penalty
 
-				# --- Score the landing zone ---
-				var score: float = _score_landing_zone(
-					gd, ball_pos, wind_adjusted_landing, hole_position,
-					terrain_grid, club, shots_remaining
-				)
+					# --- Club accuracy preference for approach shots ---
+					if shots_remaining <= 1:
+						score += stats["accuracy_modifier"] * 20.0
 
-				# --- Risk analysis: sample miss distribution against hazards ---
-				var risk_penalty: float = _assess_miss_risk(
-					gd, ball_pos, wind_adjusted_landing, terrain_grid, club
-				)
-				score -= risk_penalty
+					var strategy: String = "attack" if can_reach_green else "layup"
 
-				# --- Club accuracy preference for approach shots ---
-				# When multiple clubs can reach the green, prefer the most
-				# accurate (iron > fairway wood > driver). This prevents
-				# driver selection on short par 3s where all clubs score
-				# similarly on terrain alone.
-				if shots_remaining <= 1:
-					score += stats["accuracy_modifier"] * 20.0
+					var candidate: _ShotCandidate = _ShotCandidate.new()
+					candidate.aim_point = aim_point
+					candidate.landing_zone = wind_adjusted_landing
+					candidate.club = club
+					candidate.score = score
+					candidate.strategy = strategy
+					candidates.append(candidate)
 
-				var strategy: String = "attack" if can_reach_green else "layup"
+	# --- Widen scan if narrow approach missed good terrain ---
+	# When the best approach candidate lands on grass/rough instead of
+	# fairway/green, the direct line to the hole bypasses the fairway.
+	# Re-scan with wider angle but fewer samples — just finding fairway, not full risk analysis.
+	if can_reach_green and not candidates.is_empty():
+		candidates.sort_custom(func(a, b): return a.score > b.score)
+		var best_terrain: int = terrain_grid.get_tile(candidates[0].landing_zone)
+		var good_terrains := [TerrainTypes.Type.GREEN, TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.TEE_BOX]
+		if best_terrain not in good_terrains:
+			for club in club_list:
+				var stats: Dictionary = Golfer.CLUB_STATS[club]
+				var skill_factor: float = _get_skill_distance_factor(gd, club)
+				var max_dist: float = stats["max_distance"] * skill_factor
+				var min_dist: float = stats["min_distance"] * 0.8
 
-				var candidate: _ShotCandidate = _ShotCandidate.new()
-				candidate.aim_point = aim_point
-				candidate.landing_zone = wind_adjusted_landing
-				candidate.club = club
-				candidate.score = score
-				candidate.strategy = strategy
-				candidates.append(candidate)
+				for a in range(RESCAN_ANGLE_SAMPLES):
+					var t_angle: float = a / float(max(RESCAN_ANGLE_SAMPLES - 1, 1))
+					var offset_angle: float = -LAYUP_HALF_ANGLE + t_angle * LAYUP_HALF_ANGLE * 2.0
+					var scan_dir: Vector2 = direction_to_hole.rotated(offset_angle)
+
+					for d in range(DISTANCE_SAMPLES):
+						var t_dist: float = d / float(max(DISTANCE_SAMPLES - 1, 1))
+						var test_dist: float = max_dist * (0.6 + t_dist * 0.5)
+						if test_dist < min_dist * 0.7:
+							continue
+
+						var base_pos: Vector2i = ball_pos + Vector2i((scan_dir * test_dist).round())
+						if base_pos == ball_pos:
+							continue
+
+						var perp: Vector2 = Vector2(-scan_dir.y, scan_dir.x)
+						for lat_offset in RESCAN_LATERAL_OFFSETS:
+							var test_pos: Vector2i = base_pos
+							if lat_offset != 0:
+								test_pos = base_pos + Vector2i((perp * lat_offset).round())
+							if not terrain_grid.is_valid_position(test_pos):
+								continue
+							# Filter terrain FIRST — skip all expensive work for non-fairway
+							var t: int = terrain_grid.get_tile(test_pos)
+							if t not in good_terrains:
+								continue
+
+							var wind_adjusted_landing: Vector2i = test_pos
+							var aim_point: Vector2i = test_pos
+							if GameManager.wind_system:
+								var wind_disp: Vector2 = GameManager.wind_system.get_wind_displacement(
+									scan_dir, test_dist, club
+								)
+								wind_adjusted_landing = Vector2i((Vector2(test_pos) + wind_disp).round())
+								var compensation_factor: float = 0.2 + gd.accuracy_skill * 0.6
+								aim_point = Vector2i((Vector2(test_pos) - wind_disp * compensation_factor).round())
+								if not terrain_grid.is_valid_position(wind_adjusted_landing):
+									wind_adjusted_landing = test_pos
+								if not terrain_grid.is_valid_position(aim_point):
+									aim_point = test_pos
+
+							# Score landing zone but skip risk analysis (just finding fairway)
+							var score: float = _score_landing_zone(
+								gd, ball_pos, wind_adjusted_landing, hole_position,
+								terrain_grid, club, shots_remaining
+							)
+							if shots_remaining <= 1:
+								score += stats["accuracy_modifier"] * 20.0
+
+							var candidate: _ShotCandidate = _ShotCandidate.new()
+							candidate.aim_point = aim_point
+							candidate.landing_zone = wind_adjusted_landing
+							candidate.club = club
+							candidate.score = score
+							candidate.strategy = "attack"
+							candidates.append(candidate)
 
 	# --- Approach shot: blend toward green center for less skilled golfers ---
 	# Apply BEFORE returning so it's part of the candidate set, not an override
@@ -529,7 +617,9 @@ static func _score_landing_zone(
 	var tree_fly_penalty: float = 0.0
 	if trees_overflown > 0:
 		var risk_factor: float = 1.0 - gd.accuracy_skill * 0.3
-		tree_fly_penalty = 15.0 * trees_overflown * risk_factor
+		# Dense tree lines (3+ consecutive) are near-impassable
+		var density_multiplier: float = 1.0 + maxf(trees_overflown - 2, 0) * 0.5
+		tree_fly_penalty = 50.0 * trees_overflown * risk_factor * density_multiplier
 
 	# --- Base terrain score ---
 	var terrain_type: int = terrain_grid.get_tile(landing)
@@ -594,10 +684,13 @@ static func _nearby_hazard_penalty(pos: Vector2i, terrain_grid: TerrainGrid, agg
 			if not terrain_grid.is_valid_position(check):
 				continue
 			var t: int = terrain_grid.get_tile(check)
-			if t == TerrainTypes.Type.WATER or t == TerrainTypes.Type.OUT_OF_BOUNDS:
+			var dist: float = Vector2(dx, dy).length()
+			if t == TerrainTypes.Type.WATER or t == TerrainTypes.Type.OUT_OF_BOUNDS or t == TerrainTypes.Type.EMPTY:
 				# Distance falloff: adjacent tiles (dist=1) are worst
-				var dist: float = Vector2(dx, dy).length()
 				penalty += (20.0 / dist) * (1.0 - aggression * 0.5)
+			elif t == TerrainTypes.Type.TREES:
+				# Trees nearby add rollout risk penalty (less severe than water/OB)
+				penalty += (10.0 / dist) * (1.0 - aggression * 0.3)
 	return penalty
 
 ## Adjust scoring based on golfer's current situation (score relative to par).
@@ -732,6 +825,8 @@ static func _assess_lie_quality(terrain_type: int) -> float:
 			return 0.15
 		TerrainTypes.Type.ROCKS:
 			return 0.1
+		TerrainTypes.Type.EMPTY, TerrainTypes.Type.OUT_OF_BOUNDS:
+			return 0.0
 		_:
 			return 0.2
 

@@ -17,6 +17,10 @@ var _elevation_overlay: ElevationOverlay = null
 signal tile_changed(position: Vector2i, old_type: int, new_type: int)
 signal elevation_changed(position: Vector2i, old_elevation: int, new_elevation: int)
 
+## Batch mode — defers signals until end_batch() to avoid overlay redraw cascade
+var _batch_mode: bool = false
+var _batch_changes: Array = []  # Array of {pos, old_type, new_type}
+
 var _ob_markers_overlay: OBMarkersOverlay = null
 var _water_overlay: WaterOverlay = null
 var _bunker_overlay: BunkerOverlay = null
@@ -42,8 +46,8 @@ func _ready() -> void:
 	_setup_bunker_overlay()
 	_setup_grass_overlay()
 	_setup_fairway_overlay()
-	_setup_tree_overlay()
-	_setup_rock_overlay()
+	# TreeOverlay and RockOverlay disabled — entities render their own sprites.
+	# TREES/ROCKS terrain tiles use grass color to blend invisibly.
 	_setup_flower_overlay()
 	_setup_path_overlay()
 	_setup_elevation_overlay()
@@ -196,6 +200,19 @@ func get_tile(pos: Vector2i) -> int:
 		return TerrainTypes.Type.OUT_OF_BOUNDS
 	return _grid.get(pos, TerrainTypes.Type.EMPTY)
 
+## Begin batch mode — tile changes won't emit signals until end_batch()
+func begin_batch() -> void:
+	_batch_mode = true
+	_batch_changes.clear()
+
+## End batch mode — emit all deferred signals at once
+func end_batch() -> void:
+	_batch_mode = false
+	for change in _batch_changes:
+		tile_changed.emit(change.pos, change.old_type, change.new_type)
+		EventBus.terrain_tile_changed.emit(change.pos, change.old_type, change.new_type)
+	_batch_changes.clear()
+
 func set_tile(pos: Vector2i, terrain_type: int, player_placed: bool = true) -> void:
 	if not is_valid_position(pos):
 		return
@@ -207,8 +224,11 @@ func set_tile(pos: Vector2i, terrain_type: int, player_placed: bool = true) -> v
 	if player_placed:
 		_player_placed_tiles[pos] = true
 	_update_tile_with_neighbors(pos)
-	tile_changed.emit(pos, old_type, terrain_type)
-	EventBus.terrain_tile_changed.emit(pos, old_type, terrain_type)
+	if _batch_mode:
+		_batch_changes.append({pos = pos, old_type = old_type, new_type = terrain_type})
+	else:
+		tile_changed.emit(pos, old_type, terrain_type)
+		EventBus.terrain_tile_changed.emit(pos, old_type, terrain_type)
 
 ## Set tile without marking as player-placed (for auto-generation)
 func set_tile_natural(pos: Vector2i, terrain_type: int) -> void:

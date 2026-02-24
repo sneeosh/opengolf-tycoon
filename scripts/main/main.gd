@@ -31,6 +31,12 @@ var brush_size: int = 1
 var is_painting: bool = false
 var last_paint_pos: Vector2i = Vector2i(-1, -1)
 
+# Measurement tool (Ctrl+click drag)
+var _measuring: bool = false
+var _measure_start: Vector2i = Vector2i.ZERO
+var _measure_end: Vector2i = Vector2i.ZERO
+var _measure_overlay: Node2D = null
+
 var hole_tool: HoleCreationTool = HoleCreationTool.new()
 var placement_manager: PlacementManager = PlacementManager.new()
 var undo_manager: UndoManager = UndoManager.new()
@@ -57,6 +63,7 @@ var analytics_panel_ui: AnalyticsPanel = null
 var golfer_info_popup: GolferInfoPopup = null
 var round_summary_popup: RoundSummaryPopup = null
 var tournament_leaderboard: TournamentLeaderboard = null
+var tournament_results_popup: TournamentResultsPopup = null
 var pause_menu: PauseMenu = null
 var milestone_manager: MilestoneManager = null
 var milestones_panel: MilestonesPanel = null
@@ -135,6 +142,12 @@ func _ready() -> void:
 	tournament_leaderboard.name = "TournamentLeaderboard"
 	$UI/HUD.add_child(tournament_leaderboard)
 	tournament_manager.setup(golfer_manager, tournament_leaderboard)
+
+	# Set up tournament results popup
+	tournament_results_popup = TournamentResultsPopup.new()
+	tournament_results_popup.name = "TournamentResultsPopup"
+	$UI/HUD.add_child(tournament_results_popup)
+	tournament_manager.tournament_completed.connect(_on_tournament_completed)
 
 	# Set up economy managers
 	var land_mgr = LandManager.new()
@@ -309,6 +322,27 @@ func _unhandled_input(event: InputEvent) -> void:
 	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
 		return
 
+	# Ctrl+click drag measurement tool — intercept before painting
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.is_command_or_control_pressed():
+			if event.pressed:
+				var mouse_world = camera.get_mouse_world_position()
+				_measure_start = terrain_grid.screen_to_grid(mouse_world)
+				_measure_end = _measure_start
+				_measuring = true
+				_update_measure_overlay()
+			else:
+				_measuring = false
+				_update_measure_overlay()
+			get_viewport().set_input_as_handled()
+			return
+
+	if _measuring and event is InputEventMouseMotion:
+		var mouse_world = camera.get_mouse_world_position()
+		_measure_end = terrain_grid.screen_to_grid(mouse_world)
+		_update_measure_overlay()
+		return
+
 	if event.is_action_pressed("select"):
 		_start_painting()
 	elif event.is_action_released("select"):
@@ -318,6 +352,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			_paint_elevation_at_mouse()
 		elif bulldozer_mode:
 			_bulldoze_at_mouse()
+		elif placement_manager.placement_mode == PlacementManager.PlacementMode.TREE:
+			var mouse_world = camera.get_mouse_world_position()
+			var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+			if grid_pos != last_paint_pos:
+				last_paint_pos = grid_pos
+				_handle_placement_click(grid_pos)
 		else:
 			_paint_at_mouse()
 
@@ -550,6 +590,12 @@ func _setup_placement_preview() -> void:
 	# Add as child of main scene so it renders above terrain
 	add_child(placement_preview)
 
+	# Measurement overlay for ctrl-click drag yardage display
+	_measure_overlay = MeasurementOverlay.new()
+	_measure_overlay.name = "MeasureOverlay"
+	_measure_overlay.terrain_grid = terrain_grid
+	add_child(_measure_overlay)
+
 func _create_selection_indicator() -> void:
 	"""Create a label showing the currently selected tool/placement mode."""
 	var bottom_bar = $UI/HUD/BottomBar
@@ -732,10 +778,14 @@ func _start_painting() -> void:
 		_bulldoze_at_mouse()
 		return
 
-	# Check if we're in placement mode (building or tree)
+	# Check if we're in placement mode (building, tree, or rock)
 	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
 		var mouse_world = camera.get_mouse_world_position()
 		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+		# Trees support drag-to-paint; buildings and rocks are single-click
+		if placement_manager.placement_mode == PlacementManager.PlacementMode.TREE:
+			is_painting = true
+			last_paint_pos = grid_pos
 		_handle_placement_click(grid_pos)
 		return
 
@@ -792,6 +842,9 @@ func _paint_at_mouse() -> void:
 		TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.BUNKER, TerrainTypes.Type.WATER,
 		TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.GREEN
 	]
+	# Batch tile changes to avoid per-tile overlay redraw cascade
+	if tiles_to_paint.size() > 1:
+		terrain_grid.begin_batch()
 	for tile_pos in tiles_to_paint:
 		# Check land ownership first
 		if GameManager.land_manager and not GameManager.land_manager.is_tile_owned(tile_pos):
@@ -824,6 +877,9 @@ func _paint_at_mouse() -> void:
 			terrain_grid.set_tile(tile_pos, current_tool)
 			total_cost += cost
 
+	if tiles_to_paint.size() > 1:
+		terrain_grid.end_batch()
+
 	if blocked_by_land and total_cost == 0:
 		EventBus.notify("You don't own this land! Press L to buy parcels.", "error")
 
@@ -834,9 +890,15 @@ func _paint_at_mouse() -> void:
 		GameManager.modify_money(-total_cost)
 		EventBus.log_transaction("Terrain: " + TerrainTypes.get_type_name(current_tool), -total_cost)
 
+func _update_measure_overlay() -> void:
+	if _measure_overlay:
+		_measure_overlay.update_measurement(_measure_start, _measure_end, _measuring)
+
 func _cancel_action() -> void:
 	is_painting = false
 	last_paint_pos = Vector2i(-1, -1)
+	_measuring = false
+	_update_measure_overlay()
 
 	# Two-tier cancel: first ESC cancels the active operation, second deselects tool
 	var had_active_operation = false
@@ -962,6 +1024,7 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	row.add_child(delete_btn)
 
 	hole_list.add_child(row)
+	_update_top_bar_rating()
 
 func _on_hole_toggle_pressed(hole_number: int) -> void:
 	if not GameManager.current_course:
@@ -984,6 +1047,7 @@ func _on_hole_deleted(hole_number: int) -> void:
 		hole_list.get_node(row_name).queue_free()
 	# Rebuild the hole list to reflect renumbered holes
 	_rebuild_hole_list()
+	_update_top_bar_rating()
 
 func _on_hole_toggled(hole_number: int, is_open: bool) -> void:
 	var row_name = "HoleRow%d" % hole_number
@@ -1534,11 +1598,15 @@ func _on_end_of_day(day_number: int) -> void:
 
 func _on_summary_continue() -> void:
 	"""Called when player clicks Continue on the end of day summary."""
+	if tournament_leaderboard:
+		tournament_leaderboard.hide()
 	GameManager.is_paused = false
 	GameManager.advance_to_next_day()
 
 func _on_summary_build_mode() -> void:
 	"""Called when player clicks Return to Build Mode on the end of day summary."""
+	if tournament_leaderboard:
+		tournament_leaderboard.hide()
 	GameManager.is_paused = false
 	GameManager.stop_simulation()
 
@@ -1896,6 +1964,12 @@ func _toggle_tournament_panel() -> void:
 	"""Toggle the tournament panel visibility."""
 	_toggle_panel(tournament_panel)
 
+func _on_tournament_completed(_tier: int, results: Dictionary) -> void:
+	"""Show tournament results popup when a tournament finishes."""
+	if tournament_results_popup:
+		var entries = results.get("all_entries", [])
+		tournament_results_popup.show_results(_tier, results, entries)
+
 func _toggle_terrain_debug_overlay() -> void:
 	"""Toggle the terrain debug overlay (F3)."""
 	if terrain_grid:
@@ -2082,7 +2156,7 @@ func _setup_round_summary_popup() -> void:
 	$UI.add_child(round_summary_popup)
 	EventBus.golfer_finished_round.connect(_on_golfer_round_for_summary)
 
-func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int) -> void:
+func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par: int) -> void:
 	var golfer = golfer_manager.get_golfer(golfer_id)
 	if not golfer:
 		return
@@ -2208,9 +2282,15 @@ func _setup_course_rating_overlay() -> void:
 	# Push initial rating to top bar (deferred so GameManager is ready)
 	_update_top_bar_rating.call_deferred()
 
+var _rating_retry_count: int = 0
+
 func _update_top_bar_rating() -> void:
 	if not GameManager.current_course or not GameManager.terrain_grid or not top_hud_bar:
+		if _rating_retry_count < 3:
+			_rating_retry_count += 1
+			get_tree().create_timer(0.5).timeout.connect(_update_top_bar_rating)
 		return
+	_rating_retry_count = 0
 	var rating := CourseRatingSystem.calculate_rating(
 		GameManager.terrain_grid,
 		GameManager.current_course,

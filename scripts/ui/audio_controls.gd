@@ -9,6 +9,8 @@ var _volume_slider: HSlider
 func _ready() -> void:
 	_build_ui()
 	_sync_from_sound_manager()
+	if SoundManager:
+		SoundManager.mute_state_changed.connect(_on_mute_state_changed)
 
 func _build_ui() -> void:
 	# Mute toggle button
@@ -46,3 +48,6 @@ func _on_mute_toggled(toggled_on: bool) -> void:
 
 func _on_volume_changed(value: float) -> void:
 	SoundManager.set_master_volume(value)
+
+func _on_mute_state_changed(_muted: bool) -> void:
+	_sync_from_sound_manager()

@@ -3,6 +3,7 @@ class_name TreeOverlay
 ## TreeOverlay - Renders varied, attractive trees on tree tiles
 
 var terrain_grid: TerrainGrid
+var entity_layer: EntityLayer  # Skip rendering at positions with tree entities
 var _tree_positions: Dictionary = {}  # pos -> tree data
 var _is_web: bool = false
 
@@ -66,7 +67,12 @@ func _draw() -> void:
 	if not terrain_grid or _tree_positions.is_empty():
 		return
 
+	var el = entity_layer if entity_layer else GameManager.entity_layer
+
 	for pos in _tree_positions:
+		# Skip tiles owned by tree entities — the entity renders its own sprite
+		if el and (el.trees.has(pos) or el.trees.has(pos - Vector2i(0, 1))):
+			continue
 		var screen_pos = terrain_grid.grid_to_screen(pos)
 		var tree_data = _tree_positions[pos]
 		var local_pos = to_local(screen_pos)

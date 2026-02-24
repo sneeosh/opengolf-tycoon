@@ -14,7 +14,7 @@ Needs decay naturally as golfers play:
 - **Hunger** drops after each hole (the slowest decay)
 - **Pace** drops when golfers are idle waiting for their turn, modified by their patience trait
 
-When a need drops below the **low threshold** (0.30), the golfer may show a thought bubble complaint (e.g., "Getting tired...", "Need a restroom!"). When a need drops below the **critical threshold** (0.15), the golfer takes a direct mood penalty each hole.
+When a need drops below the **low threshold** (0.30), the golfer may show a thought bubble complaint (e.g., "Getting tired...", "Need a restroom!"). When a need drops below the **critical threshold** (0.15), the golfer takes a one-time mood penalty. Both feedback triggers and mood penalties reset when a building visit restores the need above the respective threshold, allowing them to fire again if the need drops again.
 
 ### Buildings Satisfy Needs
 
@@ -62,7 +62,7 @@ on_waiting(wait_seconds):
     # Patient (0.9):   modifier = 1.15
     # Impatient (0.3):  modifier = 2.05
 
-    pace -= wait_seconds * 0.02 * patience_modifier
+    pace -= wait_seconds * 0.003 * patience_modifier
 ```
 
 Pace is checked in 5-second chunks during the golfer's `_process()` loop to avoid per-frame overhead.
@@ -104,20 +104,22 @@ Restoration only happens when the golfer decides to interact (passes the chance 
 | Hunger < 0.30 | HUNGRY | LOW_NEED_THRESHOLD | 60% | "Getting hungry...", "Need a snack", etc. |
 | Pace < 0.30 | SLOW_PACE | LOW_NEED_THRESHOLD | 70% | "Slow play...", "C'mon!", etc. |
 
-Each trigger fires at most once per round per golfer (tracked by `_triggered_low_*` flags).
+Each trigger fires at most once per low-need episode (tracked by `_triggered_low_*` flags). Flags reset when a building visit restores the need above `LOW_NEED_THRESHOLD`, so the trigger can fire again if the need drops again later in the round.
 
 ### 5. Mood Penalties (Critical Needs)
 
 ```
 get_mood_penalty():
     penalty = 0.0
-    if energy  < 0.15: penalty -= 0.05
-    if comfort < 0.15: penalty -= 0.05
-    if hunger  < 0.15: penalty -= 0.03
-    if pace    < 0.15: penalty -= 0.08    # Pace frustration is strongest
+    # Each penalty fires ONCE per critical transition (tracked by _applied_critical_* flags)
+    # Flags reset when building visit restores need above CRITICAL_NEED_THRESHOLD
+    if energy  < 0.15 and not already_applied: penalty -= 0.05
+    if comfort < 0.15 and not already_applied: penalty -= 0.05
+    if hunger  < 0.15 and not already_applied: penalty -= 0.03
+    if pace    < 0.15 and not already_applied: penalty -= 0.08  # Pace frustration is strongest
     return penalty
 
-# Applied once per hole in finish_hole()
+# Called per hole in finish_hole(), but each need's penalty only fires once per critical episode
 ```
 
 ### 6. Overall Satisfaction
@@ -144,7 +146,7 @@ overall = energy * 0.30 + comfort * 0.20 + hunger * 0.20 + pace * 0.30
 | ENERGY_DECAY_PER_HOLE | `golfer_needs.gd:34` | 0.08 | Higher = golfers tire faster |
 | COMFORT_DECAY_PER_HOLE | `golfer_needs.gd:35` | 0.06 | Higher = more restroom demand |
 | HUNGER_DECAY_PER_HOLE | `golfer_needs.gd:36` | 0.05 | Higher = more food demand |
-| PACE_DECAY_PER_WAIT_SECOND | `golfer_needs.gd:39` | 0.02 | Higher = more pace complaints |
+| PACE_DECAY_PER_WAIT_SECOND | `golfer_needs.gd:44` | 0.003 | Higher = more pace complaints. At 0.003, patient golfers (0.9) survive 240s total wait without critical pace. |
 | LOW_NEED_THRESHOLD | `golfer_needs.gd:28` | 0.30 | Higher = complaints start sooner |
 | CRITICAL_NEED_THRESHOLD | `golfer_needs.gd:29` | 0.15 | Higher = mood penalties start sooner |
 | BENCH_ENERGY_RESTORE | `golfer_needs.gd:42` | 0.20 | Higher = benches more effective |

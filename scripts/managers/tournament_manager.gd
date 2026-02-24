@@ -25,12 +25,13 @@ var _groups_spawned: int = 0
 var _total_groups: int = 0
 var _spawn_timer: float = 0.0
 
-# Stagger interval: 2 game-minutes between groups
-const GROUP_SPAWN_INTERVAL: float = 120.0  # seconds in game time
+# Stagger interval: 30 game-seconds between groups (was 120s / 2 min)
+const GROUP_SPAWN_INTERVAL: float = 30.0  # seconds in game time
 
 # External references (set via setup())
 var _golfer_manager: GolferManager = null
 var _leaderboard: TournamentLeaderboard = null
+var _pre_tournament_speed: int = -1  # Saved game speed before tournament
 
 func setup(golfer_manager: GolferManager, leaderboard: TournamentLeaderboard) -> void:
 	_golfer_manager = golfer_manager
@@ -53,6 +54,12 @@ func _process(delta: float) -> void:
 
 	if current_tournament_state != TournamentSystem.TournamentState.IN_PROGRESS:
 		return
+
+	# Force-complete tournaments that run past 10 PM (2 hours past closing)
+	if GameManager.current_hour >= GameManager.COURSE_CLOSE_HOUR + 2.0:
+		simulate_remaining_and_complete()
+		return
+
 	if _groups_spawned >= _total_groups:
 		return
 
@@ -91,6 +98,9 @@ func can_schedule_tournament(tier: int) -> Dictionary:
 		result.reason = "Must wait %d more days" % (TOURNAMENT_COOLDOWN - days_since_last)
 		return result
 
+	# Ensure course rating is up-to-date before checking qualification
+	GameManager.update_course_rating()
+
 	# Check qualification
 	var qualification = TournamentSystem.check_qualification(
 		tier,
@@ -121,6 +131,7 @@ func schedule_tournament(tier: int) -> bool:
 
 	# Pay entry cost
 	GameManager.modify_money(-tier_data.entry_cost)
+	GameManager.daily_stats.tournament_entry_fee += tier_data.entry_cost
 	EventBus.log_transaction("Tournament entry fee (%s)" % tier_data.name, -tier_data.entry_cost)
 
 	# Lead time: local tournaments start next day, larger ones need 3 days prep
@@ -140,6 +151,11 @@ func schedule_tournament(tier: int) -> bool:
 func _start_tournament() -> void:
 	current_tournament_state = TournamentSystem.TournamentState.IN_PROGRESS
 
+	# Auto-speed up for tournament play
+	_pre_tournament_speed = GameManager.current_speed
+	if GameManager.current_speed < GameManager.GameSpeed.FAST:
+		GameManager.current_speed = GameManager.GameSpeed.FAST
+
 	# Clear regular golfers from the course
 	if _golfer_manager:
 		_golfer_manager.clear_all_golfers()
@@ -155,7 +171,7 @@ func _start_tournament() -> void:
 
 	# Show leaderboard
 	if _leaderboard:
-		_leaderboard.show_for_tournament(tier_data.name)
+		_leaderboard.show_for_tournament(tier_data.name, tier_data.participant_count)
 
 	# Spawn first group immediately
 	_spawn_next_group()
@@ -211,7 +227,7 @@ func _on_golfer_finished_hole(golfer_id: int, hole: int, strokes: int, par: int)
 	if _leaderboard:
 		_leaderboard.update_score(golfer_id, hole, strokes, par)
 
-func _on_golfer_finished_round(golfer_id: int, total_strokes: int) -> void:
+func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: int) -> void:
 	if golfer_id not in _tournament_golfer_ids:
 		return
 
@@ -363,6 +379,7 @@ func _complete_tournament() -> void:
 		"scores": scores,
 		"participant_count": _tournament_golfer_ids.size(),
 		"prize_pool": tier_data.prize_pool,
+		"all_entries": all_entries,
 	}
 
 	# Award tournament revenue (spectators + sponsorships)
@@ -371,6 +388,7 @@ func _complete_tournament() -> void:
 	var total_revenue = spectator_rev + sponsor_rev
 	if total_revenue > 0:
 		GameManager.modify_money(total_revenue)
+		GameManager.daily_stats.tournament_revenue += total_revenue
 		EventBus.log_transaction("Tournament revenue (spectators + sponsors)", total_revenue)
 
 	# Store revenue in results for display
@@ -388,6 +406,11 @@ func _complete_tournament() -> void:
 	# Record completion
 	last_tournament_end_day = GameManager.current_day
 	var completed_tier = current_tournament_tier
+
+	# Restore game speed from before tournament
+	if _pre_tournament_speed >= 0:
+		GameManager.current_speed = _pre_tournament_speed
+		_pre_tournament_speed = -1
 
 	# Reset state
 	current_tournament_tier = -1

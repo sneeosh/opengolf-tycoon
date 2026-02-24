@@ -7,8 +7,9 @@ var _water_positions: Array = []
 var _time: float = 0.0
 var _water_color: Color = Color(0.25, 0.55, 0.85)  # Default, updated by theme
 var _is_web: bool = false
-var _web_redraw_interval: float = 0.25  # Redraw every 250ms on web (~4 FPS)
-var _web_redraw_timer: float = 0.0
+var _redraw_timer: float = 0.0
+const REDRAW_INTERVAL_DESKTOP: float = 0.067  # ~15 FPS shimmer on desktop
+const REDRAW_INTERVAL_WEB: float = 0.25       # ~4 FPS on web
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -52,13 +53,10 @@ func _on_terrain_tile_changed(position: Vector2i, old_type: int, new_type: int) 
 
 func _process(delta: float) -> void:
 	_time += delta
-	if _is_web:
-		# Throttle redraws on web to ~4 FPS instead of every frame
-		_web_redraw_timer += delta
-		if _web_redraw_timer >= _web_redraw_interval:
-			_web_redraw_timer = 0.0
-			queue_redraw()
-	else:
+	_redraw_timer += delta
+	var interval = REDRAW_INTERVAL_WEB if _is_web else REDRAW_INTERVAL_DESKTOP
+	if _redraw_timer >= interval:
+		_redraw_timer = 0.0
 		queue_redraw()
 
 func _draw() -> void:

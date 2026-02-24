@@ -54,6 +54,22 @@ const TREE_VARIATION: Dictionary = {
 ## Types that don't draw a standard tree trunk
 const TRUNKLESS_TYPES: Array = ["cactus", "fescue", "cattails", "bush", "heather"]
 
+## Y-coordinate of the visual base (trunk bottom or ground-level base) for each type.
+## Used to shift the Visual node so the base aligns with the entity origin (tile center).
+const BASE_OFFSETS: Dictionary = {
+	"oak": 45.0,
+	"pine": 45.0,
+	"maple": 45.0,
+	"birch": 45.0,
+	"palm": 48.0,
+	"dead_tree": 46.0,
+	"cactus": 14.0,
+	"fescue": 6.0,
+	"cattails": 8.0,
+	"bush": 8.0,
+	"heather": 8.0,
+}
+
 func _ready() -> void:
 	add_to_group("trees")
 
@@ -116,10 +132,8 @@ func set_terrain_grid(grid: TerrainGrid) -> void:
 func set_position_in_grid(pos: Vector2i) -> void:
 	var old_pos = grid_position
 	grid_position = pos
-	# Calculate world position from center of tile
 	if terrain_grid:
-		var world_pos = terrain_grid.grid_to_screen_center(pos)
-		global_position = world_pos
+		global_position = terrain_grid.grid_to_screen_center(pos)
 
 	# Regenerate variation if position changed (deterministic based on position)
 	if old_pos != pos and is_inside_tree():
@@ -132,9 +146,16 @@ func destroy() -> void:
 
 func _update_visuals() -> void:
 	"""Create visual representation for the tree with shadows and variation"""
-	# Remove existing visual if it exists
+	# Remove existing visual and shadows immediately (not queue_free) to prevent
+	# double-rendering when _ready draws default oak then set_tree_type redraws
 	if has_node("Visual"):
-		get_node("Visual").queue_free()
+		var old_visual = get_node("Visual")
+		remove_child(old_visual)
+		old_visual.free()
+	if has_node("Shadows"):
+		var old_shadows = get_node("Shadows")
+		remove_child(old_shadows)
+		old_shadows.free()
 
 	# Create a Node2D to hold the visual
 	var visual = Node2D.new()
@@ -154,22 +175,23 @@ func _update_visuals() -> void:
 	var scale_mult = _variation.scale if _variation else 1.0
 	_shadow_config = ShadowRenderer.ShadowConfig.new(visual_height * scale_mult, base_width * scale_mult)
 
-	# Adjust shadow anchor based on vegetation type
-	if tree_type in TRUNKLESS_TYPES:
-		_shadow_config.base_offset = Vector2(0, 12 * scale_mult)
-		# Small ground vegetation only gets contact shadow
-		if visual_height < 20.0:
-			_shadow_config.cast_drop_shadow = false
-	else:
-		_shadow_config.base_offset = Vector2(0, 42 * scale_mult)
+	# Shadows are placed in a separate container at entity origin (the base),
+	# so base_offset is zero — the base IS the entity origin after visual shift.
+	_shadow_config.base_offset = Vector2.ZERO
+	if tree_type in TRUNKLESS_TYPES and visual_height < 20.0:
+		_shadow_config.cast_drop_shadow = false
 
 	# Get shadow system reference
 	var shadow_system: Node = null
 	if has_node("/root/ShadowSystem"):
 		shadow_system = get_node("/root/ShadowSystem")
 
-	# Add shadows (rendered below tree)
-	_shadow_refs = ShadowRenderer.add_shadows_to_entity(visual, _shadow_config, shadow_system)
+	# Add shadows in a separate container (sibling of visual, not child)
+	# so they stay at entity origin and aren't affected by the visual shift
+	var shadow_container = Node2D.new()
+	shadow_container.name = "Shadows"
+	add_child(shadow_container)
+	_shadow_refs = ShadowRenderer.add_shadows_to_entity(shadow_container, _shadow_config, shadow_system)
 
 	# Draw trunk only for types that have one
 	if tree_type not in TRUNKLESS_TYPES:
@@ -206,6 +228,12 @@ func _update_visuals() -> void:
 	if _variation:
 		visual.scale = Vector2(_variation.scale, _variation.scale)
 		visual.rotation = _variation.rotation
+
+	# Shift visual UP so the trunk/base sits at entity origin (tile center).
+	# This ensures clicking a tile places the tree base on that tile,
+	# with the canopy extending above.
+	var base_y = BASE_OFFSETS.get(tree_type, 45.0)
+	visual.position.y = -base_y * scale_mult
 
 func _draw_trunk(visual: Node2D, trunk_color: Color) -> void:
 	"""Draw a standard tree trunk with bark texture"""
