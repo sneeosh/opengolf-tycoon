@@ -331,7 +331,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	if ball_manager and ball_manager.has_method("clear_all_balls"):
 		ball_manager.clear_all_balls()
 
-	EventBus.load_completed.emit(true)
+	# NOTE: load_completed is emitted by load_game() after _apply_save_data returns
 
 ## Deserialize holes into GameManager.current_course
 func _deserialize_holes(holes_data: Array) -> void:

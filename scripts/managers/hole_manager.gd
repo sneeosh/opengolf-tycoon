@@ -24,6 +24,7 @@ func _ready() -> void:
 	EventBus.hole_deleted.connect(_on_hole_deleted)
 	EventBus.hole_updated.connect(_on_hole_updated)
 	EventBus.hole_toggled.connect(_on_hole_toggled)
+	EventBus.load_completed.connect(_on_load_completed)
 
 func _exit_tree() -> void:
 	if EventBus.hole_created.is_connected(_on_hole_created):
@@ -34,6 +35,8 @@ func _exit_tree() -> void:
 		EventBus.hole_updated.disconnect(_on_hole_updated)
 	if EventBus.hole_toggled.is_connected(_on_hole_toggled):
 		EventBus.hole_toggled.disconnect(_on_hole_toggled)
+	if EventBus.load_completed.is_connected(_on_load_completed):
+		EventBus.load_completed.disconnect(_on_load_completed)
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -126,6 +129,10 @@ func _on_hole_deleted(hole_number: int) -> void:
 
 func _on_hole_updated(hole_number: int) -> void:
 	update_hole_visualization(hole_number)
+
+func _on_load_completed(_success: bool) -> void:
+	# Recalculate shot paths after load — terrain data is now fully available
+	call_deferred("update_all_visualizations")
 
 func _on_hole_toggled(hole_number: int, is_open: bool) -> void:
 	var visualizer = get_hole_visualizer(hole_number)

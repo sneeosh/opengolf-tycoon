@@ -39,7 +39,9 @@ var _shot_heatmap_overlay: ShotHeatmapOverlay = null
 
 func _ready() -> void:
 	_generate_tileset()
-	_apply_variation_shader()
+	# Variation shader disabled — it overwrites TilesetGenerator's mowing stripe
+	# patterns on fairways/greens. The FairwayOverlay handles stripes instead.
+	#_apply_variation_shader()
 	_initialize_grid()
 	_setup_ob_markers_overlay()
 	_setup_water_overlay()
@@ -95,7 +97,7 @@ func _generate_tileset() -> void:
 ## Regenerate the tileset (e.g. after theme change)
 func regenerate_tileset() -> void:
 	_generate_tileset()
-	_apply_variation_shader()  # Re-apply shader with new theme colors
+	#_apply_variation_shader()  # Re-apply shader with new theme colors
 	# Re-render all existing tiles and overlays
 	queue_redraw()
 	if tile_map:
@@ -642,4 +644,7 @@ func deserialize_elevation(data: Dictionary) -> void:
 			if is_valid_position(pos):
 				_elevation_grid[pos] = data[key]
 	if _elevation_overlay:
+		_elevation_overlay._needs_redraw = true
 		_elevation_overlay.queue_redraw()
+	if _elevation_shading_overlay:
+		_elevation_shading_overlay.queue_redraw()

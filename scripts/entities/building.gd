@@ -17,7 +17,7 @@ var _shadow_refs: Dictionary = {}
 var _shadow_config: ShadowRenderer.ShadowConfig = null
 var _custom_shadow: Polygon2D = null  # Building-specific shadow shape
 
-@onready var sprite: Sprite2D = $Sprite2D
+@onready var sprite: Sprite2D = $Sprite2D if has_node("Sprite2D") else null
 @onready var collision_shape: CollisionShape2D = $Area2D/CollisionShape2D if has_node("Area2D/CollisionShape2D") else null
 
 signal building_selected(building: Building)
