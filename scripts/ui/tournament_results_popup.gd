@@ -18,10 +18,14 @@ func show_results(tier: int, results: Dictionary, entries: Array) -> void:
 		child.queue_free()
 	# Wait a frame for cleanup, then build and show
 	await get_tree().process_frame
-	_build_ui()
+	_build_content()
 	show_centered()
 
+## No-op: don't build anything on _ready(). Content is built on-demand via show_results().
 func _build_ui() -> void:
+	pass
+
+func _build_content() -> void:
 	var viewport_height = 800
 	if get_viewport():
 		viewport_height = get_viewport().get_visible_rect().size.y
