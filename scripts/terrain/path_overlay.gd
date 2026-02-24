@@ -63,8 +63,15 @@ func _draw() -> void:
 	if not terrain_grid or _path_positions.is_empty():
 		return
 
+	# Viewport culling
+	var visible_rect = terrain_grid.get_visible_world_rect()
+	var margin = Vector2(terrain_grid.tile_width, terrain_grid.tile_height)
+	visible_rect = visible_rect.grow_individual(margin.x, margin.y, margin.x, margin.y)
+
 	for pos in _path_positions:
 		var screen_pos = terrain_grid.grid_to_screen(pos)
+		if not visible_rect.has_point(screen_pos):
+			continue
 		var local_pos = to_local(screen_pos)
 		var pebbles = _path_positions[pos]
 

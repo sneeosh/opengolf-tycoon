@@ -7,14 +7,15 @@ var _water_positions: Array = []
 var _time: float = 0.0
 var _water_color: Color = Color(0.25, 0.55, 0.85)  # Default, updated by theme
 var _is_web: bool = false
+var _redraw_interval: float = 0.066  # ~15 FPS shimmer on desktop
 var _redraw_timer: float = 0.0
-const REDRAW_INTERVAL_DESKTOP: float = 0.067  # ~15 FPS shimmer on desktop
-const REDRAW_INTERVAL_WEB: float = 0.25       # ~4 FPS on web
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 1  # Render just above terrain tiles
 	_is_web = OS.get_name() == "Web"
+	if _is_web:
+		_redraw_interval = 0.25  # ~4 FPS on web
 	_scan_water_tiles()
 	_update_water_color()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
@@ -54,8 +55,7 @@ func _on_terrain_tile_changed(position: Vector2i, old_type: int, new_type: int) 
 func _process(delta: float) -> void:
 	_time += delta
 	_redraw_timer += delta
-	var interval = REDRAW_INTERVAL_WEB if _is_web else REDRAW_INTERVAL_DESKTOP
-	if _redraw_timer >= interval:
+	if _redraw_timer >= _redraw_interval:
 		_redraw_timer = 0.0
 		queue_redraw()
 
@@ -63,8 +63,16 @@ func _draw() -> void:
 	if not terrain_grid or _water_positions.is_empty():
 		return
 
+	# Viewport culling: only draw water tiles visible on screen
+	var visible_rect = terrain_grid.get_visible_world_rect()
+	var margin = Vector2(terrain_grid.tile_width, terrain_grid.tile_height)
+	visible_rect = visible_rect.grow_individual(margin.x, margin.y, margin.x, margin.y)
+
 	for pos in _water_positions:
 		var screen_pos = terrain_grid.grid_to_screen(pos)
+		if not visible_rect.has_point(screen_pos):
+			continue
+
 		var local_pos = to_local(screen_pos)
 
 		# Animated shimmer using sine waves with position-based offset

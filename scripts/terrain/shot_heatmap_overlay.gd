@@ -66,16 +66,28 @@ func _draw_density(tw: int, th: int) -> void:
 	if max_count == 0:
 		return
 
+	# Viewport culling
+	var visible_rect = terrain_grid.get_visible_world_rect()
+	var margin = Vector2(tw, th)
+	visible_rect = visible_rect.grow_individual(margin.x, margin.y, margin.x, margin.y)
+
 	for pos in tracker.landing_counts:
 		var count: int = tracker.landing_counts[pos]
 		var normalized: float = float(count) / float(max_count)
 		var color: Color = _density_color(normalized)
 
 		var screen_pos = terrain_grid.grid_to_screen(pos)
+		if not visible_rect.has_point(screen_pos):
+			continue
 		var local_pos = to_local(screen_pos)
 		draw_rect(Rect2(local_pos, Vector2(tw, th)), color)
 
 func _draw_trouble(tw: int, th: int) -> void:
+	# Viewport culling
+	var visible_rect = terrain_grid.get_visible_world_rect()
+	var margin = Vector2(tw, th)
+	visible_rect = visible_rect.grow_individual(margin.x, margin.y, margin.x, margin.y)
+
 	for pos in tracker.trouble_data:
 		var score: float = tracker.get_trouble_score(pos)
 		if absf(score) < 0.01:
@@ -83,6 +95,8 @@ func _draw_trouble(tw: int, th: int) -> void:
 
 		var color: Color = _trouble_color(score)
 		var screen_pos = terrain_grid.grid_to_screen(pos)
+		if not visible_rect.has_point(screen_pos):
+			continue
 		var local_pos = to_local(screen_pos)
 		draw_rect(Rect2(local_pos, Vector2(tw, th)), color)
 

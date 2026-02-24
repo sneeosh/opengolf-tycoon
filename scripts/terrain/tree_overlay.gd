@@ -69,11 +69,20 @@ func _draw() -> void:
 
 	var el = entity_layer if entity_layer else GameManager.entity_layer
 
+	# Viewport culling with extra margin for tall trees that extend above their tile
+	var visible_rect = terrain_grid.get_visible_world_rect()
+	var margin_x = terrain_grid.tile_width * 2
+	var margin_y = terrain_grid.tile_height * 4  # Trees extend well above their tile
+	visible_rect = visible_rect.grow_individual(margin_x, margin_y, margin_x, margin_y)
+
 	for pos in _tree_positions:
 		# Skip tiles owned by tree entities — the entity renders its own sprite
 		if el and (el.trees.has(pos) or el.trees.has(pos - Vector2i(0, 1))):
 			continue
 		var screen_pos = terrain_grid.grid_to_screen(pos)
+		if not visible_rect.has_point(screen_pos):
+			continue
+
 		var tree_data = _tree_positions[pos]
 		var local_pos = to_local(screen_pos)
 		var center = local_pos + Vector2(terrain_grid.tile_width / 2.0 + tree_data.offset_x,
