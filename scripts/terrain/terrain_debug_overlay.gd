@@ -44,8 +44,13 @@ func _draw() -> void:
 	var tile_width = terrain_grid.tile_width
 	var tile_height = terrain_grid.tile_height
 
-	for x in range(terrain_grid.grid_width):
-		for y in range(terrain_grid.grid_height):
+	# Only draw visible tiles instead of full 128x128 grid
+	var tile_range = terrain_grid.get_visible_tile_range()
+	var min_tile = tile_range[0]
+	var max_tile = tile_range[1]
+
+	for x in range(min_tile.x, max_tile.x + 1):
+		for y in range(min_tile.y, max_tile.y + 1):
 			var pos = Vector2i(x, y)
 			var screen_pos = terrain_grid.grid_to_screen(pos)
 			var local_pos = to_local(screen_pos)

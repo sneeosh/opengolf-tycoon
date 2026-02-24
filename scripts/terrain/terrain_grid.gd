@@ -286,6 +286,32 @@ func calculate_distance_yards_precise(from: Vector2, to: Vector2) -> int:
 	const YARDS_PER_TILE: float = 22.0
 	return int(from.distance_to(to) * YARDS_PER_TILE)
 
+## Get the world-space rectangle currently visible in the camera viewport.
+## Overlays use this to skip drawing off-screen tiles (viewport culling).
+func get_visible_world_rect() -> Rect2:
+	var viewport = get_viewport()
+	if not viewport:
+		return Rect2(Vector2.ZERO, Vector2(grid_width * tile_width, grid_height * tile_height))
+	var camera = viewport.get_camera_2d()
+	if not camera:
+		return Rect2(Vector2.ZERO, Vector2(grid_width * tile_width, grid_height * tile_height))
+	var viewport_size = viewport.get_visible_rect().size
+	var cam_zoom = camera.zoom
+	var visible_size = viewport_size / cam_zoom
+	var camera_pos = camera.global_position
+	return Rect2(camera_pos - visible_size / 2.0, visible_size)
+
+## Get the range of grid tiles currently visible in the camera viewport.
+## Returns [min_tile, max_tile] as Vector2i, clamped to grid bounds.
+func get_visible_tile_range() -> Array[Vector2i]:
+	var world_rect = get_visible_world_rect()
+	var margin = Vector2(tile_width * 2, tile_height * 2)
+	var min_tile = screen_to_grid(world_rect.position - margin)
+	var max_tile = screen_to_grid(world_rect.end + margin)
+	min_tile = Vector2i(maxi(min_tile.x, 0), maxi(min_tile.y, 0))
+	max_tile = Vector2i(mini(max_tile.x, grid_width - 1), mini(max_tile.y, grid_height - 1))
+	return [min_tile, max_tile]
+
 func get_total_maintenance_cost() -> int:
 	## Only count maintenance for player-placed tiles, not auto-generated terrain
 	var total: int = 0

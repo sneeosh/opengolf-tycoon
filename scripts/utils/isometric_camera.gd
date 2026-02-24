@@ -2,12 +2,12 @@ extends Camera2D
 class_name IsometricCamera
 ## IsometricCamera - Enhanced camera controller with smooth zoom and subtle follow
 
-@export var pan_speed: float = 500.0
+@export var pan_speed: float = 800.0
 @export var zoom_speed: float = 0.1
 @export var min_zoom: float = 0.5
 @export var max_zoom: float = 2.0
-@export var smoothing_speed: float = 10.0
-@export var zoom_smoothing_speed: float = 8.0
+@export var smoothing_speed: float = 15.0
+@export var zoom_smoothing_speed: float = 10.0
 @export var bounds_enabled: bool = true
 @export var bounds_min: Vector2 = Vector2(-2000, -2000)
 @export var bounds_max: Vector2 = Vector2(6000, 4000)

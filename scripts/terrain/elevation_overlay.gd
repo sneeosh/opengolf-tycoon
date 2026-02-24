@@ -11,6 +11,9 @@ var terrain_grid: TerrainGrid
 var _elevation_active: bool = false  # More prominent when elevation tool is selected
 var _needs_redraw: bool = true       # Track when elevation data changes
 
+## Cached set of tiles that need drawing (elevated tiles + their neighbors)
+var _relevant_tiles: Dictionary = {}  # Vector2i -> true
+
 ## Hillshade light direction (NW light source, conventional for maps)
 const LIGHT_DIR: Vector2 = Vector2(-0.7, -0.7)  # Normalized NW direction
 const HILLSHADE_INTENSITY: float = 0.18  # How strong the directional shading is
@@ -38,52 +41,75 @@ func set_elevation_mode_active(active: bool) -> void:
 
 func _on_elevation_changed(_pos: Vector2i, _old: int, _new: int) -> void:
 	_needs_redraw = true
+	_rebuild_relevant_tiles()
 	queue_redraw()
+
+## Rebuild the set of tiles that need drawing: any tile with elevation + neighbors
+func _rebuild_relevant_tiles() -> void:
+	_relevant_tiles.clear()
+	for pos in terrain_grid._elevation_grid:
+		_relevant_tiles[pos] = true
+		# Include all 4 neighbors (for hillshade/contour rendering at boundaries)
+		for offset in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var neighbor = pos + offset
+			if terrain_grid.is_valid_position(neighbor):
+				_relevant_tiles[neighbor] = true
 
 func _draw() -> void:
 	if not terrain_grid:
 		return
 
-	_needs_redraw = false
+	if _needs_redraw:
+		_rebuild_relevant_tiles()
+		_needs_redraw = false
+
+	if _relevant_tiles.is_empty():
+		return
 
 	var base_alpha = ACTIVE_ALPHA if _elevation_active else PASSIVE_ALPHA
 	var tw = terrain_grid.tile_width
 	var th = terrain_grid.tile_height
 
-	for x in range(terrain_grid.grid_width):
-		for y in range(terrain_grid.grid_height):
-			var pos = Vector2i(x, y)
-			var elevation = terrain_grid.get_elevation(pos)
-			var screen_pos = terrain_grid.grid_to_screen(pos)
-			var local_pos = to_local(screen_pos)
+	# Viewport culling
+	var visible_rect = terrain_grid.get_visible_world_rect()
+	var margin = Vector2(tw * 2, th * 2)
+	visible_rect = visible_rect.grow_individual(margin.x, margin.y, margin.x, margin.y)
 
-			# --- Gradient elevation shading (always drawn if non-zero) ---
-			if elevation != 0:
-				var color = _get_elevation_color(elevation, base_alpha)
-				draw_rect(Rect2(local_pos, Vector2(tw, th)), color)
+	for pos in _relevant_tiles:
+		var screen_pos = terrain_grid.grid_to_screen(pos)
+		if not visible_rect.has_point(screen_pos):
+			continue
 
-			# --- Hillshade effect (slope-based directional shading) ---
-			var hillshade_color = _calculate_hillshade(pos, base_alpha * 0.8)
-			if hillshade_color.a > 0.01:
-				draw_rect(Rect2(local_pos, Vector2(tw, th)), hillshade_color)
+		var elevation = terrain_grid.get_elevation(pos)
+		var local_pos = to_local(screen_pos)
 
-			# --- Contour lines at elevation boundaries ---
-			if elevation != 0 or _has_elevated_neighbor(pos):
-				_draw_contour_lines(pos, local_pos, tw, th)
+		# --- Gradient elevation shading (always drawn if non-zero) ---
+		if elevation != 0:
+			var color = _get_elevation_color(elevation, base_alpha)
+			draw_rect(Rect2(local_pos, Vector2(tw, th)), color)
 
-			# --- Elevation numbers (only in active mode) ---
-			if _elevation_active and elevation != 0:
-				var text_pos = local_pos + Vector2(tw * 0.35, th * 0.7)
-				var sign_str = "+" if elevation > 0 else ""
-				draw_string(
-					ThemeDB.fallback_font,
-					text_pos,
-					"%s%d" % [sign_str, elevation],
-					HORIZONTAL_ALIGNMENT_LEFT,
-					-1,
-					9,
-					Color(1, 1, 1, 0.7)
-				)
+		# --- Hillshade effect (slope-based directional shading) ---
+		var hillshade_color = _calculate_hillshade(pos, base_alpha * 0.8)
+		if hillshade_color.a > 0.01:
+			draw_rect(Rect2(local_pos, Vector2(tw, th)), hillshade_color)
+
+		# --- Contour lines at elevation boundaries ---
+		if elevation != 0 or _has_elevated_neighbor(pos):
+			_draw_contour_lines(pos, local_pos, tw, th)
+
+		# --- Elevation numbers (only in active mode) ---
+		if _elevation_active and elevation != 0:
+			var text_pos = local_pos + Vector2(tw * 0.35, th * 0.7)
+			var sign_str = "+" if elevation > 0 else ""
+			draw_string(
+				ThemeDB.fallback_font,
+				text_pos,
+				"%s%d" % [sign_str, elevation],
+				HORIZONTAL_ALIGNMENT_LEFT,
+				-1,
+				9,
+				Color(1, 1, 1, 0.7)
+			)
 
 ## Get a color representing this elevation level with natural relief tones
 func _get_elevation_color(elevation: int, alpha: float) -> Color:
