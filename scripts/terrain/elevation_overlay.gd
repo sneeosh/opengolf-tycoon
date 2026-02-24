@@ -41,7 +41,6 @@ func set_elevation_mode_active(active: bool) -> void:
 
 func _on_elevation_changed(_pos: Vector2i, _old: int, _new: int) -> void:
 	_needs_redraw = true
-	_rebuild_relevant_tiles()
 	queue_redraw()
 
 ## Rebuild the set of tiles that need drawing: any tile with elevation + neighbors

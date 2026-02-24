@@ -263,6 +263,7 @@ static func _calculate_pace_rating(daily_stats) -> float:
 
 	var total_scores = (
 		daily_stats.birdies +
+		daily_stats.pars +
 		daily_stats.bogeys_or_worse +
 		daily_stats.holes_in_one +
 		daily_stats.eagles

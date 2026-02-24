@@ -10,6 +10,9 @@ var camera: IsometricCamera
 var hole_tool: HoleCreationTool  # Reference for hole creation preview
 var current_terrain_tool: int = -1  # Current terrain painting tool
 var terrain_painting_enabled: bool = false  # Whether to show terrain preview
+var elevation_mode_active: bool = false  # Whether elevation tool is active
+var elevation_raising: bool = true  # True = raising, false = lowering
+var bulldozer_mode_active: bool = false  # Whether bulldozer mode is active
 var brush_size: int = 1  # Current brush size (1, 3, or 5)
 
 # Preview state
@@ -39,12 +42,14 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_pulse_time += delta * 3.0
 
-	# Show preview for entity placement, terrain painting, OR hole creation
+	# Show preview for entity placement, terrain painting, elevation, bulldozer, OR hole creation
 	var show_entity_preview = placement_manager and placement_manager.placement_mode != PlacementManager.PlacementMode.NONE
 	var show_terrain_preview = terrain_painting_enabled and current_terrain_tool >= 0
 	var show_hole_preview = hole_tool and hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE
+	var show_elevation_preview = elevation_mode_active
+	var show_bulldozer_preview = bulldozer_mode_active
 
-	if show_entity_preview or show_terrain_preview or show_hole_preview:
+	if show_entity_preview or show_terrain_preview or show_hole_preview or show_elevation_preview or show_bulldozer_preview:
 		_target_alpha = 1.0
 		_update_preview(delta)
 	else:
@@ -74,6 +79,13 @@ func set_terrain_painting_enabled(enabled: bool) -> void:
 
 func set_brush_size(size: int) -> void:
 	brush_size = size
+
+func set_elevation_mode(active: bool, raising: bool = true) -> void:
+	elevation_mode_active = active
+	elevation_raising = raising
+
+func set_bulldozer_mode(active: bool) -> void:
+	bulldozer_mode_active = active
 
 func set_hole_tool(tool: HoleCreationTool) -> void:
 	hole_tool = tool
@@ -137,8 +149,9 @@ func _draw() -> void:
 
 	var is_entity_mode = placement_manager and placement_manager.placement_mode != PlacementManager.PlacementMode.NONE
 	var is_terrain_mode = terrain_painting_enabled and current_terrain_tool >= 0
+	var is_special_mode = is_terrain_mode or elevation_mode_active or bulldozer_mode_active
 
-	if not is_entity_mode and not is_terrain_mode:
+	if not is_entity_mode and not is_special_mode:
 		return
 
 	# Pulsing effect
@@ -153,8 +166,8 @@ func _draw() -> void:
 			if is_entity_mode:
 				tile_valid = _is_tile_valid_for_placement(grid_pos)
 			else:
-				tile_valid = true  # Terrain painting is always valid on valid tiles
-			_draw_isometric_tile(grid_pos, tile_valid, alpha_mod, i == 0, is_terrain_mode)
+				tile_valid = true  # Terrain/elevation/bulldozer painting is always valid on valid tiles
+			_draw_isometric_tile(grid_pos, tile_valid, alpha_mod, i == 0, is_special_mode)
 
 	# Draw entity ghost preview (only for entity placement)
 	if is_entity_mode:
@@ -228,7 +241,14 @@ func _draw_isometric_tile(grid_pos: Vector2i, is_valid: bool, alpha_mod: float, 
 	draw_rect(rect, outline_color, false, outline_width)
 
 func _get_terrain_preview_color() -> Color:
-	"""Get a preview color based on the current terrain tool"""
+	"""Get a preview color based on the current terrain tool or active mode"""
+	if elevation_mode_active:
+		if elevation_raising:
+			return Color(0.5, 0.7, 1.0, 0.5)  # Light blue for raise
+		else:
+			return Color(1.0, 0.5, 0.5, 0.5)  # Light red for lower
+	if bulldozer_mode_active:
+		return Color(1.0, 0.5, 0.3, 0.5)  # Orange for bulldozer
 	match current_terrain_tool:
 		TerrainTypes.Type.FAIRWAY:
 			return Color(0.4, 0.8, 0.4, 0.5)  # Light green

@@ -65,6 +65,7 @@ var round_summary_popup: RoundSummaryPopup = null
 var tournament_leaderboard: TournamentLeaderboard = null
 var tournament_results_popup: TournamentResultsPopup = null
 var pause_menu: PauseMenu = null
+var _was_paused_before_pause_menu: bool = false
 var milestone_manager: MilestoneManager = null
 var milestones_panel: MilestonesPanel = null
 var seasonal_calendar_panel: SeasonalCalendarPanel = null
@@ -322,6 +323,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
 		return
 
+	# Block terrain painting/placement when popups are showing
+	if GameManager.is_paused:
+		return
+
 	# Ctrl+click drag measurement tool — intercept before painting
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.is_command_or_control_pressed():
@@ -431,9 +436,6 @@ func _on_main_menu_new_game(course_name: String, theme_type: int) -> void:
 	_set_gameplay_ui_visible(true)
 
 	GameManager.new_game(course_name, theme_type, difficulty)
-
-	# Regenerate tileset with theme colors
-	terrain_grid.regenerate_tileset()
 
 	# Center camera on the middle of the grid
 	var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
@@ -1234,6 +1236,9 @@ func _on_raise_elevation_pressed() -> void:
 		terrain_toolbar.clear_selection()
 	elevation_tool.start_raising()
 	terrain_grid.set_elevation_overlay_active(true)
+	if placement_preview:
+		placement_preview.set_elevation_mode(true, true)
+		placement_preview.set_brush_size(brush_size)
 	print("Elevation mode: RAISING")
 
 func _on_lower_elevation_pressed() -> void:
@@ -1246,6 +1251,9 @@ func _on_lower_elevation_pressed() -> void:
 		terrain_toolbar.clear_selection()
 	elevation_tool.start_lowering()
 	terrain_grid.set_elevation_overlay_active(true)
+	if placement_preview:
+		placement_preview.set_elevation_mode(true, false)
+		placement_preview.set_brush_size(brush_size)
 	print("Elevation mode: LOWERING")
 
 func _on_bulldozer_pressed() -> void:
@@ -1258,11 +1266,16 @@ func _on_bulldozer_pressed() -> void:
 	if terrain_toolbar:
 		terrain_toolbar.clear_selection()
 	bulldozer_mode = true
+	if placement_preview:
+		placement_preview.set_bulldozer_mode(true)
+		placement_preview.set_brush_size(brush_size)
 	EventBus.notify("Bulldozer mode - Click to remove objects", "info")
 	print("Bulldozer mode: ACTIVE")
 
 func _cancel_bulldozer_mode() -> void:
 	bulldozer_mode = false
+	if placement_preview:
+		placement_preview.set_bulldozer_mode(false)
 
 func _disable_terrain_painting_preview() -> void:
 	"""Disable terrain painting preview when switching to other modes"""
@@ -1272,6 +1285,14 @@ func _disable_terrain_painting_preview() -> void:
 func _on_new_game_started() -> void:
 	"""Generate natural terrain when a new game starts"""
 	_game_over_shown = false
+
+	# Show loading screen and wait a frame so it actually renders
+	# before the synchronous generation blocks the main thread.
+	var loading_overlay := _create_loading_overlay("Generating course...")
+	add_child(loading_overlay)
+	await get_tree().process_frame
+	await get_tree().process_frame  # Two frames to ensure the overlay paints
+
 	# Regenerate tileset with the selected theme colors
 	if terrain_grid:
 		terrain_grid.regenerate_tileset()
@@ -1280,24 +1301,61 @@ func _on_new_game_started() -> void:
 	if shot_heatmap_tracker:
 		shot_heatmap_tracker.clear()
 
-	# Generate natural terrain features
+	# Generate natural terrain features using batch mode to avoid per-tile signal spam.
+	# Without batch mode, each set_tile() triggers 12+ signal handlers (overlays, undo,
+	# minimap, etc.) — with thousands of tiles this blocks the main thread for too long.
+	_suppress_tile_undo = true
+	terrain_grid.begin_batch()
 	NaturalTerrainGenerator.generate(terrain_grid, entity_layer)
-	print("Natural terrain generated for new course")
+	terrain_grid.end_batch_quiet()
+	terrain_grid.refresh_all_overlays()
+	_suppress_tile_undo = false
 
 	# Build pre-made course if Quick Start was selected
 	var is_quick_start := _quick_start_pending
 	if _quick_start_pending:
 		_quick_start_pending = false
+		_suppress_tile_undo = true
+		terrain_grid.begin_batch()
 		QuickStartCourse.build(terrain_grid, entity_layer, hole_tool)
+		terrain_grid.end_batch_quiet()
+		terrain_grid.refresh_all_overlays()
+		_suppress_tile_undo = false
+
+	# Remove loading screen
+	loading_overlay.queue_free()
 
 	# Start tutorial for first-time players (skip for Quick Start — they already have a course)
 	if not is_quick_start and not TutorialSystem.is_tutorial_completed():
 		_start_tutorial()
 
+func _create_loading_overlay(message: String) -> CanvasLayer:
+	"""Create a full-screen loading overlay that renders above everything."""
+	var canvas := CanvasLayer.new()
+	canvas.layer = 100  # Above all other UI
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.08, 0.12, 0.08, 1.0)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	canvas.add_child(bg)
+
+	var label := Label.new()
+	label.text = message
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	label.add_theme_font_size_override("font_size", 28)
+	label.add_theme_color_override("font_color", Color(0.85, 0.92, 0.85))
+	canvas.add_child(label)
+
+	return canvas
+
 func _cancel_elevation_mode() -> void:
 	if elevation_tool.is_active():
 		elevation_tool.cancel()
 		terrain_grid.set_elevation_overlay_active(false)
+	if placement_preview:
+		placement_preview.set_elevation_mode(false)
 
 func _paint_elevation_at_mouse() -> void:
 	var mouse_world = camera.get_mouse_world_position()
@@ -1608,6 +1666,8 @@ func _on_summary_build_mode() -> void:
 	if tournament_leaderboard:
 		tournament_leaderboard.hide()
 	GameManager.is_paused = false
+	# Advance to next day first to reset day-cycle flags, then stop simulation
+	GameManager.advance_to_next_day()
 	GameManager.stop_simulation()
 
 # --- Save/Load ---
@@ -2350,7 +2410,8 @@ func _show_pause_menu() -> void:
 		_active_panel.hide()
 		_active_panel = null
 
-	# Pause game
+	# Remember if game was already paused (e.g. end-of-day summary)
+	_was_paused_before_pause_menu = GameManager.is_paused
 	GameManager.is_paused = true
 
 	pause_menu = PauseMenu.new()
@@ -2364,11 +2425,13 @@ func _show_pause_menu() -> void:
 	$UI/HUD.add_child(pause_menu)
 
 func _close_pause_menu() -> void:
-	"""Close the pause menu and resume the game."""
+	"""Close the pause menu and restore prior pause state."""
 	if pause_menu:
 		pause_menu.queue_free()
 		pause_menu = null
-	GameManager.is_paused = false
+	# Only unpause if the game wasn't already paused before we opened the menu
+	if not _was_paused_before_pause_menu:
+		GameManager.is_paused = false
 
 func _on_pause_resume() -> void:
 	_close_pause_menu()

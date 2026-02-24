@@ -107,6 +107,8 @@ const PREPARATION_DURATION: float = 1.0  # 1 second to prepare shot
 
 ## Club chosen by decide_shot_target() — used by _calculate_shot() to avoid mismatch
 var _chosen_club: Club = Club.DRIVER
+var _cached_shot_target: Vector2i = Vector2i.ZERO
+var _cached_shot_target_valid: bool = false
 ## Strategy chosen by ShotAI (normal/recovery/layup/attack) — for debug/feedback
 var _shot_strategy: String = "normal"
 
@@ -755,6 +757,7 @@ func _take_ai_shot() -> void:
 ## Take a shot
 func take_shot(target: Vector2i) -> void:
 	current_strokes += 1
+	_cached_shot_target_valid = false
 	_change_state(State.SWINGING)
 
 	var terrain_grid = GameManager.terrain_grid
@@ -1096,7 +1099,15 @@ func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 	var decision: ShotAI.ShotDecision = ShotAI.decide_shot(self, hole_position)
 	_chosen_club = decision.club
 	_shot_strategy = decision.strategy
+	_cached_shot_target = decision.target
+	_cached_shot_target_valid = true
 	return decision.target
+
+func get_cached_or_compute_shot_target(hole_position: Vector2i) -> Vector2i:
+	"""Return cached shot target if available, otherwise compute it."""
+	if _cached_shot_target_valid:
+		return _cached_shot_target
+	return decide_shot_target(hole_position)
 
 ## Legacy club selection (kept for ShotPathCalculator compatibility).
 ## New shot AI uses ShotAI.decide_shot() which handles club selection internally.
@@ -1921,9 +1932,7 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
-		var result: Array[Vector2] = []
-		result.append(terrain_grid.grid_to_screen_center(end))
-		return result
+		return [] as Array[Vector2]
 
 	# A* with 8-directional movement
 	var open_set: Dictionary = {}  # Vector2i -> f_score

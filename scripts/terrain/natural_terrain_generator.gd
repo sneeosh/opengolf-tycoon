@@ -11,21 +11,15 @@ static func generate(terrain_grid: TerrainGrid, entity_layer: EntityLayer, seed_
 	var rng = RandomNumberGenerator.new()
 	rng.seed = seed_value if seed_value != 0 else int(Time.get_unix_time_from_system())
 
-	print("Generating natural terrain with seed: %d (theme: %s)" % [rng.seed, CourseTheme.get_theme_name(GameManager.current_theme)])
-
 	# Generate elevation first (hills and valleys)
 	_generate_elevation(terrain_grid, rng)
 
 	# Generate large water bodies (coastal ocean for Links, lagoon for Resort)
 	_generate_large_water_body(terrain_grid, rng)
-
-	# Generate smaller water features (ponds)
 	_generate_water(terrain_grid, rng)
 
 	# Generate rough/heavy rough patches (overgrown undeveloped land)
 	_generate_rough_patches(terrain_grid, rng)
-
-	# Generate wildflower patches
 	_generate_flower_patches(terrain_grid, rng)
 
 	# Generate trees (clusters + scattered)
@@ -36,8 +30,6 @@ static func generate(terrain_grid: TerrainGrid, entity_layer: EntityLayer, seed_
 
 	# Generate rocks
 	_generate_rocks(terrain_grid, entity_layer, rng)
-
-	print("Natural terrain generation complete")
 
 static func _generate_elevation(terrain_grid: TerrainGrid, rng: RandomNumberGenerator) -> void:
 	## Generate natural elevation using FastNoiseLite for organic distribution

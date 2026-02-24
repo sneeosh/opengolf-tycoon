@@ -37,6 +37,10 @@ var _wind_flag_overlay: WindFlagOverlay = null
 var _elevation_shading_overlay: ElevationShadingOverlay = null
 var _shot_heatmap_overlay: ShotHeatmapOverlay = null
 
+## Camera tracking for viewport-culling overlays — redraw when camera moves
+var _last_camera_pos: Vector2 = Vector2.ZERO
+var _last_camera_zoom: float = 1.0
+
 func _ready() -> void:
 	_generate_tileset()
 	# Variation shader disabled — it overwrites TilesetGenerator's mowing stripe
@@ -62,6 +66,19 @@ func _ready() -> void:
 	# Force a complete redraw after one frame to ensure shader is fully applied
 	# This fixes the issue where initial tiles don't get shader variation
 	call_deferred("_refresh_all_tiles")
+
+func _process(_delta: float) -> void:
+	# Overlays use viewport culling in _draw() so their content depends on
+	# camera position. Redraw them when the camera has moved.
+	var camera = get_viewport().get_camera_2d() if get_viewport() else null
+	if not camera:
+		return
+	var cam_pos = camera.global_position
+	var cam_zoom = camera.zoom.x
+	if cam_pos != _last_camera_pos or cam_zoom != _last_camera_zoom:
+		_last_camera_pos = cam_pos
+		_last_camera_zoom = cam_zoom
+		_redraw_all_overlays()
 
 func _refresh_all_tiles() -> void:
 	# Force redraw of all tiles to ensure shader is applied correctly
@@ -215,6 +232,51 @@ func end_batch() -> void:
 		EventBus.terrain_tile_changed.emit(change.pos, change.old_type, change.new_type)
 	_batch_changes.clear()
 
+## End batch mode without emitting deferred signals (for bulk generation/load).
+## Call refresh_all_overlays() after to rescan terrain state.
+func end_batch_quiet() -> void:
+	_batch_mode = false
+	_batch_changes.clear()
+
+## Force all overlays to rescan terrain from scratch and redraw.
+## Use after bulk terrain changes (generation, load) that bypassed per-tile signals.
+func refresh_all_overlays() -> void:
+	# Rebuild all tile visuals first (skipped during batch mode)
+	_refresh_all_tiles()
+	if _water_overlay and _water_overlay.has_method("_scan_water_tiles"):
+		_water_overlay._scan_water_tiles()
+		_water_overlay.queue_redraw()
+	if _bunker_overlay and _bunker_overlay.has_method("_scan_bunker_tiles"):
+		_bunker_overlay._scan_bunker_tiles()
+		_bunker_overlay.queue_redraw()
+	if _grass_overlay and _grass_overlay.has_method("_regenerate_grass"):
+		_grass_overlay._regenerate_grass()
+		_grass_overlay.queue_redraw()
+	if _fairway_overlay and _fairway_overlay.has_method("_scan_tiles"):
+		_fairway_overlay._scan_tiles()
+		_fairway_overlay.queue_redraw()
+	if _tree_overlay and _tree_overlay.has_method("_scan_tree_tiles"):
+		_tree_overlay._scan_tree_tiles()
+		_tree_overlay.queue_redraw()
+	if _rock_overlay and _rock_overlay.has_method("_scan_rock_tiles"):
+		_rock_overlay._scan_rock_tiles()
+		_rock_overlay.queue_redraw()
+	if _flower_overlay and _flower_overlay.has_method("_scan_flower_tiles"):
+		_flower_overlay._scan_flower_tiles()
+		_flower_overlay.queue_redraw()
+	if _path_overlay and _path_overlay.has_method("_scan_path_tiles"):
+		_path_overlay._scan_path_tiles()
+		_path_overlay.queue_redraw()
+	if _ob_markers_overlay and _ob_markers_overlay.has_method("_calculate_boundaries"):
+		_ob_markers_overlay._calculate_boundaries()
+	if _elevation_shading_overlay:
+		_elevation_shading_overlay.queue_redraw()
+	if _shot_heatmap_overlay:
+		_shot_heatmap_overlay.queue_redraw()
+	queue_redraw()
+	if tile_map:
+		tile_map.queue_redraw()
+
 func set_tile(pos: Vector2i, terrain_type: int, player_placed: bool = true) -> void:
 	if not is_valid_position(pos):
 		return
@@ -225,7 +287,11 @@ func set_tile(pos: Vector2i, terrain_type: int, player_placed: bool = true) -> v
 	# Track player-placed tiles for maintenance cost calculation
 	if player_placed:
 		_player_placed_tiles[pos] = true
-	_update_tile_with_neighbors(pos)
+	# Skip per-tile visual updates during batch mode — a single
+	# _refresh_all_tiles() after the batch is far cheaper than
+	# 5 visual updates (tile + 4 neighbors) per set_tile() call.
+	if not _batch_mode:
+		_update_tile_with_neighbors(pos)
 	if _batch_mode:
 		_batch_changes.append({pos = pos, old_type = old_type, new_type = terrain_type})
 	else:
@@ -619,7 +685,7 @@ func deserialize(data: Dictionary) -> void:
 		if parts.size() == 2:
 			var pos = Vector2i(int(parts[0]), int(parts[1]))
 			if is_valid_position(pos):
-				_grid[pos] = data[key]
+				_grid[pos] = int(data[key])
 	# Second pass: update visuals with correct autotile edges
 	for x in range(grid_width):
 		for y in range(grid_height):
@@ -642,7 +708,7 @@ func deserialize_elevation(data: Dictionary) -> void:
 		if parts.size() == 2:
 			var pos = Vector2i(int(parts[0]), int(parts[1]))
 			if is_valid_position(pos):
-				_elevation_grid[pos] = data[key]
+				_elevation_grid[pos] = int(data[key])
 	if _elevation_overlay:
 		_elevation_overlay._needs_redraw = true
 		_elevation_overlay.queue_redraw()

@@ -109,6 +109,11 @@ func handle_water_penalty(golfer_id: int, previous_position: Vector2i) -> void:
 	# Wait a moment to show the splash, then drop at previous position
 	await get_tree().create_timer(1.5).timeout
 
+	# Re-validate ball after await (may have been freed during timer)
+	ball = get_ball(golfer_id)
+	if not ball or not is_instance_valid(ball):
+		return
+
 	# Drop ball at previous position (or designated drop zone)
 	ball.set_position_in_grid(previous_position)
 	ball.ball_state = Ball.BallState.AT_REST
@@ -125,6 +130,11 @@ func handle_ob_penalty(golfer_id: int, previous_position: Vector2i) -> void:
 	# Ball visual already shows OB state
 	# Wait a moment, then reset to previous position
 	await get_tree().create_timer(1.5).timeout
+
+	# Re-validate ball after await (may have been freed during timer)
+	ball = get_ball(golfer_id)
+	if not ball or not is_instance_valid(ball):
+		return
 
 	# Re-hit from previous position (stroke and distance)
 	ball.set_position_in_grid(previous_position)

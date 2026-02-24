@@ -382,6 +382,12 @@ func _complete_tournament() -> void:
 		"all_entries": all_entries,
 	}
 
+	# Deduct prize pool from player funds
+	var prize_cost = tier_data.prize_pool
+	if prize_cost > 0:
+		GameManager.modify_money(-prize_cost)
+		EventBus.log_transaction("Tournament prize pool payout", -prize_cost)
+
 	# Award tournament revenue (spectators + sponsorships)
 	var spectator_rev = tier_data.get("spectator_revenue", 0)
 	var sponsor_rev = tier_data.get("sponsorship_revenue", 0)

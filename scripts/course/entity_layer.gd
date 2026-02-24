@@ -118,9 +118,20 @@ func place_tree(grid_pos: Vector2i, tree_type: String = "oak") -> TreeEntity:
 	tree.set_terrain_grid(terrain_grid)
 	tree.set_position_in_grid(grid_pos)
 
+	# Pre-set tree data BEFORE add_child so _ready() skips the default build.
+	# Without this, _ready() builds default oak visuals, then set_tree_type()
+	# rebuilds with the correct type — doubling the work for every tree.
+	tree.tree_type = tree_type
+	if tree_type in TreeEntity.TREE_PROPERTIES:
+		tree.tree_data = TreeEntity.TREE_PROPERTIES[tree_type].duplicate(true)
+	else:
+		tree.tree_type = "oak"
+		tree.tree_data = TreeEntity.TREE_PROPERTIES["oak"].duplicate(true)
+
 	trees_container.add_child(tree)
 
-	# Set tree type after adding to tree so node is fully initialized
+	# Now that the node is in tree, build visuals exactly once.
+	# _ready() skipped because tree_data was pre-populated above.
 	tree.set_tree_type(tree_type)
 
 	# Store by grid position
@@ -148,9 +159,18 @@ func place_rock(grid_pos: Vector2i, rock_size: String = "medium") -> Rock:
 	rock.set_terrain_grid(terrain_grid)
 	rock.set_position_in_grid(grid_pos)
 
+	# Pre-set rock data BEFORE add_child so _ready() skips the default build.
+	rock.rock_size = rock_size
+	if rock_size in Rock.ROCK_PROPERTIES:
+		rock.rock_data = Rock.ROCK_PROPERTIES[rock_size].duplicate(true)
+	else:
+		rock.rock_size = "medium"
+		rock.rock_data = Rock.ROCK_PROPERTIES["medium"].duplicate(true)
+
 	rocks_container.add_child(rock)
 
-	# Set rock size after adding to tree so node is fully initialized
+	# Now that the node is in tree, build visuals exactly once.
+	# _ready() skipped because rock_data was pre-populated above.
 	rock.set_rock_size(rock_size)
 
 	# Store by grid position
