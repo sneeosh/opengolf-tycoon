@@ -125,10 +125,17 @@ func _draw() -> void:
 	if not _terrain_grid:
 		return
 
+	# Viewport culling: only draw grass blades for tiles visible on screen
+	var visible_rect = _terrain_grid.get_visible_world_rect()
+	var margin = Vector2(_terrain_grid.tile_width, _terrain_grid.tile_height)
+	visible_rect = visible_rect.grow_individual(margin.x, margin.y, margin.x, margin.y)
+
 	for pos in _grass_positions:
 		var screen_pos = _terrain_grid.grid_to_screen_center(pos)
-		var blades = _grass_positions[pos]
+		if not visible_rect.has_point(screen_pos):
+			continue
 
+		var blades = _grass_positions[pos]
 		for blade in blades:
 			var base = screen_pos + Vector2(blade.x, blade.y)
 			var tip = base + Vector2(blade.lean * blade.height, -blade.height)

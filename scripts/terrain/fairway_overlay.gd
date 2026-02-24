@@ -61,14 +61,23 @@ func _draw() -> void:
 	if not terrain_grid:
 		return
 
+	# Viewport culling: only draw tiles visible on screen
+	var visible_rect = terrain_grid.get_visible_world_rect()
+	var margin = Vector2(terrain_grid.tile_width, terrain_grid.tile_height)
+	visible_rect = visible_rect.grow_individual(margin.x, margin.y, margin.x, margin.y)
+
 	# Draw fairway stripes (diagonal pattern)
 	for pos in _fairway_positions:
 		var screen_pos = terrain_grid.grid_to_screen(pos)
+		if not visible_rect.has_point(screen_pos):
+			continue
 		_draw_fairway_stripes(pos, screen_pos)
 
 	# Draw green stripes (concentric/circular pattern for putting greens)
 	for pos in _green_positions:
 		var screen_pos = terrain_grid.grid_to_screen(pos)
+		if not visible_rect.has_point(screen_pos):
+			continue
 		_draw_green_pattern(pos, screen_pos)
 
 func _draw_fairway_stripes(pos: Vector2i, screen_pos: Vector2) -> void:

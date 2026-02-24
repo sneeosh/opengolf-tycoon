@@ -17,6 +17,15 @@ var _cached_spawn_modifier: float = 1.0
 var _spawn_modifier_cache_timer: float = 0.0
 const SPAWN_MODIFIER_CACHE_DURATION: float = 5.0  # Recalculate every 5 seconds
 
+## Cached group data to avoid rebuilding every frame
+var _cached_groups: Dictionary = {}  # group_id -> Array[Golfer]
+var _cached_sorted_group_ids: Array = []
+var _groups_dirty: bool = true  # Rebuild groups when golfers are added/removed
+
+## Throttle visual offset recalculation (O(n²) distance checks)
+var _visual_offset_timer: float = 0.0
+const VISUAL_OFFSET_INTERVAL: float = 0.2  # Recalculate every 200ms
+
 @onready var golfers_container: Node2D = get_parent().get_node("Entities/Golfers") if get_parent().has_node("Entities/Golfers") else null
 
 signal golfer_spawned(golfer: Golfer)
@@ -265,23 +274,27 @@ func _process(delta: float) -> void:
 	# Update active golfers
 	_update_golfers(delta)
 
-func _update_golfers(_delta: float) -> void:
-	# Build groups dictionary
-	var groups: Dictionary = {}  # group_id -> Array[Golfer]
-	for golfer in active_golfers:
-		if golfer.group_id not in groups:
-			groups[golfer.group_id] = []
-		groups[golfer.group_id].append(golfer)
+func _update_golfers(delta: float) -> void:
+	# Rebuild groups only when golfers are added/removed (not every frame)
+	if _groups_dirty:
+		_cached_groups.clear()
+		for golfer in active_golfers:
+			if golfer.group_id not in _cached_groups:
+				_cached_groups[golfer.group_id] = []
+			_cached_groups[golfer.group_id].append(golfer)
+		_cached_sorted_group_ids = _cached_groups.keys()
+		_cached_sorted_group_ids.sort()
+		_groups_dirty = false
 
 	# Process groups in deterministic order (sorted by group_id)
-	# This ensures consistent behavior across frames
-	var sorted_group_ids = groups.keys()
-	sorted_group_ids.sort()
-	for group_id in sorted_group_ids:
-		_update_group(groups[group_id])
+	for group_id in _cached_sorted_group_ids:
+		_update_group(_cached_groups[group_id])
 
-	# Update visual offsets so co-located golfers don't stack
-	_update_visual_offsets()
+	# Throttle visual offset recalculation (expensive O(n²) proximity checks)
+	_visual_offset_timer += delta
+	if _visual_offset_timer >= VISUAL_OFFSET_INTERVAL:
+		_visual_offset_timer = 0.0
+		_update_visual_offsets()
 
 	# Update active golfer highlights
 	_update_active_golfer_highlights()
@@ -631,6 +644,7 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 
 	golfers_container.add_child(golfer)
 	active_golfers.append(golfer)
+	_groups_dirty = true
 	golfer.golfer_selected.connect(_on_golfer_selected)
 
 	# Process green fee payment
@@ -722,6 +736,7 @@ func spawn_tournament_golfer(forced_tier: int, group_id: int) -> Golfer:
 
 	golfers_container.add_child(golfer)
 	active_golfers.append(golfer)
+	_groups_dirty = true
 	golfer.golfer_selected.connect(_on_golfer_selected)
 
 	# Initialize tier skills — no green fee payment for tournament golfers
@@ -755,6 +770,7 @@ func remove_golfer(golfer_id: int) -> void:
 		if active_golfers[i].golfer_id == golfer_id:
 			var golfer = active_golfers[i]
 			active_golfers.remove_at(i)
+			_groups_dirty = true
 			golfer.queue_free()
 			EventBus.golfer_left_course.emit(golfer_id)
 			golfer_removed.emit(golfer_id)
@@ -851,6 +867,9 @@ func clear_all_golfers() -> void:
 	for golfer in active_golfers:
 		golfer.queue_free()
 	active_golfers.clear()
+	_groups_dirty = true
+	_cached_groups.clear()
+	_cached_sorted_group_ids.clear()
 	next_golfer_id = 0
 	next_group_id = 0
 	time_since_last_spawn = 0.0
