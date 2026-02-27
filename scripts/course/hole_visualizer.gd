@@ -13,6 +13,7 @@ var waypoint_markers: Array[Node2D] = []
 var _line_update_pending: bool = false
 
 signal hole_selected(hole_number: int)
+signal hole_right_clicked(hole_number: int, global_pos: Vector2)
 
 func _ready() -> void:
 	z_index = 10  # Render above terrain but below entities
@@ -111,6 +112,8 @@ func _create_flag() -> void:
 		# Disconnect signals before freeing to prevent leaks
 		if flag.flag_selected.is_connected(_on_flag_selected):
 			flag.flag_selected.disconnect(_on_flag_selected)
+		if flag.flag_right_clicked.is_connected(_on_flag_right_clicked):
+			flag.flag_right_clicked.disconnect(_on_flag_right_clicked)
 		if flag.flag_moved.is_connected(_on_flag_moved):
 			flag.flag_moved.disconnect(_on_flag_moved)
 		remove_child(flag)
@@ -125,6 +128,7 @@ func _create_flag() -> void:
 
 	# Connect flag signals
 	flag.flag_selected.connect(_on_flag_selected)
+	flag.flag_right_clicked.connect(_on_flag_right_clicked)
 	flag.flag_moved.connect(_on_flag_moved)
 
 func _create_info_label() -> void:
@@ -192,6 +196,9 @@ func highlight(enabled: bool) -> void:
 
 func _on_flag_selected(selected_flag: Flag) -> void:
 	hole_selected.emit(hole_data.hole_number)
+
+func _on_flag_right_clicked(selected_flag: Flag, global_pos: Vector2) -> void:
+	hole_right_clicked.emit(hole_data.hole_number, global_pos)
 
 func _on_flag_moved(old_position: Vector2i, new_position: Vector2i) -> void:
 	# Update hole data

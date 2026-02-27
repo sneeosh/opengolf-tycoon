@@ -17,6 +17,7 @@ var hole_visualizers: Dictionary = {}  # key: hole_number, value: HoleVisualizer
 signal hole_visualization_created(hole_number: int)
 signal hole_visualization_removed(hole_number: int)
 signal hole_selected(hole_number: int)
+signal hole_right_clicked(hole_number: int, global_pos: Vector2)
 
 func _ready() -> void:
 	# Connect to EventBus for hole events
@@ -71,6 +72,7 @@ func _create_hole_visualization(hole: GameManager.HoleData) -> void:
 
 	visualizer.initialize(hole, terrain_grid)
 	visualizer.hole_selected.connect(_on_hole_visualization_selected)
+	visualizer.hole_right_clicked.connect(_on_hole_visualization_right_clicked)
 
 	hole_visualizers[hole.hole_number] = visualizer
 	hole_visualization_created.emit(hole.hole_number)
@@ -113,6 +115,18 @@ func update_all_visualizations() -> void:
 	for visualizer in hole_visualizers.values():
 		visualizer.update_visualization()
 
+func rebuild_all_visualizations() -> void:
+	# Remove all existing visualizations
+	for hole_number in hole_visualizers.keys():
+		var visualizer = hole_visualizers[hole_number]
+		visualizer.destroy()
+	hole_visualizers.clear()
+
+	# Recreate from current course data
+	if GameManager.current_course:
+		for hole in GameManager.current_course.holes:
+			_create_hole_visualization(hole)
+
 ## EventBus signal handlers
 func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	# Get the hole data from GameManager
@@ -142,6 +156,9 @@ func _on_hole_toggled(hole_number: int, is_open: bool) -> void:
 func _on_hole_visualization_selected(hole_number: int) -> void:
 	hole_selected.emit(hole_number)
 	EventBus.hole_selected.emit(hole_number)
+
+func _on_hole_visualization_right_clicked(hole_number: int, global_pos: Vector2) -> void:
+	hole_right_clicked.emit(hole_number, global_pos)
 
 ## Get hole count
 func get_hole_count() -> int:

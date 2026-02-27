@@ -9,6 +9,7 @@ var hole_number: int = 1
 var terrain_grid: TerrainGrid
 
 signal flag_selected(flag: Flag)
+signal flag_right_clicked(flag: Flag, global_pos: Vector2)
 signal flag_moved(old_position: Vector2i, new_position: Vector2i)
 
 func _ready() -> void:
@@ -40,9 +41,11 @@ func _create_input_area() -> void:
 	input_area.input_event.connect(_on_input_event)
 
 func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
-	if event is InputEventMouseButton:
-		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT:
 			flag_selected.emit(self)
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			flag_right_clicked.emit(self, event.global_position)
 
 func move_to(new_grid_position: Vector2i) -> void:
 	if not terrain_grid:
