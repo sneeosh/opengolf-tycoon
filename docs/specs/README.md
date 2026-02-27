@@ -7,11 +7,30 @@ This document reviews the current game state and proposes specs that should be w
 
 ---
 
-## Current Spec Inventory
+## Spec Inventory
+
+| # | Document | Location | Priority | Status |
+|---|----------|----------|----------|--------|
+| — | Course Design Upgrades | [`course-design-upgrades.md`](course-design-upgrades.md) | HIGH | Proposal |
+| 1 | Simulated Tournament Rounds | [`simulated-tournament-rounds.md`](simulated-tournament-rounds.md) | CRITICAL | Proposal |
+| 2 | Spectator Camera & Live Scorecard | [`spectator-camera-live-scorecard.md`](spectator-camera-live-scorecard.md) | HIGH | Proposal |
+| 3 | Seasonal System Expansion | [`seasonal-system-expansion.md`](seasonal-system-expansion.md) | HIGH | Proposal |
+| 4 | Economic Balance & Tuning | [`economic-balance-tuning.md`](economic-balance-tuning.md) | HIGH | Proposal |
+| 5 | Premium Land & Prebuilt Courses | [`premium-land-prebuilt-courses.md`](premium-land-prebuilt-courses.md) | MEDIUM-HIGH | Proposal |
+| 6 | Career / Progression Mode | [`career-progression-mode.md`](career-progression-mode.md) | MEDIUM-HIGH | Proposal |
+| 7 | Audio Design Document | [`audio-design.md`](audio-design.md) | MEDIUM | Proposal |
+| 8 | Notification & Event Feed | [`notification-event-feed.md`](notification-event-feed.md) | MEDIUM | Proposal |
+| 9 | Expanded Decorations & Aesthetics | [`expanded-decorations-aesthetic-rating.md`](expanded-decorations-aesthetic-rating.md) | MEDIUM | Proposal |
+| 10 | Course Scorecard & Hole Handicaps | [`course-scorecard-hole-handicaps.md`](course-scorecard-hole-handicaps.md) | MEDIUM | Proposal |
+| 11 | Golfer Visual Differentiation | [`golfer-visual-differentiation.md`](golfer-visual-differentiation.md) | MEDIUM | Proposal |
+| 12 | Visual Polish (Sprites/Art) | [`visual-polish.md`](visual-polish.md) | MEDIUM | Proposal |
+| 13 | Pathfinding Upgrade (A*) | [`pathfinding-upgrade.md`](pathfinding-upgrade.md) | MEDIUM-LOW | Proposal |
+| 14 | Web Build & Distribution | [`web-build-distribution.md`](web-build-distribution.md) | MEDIUM-LOW | Proposal |
+
+### Other Documents
 
 | Document | Location | Status |
 |----------|----------|--------|
-| Course Design Upgrades | `docs/specs/course-design-upgrades.md` | Proposal — covers routing, tee boxes, pins, carry display |
 | Beta Milestone Specs | `docs/beta-milestone-specs.md` | 7 milestones defined — several now outdated (tutorial, onboarding done) |
 | Algorithm Docs (15) | `docs/algorithms/` | Living reference — comprehensive coverage of existing systems |
 
