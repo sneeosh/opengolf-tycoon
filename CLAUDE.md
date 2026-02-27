@@ -10,15 +10,15 @@ A SimGolf (2002) spiritual successor built in **Godot 4.6+** with GDScript. Play
 
 ```
 scripts/
-├── autoload/       # 4 singletons: GameManager, EventBus, SaveManager, FeedbackManager
+├── autoload/       # Singletons: GameManager, EventBus, SaveManager, FeedbackManager, SoundManager, ShadowSystem
 ├── course/         # HoleVisualizer, DifficultyCalculator, EntityLayer
 ├── effects/        # RainOverlay, HoleInOneCelebration, SandSprayEffect
 ├── entities/       # Golfer, Ball, Building, Tree, Rock, Flag
 ├── managers/       # GolferManager, BallManager, HoleManager, PlacementManager, BuildingRegistry, TournamentManager
-├── systems/        # WindSystem, WeatherSystem, CourseRatingSystem, CourseTheme, FeedbackTriggers, GolferTier, TournamentSystem, DayNightSystem, CourseRecords
+├── systems/        # WindSystem, WeatherSystem, CourseRatingSystem, CourseTheme, FeedbackTriggers, GolferTier, TournamentSystem, DayNightSystem, CourseRecords, ShotAI, GolferNeeds, SeasonSystem, MilestoneSystem, TutorialSystem, DifficultyPresets, ColorblindMode
 ├── terrain/        # TerrainGrid, TerrainTypes, TilesetGenerator, + 10 overlay classes
 ├── tools/          # HoleCreationTool, ElevationTool, UndoManager, GenerateTileset
-├── ui/             # 13 UI components (MainMenu, MiniMap, FinancialPanel, HoleStatsPanel, SaveLoadPanel, etc.)
+├── ui/             # 39 UI components (MainMenu, PauseMenu, SettingsMenu, MiniMap, FinancialPanel, MilestonesPanel, HoleStatsPanel, SaveLoadPanel, HotkeyPanel, etc.)
 ├── main/           # main.gd (scene controller)
 └── utils/          # IsometricCamera
 scenes/
@@ -26,7 +26,7 @@ scenes/
 └── entities/golfer.tscn
 data/
 ├── buildings.json      # 8 building types with upgrade tiers
-├── terrain_types.json  # 11 terrain type definitions
+├── terrain_types.json  # 14 terrain type definitions
 └── golfer_traits.json  # 5 golfer archetypes with spawn weights
 assets/tilesets/        # Terrain tileset (PNG + .tres)
 ```
@@ -184,6 +184,7 @@ make test          # Using Makefile
 
 ## Development Notes
 
-- No audio system yet. No full A* pathfinding (heuristic-based). No career mode. No course sharing. No tutorial.
+- **SoundManager** (`scripts/autoload/sound_manager.gd`): Procedural audio system using `AudioStreamGenerator`. Synthesized swing, impact, ambient (wind, birds, rain), and UI sounds. Event-driven via EventBus signals. Master/SFX/ambient volume controls with mute toggle.
 - Golfers are NOT saved/loaded (respawn naturally to avoid complex mid-action state serialization).
 - Save format is versioned (SAVE_VERSION = 2) for forward compatibility.
+- **Additional systems**: TutorialSystem (interactive onboarding), MilestoneSystem (trackable objectives), SeasonSystem (seasonal calendar), DifficultyPresets (Easy/Normal/Hard), ColorblindMode (accessibility), PauseMenu (Escape key), SettingsMenu, QuickStartCourse (pre-built demo course).
