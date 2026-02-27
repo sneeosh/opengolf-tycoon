@@ -37,6 +37,7 @@ signal hole_selected(hole_number: int)
 signal hole_deleted(hole_number: int)
 signal hole_toggled(hole_number: int, is_open: bool)
 signal hole_difficulty_changed(hole_number: int, difficulty: float)
+signal holes_reordered()
 
 # Golfer Signals
 signal golfer_spawned(golfer_id: int, golfer_name: String)

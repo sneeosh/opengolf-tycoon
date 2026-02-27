@@ -620,6 +620,50 @@ class CourseData:
 				return hole.is_open
 		return false
 
+	func move_hole(from_number: int, to_number: int) -> bool:
+		if from_number == to_number:
+			return false
+		var from_idx = from_number - 1
+		var to_idx = to_number - 1
+		if from_idx < 0 or from_idx >= holes.size():
+			return false
+		if to_idx < 0 or to_idx >= holes.size():
+			return false
+		# Build old number list before reorder
+		var old_numbers: Array[int] = []
+		for hole in holes:
+			old_numbers.append(hole.hole_number)
+		var hole = holes[from_idx]
+		holes.remove_at(from_idx)
+		holes.insert(to_idx, hole)
+		_renumber_holes()
+		# Remap hole_statistics to new numbering
+		_remap_hole_statistics(old_numbers)
+		EventBus.holes_reordered.emit()
+		return true
+
+	func _remap_hole_statistics(old_numbers: Array[int]) -> void:
+		var gm = GameManager
+		var old_stats = gm.hole_statistics.duplicate()
+		gm.hole_statistics.clear()
+		for i in range(old_numbers.size()):
+			var old_num = old_numbers[i]
+			var new_num = i + 1
+			if old_stats.has(old_num):
+				var stats = old_stats[old_num]
+				stats.hole_number = new_num
+				gm.hole_statistics[new_num] = stats
+
+	func move_hole_up(hole_number: int) -> bool:
+		return move_hole(hole_number, hole_number - 1)
+
+	func move_hole_down(hole_number: int) -> bool:
+		return move_hole(hole_number, hole_number + 1)
+
+	func _renumber_holes() -> void:
+		for i in range(holes.size()):
+			holes[i].hole_number = i + 1
+
 class HoleData:
 	var hole_number: int = 1
 	var par: int = 4

@@ -104,6 +104,7 @@ func _ready() -> void:
 
 	# Set up hole manager
 	hole_manager.set_terrain_grid(terrain_grid)
+	hole_manager.hole_right_clicked.connect(_on_map_hole_right_clicked)
 
 	# Add hole creation tool
 	add_child(hole_tool)
@@ -372,6 +373,7 @@ func _connect_signals() -> void:
 	EventBus.hole_created.connect(_on_hole_created)
 	EventBus.hole_deleted.connect(_on_hole_deleted)
 	EventBus.hole_toggled.connect(_on_hole_toggled)
+	EventBus.holes_reordered.connect(_on_holes_reordered)
 	EventBus.end_of_day.connect(_on_end_of_day)
 	EventBus.load_completed.connect(_on_load_completed)
 	EventBus.new_game_started.connect(_on_new_game_started)
@@ -999,6 +1001,27 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	var row = HBoxContainer.new()
 	row.name = "HoleRow%d" % hole_number
 
+	# Move up button
+	var up_btn = Button.new()
+	up_btn.name = "MoveUpBtn"
+	up_btn.text = "^"
+	up_btn.custom_minimum_size = Vector2(24, 0)
+	up_btn.tooltip_text = "Move hole up"
+	up_btn.disabled = (hole_number == 1)
+	up_btn.pressed.connect(_on_hole_move_up_pressed.bind(hole_number))
+	row.add_child(up_btn)
+
+	# Move down button
+	var down_btn = Button.new()
+	down_btn.name = "MoveDownBtn"
+	down_btn.text = "v"
+	down_btn.custom_minimum_size = Vector2(24, 0)
+	down_btn.tooltip_text = "Move hole down"
+	var total_holes = GameManager.current_course.holes.size() if GameManager.current_course else 0
+	down_btn.disabled = (hole_number >= total_holes)
+	down_btn.pressed.connect(_on_hole_move_down_pressed.bind(hole_number))
+	row.add_child(down_btn)
+
 	# Make hole label a clickable button
 	var hole_btn = Button.new()
 	hole_btn.name = "HoleBtn"
@@ -1007,8 +1030,9 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	hole_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hole_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hole_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	hole_btn.tooltip_text = "Click to view statistics"
+	hole_btn.tooltip_text = "Click to view statistics, right-click for options"
 	hole_btn.pressed.connect(_show_hole_stats.bind(hole_number))
+	hole_btn.gui_input.connect(_on_hole_btn_gui_input.bind(hole_number))
 	row.add_child(hole_btn)
 
 	var toggle_btn = Button.new()
@@ -1034,6 +1058,86 @@ func _on_hole_toggle_pressed(hole_number: int) -> void:
 	var is_open = GameManager.current_course.toggle_hole_open(hole_number)
 	var status = "opened" if is_open else "closed"
 	EventBus.notify("Hole %d %s" % [hole_number, status], "info")
+
+func _on_hole_move_up_pressed(hole_number: int) -> void:
+	if GameManager.current_mode == GameManager.GameMode.SIMULATING:
+		EventBus.notify("Cannot reorder holes while playing!", "error")
+		return
+	if GameManager.current_course:
+		GameManager.current_course.move_hole_up(hole_number)
+
+func _on_hole_move_down_pressed(hole_number: int) -> void:
+	if GameManager.current_mode == GameManager.GameMode.SIMULATING:
+		EventBus.notify("Cannot reorder holes while playing!", "error")
+		return
+	if GameManager.current_course:
+		GameManager.current_course.move_hole_down(hole_number)
+
+func _on_holes_reordered() -> void:
+	_rebuild_hole_list()
+	hole_manager.rebuild_all_visualizations()
+	hole_tool.current_hole_number = GameManager.current_course.holes.size() + 1 if GameManager.current_course else 1
+	_update_top_bar_rating()
+
+func _on_hole_btn_gui_input(event: InputEvent, hole_number: int) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		_show_hole_context_menu(hole_number, event.global_position)
+
+func _show_hole_context_menu(hole_number: int, position: Vector2) -> void:
+	var popup = PopupMenu.new()
+	popup.name = "HoleContextMenu"
+	popup.add_item("View Stats", 0)
+	popup.add_item("Focus Camera", 1)
+	popup.add_separator()
+	if hole_number > 1:
+		popup.add_item("Move Up", 2)
+	if GameManager.current_course and hole_number < GameManager.current_course.holes.size():
+		popup.add_item("Move Down", 3)
+	popup.add_separator()
+	var hole_data = _get_hole_data(hole_number)
+	if hole_data:
+		popup.add_item("Close Hole" if hole_data.is_open else "Open Hole", 4)
+	popup.add_separator()
+	popup.add_item("Delete Hole", 5)
+	popup.id_pressed.connect(_on_hole_context_menu_selected.bind(hole_number))
+	add_child(popup)
+	popup.position = Vector2i(position)
+	popup.popup()
+	popup.visibility_changed.connect(func(): popup.queue_free())
+
+func _on_hole_context_menu_selected(id: int, hole_number: int) -> void:
+	match id:
+		0:  # View Stats
+			_show_hole_stats(hole_number)
+		1:  # Focus Camera
+			_focus_camera_on_hole(hole_number)
+		2:  # Move Up
+			_on_hole_move_up_pressed(hole_number)
+		3:  # Move Down
+			_on_hole_move_down_pressed(hole_number)
+		4:  # Toggle Open/Close
+			_on_hole_toggle_pressed(hole_number)
+		5:  # Delete
+			_on_hole_delete_pressed(hole_number)
+
+func _focus_camera_on_hole(hole_number: int) -> void:
+	var hole = _get_hole_data(hole_number)
+	if hole and terrain_grid:
+		var tee_world = terrain_grid.grid_to_screen_center(hole.tee_position)
+		var green_world = terrain_grid.grid_to_screen_center(hole.green_position)
+		var center = (tee_world + green_world) / 2
+		camera.focus_on(center, false)
+
+func _get_hole_data(hole_number: int) -> GameManager.HoleData:
+	if not GameManager.current_course:
+		return null
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number == hole_number:
+			return hole
+	return null
+
+func _on_map_hole_right_clicked(hole_number: int, global_pos: Vector2) -> void:
+	_show_hole_context_menu(hole_number, global_pos)
 
 func _on_hole_delete_pressed(hole_number: int) -> void:
 	# Don't allow deletion during simulation
