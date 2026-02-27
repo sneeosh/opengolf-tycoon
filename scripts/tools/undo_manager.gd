@@ -66,6 +66,10 @@ func record_entity_placement(entity_type: String, grid_pos: Vector2i, subtype: S
 	}
 	_push_action(action)
 
+## Record a generic action (used for pin/tee/green moves)
+func record_action(action: Dictionary) -> void:
+	_push_action(action)
+
 func _push_action(action: Dictionary) -> void:
 	undo_stack.append(action)
 	if undo_stack.size() > MAX_UNDO_STACK:

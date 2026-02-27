@@ -143,6 +143,15 @@ func _on_hole_visualization_selected(hole_number: int) -> void:
 	hole_selected.emit(hole_number)
 	EventBus.hole_selected.emit(hole_number)
 
+## Find which hole a grid position belongs to (tee, green, or pin)
+func get_hole_at_position(grid_pos: Vector2i) -> GameManager.HoleData:
+	if not GameManager.current_course:
+		return null
+	for hole in GameManager.current_course.holes:
+		if grid_pos == hole.tee_position or grid_pos == hole.green_position or grid_pos == hole.hole_position:
+			return hole
+	return null
+
 ## Get hole count
 func get_hole_count() -> int:
 	return hole_visualizers.size()

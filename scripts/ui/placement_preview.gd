@@ -14,6 +14,7 @@ var elevation_mode_active: bool = false  # Whether elevation tool is active
 var elevation_raising: bool = true  # True = raising, false = lowering
 var bulldozer_mode_active: bool = false  # Whether bulldozer mode is active
 var brush_size: int = 1  # Current brush size (1, 3, or 5)
+var _hole_move_mode: int = 0  # 0=NONE, matches main.gd HoleMoveMode enum
 
 # Preview state
 var current_grid_pos: Vector2i = Vector2i(-1, -1)
@@ -48,8 +49,9 @@ func _process(delta: float) -> void:
 	var show_hole_preview = hole_tool and hole_tool.placement_mode != HoleCreationTool.PlacementMode.NONE
 	var show_elevation_preview = elevation_mode_active
 	var show_bulldozer_preview = bulldozer_mode_active
+	var show_move_preview = _hole_move_mode != 0
 
-	if show_entity_preview or show_terrain_preview or show_hole_preview or show_elevation_preview or show_bulldozer_preview:
+	if show_entity_preview or show_terrain_preview or show_hole_preview or show_elevation_preview or show_bulldozer_preview or show_move_preview:
 		_target_alpha = 1.0
 		_update_preview(delta)
 	else:
@@ -89,6 +91,9 @@ func set_bulldozer_mode(active: bool) -> void:
 
 func set_hole_tool(tool: HoleCreationTool) -> void:
 	hole_tool = tool
+
+func set_hole_move_mode(mode: int) -> void:
+	_hole_move_mode = mode
 
 func _update_preview(delta: float) -> void:
 	if not terrain_grid or not camera:
@@ -143,6 +148,11 @@ func _draw() -> void:
 			_draw_tee_placement_preview()
 		else:
 			_draw_hole_creation_preview()
+
+	# Check for hole move mode preview
+	if _hole_move_mode != 0:
+		_draw_hole_move_preview()
+		return
 
 	if _current_alpha < 0.01:
 		return
@@ -580,6 +590,52 @@ func _draw_ghost_generic(pos: Vector2, w: float, h: float, a: float) -> void:
 	draw_rect(Rect2(pos.x + w * 0.3, pos.y + h * 0.35, w * 0.4, h * 0.25), Color(0.7, 0.82, 0.9, a))
 	# Door
 	draw_rect(Rect2(pos.x + w * 0.4, pos.y + h * 0.65, w * 0.2, h * 0.35), Color(0.45, 0.35, 0.28, a))
+
+func _draw_hole_move_preview() -> void:
+	if not camera or not terrain_grid:
+		return
+
+	var mouse_world = camera.get_mouse_world_position()
+	var hover_pos = terrain_grid.screen_to_grid(mouse_world)
+	if not terrain_grid.is_valid_position(hover_pos):
+		return
+
+	# Determine validity and color based on mode
+	var is_valid = false
+	var preview_color: Color
+	var label_text: String
+
+	# HoleMoveMode: 1=PIN, 2=TEE, 3=GREEN (matches main.gd enum)
+	match _hole_move_mode:
+		1:  # MOVING_PIN
+			is_valid = terrain_grid.get_tile(hover_pos) == TerrainTypes.Type.GREEN
+			preview_color = Color(0.3, 0.9, 0.5, 0.5) if is_valid else Color(0.9, 0.3, 0.3, 0.3)
+			label_text = "Pin"
+		2:  # MOVING_TEE
+			var tile = terrain_grid.get_tile(hover_pos)
+			is_valid = tile != TerrainTypes.Type.WATER and tile != TerrainTypes.Type.OUT_OF_BOUNDS
+			preview_color = Color(0.4, 0.85, 0.45, 0.5) if is_valid else Color(0.9, 0.3, 0.3, 0.3)
+			label_text = "Tee"
+		3:  # MOVING_GREEN
+			var tile = terrain_grid.get_tile(hover_pos)
+			is_valid = tile != TerrainTypes.Type.WATER and tile != TerrainTypes.Type.OUT_OF_BOUNDS
+			preview_color = Color(0.3, 0.9, 0.5, 0.5) if is_valid else Color(0.9, 0.3, 0.3, 0.3)
+			label_text = "Green"
+
+	if not is_valid:
+		return
+
+	var pulse = 0.7 + sin(_pulse_time) * 0.3
+	preview_color.a *= pulse
+	var screen_pos = terrain_grid.grid_to_screen(hover_pos)
+	var tw = terrain_grid.tile_width
+	var th = terrain_grid.tile_height
+	draw_rect(Rect2(screen_pos, Vector2(tw, th)), preview_color)
+	draw_rect(Rect2(screen_pos, Vector2(tw, th)), Color(1.0, 1.0, 1.0, 0.7 * pulse), false, 2.0)
+
+	var font = ThemeDB.fallback_font
+	var center = terrain_grid.grid_to_screen_center(hover_pos)
+	draw_string(font, center + Vector2(-20, -20), label_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(1, 1, 1, 0.9))
 
 func _draw_tee_placement_preview() -> void:
 	if not hole_tool or not camera or not terrain_grid:
