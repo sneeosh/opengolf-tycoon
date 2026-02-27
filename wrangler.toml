@@ -12,6 +12,10 @@ binding = "ASSETS"
 html_handling = "none"
 not_found_handling = "none"
 
+[[kv_namespaces]]
+binding = "ANALYTICS"
+id = "26aa4af84737489fa9514a7f588967c0"
+
 [[r2_buckets]]
 binding = "R2_ASSETS"
 bucket_name = "opengolf-assets"
