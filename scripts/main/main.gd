@@ -80,6 +80,8 @@ var _bulldoze_drag_count: int = 0
 var _bulldoze_drag_cost: int = 0
 var placement_preview: PlacementPreview = null
 var main_menu: MainMenu = null
+var event_feed_panel: EventFeedPanel = null
+var _event_feed_badge: Label = null
 
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
@@ -193,6 +195,7 @@ func _ready() -> void:
 	_setup_seasonal_calendar()
 	_setup_autosave_indicator()
 	_setup_notification_toast()
+	_setup_event_feed()
 	_setup_course_rating_overlay()
 	_setup_floating_text()
 	_setup_shot_trails()
@@ -304,6 +307,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_F3:
 				_toggle_terrain_debug_overlay()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_N:
+				_toggle_event_feed()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_V:
 				if event.shift_pressed:
@@ -2316,6 +2322,82 @@ func _setup_notification_toast() -> void:
 	var toast = NotificationToast.new()
 	toast.name = "NotificationToast"
 	$UI.add_child(toast)
+
+# --- Event Feed ---
+
+func _setup_event_feed() -> void:
+	event_feed_panel = EventFeedPanel.new()
+	event_feed_panel.name = "EventFeedPanel"
+	event_feed_panel.close_requested.connect(_toggle_event_feed)
+	event_feed_panel.navigate_to_hole.connect(_navigate_to_hole)
+	event_feed_panel.navigate_to_position.connect(_navigate_to_position)
+	event_feed_panel.navigate_to_golfer.connect(_navigate_to_golfer_position)
+	$UI/HUD.add_child(event_feed_panel)
+
+	# Live-append new events when feed is open
+	EventFeedManager.event_added.connect(func(entry):
+		if event_feed_panel and event_feed_panel.visible:
+			event_feed_panel.append_event(entry)
+	)
+
+	# Add feed button with unread badge to bottom bar
+	var bottom_bar = $UI/HUD/BottomBar
+	var feed_container = HBoxContainer.new()
+	feed_container.add_theme_constant_override("separation", 0)
+	bottom_bar.add_child(feed_container)
+
+	var feed_btn = Button.new()
+	feed_btn.name = "EventFeedBtn"
+	feed_btn.text = "Feed"
+	feed_btn.tooltip_text = "Event feed (N)"
+	feed_btn.pressed.connect(_toggle_event_feed)
+	feed_container.add_child(feed_btn)
+
+	_event_feed_badge = Label.new()
+	_event_feed_badge.text = ""
+	_event_feed_badge.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
+	_event_feed_badge.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
+	feed_container.add_child(_event_feed_badge)
+
+	EventFeedManager.unread_count_changed.connect(func(count: int):
+		if _event_feed_badge:
+			_event_feed_badge.text = " (%d)" % count if count > 0 else ""
+	)
+
+func _toggle_event_feed() -> void:
+	# Event feed is a side panel, not a CenteredPanel, so handle independently
+	if event_feed_panel:
+		event_feed_panel.toggle()
+
+func _navigate_to_hole(hole_number: int) -> void:
+	if not GameManager.current_course:
+		return
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number == hole_number:
+			var tee_world = terrain_grid.grid_to_screen_center(hole.tee_position)
+			var green_world = terrain_grid.grid_to_screen_center(hole.green_position)
+			var center = (tee_world + green_world) / 2
+			camera.focus_on(center, false)
+			break
+
+func _navigate_to_position(pos: Vector2i) -> void:
+	var world_pos = terrain_grid.grid_to_screen_center(pos)
+	camera.focus_on(world_pos, false)
+
+func _navigate_to_golfer_position(golfer_id: int) -> void:
+	# Find the golfer by ID and pan to their position
+	var golfers_node = $Entities/Golfers
+	if not golfers_node:
+		return
+	for child in golfers_node.get_children():
+		if child.has_method("get_golfer_id") and child.get_golfer_id() == golfer_id:
+			camera.focus_on(child.global_position, false)
+			return
+	# If golfer has a golfer_id property
+	for child in golfers_node.get_children():
+		if "golfer_id" in child and child.golfer_id == golfer_id:
+			camera.focus_on(child.global_position, false)
+			return
 
 # --- Course Rating Overlay ---
 

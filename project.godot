@@ -31,6 +31,7 @@ ShadowSystem="*res://scripts/systems/shadow_system.gd"
 UIConstants="*res://scripts/autoload/ui_constants.gd"
 TooltipManager="*res://scripts/autoload/tooltip_manager.gd"
 SoundManager="*res://scripts/autoload/sound_manager.gd"
+EventFeedManager="*res://scripts/managers/event_feed_manager.gd"
 
 [display]
 
