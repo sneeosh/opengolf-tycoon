@@ -19,7 +19,7 @@ This document reviews the current game state and proposes specs that should be w
 | 5 | Premium Land & Prebuilt Courses | [`premium-land-prebuilt-courses.md`](premium-land-prebuilt-courses.md) | MEDIUM-HIGH | Proposal |
 | 6 | Career / Progression Mode | [`career-progression-mode.md`](career-progression-mode.md) | MEDIUM-HIGH | Proposal |
 | 7 | Audio Design Document | [`audio-design.md`](audio-design.md) | MEDIUM | Proposal |
-| 8 | Notification & Event Feed | [`notification-event-feed.md`](notification-event-feed.md) | MEDIUM | Proposal |
+| 8 | Notification & Event Feed | [`notification-event-feed.md`](notification-event-feed.md) | MEDIUM | **Implemented (Phase 1-2)** |
 | 9 | Expanded Decorations & Aesthetics | [`expanded-decorations-aesthetic-rating.md`](expanded-decorations-aesthetic-rating.md) | MEDIUM | Proposal |
 | 10 | Course Scorecard & Hole Handicaps | [`course-scorecard-hole-handicaps.md`](course-scorecard-hole-handicaps.md) | MEDIUM | Proposal |
 | 11 | Golfer Visual Differentiation | [`golfer-visual-differentiation.md`](golfer-visual-differentiation.md) | MEDIUM | Proposal |

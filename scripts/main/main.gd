@@ -69,6 +69,8 @@ var _was_paused_before_pause_menu: bool = false
 var milestone_manager: MilestoneManager = null
 var milestones_panel: MilestonesPanel = null
 var seasonal_calendar_panel: SeasonalCalendarPanel = null
+var event_feed_manager: EventFeedManager = null
+var event_feed_panel: EventFeedPanel = null
 var tutorial_system: TutorialSystem = null
 var course_rating_overlay: CourseRatingOverlay = null
 var shot_heatmap_tracker: ShotHeatmapTracker = null
@@ -193,6 +195,7 @@ func _ready() -> void:
 	_setup_seasonal_calendar()
 	_setup_autosave_indicator()
 	_setup_notification_toast()
+	_setup_event_feed()
 	_setup_course_rating_overlay()
 	_setup_floating_text()
 	_setup_shot_trails()
@@ -298,6 +301,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_G:
 				_toggle_milestones_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_N:
+				_toggle_event_feed()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_C:
 				_toggle_seasonal_calendar()
@@ -527,7 +533,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard", "CourseRatingOverlay"]
+	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard", "CourseRatingOverlay", "EventFeedPanel"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -2316,6 +2322,73 @@ func _setup_notification_toast() -> void:
 	var toast = NotificationToast.new()
 	toast.name = "NotificationToast"
 	$UI.add_child(toast)
+
+# --- Event Feed ---
+
+func _setup_event_feed() -> void:
+	# Create the manager (not an autoload — local to the main scene)
+	event_feed_manager = EventFeedManager.new()
+	event_feed_manager.name = "EventFeedManager"
+	add_child(event_feed_manager)
+
+	# Create the panel UI
+	event_feed_panel = EventFeedPanel.new()
+	event_feed_panel.name = "EventFeedPanel"
+	event_feed_panel.set_feed_manager(event_feed_manager)
+	event_feed_panel.close_requested.connect(func():
+		event_feed_panel.hide()
+	)
+	event_feed_panel.navigate_to_hole.connect(_on_event_feed_navigate_hole)
+	event_feed_panel.navigate_to_position.connect(_on_event_feed_navigate_pos)
+
+	# Position on right side of screen, below top HUD bar
+	event_feed_panel.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
+	event_feed_panel.offset_top = UIConstants.TOP_HUD_HEIGHT
+	event_feed_panel.offset_bottom = -UIConstants.BOTTOM_BAR_HEIGHT
+	event_feed_panel.offset_left = -EventFeedPanel.PANEL_WIDTH
+	event_feed_panel.offset_right = 0
+	$UI/HUD.add_child(event_feed_panel)
+
+	# Add event feed button to bottom bar
+	var bottom_bar = $UI/HUD/BottomBar
+	var feed_btn = Button.new()
+	feed_btn.name = "EventFeedBtn"
+	feed_btn.text = "Events"
+	feed_btn.tooltip_text = "Event feed (N)"
+	feed_btn.pressed.connect(_toggle_event_feed)
+	bottom_bar.add_child(feed_btn)
+
+	# Unread badge updates
+	event_feed_manager.unread_count_changed.connect(func(count: int):
+		if count > 0 and not event_feed_panel.visible:
+			feed_btn.text = "Events (%d)" % count
+		else:
+			feed_btn.text = "Events"
+	)
+
+func _toggle_event_feed() -> void:
+	if event_feed_panel.visible:
+		event_feed_panel.hide()
+	else:
+		event_feed_panel.refresh()
+		event_feed_panel.show()
+		# Update button text to clear unread badge
+		var feed_btn = $UI/HUD/BottomBar.get_node_or_null("EventFeedBtn")
+		if feed_btn:
+			feed_btn.text = "Events"
+
+func _on_event_feed_navigate_hole(hole_number: int) -> void:
+	if not GameManager.current_course:
+		return
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number == hole_number:
+			var screen_pos = terrain_grid.grid_to_screen(hole.tee_position)
+			camera.focus_on_smooth(screen_pos, 0.5)
+			return
+
+func _on_event_feed_navigate_pos(pos: Vector2i) -> void:
+	var screen_pos = terrain_grid.grid_to_screen(pos)
+	camera.focus_on_smooth(screen_pos, 0.5)
 
 # --- Course Rating Overlay ---
 

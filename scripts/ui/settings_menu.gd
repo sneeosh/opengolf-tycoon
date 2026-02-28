@@ -333,6 +333,7 @@ func _build_controls_tab() -> void:
 		["Z", "Analytics"],
 		["G", "Milestones"],
 		["C", "Calendar"],
+		["N", "Event Feed"],
 		["WASD", "Pan Camera"],
 		["Q", "Rotate Camera"],
 		["Scroll", "Zoom In/Out"],
