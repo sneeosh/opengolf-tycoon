@@ -1,7 +1,8 @@
 extends CenteredPanel
 class_name TournamentResultsPopup
 ## TournamentResultsPopup - Shows full tournament results when a tournament completes.
-## Displays leaderboard, financial summary, and reputation earned.
+## Displays leaderboard with per-round scores, dramatic moments,
+## financial summary, and reputation earned.
 
 signal closed
 
@@ -13,10 +14,8 @@ func show_results(tier: int, results: Dictionary, entries: Array) -> void:
 	_tier = tier
 	_results = results
 	_entries = entries
-	# Clear any existing children (from previous showing)
 	for child in get_children():
 		child.queue_free()
-	# Wait a frame for cleanup, then build and show
 	await get_tree().process_frame
 	_build_content()
 	show_centered()
@@ -29,8 +28,10 @@ func _build_content() -> void:
 	var viewport_height = 800
 	if get_viewport():
 		viewport_height = get_viewport().get_visible_rect().size.y
-	var panel_height = min(620, viewport_height - 100)
-	custom_minimum_size = Vector2(380, panel_height)
+	var panel_height = min(680, viewport_height - 80)
+	var total_rounds = _results.get("total_rounds", 1)
+	var panel_width = 380 if total_rounds <= 1 else 480
+	custom_minimum_size = Vector2(panel_width, panel_height)
 
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 16)
@@ -45,9 +46,13 @@ func _build_content() -> void:
 
 	# Title
 	var tier_data = TournamentSystem.get_tier_data(_tier)
+	var rounds_played = _results.get("rounds_played", 1)
 	var title = Label.new()
-	title.text = tier_data.get("name", "Tournament") + " — Results"
-	title.add_theme_font_size_override("font_size", 22)
+	var title_text = tier_data.get("name", "Tournament") + " — Results"
+	if total_rounds > 1:
+		title_text += " (%d rounds)" % rounds_played
+	title.text = title_text
+	title.add_theme_font_size_override("font_size", 20)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_vbox.add_child(title)
 
@@ -78,32 +83,71 @@ func _build_content() -> void:
 	winner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(winner_label)
 
+	# Dramatic moments section
+	var moments = _results.get("moments", [])
+	var high_moments = moments.filter(func(m): return m.importance >= 2)
+	if not high_moments.is_empty():
+		vbox.add_child(HSeparator.new())
+		var moments_title = Label.new()
+		moments_title.text = "Highlights"
+		moments_title.add_theme_font_size_override("font_size", 13)
+		moments_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		moments_title.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+		vbox.add_child(moments_title)
+
+		for moment in high_moments.slice(0, 5):  # Show up to 5 highlights
+			var m_label = Label.new()
+			m_label.text = moment.detail
+			m_label.add_theme_font_size_override("font_size", 11)
+			m_label.add_theme_color_override("font_color", UIConstants.COLOR_INFO)
+			m_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			m_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+			vbox.add_child(m_label)
+
 	vbox.add_child(HSeparator.new())
 
 	# Leaderboard section
 	var lb_title = Label.new()
-	lb_title.text = "Leaderboard"
+	lb_title.text = "Final Leaderboard"
 	lb_title.add_theme_font_size_override("font_size", 14)
 	lb_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(lb_title)
 
 	# Header row
-	var header = _create_leaderboard_row("", "Name", "Score", UIConstants.COLOR_TEXT_DIM)
+	var header = _create_leaderboard_header(total_rounds)
 	vbox.add_child(header)
 
-	# Leaderboard entries (already sorted by caller)
+	# Leaderboard entries
+	var cut_line_shown = false
 	for i in range(_entries.size()):
 		var entry = _entries[i]
+		var is_mc = entry.get("missed_cut", false)
+
+		# Show cut line separator
+		if is_mc and not cut_line_shown:
+			cut_line_shown = true
+			var cut_sep = HBoxContainer.new()
+			var cut_label = Label.new()
+			cut_label.text = "— CUT LINE —"
+			cut_label.add_theme_font_size_override("font_size", 10)
+			cut_label.add_theme_color_override("font_color", UIConstants.COLOR_SCORE_OVER)
+			cut_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cut_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			cut_sep.add_child(cut_label)
+			vbox.add_child(cut_sep)
+
 		var rank_text = "%d." % (i + 1)
-		var diff = entry.get("total_strokes", 0) - entry.get("total_par", 0)
+		var diff = entry.get("score_to_par", entry.get("total_strokes", 0) - entry.get("total_par", 0))
 		var score_text = _format_score_vs_par(diff)
 		var score_color = _get_score_color(diff)
-
-		# Highlight winner row
 		if i == 0:
 			score_color = UIConstants.COLOR_GOLD
+		if is_mc:
+			score_color = UIConstants.COLOR_TEXT_DIM
 
-		var row = _create_leaderboard_row(rank_text, entry.get("name", ""), score_text, score_color)
+		var round_scores = entry.get("round_scores", [])
+		var row = _create_leaderboard_entry(rank_text, entry.get("name", ""),
+			round_scores, score_text, score_color, total_rounds, is_mc)
 		vbox.add_child(row)
 
 	vbox.add_child(HSeparator.new())
@@ -121,30 +165,29 @@ func _build_content() -> void:
 	var total_rev = _results.get("total_revenue", 0)
 	var net = total_rev - entry_cost
 
-	var fee_row = _create_stat_row("Entry Fee:", "-$%d" % entry_cost, UIConstants.COLOR_DANGER_DIM)
-	vbox.add_child(fee_row)
+	vbox.add_child(_create_stat_row("Entry Fee:", "-$%d" % entry_cost, UIConstants.COLOR_DANGER_DIM))
 
 	if spectator_rev > 0:
-		var spec_row = _create_stat_row("Spectator Revenue:", "+$%d" % spectator_rev, UIConstants.COLOR_SUCCESS_DIM)
-		vbox.add_child(spec_row)
+		var drama_mult = _results.get("drama_multiplier", 1.0)
+		var spec_text = "+$%d" % spectator_rev
+		if drama_mult > 1.05:
+			spec_text += " (%.0f%% drama bonus)" % ((drama_mult - 1.0) * 100)
+		vbox.add_child(_create_stat_row("Spectator Revenue:", spec_text, UIConstants.COLOR_SUCCESS_DIM))
 
 	if sponsor_rev > 0:
-		var spon_row = _create_stat_row("Sponsorship Revenue:", "+$%d" % sponsor_rev, UIConstants.COLOR_SUCCESS_DIM)
-		vbox.add_child(spon_row)
+		vbox.add_child(_create_stat_row("Sponsorship Revenue:", "+$%d" % sponsor_rev, UIConstants.COLOR_SUCCESS_DIM))
 
 	var net_color = UIConstants.COLOR_SUCCESS if net >= 0 else UIConstants.COLOR_DANGER
 	var net_text = "+$%d" % net if net >= 0 else "-$%d" % abs(net)
-	var net_row = _create_stat_row("Net Income:", net_text, net_color)
-	vbox.add_child(net_row)
+	vbox.add_child(_create_stat_row("Net Income:", net_text, net_color))
 
 	vbox.add_child(HSeparator.new())
 
 	# Reputation earned
 	var rep_reward = tier_data.get("reputation_reward", 0)
-	var rep_row = _create_stat_row("Reputation Earned:", "+%d" % rep_reward, UIConstants.COLOR_INFO)
-	vbox.add_child(rep_row)
+	vbox.add_child(_create_stat_row("Reputation Earned:", "+%d" % rep_reward, UIConstants.COLOR_INFO))
 
-	# Close button (fixed at bottom, outside scroll)
+	# Close button
 	main_vbox.add_child(HSeparator.new())
 
 	var close_btn = Button.new()
@@ -153,35 +196,69 @@ func _build_content() -> void:
 	close_btn.pressed.connect(_on_close_pressed)
 	main_vbox.add_child(close_btn)
 
-func _create_leaderboard_row(rank: String, player_name: String, score: String, color: Color) -> HBoxContainer:
+func _create_leaderboard_header(total_rounds: int) -> HBoxContainer:
 	var row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 
-	var rank_label = Label.new()
-	rank_label.text = rank
-	rank_label.add_theme_font_size_override("font_size", 12)
-	rank_label.custom_minimum_size = Vector2(28, 0)
-	rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	rank_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
-	row.add_child(rank_label)
+	row.add_child(_make_lbl("", 28, UIConstants.COLOR_TEXT_DIM, HORIZONTAL_ALIGNMENT_RIGHT))
 
-	var name_label = Label.new()
-	name_label.text = player_name
-	name_label.add_theme_font_size_override("font_size", 12)
-	name_label.add_theme_color_override("font_color", Color.WHITE)
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_label.clip_text = true
-	row.add_child(name_label)
+	var name_lbl = _make_lbl("Name", 0, UIConstants.COLOR_TEXT_DIM)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_lbl)
 
-	var score_label = Label.new()
-	score_label.text = score
-	score_label.add_theme_font_size_override("font_size", 12)
-	score_label.custom_minimum_size = Vector2(40, 0)
-	score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	score_label.add_theme_color_override("font_color", color)
-	row.add_child(score_label)
+	if total_rounds > 1:
+		for r in range(total_rounds):
+			row.add_child(_make_lbl("R%d" % (r + 1), 28, UIConstants.COLOR_TEXT_DIM, HORIZONTAL_ALIGNMENT_RIGHT))
+
+	row.add_child(_make_lbl("Tot", 40, UIConstants.COLOR_TEXT_DIM, HORIZONTAL_ALIGNMENT_RIGHT))
 
 	return row
+
+func _create_leaderboard_entry(rank: String, player_name: String,
+		round_scores: Array, score: String, color: Color,
+		total_rounds: int, missed_cut: bool) -> HBoxContainer:
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+
+	row.add_child(_make_lbl(rank, 28, UIConstants.COLOR_TEXT_DIM, HORIZONTAL_ALIGNMENT_RIGHT))
+
+	var name_color = Color.WHITE if not missed_cut else UIConstants.COLOR_TEXT_DIM
+	var name_lbl = _make_lbl(player_name, 0, name_color)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_lbl.clip_text = true
+	row.add_child(name_lbl)
+
+	if total_rounds > 1:
+		for r in range(total_rounds):
+			var r_text = "-"
+			var r_color = UIConstants.COLOR_TEXT_DIM
+			if r < round_scores.size():
+				var r_diff = round_scores[r]
+				r_text = _format_score_vs_par(r_diff)
+				r_color = _get_score_color(r_diff)
+				if missed_cut:
+					r_color = UIConstants.COLOR_TEXT_DIM
+			row.add_child(_make_lbl(r_text, 28, r_color, HORIZONTAL_ALIGNMENT_RIGHT))
+
+	var mc_text = "MC" if missed_cut else ""
+	if missed_cut:
+		var score_mc = _make_lbl(score + " " + mc_text, 55, color, HORIZONTAL_ALIGNMENT_RIGHT)
+		row.add_child(score_mc)
+	else:
+		row.add_child(_make_lbl(score, 40, color, HORIZONTAL_ALIGNMENT_RIGHT))
+
+	return row
+
+func _make_lbl(text: String, min_width: int, color: Color,
+		alignment: int = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
+	var label = Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", color)
+	label.horizontal_alignment = alignment
+	if min_width > 0:
+		label.custom_minimum_size = Vector2(min_width, 0)
+	return label
 
 func _create_stat_row(label_text: String, value_text: String, value_color: Color = Color.WHITE) -> HBoxContainer:
 	var row = HBoxContainer.new()

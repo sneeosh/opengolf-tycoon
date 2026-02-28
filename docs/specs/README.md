@@ -12,7 +12,7 @@ This document reviews the current game state and proposes specs that should be w
 | # | Document | Location | Priority | Status |
 |---|----------|----------|----------|--------|
 | — | Course Design Upgrades | [`course-design-upgrades.md`](course-design-upgrades.md) | HIGH | Proposal |
-| 1 | Simulated Tournament Rounds | [`simulated-tournament-rounds.md`](simulated-tournament-rounds.md) | CRITICAL | Proposal |
+| 1 | Simulated Tournament Rounds | [`simulated-tournament-rounds.md`](simulated-tournament-rounds.md) | CRITICAL | Implemented |
 | 2 | Spectator Camera & Live Scorecard | [`spectator-camera-live-scorecard.md`](spectator-camera-live-scorecard.md) | HIGH | Proposal |
 | 3 | Seasonal System Expansion | [`seasonal-system-expansion.md`](seasonal-system-expansion.md) | HIGH | Proposal |
 | 4 | Economic Balance & Tuning | [`economic-balance-tuning.md`](economic-balance-tuning.md) | HIGH | Proposal |

@@ -204,15 +204,31 @@ static func get_net_profit(tier: TournamentTier) -> int:
 	var revenue = data.get("spectator_revenue", 0) + data.get("sponsorship_revenue", 0)
 	return revenue - data.get("entry_cost", 0)
 
+## Get number of rounds for a tier
+static func get_round_count(tier: TournamentTier) -> int:
+	match tier:
+		TournamentTier.LOCAL: return 1
+		TournamentTier.REGIONAL: return 2
+		TournamentTier.NATIONAL: return 4
+		TournamentTier.CHAMPIONSHIP: return 4
+		_: return 1
+
 ## Get description text for a tier
 static func get_tier_description(tier: TournamentTier) -> String:
 	var data = TIER_DATA[tier]
 	var total_revenue = data.get("spectator_revenue", 0) + data.get("sponsorship_revenue", 0)
-	return "%s\nRequires: %d holes, %.1f★ rating, %d yards\nEntry: $%d | Revenue: $%d\nReward: +%d reputation" % [
+	var rounds = get_round_count(tier)
+	var round_text = "%d round" % rounds + ("s" if rounds > 1 else "")
+	var days = data.get("duration_days", 1)
+	var day_text = "%d day" % days + ("s" if days > 1 else "")
+	return "%s (%s, %s)\nRequires: %d holes, %.1f★ rating, %d yards\nField: %d players | Entry: $%d | Revenue: $%d\nReward: +%d reputation" % [
 		data.name,
+		round_text,
+		day_text,
 		data.min_holes,
 		data.min_rating,
 		data.min_yardage,
+		data.participant_count,
 		data.entry_cost,
 		total_revenue,
 		data.reputation_reward
