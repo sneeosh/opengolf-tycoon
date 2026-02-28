@@ -76,6 +76,11 @@ signal season_changed(old_season: int, new_season: int)
 signal tournament_scheduled(tier: int, start_day: int)
 signal tournament_started(tier: int)
 signal tournament_completed(tier: int, results: Dictionary)
+signal tournament_round_completed(tier: int, round_number: int, standings: Array)
+signal tournament_cut_applied(tier: int, advancing: Array, eliminated: Array)
+signal tournament_moment(moment: Dictionary)
+signal tournament_simulation_started(tier: int, round_number: int)
+signal tournament_simulation_completed(tier: int, round_number: int)
 
 # Save/Load Signals
 signal save_requested()
