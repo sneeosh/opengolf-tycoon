@@ -71,6 +71,17 @@ var category_filters: Dictionary = {}  # Category enum -> bool (true = visible)
 var _next_id: int = 0
 var _is_feed_open: bool = false
 
+## Fast-forward batching state
+var _ff_start_day: int = -1  # Day when fast-forward started (-1 = not tracking)
+var _ff_rounds_completed: int = 0
+var _ff_records_set: int = 0
+var _ff_revenue: int = 0
+var _ff_was_fast: bool = false  # True if we were at FAST or ULTRA speed
+
+## Batching: track recent NORMAL events per category per game-hour for dedup at ULTRA
+var _batch_counts: Dictionary = {}  # category -> count this game-hour
+var _batch_hour: float = -1.0  # Game hour of the current batch window
+
 func _ready() -> void:
 	# Initialize all category filters to visible
 	for cat in Category.values():
@@ -78,6 +89,9 @@ func _ready() -> void:
 
 	# Connect to EventBus signals
 	_connect_signals()
+
+	# Listen for speed changes to produce summaries
+	EventBus.game_speed_changed.connect(_on_game_speed_changed)
 
 func _connect_signals() -> void:
 	# Records
@@ -120,6 +134,48 @@ func add_event(category: int, priority: int, message: String,
 	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
 		return null
 
+	# Track fast-forward stats for summary
+	_track_ff_stats(category, priority)
+
+	# At ULTRA speed, batch NORMAL events of the same category within the same hour
+	if GameManager.current_speed == GameManager.GameSpeed.ULTRA and priority == Priority.NORMAL:
+		var current_hour = floorf(GameManager.current_hour)
+		if current_hour != _batch_hour:
+			_batch_counts.clear()
+			_batch_hour = current_hour
+		var count = _batch_counts.get(category, 0) + 1
+		_batch_counts[category] = count
+		# If >3 events of same category in same hour, consolidate
+		if count > 3:
+			# Still add to feed but don't emit event_added (suppresses toast)
+			return _add_entry_silent(category, priority, message, navigate_type, navigate_value)
+
+	var entry = _create_entry(category, priority, message, navigate_type, navigate_value)
+	events.append(entry)
+	_enforce_limit()
+
+	# Track unread
+	if not _is_feed_open:
+		unread_count += 1
+		unread_count_changed.emit(unread_count)
+
+	event_added.emit(entry)
+	return entry
+
+## Create an entry without emitting event_added (for batched events)
+func _add_entry_silent(category: int, priority: int, message: String,
+		navigate_type: int, navigate_value: Variant) -> EventEntry:
+	var entry = _create_entry(category, priority, message, navigate_type, navigate_value)
+	events.append(entry)
+	_enforce_limit()
+	if not _is_feed_open:
+		unread_count += 1
+		unread_count_changed.emit(unread_count)
+	return entry
+
+## Build an EventEntry with all fields populated
+func _create_entry(category: int, priority: int, message: String,
+		navigate_type: int, navigate_value: Variant) -> EventEntry:
 	var entry = EventEntry.new()
 	entry.timestamp_day = GameManager.current_day
 	entry.timestamp_hour = GameManager.current_hour
@@ -131,24 +187,14 @@ func add_event(category: int, priority: int, message: String,
 	entry.id = _next_id
 	_next_id += 1
 
-	# Set icon and color from category data
 	var cat_data = CATEGORY_DATA.get(category, {})
 	entry.icon = cat_data.get("icon", "?")
 	entry.icon_color = _get_category_color(category)
+	return entry
 
-	events.append(entry)
-
-	# Trim oldest events if over limit
+func _enforce_limit() -> void:
 	while events.size() > MAX_EVENTS:
 		events.pop_front()
-
-	# Track unread
-	if not _is_feed_open:
-		unread_count += 1
-		unread_count_changed.emit(unread_count)
-
-	event_added.emit(entry)
-	return entry
 
 ## Mark all events as read (called when feed panel opens)
 func mark_all_read() -> void:
@@ -339,3 +385,42 @@ func _format_money(amount: int) -> String:
 	if amount >= 1000:
 		return "%d,%03d" % [amount / 1000, amount % 1000]
 	return str(amount)
+
+# --- Fast-forward tracking ---
+
+func _track_ff_stats(category: int, _priority: int) -> void:
+	if not _ff_was_fast:
+		return
+	match category:
+		Category.GOLFERS: _ff_rounds_completed += 1
+		Category.RECORDS: _ff_records_set += 1
+
+func _on_game_speed_changed(new_speed: int) -> void:
+	var is_fast = new_speed >= GameManager.GameSpeed.FAST
+	if is_fast and not _ff_was_fast:
+		# Starting fast-forward — begin tracking
+		_ff_start_day = GameManager.current_day
+		_ff_rounds_completed = 0
+		_ff_records_set = 0
+		_ff_revenue = GameManager.money
+		_ff_was_fast = true
+	elif not is_fast and _ff_was_fast:
+		# Slowed down — emit summary if we actually fast-forwarded
+		_ff_was_fast = false
+		_batch_counts.clear()
+		var days_elapsed = GameManager.current_day - _ff_start_day
+		if days_elapsed > 0 or _ff_rounds_completed > 0:
+			var revenue_change = GameManager.money - _ff_revenue
+			var parts: Array = []
+			if days_elapsed > 0:
+				parts.append("Day %d-%d" % [_ff_start_day, GameManager.current_day])
+			if _ff_rounds_completed > 0:
+				parts.append("%d rounds" % _ff_rounds_completed)
+			if _ff_records_set > 0:
+				parts.append("%d record%s" % [_ff_records_set, "s" if _ff_records_set > 1 else ""])
+			if revenue_change != 0:
+				var sign = "+" if revenue_change > 0 else ""
+				parts.append("%s$%s" % [sign, _format_money(revenue_change)])
+			if not parts.is_empty():
+				EventBus.notify("Fast-forward: " + ", ".join(parts), "info")
+		_ff_start_day = -1
