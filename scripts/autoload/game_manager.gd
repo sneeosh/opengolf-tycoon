@@ -159,6 +159,14 @@ func _on_golfer_finished_hole_for_stats(_golfer_id: int, hole_index: int, stroke
 func _on_golfer_finished_round_for_stats(_golfer_id: int, total_strokes: int, total_par: int) -> void:
 	daily_stats.record_round_finished(total_strokes, total_par)
 
+	# Distribute green fee revenue across open holes
+	if current_course:
+		var open_holes = current_course.get_open_holes()
+		if open_holes.size() > 0:
+			var per_hole = green_fee / open_holes.size()
+			for hole in open_holes:
+				hole.total_revenue += per_hole
+
 func _process(delta: float) -> void:
 	if current_mode == GameMode.SIMULATING and not is_paused:
 		_advance_time(delta)
@@ -631,6 +639,7 @@ class HoleData:
 	var distance_yards: int = 0
 	var is_open: bool = true  # Whether the hole is open for play
 	var difficulty_rating: float = 1.0  # Hole difficulty (1.0-10.0)
+	var total_revenue: int = 0  # Cumulative green fee revenue attributed to this hole
 
 ## DailyStatistics - Tracks statistics for the current day
 class DailyStatistics:

@@ -231,6 +231,27 @@ func _deferred_terrain_update() -> void:
 		# Recalculate shot path (terrain changes affect golfer routing)
 		_update_line()
 
+func update_tee_position(new_tee_pos: Vector2i) -> void:
+	hole_data.tee_position = new_tee_pos
+	hole_data.distance_yards = terrain_grid.calculate_distance_yards(new_tee_pos, hole_data.hole_position)
+	hole_data.par = HoleCreationTool.calculate_par(hole_data.distance_yards)
+	hole_data.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole_data, terrain_grid)
+	_update_line()
+	_update_info_label()
+	EventBus.hole_updated.emit(hole_data.hole_number)
+
+func update_green_position(new_green_pos: Vector2i, move_pin: bool = true) -> void:
+	hole_data.green_position = new_green_pos
+	if move_pin:
+		hole_data.hole_position = new_green_pos
+		flag.set_position_in_grid(new_green_pos)
+	hole_data.distance_yards = terrain_grid.calculate_distance_yards(hole_data.tee_position, hole_data.hole_position)
+	hole_data.par = HoleCreationTool.calculate_par(hole_data.distance_yards)
+	hole_data.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole_data, terrain_grid)
+	_update_line()
+	_update_info_label()
+	EventBus.hole_updated.emit(hole_data.hole_number)
+
 func update_visualization() -> void:
 	_update_line()
 	_update_info_label()

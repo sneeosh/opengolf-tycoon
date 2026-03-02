@@ -81,6 +81,12 @@ var _bulldoze_drag_cost: int = 0
 var placement_preview: PlacementPreview = null
 var main_menu: MainMenu = null
 
+# Hole context menu and move modes
+enum HoleMoveMode { NONE, MOVING_PIN, MOVING_TEE, MOVING_GREEN }
+var _hole_move_mode: int = HoleMoveMode.NONE
+var _hole_move_data: GameManager.HoleData = null
+var _hole_context_menu: HoleContextMenu = null
+
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
 	GameManager.terrain_grid = terrain_grid
@@ -375,6 +381,7 @@ func _connect_signals() -> void:
 	EventBus.end_of_day.connect(_on_end_of_day)
 	EventBus.load_completed.connect(_on_load_completed)
 	EventBus.new_game_started.connect(_on_new_game_started)
+	hole_manager.hole_selected.connect(_on_hole_flag_selected)
 
 func _connect_ui_buttons() -> void:
 	# Replace old tool panel with new terrain toolbar
@@ -640,8 +647,18 @@ func _update_selection_indicator() -> void:
 		selection_label.add_theme_color_override("font_color", color)
 		return
 
-	# Check placement modes first (they take priority)
-	if hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_TEE:
+	# Check hole move modes first
+	if _hole_move_mode == HoleMoveMode.MOVING_PIN:
+		text += "Move Pin — Click green tile | ESC to cancel"
+		color = Color(0.5, 1.0, 0.5)  # Green
+	elif _hole_move_mode == HoleMoveMode.MOVING_TEE:
+		text += "Move Tee — Click to place | ESC to cancel"
+		color = Color(0.5, 1.0, 0.5)  # Green
+	elif _hole_move_mode == HoleMoveMode.MOVING_GREEN:
+		text += "Move Green — Click to place | ESC to cancel"
+		color = Color(0.5, 1.0, 0.5)  # Green
+	# Check placement modes (they take priority)
+	elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_TEE:
 		text += "Place Tee Box"
 		color = Color(0.5, 1.0, 0.5)  # Green
 	elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_GREEN:
@@ -768,8 +785,23 @@ func _handle_mouse_hover() -> void:
 		coordinate_label.text = ""
 
 func _start_painting() -> void:
-	# Check if in null selector state - do nothing, allow clicking buildings/UI
+	# Handle hole move mode clicks first
+	if _hole_move_mode != HoleMoveMode.NONE:
+		var mouse_world = camera.get_mouse_world_position()
+		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+		_handle_hole_move_click(grid_pos)
+		return
+
+	# Check if in null selector state — try opening hole context menu
 	if not _has_active_tool():
+		var mouse_world = camera.get_mouse_world_position()
+		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+		var tile_type = terrain_grid.get_tile(grid_pos)
+		if tile_type == TerrainTypes.Type.TEE_BOX or tile_type == TerrainTypes.Type.GREEN:
+			var hole = hole_manager.get_hole_at_position(grid_pos)
+			if hole:
+				_open_hole_context_menu(hole)
+				return
 		return
 
 	# Check if we're in bulldozer mode — supports click-and-drag
@@ -905,6 +937,12 @@ func _cancel_action() -> void:
 	# Two-tier cancel: first ESC cancels the active operation, second deselects tool
 	var had_active_operation = false
 
+	if _hole_context_menu:
+		_close_hole_context_menu()
+		had_active_operation = true
+	if _hole_move_mode != HoleMoveMode.NONE:
+		_cancel_hole_move_mode()
+		had_active_operation = true
 	if bulldozer_mode:
 		_cancel_bulldozer_mode()
 		had_active_operation = true
@@ -930,6 +968,8 @@ func _cancel_action() -> void:
 
 func _has_active_tool() -> bool:
 	"""Check if any tool is currently active (not in null selector state)"""
+	if _hole_move_mode != HoleMoveMode.NONE:
+		return true
 	if bulldozer_mode:
 		return true
 	if elevation_tool.is_active():
@@ -944,6 +984,8 @@ func _has_active_tool() -> bool:
 
 func _on_tool_selected(tool_type: int) -> void:
 	# Cancel any hole placement, building/tree placement, elevation mode, and bulldozer mode
+	_cancel_hole_move_mode()
+	_close_hole_context_menu()
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
 	_cancel_elevation_mode()
@@ -968,6 +1010,8 @@ func _on_brush_size_changed(new_size: int) -> void:
 
 func _on_create_hole_pressed() -> void:
 	# Cancel any building/tree placement, elevation, bulldozer, or terrain painting
+	_cancel_hole_move_mode()
+	_close_hole_context_menu()
 	placement_manager.cancel_placement()
 	_cancel_elevation_mode()
 	_cancel_bulldozer_mode()
@@ -1077,6 +1121,8 @@ func _rebuild_hole_list() -> void:
 
 func _on_tree_placement_pressed() -> void:
 	"""Show tree selection menu and start tree placement mode"""
+	_cancel_hole_move_mode()
+	_close_hole_context_menu()
 	hole_tool.cancel_placement()
 	_cancel_elevation_mode()
 	_cancel_bulldozer_mode()
@@ -1109,6 +1155,8 @@ func _on_tree_placement_pressed() -> void:
 func _on_building_placement_pressed() -> void:
 	"""Show building selection menu and start building placement"""
 	print("Building button pressed!")
+	_cancel_hole_move_mode()
+	_close_hole_context_menu()
 	hole_tool.cancel_placement()
 	_cancel_elevation_mode()
 	_cancel_bulldozer_mode()
@@ -1184,6 +1232,8 @@ func _on_tree_type_selected(tree_type: String, dialog: AcceptDialog) -> void:
 
 func _on_rock_placement_pressed() -> void:
 	"""Show rock size selection menu and start rock placement mode"""
+	_cancel_hole_move_mode()
+	_close_hole_context_menu()
 	hole_tool.cancel_placement()
 	_cancel_elevation_mode()
 	_cancel_bulldozer_mode()
@@ -1227,6 +1277,8 @@ func _on_rock_size_selected(rock_size: String, dialog: AcceptDialog) -> void:
 	print("Rock placement mode: %s" % rock_size)
 
 func _on_raise_elevation_pressed() -> void:
+	_cancel_hole_move_mode()
+	_close_hole_context_menu()
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
 	_cancel_bulldozer_mode()
@@ -1242,6 +1294,8 @@ func _on_raise_elevation_pressed() -> void:
 	print("Elevation mode: RAISING")
 
 func _on_lower_elevation_pressed() -> void:
+	_cancel_hole_move_mode()
+	_close_hole_context_menu()
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
 	_cancel_bulldozer_mode()
@@ -1258,6 +1312,8 @@ func _on_lower_elevation_pressed() -> void:
 
 func _on_bulldozer_pressed() -> void:
 	"""Activate bulldozer mode to remove trees, rocks, and flower beds"""
+	_cancel_hole_move_mode()
+	_close_hole_context_menu()
 	hole_tool.cancel_placement()
 	placement_manager.cancel_placement()
 	_cancel_elevation_mode()
@@ -1285,6 +1341,8 @@ func _disable_terrain_painting_preview() -> void:
 func _on_new_game_started() -> void:
 	"""Generate natural terrain when a new game starts"""
 	_game_over_shown = false
+	_close_hole_context_menu()
+	_cancel_hole_move_mode()
 
 	# Show loading screen and wait a frame so it actually renders
 	# before the synchronous generation blocks the main thread.
@@ -1715,6 +1773,8 @@ func _on_quit_to_menu() -> void:
 	get_tree().reload_current_scene()
 
 func _on_load_completed(_success: bool) -> void:
+	_close_hole_context_menu()
+	_cancel_hole_move_mode()
 	if _success:
 		_game_over_shown = false
 		_rebuild_hole_list()
@@ -1728,6 +1788,282 @@ func _on_load_completed(_success: bool) -> void:
 		var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
 		var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
 		camera.focus_on(Vector2(center_x, center_y), true)
+
+# --- Hole Context Menu & Move Modes ---
+
+func _on_hole_flag_selected(hole_number: int) -> void:
+	if _has_active_tool():
+		return
+	if not GameManager.current_course:
+		return
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number == hole_number:
+			_open_hole_context_menu(hole)
+			return
+
+func _open_hole_context_menu(hole_data: GameManager.HoleData) -> void:
+	_close_hole_context_menu()
+	_hole_context_menu = HoleContextMenu.new(hole_data, terrain_grid)
+	_hole_context_menu.name = "HoleContextMenu"
+	$UI.add_child(_hole_context_menu)
+	_hole_context_menu.position_at(get_viewport().get_mouse_position())
+
+	# Connect signals
+	_hole_context_menu.move_pin_requested.connect(_on_context_move_pin)
+	_hole_context_menu.move_tee_requested.connect(_on_context_move_tee)
+	_hole_context_menu.move_green_requested.connect(_on_context_move_green)
+	_hole_context_menu.toggle_hole_requested.connect(_on_context_toggle_hole)
+	_hole_context_menu.view_stats_requested.connect(_on_context_view_stats)
+	_hole_context_menu.menu_closed.connect(_on_context_menu_closed)
+
+	# Highlight the hole
+	hole_manager.highlight_hole(hole_data.hole_number, true)
+
+func _close_hole_context_menu() -> void:
+	if not _hole_context_menu:
+		return
+	if is_instance_valid(_hole_context_menu):
+		if _hole_context_menu.hole_data:
+			hole_manager.highlight_hole(_hole_context_menu.hole_data.hole_number, false)
+		_hole_context_menu.queue_free()
+	_hole_context_menu = null
+
+func _on_context_menu_closed() -> void:
+	if _hole_context_menu and _hole_context_menu.hole_data:
+		hole_manager.highlight_hole(_hole_context_menu.hole_data.hole_number, false)
+	_hole_context_menu = null
+
+func _on_context_move_pin(hole_number: int) -> void:
+	var hole = _find_hole_data(hole_number)
+	if hole:
+		_enter_hole_move_mode(HoleMoveMode.MOVING_PIN, hole)
+
+func _on_context_move_tee(hole_number: int) -> void:
+	var hole = _find_hole_data(hole_number)
+	if hole:
+		_enter_hole_move_mode(HoleMoveMode.MOVING_TEE, hole)
+
+func _on_context_move_green(hole_number: int) -> void:
+	var hole = _find_hole_data(hole_number)
+	if hole:
+		_enter_hole_move_mode(HoleMoveMode.MOVING_GREEN, hole)
+
+func _on_context_toggle_hole(hole_number: int) -> void:
+	if GameManager.current_course:
+		var is_open = GameManager.current_course.toggle_hole_open(hole_number)
+		EventBus.notify("Hole %d %s" % [hole_number, "opened" if is_open else "closed"], "info")
+
+func _on_context_view_stats(hole_number: int) -> void:
+	_show_hole_stats(hole_number)
+
+func _find_hole_data(hole_number: int) -> GameManager.HoleData:
+	if not GameManager.current_course:
+		return null
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number == hole_number:
+			return hole
+	return null
+
+func _enter_hole_move_mode(mode: int, hole_data: GameManager.HoleData) -> void:
+	_hole_move_mode = mode
+	_hole_move_data = hole_data
+	hole_manager.highlight_hole(hole_data.hole_number, true)
+	_update_selection_indicator()
+	if placement_preview:
+		placement_preview.set_hole_move_mode(mode)
+
+func _cancel_hole_move_mode() -> void:
+	if _hole_move_mode == HoleMoveMode.NONE:
+		return
+	if _hole_move_data:
+		hole_manager.highlight_hole(_hole_move_data.hole_number, false)
+	_hole_move_mode = HoleMoveMode.NONE
+	_hole_move_data = null
+	_update_selection_indicator()
+	if placement_preview:
+		placement_preview.set_hole_move_mode(HoleMoveMode.NONE)
+
+func _handle_hole_move_click(grid_pos: Vector2i) -> void:
+	if not _hole_move_data:
+		return
+	match _hole_move_mode:
+		HoleMoveMode.MOVING_PIN:
+			if _is_valid_pin_position(grid_pos):
+				_execute_pin_move(grid_pos)
+		HoleMoveMode.MOVING_TEE:
+			if _is_valid_tee_position(grid_pos):
+				_execute_tee_move(grid_pos)
+		HoleMoveMode.MOVING_GREEN:
+			if _is_valid_green_position(grid_pos):
+				_execute_green_move(grid_pos)
+
+func _is_valid_pin_position(pos: Vector2i) -> bool:
+	if terrain_grid.get_tile(pos) != TerrainTypes.Type.GREEN:
+		return false
+	# Don't allow moving to current position (no-op)
+	if pos == _hole_move_data.hole_position:
+		return false
+	# Not another hole's pin
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number != _hole_move_data.hole_number and hole.hole_position == pos:
+			return false
+	return true
+
+func _is_valid_tee_position(pos: Vector2i) -> bool:
+	if not terrain_grid.is_valid_position(pos):
+		return false
+	var tile = terrain_grid.get_tile(pos)
+	if tile == TerrainTypes.Type.WATER or tile == TerrainTypes.Type.OUT_OF_BOUNDS:
+		return false
+	if entity_layer and entity_layer.is_tile_occupied_by_building(pos):
+		return false
+	# Minimum distance from green
+	if pos.distance_to(_hole_move_data.green_position) < 5:
+		return false
+	# Not another hole's tee or green
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number != _hole_move_data.hole_number:
+			if pos == hole.tee_position or pos == hole.green_position or pos == hole.hole_position:
+				return false
+	return true
+
+func _is_valid_green_position(pos: Vector2i) -> bool:
+	if not terrain_grid.is_valid_position(pos):
+		return false
+	var tile = terrain_grid.get_tile(pos)
+	if tile == TerrainTypes.Type.WATER or tile == TerrainTypes.Type.OUT_OF_BOUNDS:
+		return false
+	if entity_layer and entity_layer.is_tile_occupied_by_building(pos):
+		return false
+	# Minimum distance from tee
+	if pos.distance_to(_hole_move_data.tee_position) < 5:
+		return false
+	# Not another hole's tee or green
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number != _hole_move_data.hole_number:
+			if pos == hole.tee_position or pos == hole.green_position or pos == hole.hole_position:
+				return false
+	return true
+
+func _execute_pin_move(new_pos: Vector2i) -> void:
+	var hole_number = _hole_move_data.hole_number
+	var old_pos = _hole_move_data.hole_position
+	var visualizer = hole_manager.get_hole_visualizer(hole_number)
+	if not visualizer or not visualizer.flag:
+		_cancel_hole_move_mode()
+		return
+
+	visualizer.flag.move_to(new_pos)  # Triggers _on_flag_moved → recalculates everything
+	EventBus.pin_position_changed.emit(hole_number, old_pos, new_pos)
+
+	# Record undo
+	undo_manager.record_action({
+		"type": "pin_move",
+		"hole_number": hole_number,
+		"old_pos": old_pos,
+		"new_pos": new_pos
+	})
+
+	EventBus.notify("Hole %d pin moved" % hole_number, "success")
+	_cancel_hole_move_mode()
+
+func _execute_tee_move(new_pos: Vector2i) -> void:
+	var hole_number = _hole_move_data.hole_number
+	var old_tee_pos = _hole_move_data.tee_position
+	var old_tee_was_tee_box = terrain_grid.get_tile(old_tee_pos) == TerrainTypes.Type.TEE_BOX
+	var old_terrain_at_new = terrain_grid.get_tile(new_pos)
+	var tee_cost = TerrainTypes.get_placement_cost(TerrainTypes.Type.TEE_BOX)
+
+	if not GameManager.can_afford(tee_cost):
+		EventBus.notify("Not enough money!", "error")
+		return
+
+	var visualizer = hole_manager.get_hole_visualizer(hole_number)
+	if not visualizer:
+		_cancel_hole_move_mode()
+		return
+
+	_suppress_tile_undo = true
+
+	# Revert old tee tile to grass if it's still a tee box
+	if old_tee_was_tee_box:
+		terrain_grid.set_tile(old_tee_pos, TerrainTypes.Type.GRASS)
+
+	# Remove obstacles and place new tee
+	hole_tool._remove_obstacles_at(new_pos)
+	terrain_grid.set_tile(new_pos, TerrainTypes.Type.TEE_BOX)
+
+	_suppress_tile_undo = false
+
+	visualizer.update_tee_position(new_pos)
+	GameManager.modify_money(-tee_cost)
+	EventBus.log_transaction("Move Tee (Hole %d)" % hole_number, -tee_cost)
+	EventBus.hole_tee_moved.emit(hole_number, old_tee_pos, new_pos)
+
+	# Record undo
+	undo_manager.record_action({
+		"type": "tee_move",
+		"hole_number": hole_number,
+		"old_tee_pos": old_tee_pos,
+		"new_tee_pos": new_pos,
+		"old_terrain_at_new": old_terrain_at_new,
+		"old_tee_was_tee_box": old_tee_was_tee_box,
+		"cost": tee_cost
+	})
+
+	var label = "placed" if not old_tee_was_tee_box else "moved"
+	EventBus.notify("Hole %d tee box %s" % [hole_number, label], "success")
+	_cancel_hole_move_mode()
+
+func _execute_green_move(new_pos: Vector2i) -> void:
+	var hole_number = _hole_move_data.hole_number
+	var old_green_pos = _hole_move_data.green_position
+	var old_pin_pos = _hole_move_data.hole_position
+	var old_green_was_green = terrain_grid.get_tile(old_green_pos) == TerrainTypes.Type.GREEN
+	var old_terrain_at_new = terrain_grid.get_tile(new_pos)
+	var green_cost = TerrainTypes.get_placement_cost(TerrainTypes.Type.GREEN)
+
+	if not GameManager.can_afford(green_cost):
+		EventBus.notify("Not enough money!", "error")
+		return
+
+	var visualizer = hole_manager.get_hole_visualizer(hole_number)
+	if not visualizer:
+		_cancel_hole_move_mode()
+		return
+
+	_suppress_tile_undo = true
+
+	# Revert old green tile to grass if it's still a green
+	if old_green_was_green:
+		terrain_grid.set_tile(old_green_pos, TerrainTypes.Type.GRASS)
+
+	# Remove obstacles and place new green
+	hole_tool._remove_obstacles_at(new_pos)
+	terrain_grid.set_tile(new_pos, TerrainTypes.Type.GREEN)
+
+	_suppress_tile_undo = false
+
+	visualizer.update_green_position(new_pos, true)
+	GameManager.modify_money(-green_cost)
+	EventBus.log_transaction("Move Green (Hole %d)" % hole_number, -green_cost)
+	EventBus.hole_green_moved.emit(hole_number, old_green_pos, new_pos)
+
+	# Record undo
+	undo_manager.record_action({
+		"type": "green_move",
+		"hole_number": hole_number,
+		"old_green_pos": old_green_pos,
+		"new_green_pos": new_pos,
+		"old_pin_pos": old_pin_pos,
+		"old_terrain_at_new": old_terrain_at_new,
+		"old_green_was_green": old_green_was_green,
+		"cost": green_cost
+	})
+
+	var label = "placed" if not old_green_was_green else "moved"
+	EventBus.notify("Hole %d green %s" % [hole_number, label], "success")
+	_cancel_hole_move_mode()
 
 # --- Undo/Redo System ---
 
@@ -1797,6 +2133,50 @@ func _execute_undo_action(action: Dictionary) -> void:
 					entity_layer.remove_rock(grid_pos)
 			if cost > 0:
 				GameManager.modify_money(cost)
+		"pin_move":
+			var hn = action.get("hole_number", 0)
+			var old_pos = action.get("old_pos", Vector2i.ZERO)
+			var vis = hole_manager.get_hole_visualizer(hn)
+			if vis and vis.flag:
+				# Use set_position_in_grid instead of move_to to bypass GREEN tile validation
+				# (the old position may no longer be GREEN if terrain was edited)
+				vis.flag.set_position_in_grid(old_pos)
+				vis.hole_data.hole_position = old_pos
+				vis.update_visualization()
+				EventBus.hole_updated.emit(hn)
+				EventBus.pin_position_changed.emit(hn, action.get("new_pos", Vector2i.ZERO), old_pos)
+		"tee_move":
+			var hn = action.get("hole_number", 0)
+			var old_tee = action.get("old_tee_pos", Vector2i.ZERO)
+			var new_tee = action.get("new_tee_pos", Vector2i.ZERO)
+			_suppress_tile_undo = true
+			terrain_grid.set_tile(new_tee, action.get("old_terrain_at_new", TerrainTypes.Type.GRASS))
+			if action.get("old_tee_was_tee_box", false):
+				terrain_grid.set_tile(old_tee, TerrainTypes.Type.TEE_BOX)
+			_suppress_tile_undo = false
+			var vis = hole_manager.get_hole_visualizer(hn)
+			if vis:
+				vis.update_tee_position(old_tee)
+			GameManager.modify_money(action.get("cost", 0))
+		"green_move":
+			var hn = action.get("hole_number", 0)
+			var old_green = action.get("old_green_pos", Vector2i.ZERO)
+			var new_green = action.get("new_green_pos", Vector2i.ZERO)
+			var old_pin = action.get("old_pin_pos", Vector2i.ZERO)
+			_suppress_tile_undo = true
+			terrain_grid.set_tile(new_green, action.get("old_terrain_at_new", TerrainTypes.Type.GRASS))
+			if action.get("old_green_was_green", false):
+				terrain_grid.set_tile(old_green, TerrainTypes.Type.GREEN)
+			_suppress_tile_undo = false
+			var vis = hole_manager.get_hole_visualizer(hn)
+			if vis:
+				vis.update_green_position(old_green, true)
+				# Restore pin to its original position if it was different
+				if old_pin != old_green:
+					vis.hole_data.hole_position = old_pin
+					vis.flag.set_position_in_grid(old_pin)
+					EventBus.hole_updated.emit(hn)
+			GameManager.modify_money(action.get("cost", 0))
 
 func _execute_redo_action(action: Dictionary) -> void:
 	match action.get("type", ""):
@@ -1829,6 +2209,42 @@ func _execute_redo_action(action: Dictionary) -> void:
 					entity_layer.place_rock(grid_pos, subtype)
 			if cost > 0:
 				GameManager.modify_money(-cost)
+		"pin_move":
+			var hn = action.get("hole_number", 0)
+			var new_pos = action.get("new_pos", Vector2i.ZERO)
+			var vis = hole_manager.get_hole_visualizer(hn)
+			if vis and vis.flag:
+				vis.flag.set_position_in_grid(new_pos)
+				vis.hole_data.hole_position = new_pos
+				vis.update_visualization()
+				EventBus.hole_updated.emit(hn)
+				EventBus.pin_position_changed.emit(hn, action.get("old_pos", Vector2i.ZERO), new_pos)
+		"tee_move":
+			var hn = action.get("hole_number", 0)
+			var old_tee = action.get("old_tee_pos", Vector2i.ZERO)
+			var new_tee = action.get("new_tee_pos", Vector2i.ZERO)
+			_suppress_tile_undo = true
+			if action.get("old_tee_was_tee_box", false):
+				terrain_grid.set_tile(old_tee, TerrainTypes.Type.GRASS)
+			terrain_grid.set_tile(new_tee, TerrainTypes.Type.TEE_BOX)
+			_suppress_tile_undo = false
+			var vis = hole_manager.get_hole_visualizer(hn)
+			if vis:
+				vis.update_tee_position(new_tee)
+			GameManager.modify_money(-action.get("cost", 0))
+		"green_move":
+			var hn = action.get("hole_number", 0)
+			var old_green = action.get("old_green_pos", Vector2i.ZERO)
+			var new_green = action.get("new_green_pos", Vector2i.ZERO)
+			_suppress_tile_undo = true
+			if action.get("old_green_was_green", false):
+				terrain_grid.set_tile(old_green, TerrainTypes.Type.GRASS)
+			terrain_grid.set_tile(new_green, TerrainTypes.Type.GREEN)
+			_suppress_tile_undo = false
+			var vis = hole_manager.get_hole_visualizer(hn)
+			if vis:
+				vis.update_green_position(new_green, true)
+			GameManager.modify_money(-action.get("cost", 0))
 
 # --- Building Info Panel ---
 
