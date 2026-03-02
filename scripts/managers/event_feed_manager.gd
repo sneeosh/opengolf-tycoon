@@ -387,14 +387,15 @@ func _on_end_of_day(day_number: int) -> void:
 
 func _on_new_game_started() -> void:
 	clear_events()
-	# Suppress events during initial course setup (Quick Start builds all holes at once).
-	# Use a timer so we outlast the async terrain generation + hole creation.
-	_is_loading = true
-	get_tree().create_timer(1.0).timeout.connect(_on_setup_complete)
-
-func _on_setup_complete() -> void:
-	_is_loading = false
-	clear_events()
+	# TODO: Suppress hole_created/building_placed/weather_changed events during initial
+	# course setup. Quick Start and new game both emit these signals during async setup
+	# (terrain gen + QuickStartCourse.build()), flooding the feed with simultaneous entries.
+	# Attempted fixes: frame deferral (call_deferred + await) and 1-second timer both fail
+	# due to timing races with main.gd's async _on_new_game_started which also awaits frames.
+	# Possible approaches:
+	#   - Have main.gd emit a "setup_complete" signal after QuickStartCourse.build() finishes
+	#   - Add a flag to SaveManager/GameManager that systems can check during setup
+	#   - Clear events on first game_mode_changed to SIMULATING
 	add_event(Category.COURSE, Priority.NORMAL, "Welcome to %s!" % GameManager.course_name)
 
 func _format_money(amount: int) -> String:
