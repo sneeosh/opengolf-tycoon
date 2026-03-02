@@ -246,16 +246,22 @@ func clear_events() -> void:
 
 func _on_record_broken(record_type: String, golfer_name: String, value: int, hole_number: int) -> void:
 	var msg := ""
+	var nav_type := NavigateType.HOLE
+	var nav_value: Variant = hole_number
 	match record_type:
 		"hole_in_one":
 			msg = "Hole-in-one! %s on Hole #%d" % [golfer_name, hole_number]
-		"lowest_round":
+		"course_record":
 			msg = "Course record! %s shot %d" % [golfer_name, value]
-		"best_hole":
+			nav_type = NavigateType.NONE
+			nav_value = null
+		"hole_record":
 			msg = "Hole record! %s scored %d on Hole #%d" % [golfer_name, value, hole_number]
 		_:
 			msg = "New record by %s: %s" % [golfer_name, record_type]
-	add_event(Category.RECORDS, Priority.HIGH, msg, NavigateType.HOLE, hole_number)
+			nav_type = NavigateType.NONE
+			nav_value = null
+	add_event(Category.RECORDS, Priority.HIGH, msg, nav_type, nav_value)
 
 func _on_money_changed(old_amount: int, new_amount: int) -> void:
 	# Only log significant money milestones
