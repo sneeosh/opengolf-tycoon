@@ -1,5 +1,4 @@
 extends Node
-class_name EventFeedManager
 ## EventFeedManager - Persistent event feed for game history
 ##
 ## Captures important game events from EventBus signals and stores them
