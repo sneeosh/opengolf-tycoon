@@ -80,6 +80,7 @@ var _ff_was_fast: bool = false  # True if we were at FAST or ULTRA speed
 ## Batching: track recent NORMAL events per category per game-hour for dedup at ULTRA
 var _batch_counts: Dictionary = {}  # category -> count this game-hour
 var _batch_hour: float = -1.0  # Game hour of the current batch window
+var _is_loading: bool = false  # Suppress events during save file loading
 
 func _ready() -> void:
 	# Initialize all category filters to visible
@@ -91,6 +92,10 @@ func _ready() -> void:
 
 	# Listen for speed changes to produce summaries
 	EventBus.game_speed_changed.connect(_on_game_speed_changed)
+
+	# Suppress events during load
+	EventBus.load_requested.connect(func(_save_name): _is_loading = true)
+	EventBus.load_completed.connect(func(_success): _is_loading = false)
 
 func _connect_signals() -> void:
 	# Records
@@ -129,8 +134,10 @@ func _connect_signals() -> void:
 ## Add an event to the feed
 func add_event(category: int, priority: int, message: String,
 		navigate_type: int = NavigateType.NONE, navigate_value: Variant = null) -> EventEntry:
-	# Don't log events during main menu
+	# Don't log events during main menu or save loading
 	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+		return null
+	if _is_loading:
 		return null
 
 	# Track fast-forward stats for summary
