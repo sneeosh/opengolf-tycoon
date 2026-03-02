@@ -388,15 +388,13 @@ func _on_end_of_day(day_number: int) -> void:
 func _on_new_game_started() -> void:
 	clear_events()
 	# Suppress events during initial course setup (Quick Start builds all holes at once).
-	# Re-enable after two frames so the setup is complete before we start logging.
+	# Use a timer so we outlast the async terrain generation + hole creation.
 	_is_loading = true
-	_deferred_start_logging.call_deferred()
+	get_tree().create_timer(1.0).timeout.connect(_on_setup_complete)
 
-func _deferred_start_logging() -> void:
-	# Wait one more frame so QuickStartCourse.build() finishes (it awaits frames)
-	await get_tree().process_frame
-	await get_tree().process_frame
+func _on_setup_complete() -> void:
 	_is_loading = false
+	clear_events()
 	add_event(Category.COURSE, Priority.NORMAL, "Welcome to %s!" % GameManager.course_name)
 
 func _format_money(amount: int) -> String:
