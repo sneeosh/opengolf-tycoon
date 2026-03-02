@@ -10,6 +10,7 @@ func initialize(grid: TerrainGrid) -> void:
 	_terrain_grid = grid
 	EventBus.hole_created.connect(_on_hole_created)
 	EventBus.hole_deleted.connect(_on_hole_deleted)
+	EventBus.hole_updated.connect(_on_hole_updated)
 	EventBus.load_completed.connect(_on_load_completed)
 	# Build flags for any existing holes
 	_rebuild_all_flags()
@@ -19,6 +20,8 @@ func _exit_tree() -> void:
 		EventBus.hole_created.disconnect(_on_hole_created)
 	if EventBus.hole_deleted.is_connected(_on_hole_deleted):
 		EventBus.hole_deleted.disconnect(_on_hole_deleted)
+	if EventBus.hole_updated.is_connected(_on_hole_updated):
+		EventBus.hole_updated.disconnect(_on_hole_updated)
 	if EventBus.load_completed.is_connected(_on_load_completed):
 		EventBus.load_completed.disconnect(_on_load_completed)
 
@@ -26,6 +29,9 @@ func _on_hole_created(_hole_number: int, _par: int, _distance_yards: int) -> voi
 	call_deferred("_rebuild_all_flags")
 
 func _on_hole_deleted(_hole_number: int) -> void:
+	call_deferred("_rebuild_all_flags")
+
+func _on_hole_updated(_hole_number: int) -> void:
 	call_deferred("_rebuild_all_flags")
 
 func _on_load_completed(_success: bool) -> void:

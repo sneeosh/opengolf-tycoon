@@ -37,6 +37,9 @@ signal hole_selected(hole_number: int)
 signal hole_deleted(hole_number: int)
 signal hole_toggled(hole_number: int, is_open: bool)
 signal hole_difficulty_changed(hole_number: int, difficulty: float)
+signal pin_position_changed(hole_number: int, old_position: Vector2i, new_position: Vector2i)
+signal hole_tee_moved(hole_number: int, old_position: Vector2i, new_position: Vector2i)
+signal hole_green_moved(hole_number: int, old_position: Vector2i, new_position: Vector2i)
 
 # Golfer Signals
 signal golfer_spawned(golfer_id: int, golfer_name: String)

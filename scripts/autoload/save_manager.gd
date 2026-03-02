@@ -226,6 +226,7 @@ func _serialize_holes(holes: Array) -> Array:
 			"distance_yards": hole.distance_yards,
 			"is_open": hole.is_open,
 			"difficulty_rating": hole.difficulty_rating,
+			"total_revenue": hole.total_revenue,
 		})
 	return result
 
@@ -357,6 +358,7 @@ func _deserialize_holes(holes_data: Array) -> void:
 		hole.distance_yards = int(h.get("distance_yards", 0))
 		hole.is_open = h.get("is_open", true)
 		hole.difficulty_rating = float(h.get("difficulty_rating", 1.0))
+		hole.total_revenue = int(h.get("total_revenue", 0))
 		GameManager.current_course.holes.append(hole)
 
 	GameManager.current_course._recalculate_par()
