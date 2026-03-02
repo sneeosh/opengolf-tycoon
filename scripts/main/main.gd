@@ -2295,9 +2295,9 @@ func _on_day_changed_for_events(_new_day: int) -> void:
 			if event.reputation_bonus > 0:
 				GameManager.modify_reputation(event.reputation_bonus)
 
-func _on_season_changed_notification(old_season: int, new_season: int) -> void:
-	var season_name = SeasonSystem.get_season_name(new_season)
-	EventBus.notify("%s has arrived!" % season_name, "info")
+func _on_season_changed_notification(_old_season: int, _new_season: int) -> void:
+	# Season notifications now handled by EventFeedManager with priority-aware toasts
+	pass
 
 # --- Tutorial ---
 
@@ -2385,17 +2385,11 @@ func _navigate_to_position(pos: Vector2i) -> void:
 	camera.focus_on(world_pos, false)
 
 func _navigate_to_golfer_position(golfer_id: int) -> void:
-	# Find the golfer by ID and pan to their position
 	var golfers_node = $Entities/Golfers
 	if not golfers_node:
 		return
 	for child in golfers_node.get_children():
-		if child.has_method("get_golfer_id") and child.get_golfer_id() == golfer_id:
-			camera.focus_on(child.global_position, false)
-			return
-	# If golfer has a golfer_id property
-	for child in golfers_node.get_children():
-		if "golfer_id" in child and child.golfer_id == golfer_id:
+		if child is Golfer and child.golfer_id == golfer_id:
 			camera.focus_on(child.global_position, false)
 			return
 

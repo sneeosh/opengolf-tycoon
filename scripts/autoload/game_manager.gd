@@ -373,7 +373,6 @@ func check_round_record(golfer_name: String, total_strokes: int) -> bool:
 			golfer_name, total_strokes, current_day, -1
 		)
 		EventBus.record_broken.emit("course_record", golfer_name, total_strokes, -1)
-		EventBus.notify("%s set a new course record: %d strokes!" % [golfer_name, total_strokes], "success")
 		return true
 	return false
 
