@@ -160,12 +160,14 @@ func _build_content() -> void:
 	vbox.add_child(finance_title)
 
 	var entry_cost = tier_data.get("entry_cost", 0)
+	var prize_pool = tier_data.get("prize_pool", 0)
 	var spectator_rev = _results.get("spectator_revenue", 0)
 	var sponsor_rev = _results.get("sponsorship_revenue", 0)
 	var total_rev = _results.get("total_revenue", 0)
-	var net = total_rev - entry_cost
+	var net = total_rev - entry_cost - prize_pool
 
 	vbox.add_child(_create_stat_row("Entry Fee:", "-$%d" % entry_cost, UIConstants.COLOR_DANGER_DIM))
+	vbox.add_child(_create_stat_row("Prize Pool:", "-$%d" % prize_pool, UIConstants.COLOR_DANGER_DIM))
 
 	if spectator_rev > 0:
 		var drama_mult = _results.get("drama_multiplier", 1.0)

@@ -212,6 +212,7 @@ text = ">>"
 [node name="Spacer" type="Control" parent="UI/HUD/BottomBar" unique_id=1837661971]
 layout_mode = 2
 size_flags_horizontal = 3
+mouse_filter = 2
 
 [node name="CoordinateLabel" type="Label" parent="UI/HUD/BottomBar" unique_id=82749080]
 layout_mode = 2

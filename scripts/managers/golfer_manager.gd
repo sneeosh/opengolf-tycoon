@@ -865,6 +865,7 @@ func get_golfer(golfer_id: int) -> Golfer:
 ## Clear all golfers from the course (used when loading saves)
 func clear_all_golfers() -> void:
 	for golfer in active_golfers:
+		EventBus.golfer_left_course.emit(golfer.golfer_id)
 		golfer.queue_free()
 	active_golfers.clear()
 	_groups_dirty = true

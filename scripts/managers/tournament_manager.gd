@@ -347,6 +347,9 @@ func _spawn_next_group() -> void:
 			golfer.aggression = sg.aggression
 			golfer.patience = sg.patience
 			golfer.golfer_name = sg.name
+			# Update the visual name label (set once in _ready, must refresh manually)
+			if golfer.name_label:
+				golfer.name_label.text = sg.name
 
 			_tournament_golfer_ids.append(golfer.golfer_id)
 			var avg_skill = (sg.driving_skill + sg.accuracy_skill + sg.putting_skill + sg.recovery_skill) / 4.0
@@ -487,6 +490,9 @@ func _end_current_day_round() -> void:
 	_record_live_round_results()
 
 	_live_round_active = false
+
+	# Emit any moments collected during live round simulation
+	_emit_moments(_tournament_moments)
 
 	# Emit round completion
 	var standings = _get_standings()
@@ -705,7 +711,7 @@ func _complete_tournament() -> void:
 		"all_entries": all_entries,
 		"rounds_played": current_round,
 		"total_rounds": total_rounds,
-		"moments": _tournament_moments,
+		"moments": _tournament_moments.duplicate(),
 		"cut_golfers": _cut_golfer_ids.size(),
 		"eliminated_golfers": _eliminated_ids.size(),
 	}
@@ -742,8 +748,8 @@ func _complete_tournament() -> void:
 		GameManager.current_speed = _pre_tournament_speed
 		_pre_tournament_speed = -1
 
-	# Emit moment notifications for any remaining
-	_emit_moments(_tournament_moments)
+	# Note: simulated round moments are emitted per-round in _simulate_round_headless().
+	# Live round moments are emitted in _end_current_day_round(). No re-emit needed here.
 
 	# Reset state
 	current_tournament_tier = -1
@@ -759,7 +765,7 @@ func _complete_tournament() -> void:
 	_eliminated_ids.clear()
 	_tournament_moments.clear()
 
-	var score_diff = winning_score - course_par
+	var score_diff = standings[0].score_to_par if not standings.is_empty() else 0
 	var score_text = _format_score_diff(score_diff)
 
 	tournament_completed.emit(completed_tier, tournament_results)
@@ -776,7 +782,7 @@ func simulate_remaining_and_complete() -> void:
 		_end_current_day_round()
 
 	# Simulate all remaining rounds
-	while current_round < total_rounds:
+	while current_round < total_rounds and current_tournament_state == TournamentSystem.TournamentState.IN_PROGRESS:
 		_play_round(current_round + 1)
 
 	# Tournament should be complete after all rounds
@@ -857,8 +863,6 @@ func _calculate_drama_multiplier() -> float:
 				multiplier += 0.10
 			"albatross":
 				multiplier += 0.15
-			"lead_change":
-				multiplier += 0.05
 	return minf(multiplier, 1.5)
 
 ## Emit notifications for dramatic moments

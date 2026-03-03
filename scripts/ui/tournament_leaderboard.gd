@@ -143,6 +143,7 @@ func register_golfer(golfer_id: int, golfer_name: String, sim_id: int = -1) -> v
 		"is_finished": false,
 		"missed_cut": false,
 	})
+	_refresh_display()
 
 ## Update score for a live golfer (per-hole update)
 func update_score(golfer_id: int, _hole: int, strokes: int, par: int) -> void:

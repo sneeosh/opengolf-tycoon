@@ -574,6 +574,7 @@ static func generate_field(tier: int, field_size: int) -> Array:
 			skills.putting = randf_range(0.93, 0.99)
 			skills.recovery = randf_range(0.90, 0.98)
 			skills.miss_tendency = randf_range(-0.08, 0.08)
+			personality = GolferTier.get_personality(golfer_tier)
 			golfer_name = _get_marquee_name(i, used_names)
 			used_names[golfer_name] = true
 
