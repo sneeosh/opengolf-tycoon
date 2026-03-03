@@ -260,14 +260,10 @@ func _create_stat_row(label_text: String, value_text: String, value_color: Color
 	return row
 
 func _get_score_color(diff: int) -> Color:
-	if diff < -1: return UIConstants.COLOR_SCORE_EAGLE
-	if diff == -1: return UIConstants.COLOR_SCORE_BIRDIE
-	if diff == 0: return UIConstants.COLOR_SCORE_PAR
-	if diff == 1: return UIConstants.COLOR_SCORE_BOGEY
-	return UIConstants.COLOR_SCORE_DOUBLE
+	return UIConstants.get_score_color(diff)
 
 func _get_hole_score_color(diff: int) -> Color:
-	return _get_score_color(diff)
+	return UIConstants.get_score_color(diff)
 
 func _get_mood_text(mood: float) -> String:
 	if mood >= 0.8: return "Happy"

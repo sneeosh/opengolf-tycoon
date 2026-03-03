@@ -97,6 +97,10 @@ func _update_display() -> void:
 	var diff_row = _create_stat_row("Difficulty:", "%.1f / 10" % difficulty, diff_color)
 	_content_vbox.add_child(diff_row)
 
+	if _hole_data.stroke_index > 0:
+		var si_row = _create_stat_row("Stroke Index:", str(_hole_data.stroke_index), Color.WHITE)
+		_content_vbox.add_child(si_row)
+
 	_content_vbox.add_child(HSeparator.new())
 
 	# Get hole statistics

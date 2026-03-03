@@ -18,7 +18,7 @@ scripts/
 ├── systems/        # WindSystem, WeatherSystem, CourseRatingSystem, CourseTheme, FeedbackTriggers, GolferTier, TournamentSystem, DayNightSystem, CourseRecords, ShotAI, GolferNeeds, SeasonSystem, MilestoneSystem, TutorialSystem, DifficultyPresets, ColorblindMode
 ├── terrain/        # TerrainGrid, TerrainTypes, TilesetGenerator, + 10 overlay classes
 ├── tools/          # HoleCreationTool, ElevationTool, UndoManager, GenerateTileset
-├── ui/             # 39 UI components (MainMenu, PauseMenu, SettingsMenu, MiniMap, FinancialPanel, MilestonesPanel, HoleStatsPanel, SaveLoadPanel, HotkeyPanel, etc.)
+├── ui/             # 40 UI components (MainMenu, PauseMenu, SettingsMenu, MiniMap, FinancialPanel, MilestonesPanel, HoleStatsPanel, CourseScorecardPanel, SaveLoadPanel, HotkeyPanel, etc.)
 ├── main/           # main.gd (scene controller)
 └── utils/          # IsometricCamera
 scenes/
@@ -70,7 +70,7 @@ Detailed algorithm docs live in **`docs/algorithms/`** — see [`docs/algorithms
 
 **When modifying any algorithm or adding a new one, update the corresponding doc in `docs/algorithms/`.** If adding a new system, create a new markdown file and add it to the README index.
 
-Key docs: [shot-accuracy](docs/algorithms/shot-accuracy.md) · [putting](docs/algorithms/putting-system.md) · [shot-ai](docs/algorithms/shot-ai-target-finding.md) · [ball-physics](docs/algorithms/ball-physics.md) · [wind](docs/algorithms/wind-system.md) · [weather](docs/algorithms/weather-system.md) · [course-rating](docs/algorithms/course-rating.md) · [difficulty](docs/algorithms/difficulty-calculator.md) · [economy](docs/algorithms/economy.md) · [reputation](docs/algorithms/reputation.md) · [golfer-spawning](docs/algorithms/golfer-spawning.md) · [satisfaction](docs/algorithms/satisfaction-feedback.md) · [golfer-needs](docs/algorithms/golfer-needs.md) · [tournaments](docs/algorithms/tournament-system.md) · [day-night](docs/algorithms/day-night-cycle.md)
+Key docs: [shot-accuracy](docs/algorithms/shot-accuracy.md) · [putting](docs/algorithms/putting-system.md) · [shot-ai](docs/algorithms/shot-ai-target-finding.md) · [ball-physics](docs/algorithms/ball-physics.md) · [wind](docs/algorithms/wind-system.md) · [weather](docs/algorithms/weather-system.md) · [course-rating](docs/algorithms/course-rating.md) · [difficulty](docs/algorithms/difficulty-calculator.md) · [stroke-index](docs/algorithms/stroke-index.md) · [economy](docs/algorithms/economy.md) · [reputation](docs/algorithms/reputation.md) · [golfer-spawning](docs/algorithms/golfer-spawning.md) · [satisfaction](docs/algorithms/satisfaction-feedback.md) · [golfer-needs](docs/algorithms/golfer-needs.md) · [tournaments](docs/algorithms/tournament-system.md) · [day-night](docs/algorithms/day-night-cycle.md)
 
 ## Core Systems
 
@@ -127,6 +127,8 @@ Shot error uses an **angular dispersion** model rather than absolute tile offset
 - **HoleCreationTool**: 3-step workflow (tee box → green → flag).
 - Auto-par from yardage: Par 3 <250y, Par 4 250-470y, Par 5 >470y.
 - **DifficultyCalculator**: Per-hole rating (1-10) from length, hazards, slope, obstacles.
+- **StrokeIndexCalculator**: Derives handicap allocation (1=hardest) from difficulty ratings. Front/back nine interleaving for 10+ holes. See [stroke-index docs](docs/algorithms/stroke-index.md).
+- **CourseScorecardPanel**: Full course scorecard (hotkey `K`) showing all holes with par, yardage, stroke index, average scores, and course records. Adaptive layout for ≤9 vs 10+ holes.
 
 ### Tools
 - **ElevationTool**: Raise/lower tiles (-5 to +5). Affects shot distance and ball roll.

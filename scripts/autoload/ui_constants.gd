@@ -189,3 +189,12 @@ static func get_weather_icon(weather_type: int) -> String:
 
 static func get_weather_name(weather_type: int) -> String:
 	return WEATHER_NAMES.get(weather_type, "Unknown")
+
+## Return the appropriate score color for a given score-to-par differential.
+## Used by scorecards, round summaries, and golfer info popups.
+static func get_score_color(diff: int) -> Color:
+	if diff < -1: return COLOR_SCORE_EAGLE
+	if diff == -1: return COLOR_SCORE_BIRDIE
+	if diff == 0: return COLOR_SCORE_PAR
+	if diff == 1: return COLOR_SCORE_BOGEY
+	return COLOR_SCORE_DOUBLE

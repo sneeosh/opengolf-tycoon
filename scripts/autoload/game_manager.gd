@@ -638,6 +638,7 @@ class HoleData:
 	var distance_yards: int = 0
 	var is_open: bool = true  # Whether the hole is open for play
 	var difficulty_rating: float = 1.0  # Hole difficulty (1.0-10.0)
+	var stroke_index: int = 0  # Handicap allocation ranking (1=hardest, N=easiest), derived from difficulty_rating
 	var total_revenue: int = 0  # Cumulative green fee revenue attributed to this hole
 
 ## DailyStatistics - Tracks statistics for the current day
