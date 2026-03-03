@@ -153,11 +153,7 @@ func _on_panel_input(event: InputEvent) -> void:
 		_dismiss_current()
 
 func _get_score_color(diff: int) -> Color:
-	if diff < -1: return UIConstants.COLOR_SCORE_EAGLE
-	if diff == -1: return UIConstants.COLOR_SCORE_BIRDIE
-	if diff == 0: return UIConstants.COLOR_SCORE_PAR
-	if diff == 1: return UIConstants.COLOR_SCORE_BOGEY
-	return UIConstants.COLOR_SCORE_DOUBLE
+	return UIConstants.get_score_color(diff)
 
 func _get_mood_text(mood: float) -> String:
 	if mood >= 0.8: return "Very Happy"

@@ -71,6 +71,7 @@ var milestones_panel: MilestonesPanel = null
 var seasonal_calendar_panel: SeasonalCalendarPanel = null
 var tutorial_system: TutorialSystem = null
 var course_rating_overlay: CourseRatingOverlay = null
+var course_scorecard_panel: CourseScorecardPanel = null
 var shot_heatmap_tracker: ShotHeatmapTracker = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var selected_tree_type: String = "oak"
@@ -81,7 +82,6 @@ var _bulldoze_drag_cost: int = 0
 var placement_preview: PlacementPreview = null
 var main_menu: MainMenu = null
 var event_feed_panel: EventFeedPanel = null
-var _event_feed_badge: Label = null
 
 # Hole context menu and move modes
 enum HoleMoveMode { NONE, MOVING_PIN, MOVING_TEE, MOVING_GREEN }
@@ -203,6 +203,7 @@ func _ready() -> void:
 	_setup_notification_toast()
 	_setup_event_feed()
 	_setup_course_rating_overlay()
+	_setup_course_scorecard_panel()
 	_setup_floating_text()
 	_setup_shot_trails()
 	_setup_shot_heatmap()
@@ -316,6 +317,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_N:
 				_toggle_event_feed()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_K:
+				_toggle_course_scorecard_panel()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_V:
 				if event.shift_pressed:
@@ -540,7 +544,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard", "CourseRatingOverlay", "EventFeedPanel"]
+	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard", "CourseRatingOverlay", "EventFeedPanel", "CourseScorecardPanel"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -859,6 +863,9 @@ func _stop_painting() -> void:
 		undo_manager.end_stroke()
 
 func _paint_at_mouse() -> void:
+	# Guard: don't paint with invalid or EMPTY terrain type
+	if current_tool <= TerrainTypes.Type.EMPTY:
+		return
 	var mouse_world = camera.get_mouse_world_position()
 	var grid_pos = terrain_grid.screen_to_grid(mouse_world)
 	if grid_pos == last_paint_pos: return
@@ -1046,6 +1053,7 @@ func _on_day_changed(_new_day: int) -> void:
 	pass
 
 func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
+	StrokeIndexCalculator.recalculate_for_course()
 	var row = HBoxContainer.new()
 	row.name = "HoleRow%d" % hole_number
 
@@ -1100,8 +1108,10 @@ func _on_hole_deleted(hole_number: int) -> void:
 	# Rebuild the hole list to reflect renumbered holes
 	_rebuild_hole_list()
 	_update_top_bar_rating()
+	StrokeIndexCalculator.recalculate_for_course()
 
 func _on_hole_toggled(hole_number: int, is_open: bool) -> void:
+	StrokeIndexCalculator.recalculate_for_course()
 	var row_name = "HoleRow%d" % hole_number
 	if hole_list.has_node(row_name):
 		var row = hole_list.get_node(row_name)
@@ -1787,6 +1797,8 @@ func _on_load_completed(_success: bool) -> void:
 		# Sync hole creation tool so the next hole gets the correct number
 		if GameManager.current_course:
 			hole_tool.current_hole_number = GameManager.current_course.holes.size() + 1
+		# Recalculate derived stroke indices from loaded difficulty ratings
+		StrokeIndexCalculator.recalculate_for_course()
 		# Regenerate tileset with loaded theme colors
 		if terrain_grid:
 			terrain_grid.regenerate_tileset()
@@ -2701,6 +2713,53 @@ func _setup_seasonal_calendar() -> void:
 func _toggle_seasonal_calendar() -> void:
 	_toggle_panel(seasonal_calendar_panel)
 
+# --- Course Scorecard ---
+
+func _setup_course_scorecard_panel() -> void:
+	course_scorecard_panel = CourseScorecardPanel.new()
+	course_scorecard_panel.name = "CourseScorecardPanel"
+	course_scorecard_panel.close_requested.connect(func():
+		course_scorecard_panel.hide()
+		_active_panel = null
+	)
+	$UI/HUD.add_child(course_scorecard_panel)
+
+	# Add scorecard button to bottom bar
+	var bottom_bar = $UI/HUD/BottomBar
+	var scorecard_btn = Button.new()
+	scorecard_btn.name = "ScorecardBtn"
+	scorecard_btn.text = "Scorecard"
+	scorecard_btn.tooltip_text = "Course scorecard (K)"
+	scorecard_btn.pressed.connect(_toggle_course_scorecard_panel)
+	bottom_bar.add_child(scorecard_btn)
+
+	# Refresh scorecard when holes, scores, or records change
+	EventBus.hole_created.connect(func(_num, _par, _dist):
+		if course_scorecard_panel.visible:
+			course_scorecard_panel.refresh()
+	)
+	EventBus.hole_deleted.connect(func(_num):
+		if course_scorecard_panel.visible:
+			course_scorecard_panel.refresh()
+	)
+	EventBus.hole_toggled.connect(func(_num, _open):
+		if course_scorecard_panel.visible:
+			course_scorecard_panel.refresh()
+	)
+	EventBus.golfer_finished_hole.connect(func(_id, _hole, _strokes, _par):
+		if course_scorecard_panel.visible:
+			course_scorecard_panel.refresh()
+	)
+	EventBus.record_broken.connect(func(_type, _name, _val, _hole):
+		if course_scorecard_panel.visible:
+			course_scorecard_panel.refresh()
+	)
+
+func _toggle_course_scorecard_panel() -> void:
+	if course_scorecard_panel and not course_scorecard_panel.visible:
+		course_scorecard_panel.refresh()
+	_toggle_panel(course_scorecard_panel)
+
 func _on_day_changed_for_events(_new_day: int) -> void:
 	# Check if there's a seasonal event starting today
 	var event = SeasonalEvents.get_active_event(_new_day)
@@ -2756,28 +2815,18 @@ func _setup_event_feed() -> void:
 			event_feed_panel.append_event(entry)
 	)
 
-	# Add feed button with unread badge to bottom bar
+	# Add feed button with inline unread badge to bottom bar
 	var bottom_bar = $UI/HUD/BottomBar
-	var feed_container = HBoxContainer.new()
-	feed_container.add_theme_constant_override("separation", 0)
-	bottom_bar.add_child(feed_container)
-
 	var feed_btn = Button.new()
 	feed_btn.name = "EventFeedBtn"
 	feed_btn.text = "Feed"
 	feed_btn.tooltip_text = "Event feed (N)"
 	feed_btn.pressed.connect(_toggle_event_feed)
-	feed_container.add_child(feed_btn)
-
-	_event_feed_badge = Label.new()
-	_event_feed_badge.text = ""
-	_event_feed_badge.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-	_event_feed_badge.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
-	feed_container.add_child(_event_feed_badge)
+	bottom_bar.add_child(feed_btn)
 
 	EventFeedManager.unread_count_changed.connect(func(count: int):
-		if _event_feed_badge:
-			_event_feed_badge.text = " (%d)" % count if count > 0 else ""
+		if feed_btn:
+			feed_btn.text = "Feed (%d)" % count if count > 0 else "Feed"
 	)
 
 func _toggle_event_feed() -> void:

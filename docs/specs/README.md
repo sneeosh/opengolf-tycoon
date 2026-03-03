@@ -21,7 +21,7 @@ This document reviews the current game state and proposes specs that should be w
 | 7 | Audio Design Document | [`audio-design.md`](audio-design.md) | MEDIUM | Proposal |
 | 8 | Notification & Event Feed | [`completed/notification-event-feed.md`](completed/notification-event-feed.md) | MEDIUM | Completed |
 | 9 | Expanded Decorations & Aesthetics | [`expanded-decorations-aesthetic-rating.md`](expanded-decorations-aesthetic-rating.md) | MEDIUM | Proposal |
-| 10 | Course Scorecard & Hole Handicaps | [`course-scorecard-hole-handicaps.md`](course-scorecard-hole-handicaps.md) | MEDIUM | Proposal |
+| 10 | Course Scorecard & Hole Handicaps | [`completed/course-scorecard-hole-handicaps.md`](completed/course-scorecard-hole-handicaps.md) | MEDIUM | Completed |
 | 11 | Golfer Visual Differentiation | [`golfer-visual-differentiation.md`](golfer-visual-differentiation.md) | MEDIUM | Proposal |
 | 12 | Visual Polish (Sprites/Art) | [`visual-polish.md`](visual-polish.md) | MEDIUM | Proposal |
 | 13 | Pathfinding Upgrade (A*) | [`pathfinding-upgrade.md`](pathfinding-upgrade.md) | MEDIUM-LOW | Proposal |

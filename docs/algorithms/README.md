@@ -19,6 +19,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 
 ### Course Design
 - [Difficulty Calculator](difficulty-calculator.md) — Per-hole difficulty from hazards, elevation, doglegs, green size, landing zones
+- [Stroke Index](stroke-index.md) — Hole handicap allocation (1=hardest) derived from difficulty ratings, front/back nine interleaving
 - [Course Rating (Stars)](course-rating.md) — 4-category weighted rating: condition, design, value, pace. Slope and course rating
 
 ### Economy & Progression
