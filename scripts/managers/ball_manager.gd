@@ -21,6 +21,7 @@ func _ready() -> void:
 	EventBus.golfer_started_hole.connect(_on_golfer_started_hole)
 	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole)
 	EventBus.golfer_finished_round.connect(_on_golfer_finished_round)
+	EventBus.golfer_left_course.connect(_on_golfer_left_course)
 	EventBus.hazard_penalty.connect(_on_hazard_penalty)
 	EventBus.ball_in_hole.connect(_on_ball_in_hole)
 
@@ -37,6 +38,8 @@ func _exit_tree() -> void:
 		EventBus.golfer_finished_hole.disconnect(_on_golfer_finished_hole)
 	if EventBus.golfer_finished_round.is_connected(_on_golfer_finished_round):
 		EventBus.golfer_finished_round.disconnect(_on_golfer_finished_round)
+	if EventBus.golfer_left_course.is_connected(_on_golfer_left_course):
+		EventBus.golfer_left_course.disconnect(_on_golfer_left_course)
 	if EventBus.hazard_penalty.is_connected(_on_hazard_penalty):
 		EventBus.hazard_penalty.disconnect(_on_hazard_penalty)
 	if EventBus.ball_in_hole.is_connected(_on_ball_in_hole):
@@ -341,4 +344,8 @@ func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 
 func _on_golfer_finished_round(golfer_id: int, _total_strokes: int, _total_par: int) -> void:
 	# Remove ball when golfer finishes their round
+	remove_ball(golfer_id)
+
+func _on_golfer_left_course(golfer_id: int) -> void:
+	# Clean up any orphaned ball when a golfer is removed from the course
 	remove_ball(golfer_id)
