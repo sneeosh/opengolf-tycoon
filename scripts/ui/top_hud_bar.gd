@@ -241,7 +241,7 @@ func _update_money() -> void:
 	var gm = get_node("/root/GameManager")
 	var money = gm.get("money")
 	if money == null:
-		money = 50000
+		money = GameManager.DEFAULT_STARTING_MONEY
 
 	_money_button.text = "$ %s" % _format_number(money)
 

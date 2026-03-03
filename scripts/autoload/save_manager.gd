@@ -151,6 +151,8 @@ func _build_save_data() -> Dictionary:
 			"theme": CourseTheme.to_string_name(GameManager.current_theme),
 			"loan_balance": GameManager.loan_balance,
 			"difficulty": DifficultyPresets.to_string_name(GameManager.current_difficulty),
+			"stagnation_hole_count": GameManager._stagnation_hole_count,
+			"stagnation_day_started": GameManager._stagnation_day_started,
 		},
 	}
 
@@ -246,12 +248,14 @@ func _apply_save_data(data: Dictionary) -> void:
 	# Game state (with fallbacks for older save versions)
 	var game = data.get("game_state", data)  # v1 had flat structure
 	GameManager.course_name = game.get("course_name", "Loaded Course")
-	GameManager.money = int(game.get("money", 50000))
-	GameManager.reputation = clampf(float(game.get("reputation", 50.0)), 0.0, 100.0)
+	GameManager.money = int(game.get("money", GameManager.DEFAULT_STARTING_MONEY))
+	GameManager.reputation = clampf(float(game.get("reputation", GameManager.DEFAULT_STARTING_REPUTATION)), 0.0, 100.0)
 	GameManager.current_day = max(1, int(game.get("current_day", 1)))
 	GameManager.current_hour = clampf(float(game.get("current_hour", 6.0)), 0.0, GameManager.HOURS_PER_DAY)
 	GameManager.green_fee = clamp(int(game.get("green_fee", 30)), GameManager.MIN_GREEN_FEE, GameManager.MAX_GREEN_FEE)
 	GameManager.loan_balance = int(game.get("loan_balance", 0))
+	GameManager._stagnation_hole_count = int(game.get("stagnation_hole_count", 0))
+	GameManager._stagnation_day_started = int(game.get("stagnation_day_started", 1))
 
 	# Restore difficulty preset (defaults to Normal for older saves)
 	var diff_name = game.get("difficulty", "normal")

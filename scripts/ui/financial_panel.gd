@@ -112,6 +112,16 @@ func update_display() -> void:
 	fee_info.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	_content_vbox.add_child(fee_info)
 
+	# Green fee pricing feedback
+	var fee_warning = _get_green_fee_warning()
+	if fee_warning != "":
+		var warning_label = Label.new()
+		warning_label.text = "  ! " + fee_warning
+		warning_label.add_theme_font_size_override("font_size", 11)
+		warning_label.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
+		warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_content_vbox.add_child(warning_label)
+
 	_content_vbox.add_child(HSeparator.new())
 
 	# Today's Revenue
@@ -344,6 +354,20 @@ func _create_stat_row(label_text: String, value_text: String, value_color: Color
 	row.add_child(value)
 
 	return row
+
+func _get_green_fee_warning() -> String:
+	var hole_count = GameManager.get_open_hole_count()
+	if hole_count <= 0:
+		return ""
+	var total_round_cost = GameManager.green_fee * max(hole_count, 1)
+	var hole_factor = clampf(float(hole_count) / 18.0, 0.15, 1.0)
+	var fair_price = max(GameManager.reputation * 2.0, 20.0) * hole_factor
+	var price_ratio = float(total_round_cost) / max(fair_price, 1.0)
+	if price_ratio > 2.0:
+		return "Green fee is very overpriced for course quality. Golfers will avoid your course."
+	elif price_ratio > 1.5:
+		return "Green fee appears overpriced. Consider lowering to attract more golfers."
+	return ""
 
 func _on_close_pressed() -> void:
 	close_requested.emit()

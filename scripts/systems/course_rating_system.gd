@@ -249,10 +249,16 @@ static func _calculate_value_rating(green_fee: int, reputation: float) -> float:
 
 	var price_ratio = float(total_round_cost) / max(fair_price, 1.0)
 
+	# Apply difficulty-based green fee sensitivity
+	# Higher sensitivity makes overpricing hurt the value rating more
+	var diff_mods := DifficultyPresets.get_modifiers(GameManager.current_difficulty)
+	var sensitivity: float = diff_mods.get("green_fee_sensitivity", 1.0)
+	var adjusted_ratio = 0.5 + (price_ratio - 0.5) * sensitivity
+
 	# 0.5x fair price = 5 stars (great value)
 	# 1.0x fair price = 3 stars (fair)
 	# 2.0x fair price = 1 star (overpriced)
-	var rating = 5.0 - (price_ratio - 0.5) * 2.67
+	var rating = 5.0 - (adjusted_ratio - 0.5) * 2.67
 	return clampf(rating, 1.0, 5.0)
 
 ## Pace rating: based on bogeys_or_worse ratio (proxy for slow play)

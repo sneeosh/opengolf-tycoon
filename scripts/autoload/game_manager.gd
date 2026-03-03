@@ -14,13 +14,28 @@ var current_theme: int = CourseTheme.Type.PARKLAND
 var current_difficulty: int = DifficultyPresets.Preset.NORMAL
 var colorblind_mode: int = ColorblindMode.Mode.OFF
 var invert_zoom_scroll: bool = false
-var money: int = 50000
-var reputation: float = 50.0
+# Default starting values (overridden by difficulty preset in new_game)
+const DEFAULT_STARTING_MONEY: int = 25000
+const DEFAULT_STARTING_REPUTATION: float = 50.0
+
+# Operating cost constants
+const BASE_DAILY_OVERHEAD: int = 50
+const PER_HOLE_DAILY_COST: int = 30
+
+var money: int = DEFAULT_STARTING_MONEY
+var reputation: float = DEFAULT_STARTING_REPUTATION
 var current_day: int = 1
 var current_hour: float = 6.0
 
 # Reputation decay scales with course quality (stars)
 const REPUTATION_DAILY_DECAY: float = 0.5  # Baseline at 3 stars
+
+# Stagnation penalty: prevents coasting on few holes forever
+const STAGNATION_DAYS_THRESHOLD: int = 28
+const STAGNATION_DECAY_PENALTY: float = 0.3
+const STAGNATION_REPUTATION_FLOOR: float = 40.0
+var _stagnation_hole_count: int = 0
+var _stagnation_day_started: int = 1
 
 # Loan system
 var loan_balance: int = 0
@@ -30,6 +45,10 @@ const LOAN_INTEREST_RATE: float = 0.05  # 5% per 7-day period
 # Historical daily statistics (rolling 30-day window, persisted)
 var daily_history: Array = []
 const MAX_DAILY_HISTORY: int = 30
+
+# Economic snapshot logging (for balance analysis, disabled by default)
+var economic_snapshots_enabled: bool = false
+const SNAPSHOT_PATH: String = "user://economic_snapshots.json"
 
 # Green fee pricing
 var green_fee: int = 10  # Default $10/hole (auto-clamped by hole count)
@@ -285,6 +304,39 @@ func _archive_daily_stats() -> void:
 	daily_history.append(entry)
 	while daily_history.size() > MAX_DAILY_HISTORY:
 		daily_history.pop_front()
+	_log_economic_snapshot()
+
+func _log_economic_snapshot() -> void:
+	if not economic_snapshots_enabled:
+		return
+	var snapshot = {
+		"day": current_day,
+		"money": money,
+		"revenue": daily_stats.get_total_revenue(),
+		"costs": daily_stats.operating_costs,
+		"profit": daily_stats.get_profit(),
+		"reputation": reputation,
+		"golfers_served": daily_stats.golfers_served,
+		"overall_rating": course_rating.get("overall", 3.0),
+		"stars": course_rating.get("stars", 3),
+		"hole_count": get_open_hole_count(),
+		"green_fee": green_fee,
+		"loan_balance": loan_balance,
+		"difficulty": DifficultyPresets.to_string_name(current_difficulty),
+	}
+	var snapshots: Array = []
+	if FileAccess.file_exists(SNAPSHOT_PATH):
+		var file = FileAccess.open(SNAPSHOT_PATH, FileAccess.READ)
+		if file:
+			var existing = JSON.parse_string(file.get_as_text())
+			file.close()
+			if existing is Array:
+				snapshots = existing
+	snapshots.append(snapshot)
+	var file = FileAccess.open(SNAPSHOT_PATH, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(snapshots, "\t"))
+		file.close()
 
 func modify_reputation(amount: float) -> void:
 	var old_rep = reputation
@@ -395,10 +447,10 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 
 	# Apply difficulty preset modifiers
 	var diff_mods := DifficultyPresets.get_modifiers(difficulty)
-	money = diff_mods.get("starting_money", 50000)
+	money = diff_mods.get("starting_money", DEFAULT_STARTING_MONEY)
 	bankruptcy_threshold = diff_mods.get("bankruptcy_threshold", -1000)
 
-	reputation = 50.0
+	reputation = DEFAULT_STARTING_REPUTATION
 	current_day = 1
 	current_hour = COURSE_OPEN_HOUR
 
@@ -419,6 +471,8 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 		shot_heatmap_tracker.clear()
 	loan_balance = 0
 	daily_history.clear()
+	_stagnation_hole_count = 0
+	_stagnation_day_started = 1
 
 	# Apply theme colors to tileset generator (with colorblind remapping if active)
 	var base_colors := CourseTheme.get_terrain_colors(theme)
@@ -487,6 +541,15 @@ func advance_to_next_day() -> void:
 		var diff_mods := DifficultyPresets.get_modifiers(current_difficulty)
 		decay *= diff_mods.get("reputation_decay_multiplier", 1.0)
 		modify_reputation(-decay)
+
+	# Stagnation penalty: courses that don't expand slowly lose reputation
+	var current_hole_count = get_open_hole_count()
+	if current_hole_count != _stagnation_hole_count:
+		_stagnation_hole_count = current_hole_count
+		_stagnation_day_started = current_day
+	var stagnation_days = current_day - _stagnation_day_started
+	if stagnation_days > STAGNATION_DAYS_THRESHOLD and reputation > STAGNATION_REPUTATION_FLOOR:
+		modify_reputation(-STAGNATION_DECAY_PENALTY)
 
 	# Loan interest compounds every 7 days
 	if current_day % 7 == 0:
@@ -710,8 +773,8 @@ class DailyStatistics:
 		var season_mod = SeasonSystem.get_maintenance_modifier(season)
 		terrain_maintenance = int(terrain_cost * season_mod)
 
-		# Base operating cost: $50 + $25 per hole
-		base_operating_cost = 50 + (hole_count * 25)
+		# Base operating cost
+		base_operating_cost = GameManager.BASE_DAILY_OVERHEAD + (hole_count * GameManager.PER_HOLE_DAILY_COST)
 
 		# Staff wages based on tier
 		var tier_data = GameManager.STAFF_TIER_DATA.get(GameManager.current_staff_tier, {})

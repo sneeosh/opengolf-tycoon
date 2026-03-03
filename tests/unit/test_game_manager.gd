@@ -212,7 +212,7 @@ func test_new_game_resets_state() -> void:
 
 	GameManager.new_game("Test Course")
 
-	assert_eq(GameManager.money, 50000, "Money should reset to 50000")
+	assert_eq(GameManager.money, GameManager.DEFAULT_STARTING_MONEY, "Money should reset to default")
 	assert_eq(GameManager.reputation, 50.0, "Reputation should reset to 50")
 	assert_eq(GameManager.current_day, 1, "Day should reset to 1")
 	assert_eq(GameManager.course_name, "Test Course", "Course name should be set")

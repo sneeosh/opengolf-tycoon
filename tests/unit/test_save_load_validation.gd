@@ -73,8 +73,8 @@ func test_green_fee_preserved_when_valid() -> void:
 
 func test_missing_money_key_uses_default() -> void:
 	var game = {}
-	var money = int(game.get("money", 50000))
-	assert_eq(money, 50000, "Missing money should default to 50000")
+	var money = int(game.get("money", GameManager.DEFAULT_STARTING_MONEY))
+	assert_eq(money, GameManager.DEFAULT_STARTING_MONEY, "Missing money should default to starting money")
 
 func test_missing_reputation_uses_default() -> void:
 	var game = {}
@@ -91,7 +91,7 @@ func test_null_value_for_money_uses_default() -> void:
 	# dict.get() returns null (not the default) when the key exists with value null.
 	# int(null) crashes in Godot 4, so production code should guard against this.
 	var game = {"money": null}
-	var raw = game.get("money", 50000)
+	var raw = game.get("money", GameManager.DEFAULT_STARTING_MONEY)
 	assert_true(raw == null, "get() returns null when key exists with null value, not the default")
 
 
@@ -123,11 +123,11 @@ func test_game_state_survives_json_roundtrip() -> void:
 func test_empty_game_state_uses_all_defaults() -> void:
 	var game = {}
 	var course_name = game.get("course_name", "Loaded Course")
-	var money = int(game.get("money", 50000))
-	var reputation = clampf(float(game.get("reputation", 50.0)), 0.0, 100.0)
+	var money = int(game.get("money", GameManager.DEFAULT_STARTING_MONEY))
+	var reputation = clampf(float(game.get("reputation", GameManager.DEFAULT_STARTING_REPUTATION)), 0.0, 100.0)
 	var day = max(1, int(game.get("current_day", 1)))
 
 	assert_eq(course_name, "Loaded Course")
-	assert_eq(money, 50000)
+	assert_eq(money, GameManager.DEFAULT_STARTING_MONEY)
 	assert_almost_eq(reputation, 50.0, 0.01)
 	assert_eq(day, 1)

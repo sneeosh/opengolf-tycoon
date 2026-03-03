@@ -4,7 +4,7 @@
 
 ## Plain English
 
-The economy system governs how money flows in and out of the golf course business. Players start with $50,000 (adjustable by difficulty preset) and must balance revenue against operating costs. If money drops below the bankruptcy threshold (-$1,000 by default), the player goes bankrupt.
+The economy system governs how money flows in and out of the golf course business. Players start with $25,000 on Normal difficulty (adjustable by difficulty preset) and must balance revenue against operating costs. If money drops below the bankruptcy threshold (-$1,000 by default), the player goes bankrupt.
 
 ### Revenue Sources
 
@@ -20,7 +20,7 @@ The economy system governs how money flows in and out of the golf course busines
 
 1. **Terrain maintenance** — Based on the actual tiles on the course, scaled by seasonal modifier (higher in summer when grass grows faster).
 
-2. **Base operating cost** — A fixed daily cost: $50 + $25 per hole.
+2. **Base operating cost** — A fixed daily cost: $50 + $30 per hole.
 
 3. **Staff wages** — Per-hole cost based on staff tier: Part-Time $5, Full-Time $10, Premium $20 per hole.
 
@@ -41,7 +41,7 @@ The green fee creates a tension between revenue and golfer attraction. Higher fe
 ### 1. Starting Money & Bankruptcy
 
 ```
-starting_money       = 50000    # Modified by difficulty preset
+starting_money       = 25000    # Modified by difficulty preset (Easy: 40K, Hard: 15K)
 bankruptcy_threshold = -1000    # Modified by difficulty preset
 
 # Can afford check (blocks spending at threshold, not at $0)
@@ -81,7 +81,7 @@ season_mod = SeasonSystem.get_maintenance_modifier(season)
 terrain_maintenance = terrain_tile_cost * season_mod
 
 # Base cost (fixed + per-hole)
-base_operating_cost = 50 + (hole_count * 25)
+base_operating_cost = 50 + (hole_count * 30)
 
 # Staff wages (per-hole, by tier)
 staff_wages = hole_count * cost_per_hole
@@ -142,16 +142,32 @@ if can_afford(amount):
 multiplier = theme_maintenance_multiplier * difficulty_maintenance_multiplier
 ```
 
+### 8. Difficulty Presets
+
+| Parameter | Easy | Normal | Hard |
+| --- | --- | --- | --- |
+| Starting money | $40,000 | $25,000 | $15,000 |
+| Maintenance multiplier | 0.8x | 1.0x | 1.3x |
+| Spawn rate multiplier | 1.2x | 1.0x | 0.8x |
+| Reputation decay multiplier | 0.5x | 1.0x | 2.0x |
+| Bankruptcy threshold | -$5,000 | -$1,000 | $0 |
+| Green fee sensitivity | 0.7x | 1.0x | 1.5x |
+| Building cost multiplier | 0.8x | 1.0x | 1.2x |
+
+Green fee sensitivity scales how harshly overpricing is penalized in the value
+rating (see [course-rating.md](course-rating.md)). Higher = overpricing hurts more.
+
 ### Tuning Levers
 
 | Parameter | Location | Current Value | Effect |
 | --- | --- | --- | --- |
-| Starting money | `game_manager.gd:18` | $50,000 | Higher = easier start |
-| Bankruptcy threshold | `game_manager.gd:39` | -$1,000 | Lower = more debt allowed |
-| Min green fee | `game_manager.gd:35` | $10 | Floor for pricing |
-| Max green fee | `game_manager.gd:36` | $200 | Ceiling for pricing |
-| Fee per hole cap | `game_manager.gd:318` | $15/hole | Higher = more pricing freedom |
-| Base operating cost | `game_manager.gd:683` | $50 + $25/hole | Higher = more expensive to run |
-| Max loan | `game_manager.gd:27` | $50,000 | Higher = more emergency funding |
-| Loan interest rate | `game_manager.gd:28` | 5% per 7 days | Higher = faster debt spiral |
-| Staff costs | `game_manager.gd:44-66` | $5/$10/$20 per hole | Higher = more expensive staff |
+| Starting money | `difficulty_presets.gd` | $40K/$25K/$15K | Higher = easier start |
+| Bankruptcy threshold | `difficulty_presets.gd` | -$5K/-$1K/$0 | Lower = more debt allowed |
+| Min green fee | `game_manager.gd` | $10 | Floor for pricing |
+| Max green fee | `game_manager.gd` | $200 | Ceiling for pricing |
+| Fee per hole cap | `game_manager.gd` | $15/hole | Higher = more pricing freedom |
+| Base operating cost | `game_manager.gd` | $50 + $30/hole | Higher = more expensive to run |
+| Max loan | `game_manager.gd` | $50,000 | Higher = more emergency funding |
+| Loan interest rate | `game_manager.gd` | 5% per 7 days | Higher = faster debt spiral |
+| Staff costs | `game_manager.gd` | $5/$10/$20 per hole | Higher = more expensive staff |
+| Green fee sensitivity | `difficulty_presets.gd` | 0.7/1.0/1.5 | Higher = overpricing penalized more |

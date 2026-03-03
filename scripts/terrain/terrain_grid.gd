@@ -224,9 +224,13 @@ func begin_batch() -> void:
 	_batch_mode = true
 	_batch_changes.clear()
 
-## End batch mode — emit all deferred signals at once
+## End batch mode — update TileMapLayer visuals and emit deferred signals
 func end_batch() -> void:
 	_batch_mode = false
+	# Update TileMapLayer visuals for all changed tiles (skipped during batch)
+	for change in _batch_changes:
+		_update_tile_with_neighbors(change.pos)
+	# Emit deferred signals so overlays update
 	for change in _batch_changes:
 		tile_changed.emit(change.pos, change.old_type, change.new_type)
 		EventBus.terrain_tile_changed.emit(change.pos, change.old_type, change.new_type)

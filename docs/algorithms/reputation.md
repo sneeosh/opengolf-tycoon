@@ -62,6 +62,21 @@ if reputation > 0:
 | 4 | -0.25/day | -7.5 points |
 | 5 | -0.1/day | -3 points |
 
+### 2b. Stagnation Penalty
+
+If the player maintains the same hole count for more than 28 consecutive days
+and reputation is above 40, an additional -0.3/day decay is applied. This
+prevents coasting on a small number of holes indefinitely — golfers get bored
+of the same course layout.
+
+```
+if stagnation_days > 28 and reputation > 40:
+    reputation -= 0.3
+```
+
+The stagnation counter resets whenever the open hole count changes (new hole
+built or existing hole removed).
+
 ### 3. Per-Golfer Reputation Gain
 
 Called when a golfer finishes their round:
@@ -143,3 +158,6 @@ Reputation influences several systems:
 | Unhappy mood threshold | `golfer_manager.gd:800` | 0.4 | Higher = more golfers hurt reputation |
 | Neutral gain multiplier | `golfer_manager.gd:799` | 0.25 | Higher = more rep from neutral golfers |
 | Tournament rep rewards | `tournament_system.gd:35-77` | 15/40/100/300 | Higher = more tournament incentive |
+| Stagnation threshold | `game_manager.gd` | 28 days | Lower = faster pressure to expand |
+| Stagnation penalty | `game_manager.gd` | -0.3/day | Higher = more punishing to coast |
+| Stagnation rep floor | `game_manager.gd` | 40.0 | Lower = penalty applies at lower rep |

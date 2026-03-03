@@ -14,36 +14,36 @@ static func get_modifiers(preset: int) -> Dictionary:
 			return {
 				"name": "Easy",
 				"description": "Relaxed pace. More starting money, forgiving costs, slower reputation decay.",
-				"starting_money": 75000,
-				"maintenance_multiplier": 0.6,
-				"spawn_rate_multiplier": 1.3,
+				"starting_money": 40000,
+				"maintenance_multiplier": 0.8,
+				"spawn_rate_multiplier": 1.2,
 				"reputation_decay_multiplier": 0.5,
-				"bankruptcy_threshold": -2000,
-				"green_fee_tolerance_bonus": 0.15,  # Golfers tolerate higher fees
+				"bankruptcy_threshold": -5000,
+				"green_fee_sensitivity": 0.7,  # Overpricing penalized less harshly
 				"building_cost_multiplier": 0.8,
 			}
 		Preset.HARD:
 			return {
 				"name": "Hard",
 				"description": "Tight budget, costly upkeep, demanding golfers. For experienced players.",
-				"starting_money": 35000,
-				"maintenance_multiplier": 1.4,
+				"starting_money": 15000,
+				"maintenance_multiplier": 1.3,
 				"spawn_rate_multiplier": 0.8,
-				"reputation_decay_multiplier": 1.5,
-				"bankruptcy_threshold": -500,
-				"green_fee_tolerance_bonus": -0.10,  # Golfers are pickier about fees
+				"reputation_decay_multiplier": 2.0,
+				"bankruptcy_threshold": 0,
+				"green_fee_sensitivity": 1.5,  # Overpricing penalized more harshly
 				"building_cost_multiplier": 1.2,
 			}
 		_:  # NORMAL
 			return {
 				"name": "Normal",
 				"description": "Balanced challenge. The standard experience.",
-				"starting_money": 50000,
+				"starting_money": 25000,
 				"maintenance_multiplier": 1.0,
 				"spawn_rate_multiplier": 1.0,
 				"reputation_decay_multiplier": 1.0,
 				"bankruptcy_threshold": -1000,
-				"green_fee_tolerance_bonus": 0.0,
+				"green_fee_sensitivity": 1.0,
 				"building_cost_multiplier": 1.0,
 			}
 
