@@ -70,6 +70,7 @@ func _build_ui() -> void:
 	])
 
 	_add_section(vbox, "Management Panels", [
+		["F", "Finances"],
 		["P", "Staff"],
 		["U", "Tournaments"],
 		["L", "Land"],

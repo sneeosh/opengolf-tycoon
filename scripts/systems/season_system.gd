@@ -41,9 +41,9 @@ static func get_spawn_modifier(season: int) -> float:
 static func get_maintenance_modifier(season: int) -> float:
 	match season:
 		Season.SPRING: return 1.1
-		Season.SUMMER: return 1.4
-		Season.FALL: return 0.7
-		Season.WINTER: return 1.1
+		Season.SUMMER: return 1.2
+		Season.FALL: return 0.8
+		Season.WINTER: return 1.0
 	return 1.0
 
 ## Cumulative weather probability thresholds per season

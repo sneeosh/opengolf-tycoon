@@ -163,6 +163,11 @@ Shot error uses an **angular dispersion** model rather than absolute tile offset
   4. Connect `canceled` and `confirmed` signals to cleanup function that frees dialog and sets reference to null
   5. In selection callbacks, also free dialog and set reference to null
 
+## MCP Servers
+
+- **Godot MCP** (`.mcp.json`): Editor integration for scene/node manipulation, running the game, screenshots, etc.
+- **PixelLab MCP** (`.mcp.json`): AI pixel art generation for isometric tilesets, characters, animations, and wang tilesets. API key (`PIXELLAB_SECRET`) is set in `~/.bashrc`.
+
 ## Build & Export
 
 - **4 export targets** in `export_presets.cfg`: Windows, macOS, Linux, Web
@@ -183,6 +188,14 @@ make test          # Using Makefile
 **Override Godot path:** `make test GODOT=/path/to/godot` or `GODOT=/path/to/godot ./test.sh`
 
 **User preference:** Run Godot tests manually via the editor (faster execution than CLI).
+
+## Playtesting
+
+When running the game for playtesting via the Godot MCP tools:
+1. Use **Quick Start** to generate a 9-hole course instantly
+2. Click **Start Day** then click **>>** twice to reach **>>> (ULTRA, 8x speed)** — a full game day completes in ~90 seconds of real time
+3. Speed tiers: `>` = Normal (1x), `>>` = Fast (3x), `>>>` = Ultra (8x). Speed uses `Engine.time_scale` so all systems (golfer movement, ball flight, tweens) scale uniformly.
+4. Playtest findings should be logged in `playtest_findings.md` at the project root
 
 ## Development Notes
 

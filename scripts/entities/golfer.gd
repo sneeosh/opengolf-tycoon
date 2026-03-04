@@ -977,7 +977,13 @@ func take_shot(target: Vector2i) -> void:
 
 ## Finish current hole
 func finish_hole(par: int) -> void:
-	hole_scores.append({"hole": current_hole, "strokes": current_strokes, "par": par})
+	# Resolve 1-based hole_number from course data (current_hole is a 0-based index)
+	var _hole_number := current_hole + 1
+	var _cd = GameManager.course_data
+	if _cd and current_hole < _cd.holes.size():
+		_hole_number = _cd.holes[current_hole].hole_number
+
+	hole_scores.append({"hole": _hole_number, "strokes": current_strokes, "par": par})
 	total_strokes += current_strokes
 	total_par += par
 	previous_hole_strokes = current_strokes  # Store for honor system on next tee
@@ -1013,8 +1019,8 @@ func finish_hole(par: int) -> void:
 	if score_trigger != -1:
 		show_thought(score_trigger)
 
-	# Check for records
-	var records = GameManager.check_hole_records(golfer_name, current_hole, current_strokes)
+	# Check for records (use 1-based hole_number for record keeping)
+	var records = GameManager.check_hole_records(golfer_name, _hole_number, current_strokes)
 	for record in records:
 		if record.type == "hole_in_one":
 			# Spawn celebration effect
@@ -1043,7 +1049,7 @@ func finish_hole(par: int) -> void:
 		driving_skill, accuracy_skill, putting_skill, recovery_skill, miss_tendency
 	])
 
-	EventBus.golfer_finished_hole.emit(golfer_id, current_hole, current_strokes, par)
+	EventBus.golfer_finished_hole.emit(golfer_id, _hole_number, current_strokes, par)
 	hole_completed.emit(current_strokes, par)
 
 	_update_score_display()
@@ -1053,8 +1059,10 @@ func finish_hole(par: int) -> void:
 func finish_round() -> void:
 	_change_state(State.FINISHED)
 
-	# Check for course record
-	GameManager.check_round_record(golfer_name, total_strokes)
+	# Only record course record if golfer completed all holes (not a partial round)
+	var total_holes = GameManager.get_open_hole_count()
+	if hole_scores.size() >= total_holes and total_holes > 0:
+		GameManager.check_round_record(golfer_name, total_strokes)
 
 	# Apply clubhouse effects (golfer visits clubhouse after round)
 	_apply_clubhouse_effects()

@@ -32,6 +32,7 @@ UIConstants="*res://scripts/autoload/ui_constants.gd"
 TooltipManager="*res://scripts/autoload/tooltip_manager.gd"
 SoundManager="*res://scripts/autoload/sound_manager.gd"
 EventFeedManager="*res://scripts/managers/event_feed_manager.gd"
+MCPGameBridge="res://addons/godot_mcp/game_bridge/mcp_game_bridge.gd"
 
 [display]
 
@@ -42,7 +43,14 @@ window/stretch/mode="viewport"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gut/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg", "res://addons/gut/plugin.cfg")
+
+[godot_mcp]
+
+bind_mode=0
+custom_bind_ip=""
+port_override_enabled=false
+port_override=6550
 
 [input]
 
@@ -103,5 +111,5 @@ rotate_camera={
 
 [rendering]
 
-textures/vram_compression/import_etc2_astc=true
 textures/canvas_textures/default_texture_filter=0
+textures/vram_compression/import_etc2_astc=true

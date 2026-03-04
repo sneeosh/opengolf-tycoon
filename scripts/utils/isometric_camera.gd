@@ -42,9 +42,11 @@ func _ready() -> void:
 	position_smoothing_enabled = false
 
 func _process(delta: float) -> void:
-	_handle_keyboard_input(delta)
-	_handle_subtle_follow(delta)
-	_apply_movement(delta)
+	# Use unscaled delta so camera panning isn't affected by game speed
+	var real_delta = delta / maxf(Engine.time_scale, 0.001)
+	_handle_keyboard_input(real_delta)
+	_handle_subtle_follow(real_delta)
+	_apply_movement(real_delta)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:

@@ -76,9 +76,11 @@ total_per_golfer = green_fee * max(holes, 1) + pro_shop_bonus
 ### 3. Daily Operating Costs
 
 ```
-# Terrain maintenance (seasonal)
+# Terrain maintenance (seasonal, sqrt-scaled)
+raw_tile_cost = sum of per-tile maintenance costs for player-placed tiles
+scaled_tile_cost = sqrt(raw_tile_cost) * 20    # sub-linear scaling
 season_mod = SeasonSystem.get_maintenance_modifier(season)
-terrain_maintenance = terrain_tile_cost * season_mod
+terrain_maintenance = scaled_tile_cost * season_mod * theme_modifier * difficulty_modifier
 
 # Base cost (fixed + per-hole)
 base_operating_cost = 100 + (hole_count * 50)

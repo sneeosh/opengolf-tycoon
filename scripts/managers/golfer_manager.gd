@@ -257,7 +257,7 @@ func _process(delta: float) -> void:
 
 	# Dynamic spawning: spawn when first tee is clear (with minimum cooldown)
 	# Only spawn during open hours
-	time_since_last_spawn += delta * GameManager.get_game_speed_multiplier()
+	time_since_last_spawn += delta  # delta already scaled by Engine.time_scale
 
 	# Don't spawn regular golfers during tournaments
 	var tournament_active = GameManager.tournament_manager and GameManager.tournament_manager.is_tournament_in_progress()

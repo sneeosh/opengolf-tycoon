@@ -4,6 +4,10 @@
 
 # Claude Code
 .claude/
+.mcp.json
+
+# MCP addons (local dev tools)
+addons/godot_mcp/
 
 # Godot-specific ignores
 *.translation

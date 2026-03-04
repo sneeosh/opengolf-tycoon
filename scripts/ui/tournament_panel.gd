@@ -44,7 +44,7 @@ func _build_ui() -> void:
 
 	_title_label = Label.new()
 	_title_label.text = "Tournaments"
-	_title_label.add_theme_font_size_override("font_size", 18)
+	_title_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_LG)
 	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(_title_label)
 
@@ -118,7 +118,7 @@ func _show_available_tournaments() -> void:
 		# Tournament name
 		var name_label = Label.new()
 		name_label.text = tier_data.name
-		name_label.add_theme_font_size_override("font_size", 14)
+		name_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
 		_content_vbox.add_child(name_label)
 
 		# Requirements row
@@ -203,7 +203,7 @@ func _show_current_tournament(info: Dictionary) -> void:
 
 		var results_title = Label.new()
 		results_title.text = "Previous Tournament Results"
-		results_title.add_theme_font_size_override("font_size", 14)
+		results_title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
 		_content_vbox.add_child(results_title)
 
 		var results = _tournament_manager.tournament_results

@@ -113,7 +113,7 @@ func _build_ui() -> void:
 	var rep_label = Label.new()
 	rep_label.text = "Rep:"
 	rep_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
-	rep_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	rep_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	rep_container.add_child(rep_label)
 
 	_reputation_button = Button.new()

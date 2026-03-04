@@ -97,8 +97,7 @@ func _process(delta: float) -> void:
 
 	# Stagger group spawning for live round
 	if _live_round_active and _groups_spawned < _total_groups:
-		var time_scale = GameManager.get_game_speed_multiplier()
-		_spawn_timer += delta * time_scale
+		_spawn_timer += delta  # delta already scaled by Engine.time_scale
 		if _spawn_timer >= GROUP_SPAWN_INTERVAL:
 			_spawn_timer -= GROUP_SPAWN_INTERVAL
 			_spawn_next_group()
