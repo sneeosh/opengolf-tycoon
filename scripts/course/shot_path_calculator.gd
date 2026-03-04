@@ -30,11 +30,11 @@ static func calculate_waypoints(hole_data: GameManager.HoleData, _terrain_grid: 
 		return waypoints
 
 	# Create lightweight golfer data for visualization (no scene tree needed)
-	var gd: ShotAI.GolferData = _create_avg_golfer_data(hole_data.tee_position)
+	var gd: ShotAI.GolferData = _create_avg_golfer_data(hole_data.tee_position, hole_data.hole_number - 1)
 
 	for i in range(num_intermediate):
 		# Use ShotAI to decide the shot from this position
-		var decision: ShotAI.ShotDecision = ShotAI.decide_shot_for(gd, hole_data.hole_position)
+		var decision: ShotAI.ShotDecision = ShotAI.decide_shot_for(gd, hole_data.hole_position, true)
 		var landing: Vector2i = decision.target
 
 		# Safety: don't add same position or positions that don't advance
@@ -58,7 +58,7 @@ static func calculate_waypoints(hole_data: GameManager.HoleData, _terrain_grid: 
 	return waypoints
 
 ## Create a GolferData with average CASUAL tier skills for visualization.
-static func _create_avg_golfer_data(tee_pos: Vector2i) -> ShotAI.GolferData:
+static func _create_avg_golfer_data(tee_pos: Vector2i, hole_index: int = 0) -> ShotAI.GolferData:
 	var gd: ShotAI.GolferData = ShotAI.GolferData.new()
 	gd.ball_position = tee_pos
 	gd.ball_position_precise = Vector2(tee_pos)
@@ -69,7 +69,7 @@ static func _create_avg_golfer_data(tee_pos: Vector2i) -> ShotAI.GolferData:
 	gd.miss_tendency = 0.0
 	gd.aggression = AVG_AGGRESSION
 	gd.patience = AVG_PATIENCE
-	gd.current_hole = 0
+	gd.current_hole = hole_index
 	gd.total_strokes = 0
 	gd.total_par = 0
 	return gd

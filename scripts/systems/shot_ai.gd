@@ -114,7 +114,8 @@ static func decide_shot(golfer: Golfer, hole_position: Vector2i) -> ShotDecision
 
 ## Main entry point: decide what shot to hit from GolferData.
 ## Works with both real golfers (via from_golfer) and phantom visualization golfers.
-static func decide_shot_for(gd: GolferData, hole_position: Vector2i) -> ShotDecision:
+## Set ignore_wind=true for course design visualization (ShotPathCalculator).
+static func decide_shot_for(gd: GolferData, hole_position: Vector2i, ignore_wind: bool = false) -> ShotDecision:
 	var terrain_grid: TerrainGrid = GameManager.terrain_grid
 	if not terrain_grid:
 		return _make_decision(hole_position, Golfer.Club.IRON, "normal", 0.0)
@@ -139,7 +140,7 @@ static func decide_shot_for(gd: GolferData, hole_position: Vector2i) -> ShotDeci
 
 	# --- Evaluate all candidate clubs ---
 	var candidates: Array = _evaluate_all_candidates(
-		gd, hole_position, terrain_grid, target_distance, shots_remaining
+		gd, hole_position, terrain_grid, target_distance, shots_remaining, ignore_wind
 	)
 
 	if candidates.is_empty():
@@ -376,7 +377,8 @@ static func _get_ideal_shot_distance(
 ## Evaluate all candidate clubs and landing zones, return scored candidates.
 static func _evaluate_all_candidates(
 	gd: GolferData, hole_position: Vector2i,
-	terrain_grid: TerrainGrid, target_distance: float, shots_remaining: int
+	terrain_grid: TerrainGrid, target_distance: float, shots_remaining: int,
+	ignore_wind: bool = false
 ) -> Array:
 	var ball_pos: Vector2i = gd.ball_position
 	var distance_to_hole: float = Vector2(ball_pos).distance_to(Vector2(hole_position))
@@ -451,7 +453,7 @@ static func _evaluate_all_candidates(
 					# --- Wind compensation: adjust aim to account for wind ---
 					var wind_adjusted_landing: Vector2i = test_pos
 					var aim_point: Vector2i = test_pos
-					if GameManager.wind_system:
+					if not ignore_wind and GameManager.wind_system:
 						var wind_disp: Vector2 = GameManager.wind_system.get_wind_displacement(
 							scan_dir, test_dist, club
 						)
@@ -534,7 +536,7 @@ static func _evaluate_all_candidates(
 
 							var wind_adjusted_landing: Vector2i = test_pos
 							var aim_point: Vector2i = test_pos
-							if GameManager.wind_system:
+							if not ignore_wind and GameManager.wind_system:
 								var wind_disp: Vector2 = GameManager.wind_system.get_wind_displacement(
 									scan_dir, test_dist, club
 								)
@@ -634,13 +636,24 @@ static func _score_landing_zone(
 	if advancement <= 0:
 		score -= 500.0
 
+	# --- Directional alignment: penalize sideways shots ---
+	# A shot at 50° off-line barely advances but wastes distance laterally.
+	# dot product: 1.0 = straight at hole, 0.0 = perpendicular, -1.0 = backwards.
+	var shot_vec: Vector2 = Vector2(landing - ball_pos)
+	if shot_vec.length_squared() > 0.01:
+		var hole_dir: Vector2 = Vector2(hole_position - ball_pos).normalized()
+		var alignment: float = shot_vec.normalized().dot(hole_dir)
+		# Scale penalty by shot distance — longer sideways shots are worse
+		var shot_length: float = shot_vec.length()
+		score += alignment * shot_length * 8.0  # Strong directional preference
+
 	# Score based on remaining distance, weighted by shot context
 	if shots_remaining <= 1:
 		# Approach/attack: getting close to the hole is paramount
 		score -= distance_to_hole * 5.0
 	else:
-		# Layup: terrain quality matters more, distance less critical
-		score -= distance_to_hole * 2.0
+		# Layup: advance toward the hole, terrain secondary
+		score -= distance_to_hole * 4.0
 		# Bonus for landing at a good approach distance (wedge range)
 		var ideal_remaining: float = 3.5  # ~77 yards
 		var distance_from_ideal: float = absf(distance_to_hole - ideal_remaining)
