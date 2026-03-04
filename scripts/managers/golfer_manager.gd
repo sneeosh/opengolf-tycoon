@@ -771,6 +771,8 @@ func remove_golfer(golfer_id: int) -> void:
 			var golfer = active_golfers[i]
 			active_golfers.remove_at(i)
 			_groups_dirty = true
+			if golfer.golfer_selected.is_connected(_on_golfer_selected):
+				golfer.golfer_selected.disconnect(_on_golfer_selected)
 			golfer.queue_free()
 			EventBus.golfer_left_course.emit(golfer_id)
 			golfer_removed.emit(golfer_id)
