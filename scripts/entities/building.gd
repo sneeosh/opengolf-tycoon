@@ -295,7 +295,7 @@ func _draw_clubhouse(visual: Node2D, width_px: int, height_px: int) -> void:
 		Color(0.92, 0.87, 0.78),  # Level 2: Soft tan
 		Color(0.88, 0.82, 0.72),  # Level 3: Rich beige
 	]
-	var wall_color = wall_colors[min(upgrade_level - 1, 2)]
+	var wall_color = wall_colors[clampi(upgrade_level - 1, 0, 2)]
 
 	# Main wall with subtle texture lines
 	var main_wall = Polygon2D.new()
@@ -338,7 +338,7 @@ func _draw_clubhouse(visual: Node2D, width_px: int, height_px: int) -> void:
 		Color(0.42, 0.24, 0.20),  # Level 2: Deep brown
 		Color(0.28, 0.22, 0.24),  # Level 3: Charcoal slate
 	]
-	var roof_color = roof_colors[min(upgrade_level - 1, 2)]
+	var roof_color = roof_colors[clampi(upgrade_level - 1, 0, 2)]
 
 	# Main roof
 	var roof = Polygon2D.new()
