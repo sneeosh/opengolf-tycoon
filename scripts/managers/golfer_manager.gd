@@ -77,9 +77,8 @@ func get_spawn_rate_modifier() -> float:
 		var marketing_modifier = GameManager.marketing_manager.get_spawn_rate_modifier()
 		base_modifier *= marketing_modifier
 
-	# Apply seasonal demand modifier (Summer peak, Winter trough)
-	var season = SeasonSystem.get_season(GameManager.current_day)
-	base_modifier *= SeasonSystem.get_spawn_modifier(season)
+	# Apply blended seasonal demand modifier (theme-aware, smooth transitions)
+	base_modifier *= SeasonSystem.get_blended_spawn_modifier(GameManager.current_day, GameManager.current_theme)
 
 	# Apply seasonal event modifier (special events boost/reduce demand)
 	var active_event = SeasonalEvents.get_active_event(GameManager.current_day)

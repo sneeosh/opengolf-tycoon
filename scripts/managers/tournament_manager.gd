@@ -736,7 +736,10 @@ func _complete_tournament() -> void:
 	tournament_results["total_revenue"] = total_revenue
 	tournament_results["drama_multiplier"] = drama_multiplier
 
-	GameManager.modify_reputation(tier_data.reputation_reward)
+	# Apply seasonal prestige modifier to reputation reward (theme-aware)
+	var prestige = SeasonSystem.get_tournament_prestige(GameManager.current_day, GameManager.current_theme)
+	var rep_reward = int(tier_data.reputation_reward * prestige)
+	GameManager.modify_reputation(rep_reward)
 
 	if _leaderboard:
 		_leaderboard.show_final_results()

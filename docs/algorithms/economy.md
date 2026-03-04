@@ -34,6 +34,8 @@ Players can take loans up to $50,000 total. Interest compounds at 5% every 7 day
 
 The green fee creates a tension between revenue and golfer attraction. Higher fees generate more per golfer but reduce the value rating (see [course-rating.md](course-rating.md)), which reduces golfer spawn rates. The optimal fee depends on reputation, hole count, and the player's goals.
 
+**Seasonal fee tolerance** (see [seasonal-calendar.md](seasonal-calendar.md)) adjusts what golfers consider a "fair price." Peak-season golfers accept up to 30% higher fees, while off-season golfers expect discounts. This creates pressure to lower fees during quiet seasons and opportunity to raise them during peak demand.
+
 ---
 
 ## Algorithm
@@ -76,8 +78,8 @@ total_per_golfer = green_fee * max(holes, 1) + pro_shop_bonus
 ### 3. Daily Operating Costs
 
 ```
-# Terrain maintenance (seasonal)
-season_mod = SeasonSystem.get_maintenance_modifier(season)
+# Terrain maintenance (seasonal, theme-aware, blended at season boundaries)
+season_mod = SeasonSystem.get_blended_maintenance_modifier(day, theme)
 terrain_maintenance = terrain_tile_cost * season_mod
 
 # Base cost (fixed + per-hole)
