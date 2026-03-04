@@ -89,6 +89,12 @@ func _ready() -> void:
 		if shadow_system.has_signal("sun_direction_changed"):
 			shadow_system.sun_direction_changed.connect(_on_sun_direction_changed)
 
+func _exit_tree() -> void:
+	if has_node("/root/ShadowSystem"):
+		var shadow_system = get_node("/root/ShadowSystem")
+		if shadow_system.sun_direction_changed.is_connected(_on_sun_direction_changed):
+			shadow_system.sun_direction_changed.disconnect(_on_sun_direction_changed)
+
 func set_tree_type(type: String) -> void:
 	"""Set the tree type and load its data"""
 	tree_type = type

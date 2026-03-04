@@ -48,6 +48,12 @@ func _ready() -> void:
 		if shadow_system.has_signal("sun_direction_changed"):
 			shadow_system.sun_direction_changed.connect(_on_sun_direction_changed)
 
+func _exit_tree() -> void:
+	if has_node("/root/ShadowSystem"):
+		var shadow_system = get_node("/root/ShadowSystem")
+		if shadow_system.sun_direction_changed.is_connected(_on_sun_direction_changed):
+			shadow_system.sun_direction_changed.disconnect(_on_sun_direction_changed)
+
 func _on_click_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		building_selected.emit(self)
