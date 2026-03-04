@@ -1368,7 +1368,13 @@ func _calculate_shot(from: Vector2i, target: Vector2i) -> Dictionary:
 		var shank_chance = (1.0 - total_accuracy) * 0.04
 		if randf() < shank_chance:
 			is_shank = true
-			var shank_dir = 1.0 if miss_tendency >= 0.0 else -1.0
+			var shank_dir: float
+			if miss_tendency > 0.0:
+				shank_dir = 1.0
+			elif miss_tendency < 0.0:
+				shank_dir = -1.0
+			else:
+				shank_dir = 1.0 if randf() < 0.5 else -1.0
 			miss_angle_deg = shank_dir * randf_range(35.0, 55.0)
 			actual_distance *= randf_range(0.3, 0.6)
 
