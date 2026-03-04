@@ -285,6 +285,11 @@ func _update_golfers(delta: float) -> void:
 		_cached_sorted_group_ids = _cached_groups.keys()
 		_cached_sorted_group_ids.sort()
 		_groups_dirty = false
+		# Update group badges on all golfers
+		for gid in _cached_sorted_group_ids:
+			var group = _cached_groups[gid]
+			for golfer in group:
+				golfer.set_group_badge(gid, group.size())
 
 	# Process groups in deterministic order (sorted by group_id)
 	for group_id in _cached_sorted_group_ids:
@@ -956,12 +961,23 @@ func _update_visual_offsets() -> void:
 			cluster[idx].visual_offset = offset
 
 func _update_active_golfer_highlights() -> void:
-	"""Mark the golfer who is currently taking their shot so they get a highlight ring."""
+	"""Mark the golfer who is currently taking their shot so they get a highlight ring.
+	Also set ring_opacity for visual hierarchy: active=full, same group=1.0, other groups=0.6."""
+	# Find which group has an active golfer
+	var active_group_id: int = -1
 	for golfer in active_golfers:
-		var was_active = golfer.is_active_golfer
 		var is_active = golfer.current_state in [
 			Golfer.State.PREPARING_SHOT,
 			Golfer.State.SWINGING,
 			Golfer.State.WATCHING
 		]
 		golfer.is_active_golfer = is_active
+		if is_active:
+			active_group_id = golfer.group_id
+
+	# Set ring opacity: full for active group, dimmed for others
+	for golfer in active_golfers:
+		if active_group_id >= 0 and golfer.group_id != active_group_id:
+			golfer.ring_opacity = 0.6
+		else:
+			golfer.ring_opacity = 1.0
