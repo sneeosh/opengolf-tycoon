@@ -5,7 +5,7 @@
       "name": "Clubhouse",
       "size": [4, 4],
       "cost": 10000,
-      "operating_cost": 75,
+      "operating_cost": 100,
       "required": true,
       "upgradeable": true,
       "upgrades": [

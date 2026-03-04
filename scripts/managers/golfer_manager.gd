@@ -5,7 +5,7 @@ class_name GolferManager
 const GOLFER_SCENE = preload("res://scenes/entities/golfer.tscn")
 const TerrainTypes = preload("res://scripts/terrain/terrain_types.gd")
 
-@export var min_spawn_cooldown_seconds: float = 10.0  # Minimum cooldown between group spawns
+@export var min_spawn_cooldown_seconds: float = 15.0  # Minimum cooldown between group spawns
 
 var active_golfers: Array[Golfer] = []
 var next_golfer_id: int = 0
@@ -62,10 +62,10 @@ func get_group_size_weights() -> Array:
 
 func get_spawn_rate_modifier() -> float:
 	"""Get spawn rate modifier based on course rating, weather, and marketing.
-	1 star = 0.5x (fewer golfers), 3 stars = 1x, 5 stars = 1.5x (more golfers)
+	Uses power curve: 1 star = 0.11x (nearly empty), 3 stars = 1.0x, 5 stars = 2.78x (packed).
 	Bad weather further reduces spawn rate. Marketing campaigns increase it."""
 	var rating = GameManager.course_rating.get("overall", 3.0)
-	var base_modifier = 0.5 + (rating - 1.0) * 0.25
+	var base_modifier = pow(rating / 3.0, 2.0)
 
 	# Apply weather penalty (rain discourages golfers)
 	if GameManager.weather_system:
@@ -85,6 +85,9 @@ func get_spawn_rate_modifier() -> float:
 	var active_event = SeasonalEvents.get_active_event(GameManager.current_day)
 	if active_event:
 		base_modifier *= active_event.spawn_modifier
+
+	# Apply difficulty preset spawn rate modifier (Easy 1.2x, Normal 1.0x, Hard 0.8x)
+	base_modifier *= GameManager.get_spawn_rate_multiplier()
 
 	return base_modifier
 

@@ -56,7 +56,7 @@ MIN_GREEN_FEE = 10
 MAX_GREEN_FEE = 200
 
 # Maximum fee scales with hole count
-effective_max = max(MIN_GREEN_FEE, min(holes * 15, MAX_GREEN_FEE))
+effective_max = max(MIN_GREEN_FEE, min(holes * 10, MAX_GREEN_FEE))
 
 # Revenue per golfer
 holes = open_hole_count
@@ -67,11 +67,11 @@ total_per_golfer = green_fee * max(holes, 1) + pro_shop_bonus
 
 | Holes | Max Fee |
 | ----- | ------- |
-| 1 | $15 |
-| 3 | $45 |
-| 6 | $90 |
-| 9 | $135 |
-| 14+ | $200 |
+| 1 | $10 |
+| 3 | $30 |
+| 6 | $60 |
+| 9 | $90 |
+| 20+ | $200 |
 
 ### 3. Daily Operating Costs
 
@@ -81,7 +81,7 @@ season_mod = SeasonSystem.get_maintenance_modifier(season)
 terrain_maintenance = terrain_tile_cost * season_mod
 
 # Base cost (fixed + per-hole)
-base_operating_cost = 50 + (hole_count * 30)
+base_operating_cost = 100 + (hole_count * 50)
 
 # Staff wages (per-hole, by tier)
 staff_wages = hole_count * cost_per_hole
@@ -165,8 +165,8 @@ rating (see [course-rating.md](course-rating.md)). Higher = overpricing hurts mo
 | Bankruptcy threshold | `difficulty_presets.gd` | -$5K/-$1K/$0 | Lower = more debt allowed |
 | Min green fee | `game_manager.gd` | $10 | Floor for pricing |
 | Max green fee | `game_manager.gd` | $200 | Ceiling for pricing |
-| Fee per hole cap | `game_manager.gd` | $15/hole | Higher = more pricing freedom |
-| Base operating cost | `game_manager.gd` | $50 + $30/hole | Higher = more expensive to run |
+| Fee per hole cap | `game_manager.gd` | $10/hole | Higher = more pricing freedom |
+| Base operating cost | `game_manager.gd` | $100 + $50/hole | Higher = more expensive to run |
 | Max loan | `game_manager.gd` | $50,000 | Higher = more emergency funding |
 | Loan interest rate | `game_manager.gd` | 5% per 7 days | Higher = faster debt spiral |
 | Staff costs | `game_manager.gd` | $5/$10/$20 per hole | Higher = more expensive staff |

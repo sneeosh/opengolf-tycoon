@@ -1683,7 +1683,7 @@ func _on_end_of_day(day_number: int) -> void:
 	GameManager.is_paused = true
 
 	# Calculate and deduct operating costs BEFORE showing summary
-	var terrain_cost = terrain_grid.get_total_maintenance_cost()
+	var terrain_cost = int(terrain_grid.get_total_maintenance_cost() * GameManager.get_maintenance_multiplier())
 	var hole_count = GameManager.current_course.holes.size() if GameManager.current_course else 0
 	var building_costs = _calculate_building_operating_costs()
 

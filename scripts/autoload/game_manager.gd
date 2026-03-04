@@ -19,8 +19,8 @@ const DEFAULT_STARTING_MONEY: int = 25000
 const DEFAULT_STARTING_REPUTATION: float = 50.0
 
 # Operating cost constants
-const BASE_DAILY_OVERHEAD: int = 50
-const PER_HOLE_DAILY_COST: int = 30
+const BASE_DAILY_OVERHEAD: int = 100
+const PER_HOLE_DAILY_COST: int = 50
 
 var money: int = DEFAULT_STARTING_MONEY
 var reputation: float = DEFAULT_STARTING_REPUTATION
@@ -376,8 +376,8 @@ func get_effective_max_green_fee() -> int:
 	var holes = get_open_hole_count()
 	if holes <= 0:
 		return MIN_GREEN_FEE
-	# $15 per hole, minimum $10
-	return max(MIN_GREEN_FEE, min(holes * 15, MAX_GREEN_FEE))
+	# $10 per hole, minimum $10
+	return max(MIN_GREEN_FEE, min(holes * 10, MAX_GREEN_FEE))
 
 func clamp_green_fee_to_max() -> void:
 	"""Re-clamp green fee after hole count changes."""

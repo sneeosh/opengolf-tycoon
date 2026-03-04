@@ -2,7 +2,7 @@
 
 **Author:** Claude (Product)
 **Date:** 2026-02-27
-**Status:** Proposal
+**Status:** Partially Implemented (v1 tuning pass)
 **Priority:** HIGH
 **Version:** 0.1.0-alpha context
 
@@ -33,7 +33,7 @@ This spec is not a feature spec — it's a **tuning and validation framework** t
 ### Revenue Sources
 | Source | Current Values | Notes |
 |--------|---------------|-------|
-| Green fees | $10–$200 per golfer, scaled by holes played | Cap: $15/hole effective max |
+| Green fees | $10–$200 per golfer, scaled by holes played | Cap: $10/hole effective max |
 | Building revenue | $5–$40/golfer (proximity-based) | Pro Shop $15, Restaurant $25, Snack Bar $5 |
 | Tournament revenue | $800–$240K per tournament (spectator + sponsorship) | Entry cost $500–$50K |
 | Pro Shop staff bonus | $5/golfer per staff hire | Scales with staff count |
@@ -41,10 +41,10 @@ This spec is not a feature spec — it's a **tuning and validation framework** t
 ### Cost Centers
 | Cost | Current Values | Notes |
 |------|---------------|-------|
-| Base operating | $50 + $25/hole/day | Fixed daily overhead |
+| Base operating | $100 + $50/hole/day | Fixed daily overhead |
 | Staff wages | $5–$20/hole/day (by tier) | Part-Time $5, Full-Time $10, Premium $20 |
 | Terrain maintenance | Variable, seasonal modifier | Spring 1.1×, Summer 1.4×, Fall 0.7×, Winter 1.1× |
-| Building upkeep | $0–$75/day per building | Bench $0, Clubhouse $75, Restaurant $60 |
+| Building upkeep | $0–$100/day per building | Bench $0, Clubhouse $100, Restaurant $60 |
 | Marketing | $50–$250/day (active campaigns) | Plus setup fees |
 | Land expansion | $5K base, 1.3× escalation | 30% more expensive each purchase |
 | Loan interest | 5% per 7 days | Compounds weekly on outstanding balance |
@@ -54,10 +54,12 @@ This spec is not a feature spec — it's a **tuning and validation framework** t
 ### Starting Conditions
 | Parameter | Easy | Normal | Hard |
 |-----------|------|--------|------|
-| Starting money | $75K | $50K | $25K |
-| Green fee | $30 | $30 | $30 |
+| Starting money | $40K | $25K | $15K |
+| Green fee | Theme-based ($10–$18) | Theme-based ($10–$18) | Theme-based ($10–$18) |
 | Bankruptcy threshold | -$5K | -$1K | $0 |
 | Reputation decay multiplier | 0.5× | 1.0× | 2.0× |
+| Spawn rate multiplier | 1.2× | 1.0× | 0.8× |
+| Maintenance multiplier | 0.8× | 1.0× | 1.3× |
 
 ---
 
@@ -138,15 +140,19 @@ Create a `BalanceTester` script that simulates decisions without rendering. Uses
 
 **Expected answer: No.** Reputation decay should eventually overwhelm the revenue from 3 holes.
 
-**Current analysis:**
-- 3 holes at $45/golfer × 3 holes = $135/golfer
-- With 4–6 golfers/day: $540–$810 revenue
-- Daily costs: $50 base + $75 (3 holes) + $30 staff = $155
-- Profit: $385–$655/day → player accumulates money indefinitely
+**Updated analysis (after v1 tuning):**
+- 3 holes at $10/hole × 3 holes = $30/golfer (Parkland theme)
+- At 2★ rating: pow(2/3, 2) = 0.44x spawn modifier → ~20-25 golfers/day
+- Revenue: ~$600–$750/day
+- Daily costs: $100 base + $150 (3 holes) + clubhouse $100 + terrain ~$50 = ~$400
+- Profit: ~$200–$350/day — thin margin, not infinite accumulation
 
-**Problem:** This is viable forever. Reputation decay is slow enough at 3-star (−0.5/day) that the player never feels pressure to expand.
-
-**Proposed fix:** Introduce a **stagnation penalty**: if the player has the same hole count for >28 days and reputation is >40, apply an additional reputation decay of 0.3/day. Rationale: golfers get bored of the same 3 holes. This creates soft pressure to expand without punishing players who are actively building.
+**Mitigation (implemented):**
+1. **Stagnation penalty** (already existed): −0.3 rep/day after 28 days at same hole count
+2. **Power 2.0 spawn curve**: Rating drops from stagnation → drastically fewer golfers (2★ = 0.44x, 1★ = 0.11x)
+3. **Lower green fees**: $10/hole vs old $15/hole cap → less revenue per golfer
+4. **Higher operating costs**: $100 + $50/hole vs old $50 + $30/hole → narrower margins
+5. **Winter squeeze**: 0.3x seasonal modifier × 0.44x rating = 0.13x → almost no golfers, guaranteed losses
 
 **Acceptance criteria:** On Normal difficulty with 3 holes and no expansion, reputation should drop below 40 by day 60, reducing golfer spawn rates enough to make the strategy uncompetitive.
 
@@ -207,9 +213,9 @@ Document and validate each potential exploit:
 
 | # | Exploit | Status | Mitigation |
 |---|---------|--------|------------|
-| 1 | 3-hole coast forever | **Vulnerable** | Stagnation reputation penalty |
+| 1 | 3-hole coast forever | **Mitigated** | Stagnation rep penalty + power 2.0 spawn curve + lower fees + higher costs |
 | 2 | Max loan → buy buildings → profit from buildings alone | Needs testing | Loan interest should eat profit |
-| 3 | Set $200 green fee on 1 hole | Needs testing | Fee cap ($15/hole) limits this |
+| 3 | Set $200 green fee on 1 hole | **Mitigated** | Fee cap ($10/hole) limits to $10 max on 1 hole |
 | 4 | Spam marketing campaigns for infinite golfers | **Mitigated** | sqrt() diminishing returns |
 | 5 | Fire all staff, keep money, rehire later | Needs testing | Course condition degrades → rating drops |
 | 6 | Never buy land, play on starting 40×40 forever | Needs testing | 40×40 limits to ~4 holes max |
@@ -222,18 +228,20 @@ Document and validate each potential exploit:
 
 Based on the analysis above, these values should be evaluated:
 
-### Revenue Tuning
-| Parameter | Current | Proposed | Rationale |
-|-----------|---------|----------|-----------|
-| Min green fee | $10 | $10 | OK |
-| Max green fee | $200 | $200 | OK |
-| Per-hole fee cap | $15/hole | $15/hole | OK |
-| Building revenue | $5–$25/golfer | Review | May need proximity scaling tightened |
+### Revenue Tuning (Implemented)
+| Parameter | Old | New | Rationale |
+|-----------|-----|-----|-----------|
+| Green fee baselines | $20–$50/theme | $10–$18/theme | ~67% reduction to tighten margins |
+| Per-hole fee cap | $15/hole | $10/hole | Limits max fee on small courses |
+| Spawn rate curve | Linear (0.5–1.5x) | Power 2.0 (0.11–2.78x) | Primary lever: bad courses get far fewer golfers |
+| Difficulty spawn multiplier | Dead code | Wired (Easy 1.2x, Hard 0.8x) | Bug fix: difficulty now affects spawn rate |
 
-### Cost Tuning
-| Parameter | Current | Proposed | Rationale |
-|-----------|---------|----------|-----------|
-| Base operating cost | $50 + $25/hole | $50 + $30/hole | Slightly increase per-hole cost to narrow margins |
+### Cost Tuning (Implemented)
+| Parameter | Old | New | Rationale |
+|-----------|-----|-----|-----------|
+| Base operating cost | $50 + $30/hole | $100 + $50/hole | Significantly increases operating pressure |
+| Clubhouse upkeep | $75/day | $100/day | Increases fixed cost of early clubhouse |
+| Maintenance multiplier | Dead code | Wired (theme × difficulty) | Bug fix: terrain costs now scale with theme and difficulty |
 | Land escalation | 1.3× | 1.3× | OK — feels right |
 | Loan interest | 5% per 7 days | 5% per 7 days | Aggressive enough to punish borrowing |
 
