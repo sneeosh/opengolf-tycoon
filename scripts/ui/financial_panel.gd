@@ -13,8 +13,8 @@ func _build_ui() -> void:
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 12)
 	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 10)
+	margin.add_theme_constant_override("margin_top", 12)
+	margin.add_theme_constant_override("margin_bottom", 12)
 	add_child(margin)
 
 	var main_vbox = VBoxContainer.new()
@@ -27,7 +27,7 @@ func _build_ui() -> void:
 
 	var title = Label.new()
 	title.text = "Financial Overview"
-	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_LG)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title)
 
@@ -61,7 +61,7 @@ func update_display() -> void:
 	# Current Balance
 	var balance_label = Label.new()
 	balance_label.text = "Current Balance"
-	balance_label.add_theme_font_size_override("font_size", 13)
+	balance_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	_content_vbox.add_child(balance_label)
 
 	var balance_row = _create_stat_row("Cash:", "$%d" % GameManager.money, UIConstants.COLOR_TEXT)
@@ -108,7 +108,7 @@ func update_display() -> void:
 	var max_fee = GameManager.get_effective_max_green_fee()
 	var fee_info = Label.new()
 	fee_info.text = "  Round: $%d (%d holes) | Max: $%d/hole" % [total_cost, max(holes, 1), max_fee]
-	fee_info.add_theme_font_size_override("font_size", 11)
+	fee_info.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
 	fee_info.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	_content_vbox.add_child(fee_info)
 
@@ -117,7 +117,7 @@ func update_display() -> void:
 	if fee_warning != "":
 		var warning_label = Label.new()
 		warning_label.text = "  ! " + fee_warning
-		warning_label.add_theme_font_size_override("font_size", 11)
+		warning_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
 		warning_label.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
 		warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_content_vbox.add_child(warning_label)
@@ -127,7 +127,7 @@ func update_display() -> void:
 	# Today's Revenue
 	var revenue_label = Label.new()
 	revenue_label.text = "Today's Revenue"
-	revenue_label.add_theme_font_size_override("font_size", 13)
+	revenue_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	_content_vbox.add_child(revenue_label)
 
 	var dim_green = UIConstants.COLOR_SUCCESS_DIM
@@ -146,7 +146,7 @@ func update_display() -> void:
 	# Today's Costs
 	var costs_label = Label.new()
 	costs_label.text = "Today's Costs"
-	costs_label.add_theme_font_size_override("font_size", 13)
+	costs_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	_content_vbox.add_child(costs_label)
 
 	var dim_color = UIConstants.COLOR_TEXT_DIM
@@ -181,7 +181,7 @@ func update_display() -> void:
 
 		var compare_label = Label.new()
 		compare_label.text = "Yesterday's Results"
-		compare_label.add_theme_font_size_override("font_size", 13)
+		compare_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 		_content_vbox.add_child(compare_label)
 
 		var yest_rev = yesterday.get_total_revenue()
@@ -216,7 +216,7 @@ func update_display() -> void:
 	# Reputation
 	var rep_label = Label.new()
 	rep_label.text = "Course Status"
-	rep_label.add_theme_font_size_override("font_size", 13)
+	rep_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	_content_vbox.add_child(rep_label)
 
 	var reputation = GameManager.reputation
@@ -232,7 +232,7 @@ func update_display() -> void:
 
 	var loan_label = Label.new()
 	loan_label.text = "Loans"
-	loan_label.add_theme_font_size_override("font_size", 13)
+	loan_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	_content_vbox.add_child(loan_label)
 
 	var loan_color = UIConstants.COLOR_DANGER_DIM if GameManager.loan_balance > 0 else UIConstants.COLOR_TEXT_DIM
@@ -272,7 +272,7 @@ func update_display() -> void:
 
 	var season_label = Label.new()
 	season_label.text = "Seasonal Forecast"
-	season_label.add_theme_font_size_override("font_size", 13)
+	season_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	_content_vbox.add_child(season_label)
 
 	var season = SeasonSystem.get_season(GameManager.current_day)
@@ -300,7 +300,7 @@ func update_display() -> void:
 
 		var rating_label = Label.new()
 		rating_label.text = "Official Ratings"
-		rating_label.add_theme_font_size_override("font_size", 13)
+		rating_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 		_content_vbox.add_child(rating_label)
 
 		# Hole count for context

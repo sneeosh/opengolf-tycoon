@@ -405,12 +405,15 @@ func get_visible_tile_range() -> Array[Vector2i]:
 	return [min_tile, max_tile]
 
 func get_total_maintenance_cost() -> int:
-	## Only count maintenance for player-placed tiles, not auto-generated terrain
-	var total: int = 0
+	## Only count maintenance for player-placed tiles, not auto-generated terrain.
+	## Uses square-root scaling so costs grow sub-linearly with tile count,
+	## preventing large courses from being crushed by per-tile costs.
+	var raw_total: int = 0
 	for pos in _player_placed_tiles:
 		if _grid.has(pos):
-			total += TerrainTypes.get_maintenance_cost(_grid[pos])
-	return total
+			raw_total += TerrainTypes.get_maintenance_cost(_grid[pos])
+	# sqrt scaling: raw $900 → ~$600, raw $1600 → ~$800, raw $100 → ~$200
+	return int(sqrt(float(raw_total)) * 20.0)
 
 func _update_tile_visual(pos: Vector2i) -> void:
 	if tile_map:

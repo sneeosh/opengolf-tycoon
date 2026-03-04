@@ -9,5 +9,8 @@
 	},
 	"devDependencies": {
 		"wrangler": "^4"
+	},
+	"dependencies": {
+		"claude": "^0.1.1"
 	}
 }

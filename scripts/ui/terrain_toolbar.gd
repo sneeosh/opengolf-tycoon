@@ -177,7 +177,7 @@ func _create_section(section_name: String, section_data: Dictionary, start_colla
 	var header_btn = Button.new()
 	var icon = section_data.get("icon", "")
 	var prefix = "> " if start_collapsed else "v "
-	header_btn.text = "%s%s  %s" % [prefix, icon, section_name]
+	header_btn.text = "%s %s" % [prefix, section_name]
 	header_btn.flat = true
 	header_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	header_btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
@@ -260,10 +260,8 @@ func _toggle_section(section_name: String) -> void:
 	section["content"].visible = not section["collapsed"]
 
 	# Update header text
-	var section_data = TOOL_SECTIONS.get(section_name, {})
-	var icon = section_data.get("icon", "")
 	var prefix = "> " if section["collapsed"] else "v "
-	section["header"].text = "%s%s  %s" % [prefix, icon, section_name]
+	section["header"].text = "%s %s" % [prefix, section_name]
 
 func _expand_section(section_name: String) -> void:
 	var section = _sections.get(section_name)
@@ -274,9 +272,7 @@ func _expand_section(section_name: String) -> void:
 	section["content"].visible = true
 
 	# Update header text
-	var section_data = TOOL_SECTIONS.get(section_name, {})
-	var icon = section_data.get("icon", "")
-	section["header"].text = "v %s  %s" % [icon, section_name]
+	section["header"].text = "v  %s" % section_name
 
 func _find_section_for_tool(tool_type) -> String:
 	for section_name in TOOL_SECTIONS:

@@ -2,7 +2,7 @@ extends Node
 ## GameManager - Central game state manager
 
 enum GameMode { MAIN_MENU, BUILDING, SIMULATING, PLAYING, PAUSED }
-enum GameSpeed { PAUSED = 0, NORMAL = 1, FAST = 2, ULTRA = 4 }
+enum GameSpeed { PAUSED = 0, NORMAL = 1, FAST = 3, ULTRA = 8 }
 
 var current_mode: GameMode = GameMode.MAIN_MENU
 var current_speed: GameSpeed = GameSpeed.NORMAL
@@ -19,8 +19,8 @@ const DEFAULT_STARTING_MONEY: int = 25000
 const DEFAULT_STARTING_REPUTATION: float = 50.0
 
 # Operating cost constants
-const BASE_DAILY_OVERHEAD: int = 50
-const PER_HOLE_DAILY_COST: int = 30
+const BASE_DAILY_OVERHEAD: int = 100
+const PER_HOLE_DAILY_COST: int = 50
 
 var money: int = DEFAULT_STARTING_MONEY
 var reputation: float = DEFAULT_STARTING_REPUTATION
@@ -195,9 +195,9 @@ var _end_of_day_triggered: bool = false
 
 func _advance_time(delta: float) -> void:
 	# 1 real minute = 1 game hour at NORMAL speed
-	var time_multiplier: float = float(current_speed)
+	# Note: delta is already scaled by Engine.time_scale (set in set_speed)
 	var old_hour = current_hour
-	current_hour += (delta * time_multiplier) / 60.0
+	current_hour += delta / 60.0
 
 	# Emit hour_changed for smooth time-dependent effects (day/night visual, etc.)
 	EventBus.hour_changed.emit(current_hour)
@@ -227,10 +227,16 @@ func _advance_time(delta: float) -> void:
 func set_mode(new_mode: GameMode) -> void:
 	var old_mode = current_mode
 	current_mode = new_mode
+	# Reset time scale when not simulating (build mode, menus, etc.)
+	if new_mode != GameMode.SIMULATING and new_mode != GameMode.PLAYING:
+		Engine.time_scale = 1.0
 	EventBus.game_mode_changed.emit(old_mode, new_mode)
 
 func set_speed(new_speed: GameSpeed) -> void:
 	current_speed = new_speed
+	# Use Engine.time_scale so ALL game systems (golfer movement, ball flight,
+	# tweens, timers) speed up uniformly — not just the clock.
+	Engine.time_scale = float(maxi(int(new_speed), 1))
 	EventBus.game_speed_changed.emit(new_speed)
 
 func toggle_pause() -> void:
@@ -376,8 +382,8 @@ func get_effective_max_green_fee() -> int:
 	var holes = get_open_hole_count()
 	if holes <= 0:
 		return MIN_GREEN_FEE
-	# $15 per hole, minimum $10
-	return max(MIN_GREEN_FEE, min(holes * 15, MAX_GREEN_FEE))
+	# $10 per hole, minimum $10
+	return max(MIN_GREEN_FEE, min(holes * 10, MAX_GREEN_FEE))
 
 func clamp_green_fee_to_max() -> void:
 	"""Re-clamp green fee after hole count changes."""

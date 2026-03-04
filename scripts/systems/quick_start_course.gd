@@ -1,53 +1,118 @@
 extends RefCounted
 class_name QuickStartCourse
-## QuickStartCourse - Builds a pre-made 3-hole starter course for Quick Start
+## QuickStartCourse - Builds a pre-made 9-hole course for Quick Start
 ##
-## Programmatically lays out fairways, greens, tee boxes, and a few buildings
+## Programmatically lays out fairways, greens, tee boxes, and buildings
 ## so first-time players can immediately press Play and see golfers.
 
-## Build a demo 3-hole course on the given terrain grid.
-## Paints terrain, creates holes, places a clubhouse and benches.
+## Build a 9-hole course on the given terrain grid.
+## Par distribution: 2x par 3, 5x par 4, 2x par 5 = Par 36
+## Paints terrain, creates holes, places buildings.
 ## Assumes terrain_grid is initialised with natural terrain already generated.
 static func build(terrain_grid: TerrainGrid, entity_layer: EntityLayer, hole_tool: HoleCreationTool) -> void:
-	var cx: int = terrain_grid.grid_width / 2
-	var cy: int = terrain_grid.grid_height / 2
+	# Layout uses the full 128x128 grid
+	# Holes snake around the course for good flow
 
-	# ─── Hole 1: Par 3 (short, straight south-east) ───
-	var h1_tee := Vector2i(cx - 12, cy - 6)
-	var h1_green := Vector2i(cx - 4, cy - 2)
-	_paint_hole(terrain_grid, h1_tee, h1_green, 3)
+	# ─── Hole 1: Par 4 (380 yds, ~17 tiles, welcoming opener heading SE) ───
+	var h1_tee := Vector2i(20, 20)
+	var h1_green := Vector2i(32, 30)
+	_paint_hole(terrain_grid, h1_tee, h1_green, 5)
 	_create_hole(terrain_grid, hole_tool, h1_tee, h1_green)
 
-	# ─── Hole 2: Par 4 (medium, south) ───
-	var h2_tee := Vector2i(cx - 2, cy - 8)
-	var h2_green := Vector2i(cx + 4, cy + 6)
-	_paint_hole(terrain_grid, h2_tee, h2_green, 5)
+	# ─── Hole 2: Par 3 (165 yds, ~8 tiles, short challenge heading E) ───
+	var h2_tee := Vector2i(35, 32)
+	var h2_green := Vector2i(43, 30)
+	_paint_hole(terrain_grid, h2_tee, h2_green, 3)
 	_create_hole(terrain_grid, hole_tool, h2_tee, h2_green)
 
-	# ─── Hole 3: Par 4 (medium, south-west) ───
-	var h3_tee := Vector2i(cx + 6, cy - 6)
-	var h3_green := Vector2i(cx + 14, cy + 2)
+	# ─── Hole 3: Par 5 (520 yds, ~24 tiles, risk/reward heading S) ───
+	var h3_tee := Vector2i(46, 28)
+	var h3_green := Vector2i(58, 48)
 	_paint_hole(terrain_grid, h3_tee, h3_green, 5)
+	_paint_water_hazard(terrain_grid, Vector2i(52, 38), 2)
 	_create_hole(terrain_grid, hole_tool, h3_tee, h3_green)
 
-	# ─── Place a Clubhouse near the first tee ───
-	var clubhouse_pos := Vector2i(cx - 14, cy - 4)
+	# ─── Hole 4: Par 4 (350 yds, ~16 tiles, dogleg right heading E then SE) ───
+	var h4_tee := Vector2i(60, 50)
+	var h4_green := Vector2i(74, 56)
+	_paint_hole(terrain_grid, h4_tee, h4_green, 5)
+	_create_hole(terrain_grid, hole_tool, h4_tee, h4_green)
+
+	# ─── Hole 5: Par 4 (400 yds, ~18 tiles, mid-course test heading S) ───
+	var h5_tee := Vector2i(76, 58)
+	var h5_green := Vector2i(84, 74)
+	_paint_hole(terrain_grid, h5_tee, h5_green, 5)
+	_create_hole(terrain_grid, hole_tool, h5_tee, h5_green)
+
+	# ─── Hole 6: Par 4 (370 yds, ~17 tiles, bunker-guarded heading W) ───
+	var h6_tee := Vector2i(82, 78)
+	var h6_green := Vector2i(68, 86)
+	_paint_hole(terrain_grid, h6_tee, h6_green, 5)
+	_paint_extra_bunker(terrain_grid, Vector2i(72, 84))
+	_create_hole(terrain_grid, hole_tool, h6_tee, h6_green)
+
+	# ─── Hole 7: Par 5 (530 yds, ~24 tiles, reachable par 5 heading NW) ───
+	var h7_tee := Vector2i(65, 88)
+	var h7_green := Vector2i(44, 76)
+	_paint_hole(terrain_grid, h7_tee, h7_green, 5)
+	_paint_water_hazard(terrain_grid, Vector2i(54, 82), 2)
+	_create_hole(terrain_grid, hole_tool, h7_tee, h7_green)
+
+	# ─── Hole 8: Par 3 (185 yds, ~8 tiles, signature water carry heading N) ───
+	var h8_tee := Vector2i(42, 74)
+	var h8_green := Vector2i(38, 66)
+	_paint_hole(terrain_grid, h8_tee, h8_green, 3)
+	_paint_water_hazard(terrain_grid, Vector2i(40, 70), 2)
+	_create_hole(terrain_grid, hole_tool, h8_tee, h8_green)
+
+	# ─── Hole 9: Par 4 (360 yds, ~16 tiles, fun finisher heading NW back to clubhouse) ───
+	var h9_tee := Vector2i(36, 64)
+	var h9_green := Vector2i(24, 52)
+	_paint_hole(terrain_grid, h9_tee, h9_green, 5)
+	_create_hole(terrain_grid, hole_tool, h9_tee, h9_green)
+
+	# ─── Buildings ───
+
+	# Clubhouse near hole 1 tee and hole 9 green (start/finish hub)
+	var clubhouse_pos := Vector2i(18, 24)
 	if entity_layer:
 		var building_data := _load_building_data("clubhouse")
 		if not building_data.is_empty():
 			entity_layer.place_building("clubhouse", clubhouse_pos, {"clubhouse": building_data})
 
-	# ─── Place a Bench between holes ───
-	var bench_pos := Vector2i(cx - 6, cy - 8)
+	# Restroom near hole 4 (mid-front)
+	var restroom1_pos := Vector2i(62, 52)
 	if entity_layer:
-		var bench_data := _load_building_data("bench")
-		if not bench_data.is_empty():
-			entity_layer.place_building("bench", bench_pos, {"bench": bench_data})
+		var restroom_data := _load_building_data("restroom")
+		if not restroom_data.is_empty():
+			entity_layer.place_building("restroom", restroom1_pos, {"restroom": restroom_data})
+
+	# Restroom near hole 7 (mid-back)
+	var restroom2_pos := Vector2i(63, 90)
+	if entity_layer:
+		var restroom_data := _load_building_data("restroom")
+		if not restroom_data.is_empty():
+			entity_layer.place_building("restroom", restroom2_pos, {"restroom": restroom_data})
+
+	# Snack bar at the turn (between hole 5 and 6)
+	var snack_pos := Vector2i(78, 76)
+	if entity_layer:
+		var snack_data := _load_building_data("snack_bar")
+		if not snack_data.is_empty():
+			entity_layer.place_building("snack_bar", snack_pos, {"snack_bar": snack_data})
+
+	# Benches at a few spots
+	var bench_positions := [Vector2i(34, 30), Vector2i(74, 58), Vector2i(44, 72)]
+	for bp in bench_positions:
+		if entity_layer:
+			var bench_data := _load_building_data("bench")
+			if not bench_data.is_empty():
+				entity_layer.place_building("bench", bp, {"bench": bench_data})
 
 	# Remove trees and rocks that ended up on fairways, greens, tee boxes, or bunkers
 	_clear_entities_on_course(terrain_grid, entity_layer)
 
-	EventBus.notify("Quick Start course created! Press Start Day to play.", "success")
+	EventBus.notify("9-hole Whispering Pines course created! Par 36. Press Start Day to play.", "success")
 
 
 ## Paint a fairway corridor between tee and green, plus a small green patch and tee pad.
@@ -102,6 +167,29 @@ static func _paint_hole(terrain_grid: TerrainGrid, tee: Vector2i, green: Vector2
 				var current := terrain_grid.get_tile(bp)
 				if current != TerrainTypes.Type.GREEN and current != TerrainTypes.Type.TEE_BOX:
 					terrain_grid.set_tile(bp, TerrainTypes.Type.BUNKER)
+
+
+## Paint a water hazard at the given position
+static func _paint_water_hazard(terrain_grid: TerrainGrid, center: Vector2i, radius: int) -> void:
+	for dx in range(-radius, radius + 1):
+		for dy in range(-radius, radius + 1):
+			if dx * dx + dy * dy <= radius * radius + 1:
+				var pos := center + Vector2i(dx, dy)
+				if terrain_grid.is_valid_position(pos):
+					var current := terrain_grid.get_tile(pos)
+					if current != TerrainTypes.Type.TEE_BOX and current != TerrainTypes.Type.GREEN and current != TerrainTypes.Type.FAIRWAY:
+						terrain_grid.set_tile(pos, TerrainTypes.Type.WATER)
+
+
+## Paint an extra bunker cluster
+static func _paint_extra_bunker(terrain_grid: TerrainGrid, center: Vector2i) -> void:
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			var pos := center + Vector2i(dx, dy)
+			if terrain_grid.is_valid_position(pos):
+				var current := terrain_grid.get_tile(pos)
+				if current != TerrainTypes.Type.GREEN and current != TerrainTypes.Type.TEE_BOX and current != TerrainTypes.Type.FAIRWAY:
+					terrain_grid.set_tile(pos, TerrainTypes.Type.BUNKER)
 
 
 ## Programmatically create a hole entry using the HoleCreationTool internals

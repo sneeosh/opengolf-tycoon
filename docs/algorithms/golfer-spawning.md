@@ -38,26 +38,36 @@ Before spawning a new group, the system checks that the first tee's landing zone
 ### 1. Spawn Rate Modifier (Compound)
 
 ```
-# Base: 1-star = 0.5x, 3-star = 1.0x, 5-star = 1.5x
-base_modifier = 0.5 + (overall_rating - 1.0) * 0.25
+# Power curve: 1-star = 0.11x, 3-star = 1.0x, 5-star = 2.78x
+base_modifier = pow(overall_rating / 3.0, 2.0)
 
 # Compound with other factors
 base_modifier *= weather_spawn_modifier          # 0.3 (heavy rain) to 1.0 (sunny)
 base_modifier *= marketing_spawn_modifier        # 1.0 (none) to higher (active campaign)
 base_modifier *= seasonal_spawn_modifier         # Varies by season
 base_modifier *= seasonal_event_modifier         # Special event boost/reduction
+base_modifier *= difficulty_spawn_rate_multiplier # Easy 1.2x, Normal 1.0x, Hard 0.8x
 ```
+
+| Rating | Spawn Modifier | Effect |
+|--------|---------------|--------|
+| 1★ | 0.11x | Nearly empty |
+| 2★ | 0.44x | Struggling |
+| 2.5★ | 0.69x | Below average |
+| 3★ | 1.00x | Baseline |
+| 4★ | 1.78x | Thriving |
+| 5★ | 2.78x | Packed |
 
 ### 2. Effective Spawn Cooldown
 
 ```
-min_spawn_cooldown = 10.0 seconds   # Configurable @export
+min_spawn_cooldown = 15.0 seconds   # Configurable @export
 cooldown = min_spawn_cooldown / spawn_rate_modifier
 
 # Example: 3-star course, sunny weather
-# modifier = 1.0, cooldown = 10 seconds
+# modifier = 1.0, cooldown = 15 seconds
 # Example: 1-star course, heavy rain
-# modifier = 0.5 * 0.3 = 0.15, cooldown = 67 seconds
+# modifier = 0.11 * 0.3 = 0.033, cooldown = 455 seconds
 ```
 
 ### 3. Maximum Concurrent Golfers
@@ -199,8 +209,9 @@ for each active golfer (from earlier groups):
 
 | Parameter | Location | Current Value | Effect |
 | --- | --- | --- | --- |
-| Min spawn cooldown | `golfer_manager.gd:8` | 10.0 seconds | Lower = more frequent spawns |
-| Rating-to-modifier formula | `golfer_manager.gd:54` | 0.5 + (rating-1)*0.25 | Higher = more golfers at low ratings |
+| Min spawn cooldown | `golfer_manager.gd:8` | 15.0 seconds | Lower = more frequent spawns |
+| Rating-to-modifier formula | `golfer_manager.gd:68` | pow(rating/3.0, 2.0) | Power curve: steep penalty below 3★, reward above |
+| Difficulty spawn multiplier | `golfer_manager.gd:89` | Easy 1.2x, Normal 1.0x, Hard 0.8x | Scales base modifier by difficulty preset |
 | Max golfers per hole | `golfer_manager.gd:98` | 4 | Higher = more crowded course |
 | Tier base weights | `golfer_tier.gd:16-60` | 0.35/0.40/0.20/0.05 | Base probability of each tier |
 | Tier skill ranges | `golfer_tier.gd:16-60` | See table | Skill bounds per tier |

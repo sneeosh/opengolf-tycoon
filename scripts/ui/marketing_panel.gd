@@ -32,7 +32,7 @@ func _build_ui() -> void:
 
 	var title = Label.new()
 	title.text = "Marketing"
-	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_LG)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title)
 
@@ -50,13 +50,13 @@ func _build_ui() -> void:
 
 	_bonus_label = Label.new()
 	_bonus_label.text = "Spawn Bonus: +0%"
-	_bonus_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+	_bonus_label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
 	_bonus_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	status_row.add_child(_bonus_label)
 
 	_cost_label = Label.new()
 	_cost_label.text = "Daily: $0"
-	_cost_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.4))
+	_cost_label.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
 	status_row.add_child(_cost_label)
 
 	main_vbox.add_child(HSeparator.new())
@@ -64,7 +64,7 @@ func _build_ui() -> void:
 	# Launch section
 	var launch_label = Label.new()
 	launch_label.text = "LAUNCH CAMPAIGN:"
-	launch_label.add_theme_font_size_override("font_size", 14)
+	launch_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
 	main_vbox.add_child(launch_label)
 
 	# Campaign buttons
@@ -80,7 +80,7 @@ func _build_ui() -> void:
 	# Active campaigns section
 	var active_label = Label.new()
 	active_label.text = "ACTIVE CAMPAIGNS:"
-	active_label.add_theme_font_size_override("font_size", 14)
+	active_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
 	main_vbox.add_child(active_label)
 
 	var scroll = ScrollContainer.new()
@@ -99,8 +99,8 @@ func _build_ui() -> void:
 	# Stats row
 	_stats_label = Label.new()
 	_stats_label.text = "Total spent: $0 | Campaigns: 0"
-	_stats_label.add_theme_font_size_override("font_size", 12)
-	_stats_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	_stats_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	_stats_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	main_vbox.add_child(_stats_label)
 
 func _add_campaign_button(parent: VBoxContainer, channel: int) -> void:
@@ -151,9 +151,9 @@ func _update_display() -> void:
 	var bonus_pct = int((spawn_mod - 1.0) * 100)
 	_bonus_label.text = "Spawn Bonus: +%d%%" % bonus_pct
 	if bonus_pct > 0:
-		_bonus_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+		_bonus_label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
 	else:
-		_bonus_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		_bonus_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 
 	# Update daily cost
 	var daily_cost = mm.get_daily_marketing_cost()
@@ -166,7 +166,7 @@ func _update_display() -> void:
 	if mm.active_campaigns.is_empty():
 		var empty_label = Label.new()
 		empty_label.text = "No active campaigns"
-		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		empty_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 		_campaigns_container.add_child(empty_label)
 	else:
 		for campaign in mm.active_campaigns:
@@ -197,7 +197,7 @@ func _add_campaign_row(campaign: Dictionary) -> void:
 
 	var cost_label = Label.new()
 	cost_label.text = "$%d/day" % campaign.daily_cost
-	cost_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
+	cost_label.add_theme_color_override("font_color", UIConstants.COLOR_WARNING_DIM)
 	row.add_child(cost_label)
 
 func _on_launch_pressed(channel: int) -> void:

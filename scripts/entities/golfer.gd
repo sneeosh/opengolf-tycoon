@@ -129,6 +129,24 @@ var visual_offset: Vector2 = Vector2.ZERO
 var is_active_golfer: bool = false
 var _highlight_ring: Polygon2D = null
 
+## Tier-based visual ring (always visible beneath golfer)
+var _tier_ring: Polygon2D = null
+var ring_opacity: float = 1.0  # Controlled by GolferManager for highlight hierarchy
+
+## Tier ring colors: Green=Beginner, Blue=Casual, Red=Serious, Gold=Pro
+const TIER_RING_COLORS = {
+	GolferTier.Tier.BEGINNER: Color(0.298, 0.686, 0.314),
+	GolferTier.Tier.CASUAL: Color(0.129, 0.588, 0.953),
+	GolferTier.Tier.SERIOUS: Color(0.957, 0.263, 0.212),
+	GolferTier.Tier.PRO: Color(1.0, 0.843, 0.0),
+}
+
+## Hover state for name label
+var _is_hovered: bool = false
+
+## Group badge label
+var _group_badge: Label = null
+
 ## Walk animation state
 var _walk_frame: int = 0  # 0 or 1, alternates for leg swap
 var _walk_timer: float = 0.0
@@ -211,13 +229,28 @@ func _ready() -> void:
 	input_pickable = true
 	input_event.connect(_on_click_area_input_event)
 
-	# Set up labels with tier-colored name
+	# Set up labels with tier-colored name, ensure they render above trees
+	var info_container = get_node_or_null("InfoContainer")
+	if info_container:
+		info_container.z_index = 10
 	if name_label:
 		name_label.text = golfer_name
 		_apply_tier_name_color()
 
 	# Create highlight ring for active golfer indication
 	_create_highlight_ring()
+
+	# Create tier-colored ring (always visible)
+	_create_tier_ring()
+
+	# Create group badge (visible for groups of 2+)
+	_create_group_badge()
+
+	# Enable hover detection for name label
+	mouse_entered.connect(_on_mouse_entered)
+	mouse_exited.connect(_on_mouse_exited)
+	if name_label:
+		name_label.visible = false  # Show on hover only
 
 	# Connect to green fee payment signal
 	EventBus.green_fee_paid.connect(_on_green_fee_paid)
@@ -414,6 +447,9 @@ func initialize_from_tier(tier: int) -> void:
 	# Apply tier-based visual differentiation
 	_apply_tier_visuals(tier)
 
+	# Update tier ring color to match new tier
+	_update_tier_ring_color()
+
 func _apply_tier_visuals(tier: int) -> void:
 	if not visual:
 		return
@@ -501,6 +537,9 @@ func _apply_tier_name_color() -> void:
 
 func _process(delta: float) -> void:
 	_update_highlight_ring()
+	_update_tier_ring()
+	_update_group_badge()
+	_update_mood_visuals()
 
 	# Track waiting time for pace satisfaction decay
 	if current_state == State.IDLE and current_hole > 0:
@@ -552,15 +591,21 @@ func _process_walking(delta: float) -> void:
 		_building_check_timer = 0.0
 		_check_building_proximity()
 
+	# Fatigue modifiers — tired golfers shuffle slower
+	var is_fatigued = needs.energy < 0.3
+	var bob_max = 0.8 if is_fatigued else 1.5
+	var arm_swing_max = 0.08 if is_fatigued else 0.15
+	var frame_duration = WALK_FRAME_DURATION * 1.4 if is_fatigued else WALK_FRAME_DURATION
+
 	# Walking animation - bob + leg swap
 	if visual:
-		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * 1.5
+		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * bob_max
 		visual.position = visual_offset + Vector2(0, bob_amount)
 
 	# 2-frame walk cycle: alternate leg positions
 	_walk_timer += delta
-	if _walk_timer >= WALK_FRAME_DURATION:
-		_walk_timer -= WALK_FRAME_DURATION
+	if _walk_timer >= frame_duration:
+		_walk_timer -= frame_duration
 		_walk_frame = 1 - _walk_frame
 		if legs:
 			legs.polygon = LEGS_FRAME_1 if _walk_frame == 1 else LEGS_FRAME_0
@@ -568,7 +613,7 @@ func _process_walking(delta: float) -> void:
 			shoes.polygon = SHOES_FRAME_1 if _walk_frame == 1 else SHOES_FRAME_0
 
 	# Swing arms while walking
-	var swing_amount = sin(Time.get_ticks_msec() / 200.0) * 0.15
+	var swing_amount = sin(Time.get_ticks_msec() / 200.0) * arm_swing_max
 	if arms:
 		arms.rotation = swing_amount
 	if hands:
@@ -932,7 +977,13 @@ func take_shot(target: Vector2i) -> void:
 
 ## Finish current hole
 func finish_hole(par: int) -> void:
-	hole_scores.append({"hole": current_hole, "strokes": current_strokes, "par": par})
+	# Resolve 1-based hole_number from course data (current_hole is a 0-based index)
+	var _hole_number := current_hole + 1
+	var _cd = GameManager.course_data
+	if _cd and current_hole < _cd.holes.size():
+		_hole_number = _cd.holes[current_hole].hole_number
+
+	hole_scores.append({"hole": _hole_number, "strokes": current_strokes, "par": par})
 	total_strokes += current_strokes
 	total_par += par
 	previous_hole_strokes = current_strokes  # Store for honor system on next tee
@@ -968,8 +1019,8 @@ func finish_hole(par: int) -> void:
 	if score_trigger != -1:
 		show_thought(score_trigger)
 
-	# Check for records
-	var records = GameManager.check_hole_records(golfer_name, current_hole, current_strokes)
+	# Check for records (use 1-based hole_number for record keeping)
+	var records = GameManager.check_hole_records(golfer_name, _hole_number, current_strokes)
 	for record in records:
 		if record.type == "hole_in_one":
 			# Spawn celebration effect
@@ -998,7 +1049,7 @@ func finish_hole(par: int) -> void:
 		driving_skill, accuracy_skill, putting_skill, recovery_skill, miss_tendency
 	])
 
-	EventBus.golfer_finished_hole.emit(golfer_id, current_hole, current_strokes, par)
+	EventBus.golfer_finished_hole.emit(golfer_id, _hole_number, current_strokes, par)
 	hole_completed.emit(current_strokes, par)
 
 	_update_score_display()
@@ -1008,8 +1059,10 @@ func finish_hole(par: int) -> void:
 func finish_round() -> void:
 	_change_state(State.FINISHED)
 
-	# Check for course record
-	GameManager.check_round_record(golfer_name, total_strokes)
+	# Only record course record if golfer completed all holes (not a partial round)
+	var total_holes = GameManager.get_open_hole_count()
+	if hole_scores.size() >= total_holes and total_holes > 0:
+		GameManager.check_round_record(golfer_name, total_strokes)
 
 	# Apply clubhouse effects (golfer visits clubhouse after round)
 	_apply_clubhouse_effects()
@@ -2170,6 +2223,91 @@ func _update_highlight_ring() -> void:
 	if _highlight_ring:
 		_highlight_ring.visible = is_active_golfer
 		_highlight_ring.position = visual_offset
+
+## Create tier-colored ring beneath golfer (always visible)
+func _create_tier_ring() -> void:
+	_tier_ring = Polygon2D.new()
+	_tier_ring.name = "TierRing"
+	var points = PackedVector2Array()
+	for i in range(24):
+		var angle = (i / 24.0) * TAU
+		points.append(Vector2(cos(angle) * 12, sin(angle) * 6 + 12))
+	_tier_ring.polygon = points
+	_tier_ring.color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
+	_tier_ring.z_index = -2
+	add_child(_tier_ring)
+
+## Update tier ring position and pro pulse animation
+func _update_tier_ring() -> void:
+	if not _tier_ring:
+		return
+	_tier_ring.position = visual_offset
+	var base_color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
+	if golfer_tier == GolferTier.Tier.PRO:
+		var pulse = 0.7 + 0.3 * sin(Time.get_ticks_msec() / 500.0)
+		_tier_ring.color = Color(base_color.r, base_color.g, base_color.b, pulse)
+	else:
+		_tier_ring.color = Color(base_color.r, base_color.g, base_color.b, ring_opacity)
+
+## Refresh tier ring color (called after tier changes, e.g. initialize_from_tier)
+func _update_tier_ring_color() -> void:
+	if _tier_ring:
+		_tier_ring.color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
+
+## Hover detection — show name label on mouse hover
+func _on_mouse_entered() -> void:
+	_is_hovered = true
+	if name_label:
+		var tier_name = GolferTier.TIER_DATA.get(golfer_tier, {}).get("name", "")
+		var stars = "★".repeat(golfer_tier + 1)
+		name_label.text = "%s %s %s" % [stars, tier_name, golfer_name]
+		name_label.visible = true
+
+func _on_mouse_exited() -> void:
+	_is_hovered = false
+	if name_label:
+		name_label.visible = false
+
+## Create group number badge inside InfoContainer (above score label)
+func _create_group_badge() -> void:
+	var info_container = get_node_or_null("InfoContainer")
+	if not info_container:
+		return
+	_group_badge = Label.new()
+	_group_badge.name = "GroupBadge"
+	_group_badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_group_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_group_badge.add_theme_font_size_override("font_size", 10)
+	_group_badge.add_theme_constant_override("outline_size", 4)
+	_group_badge.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1.0))
+	_group_badge.visible = false
+	info_container.add_child(_group_badge)
+	_group_badge.layout_mode = 2  # Set after add_child so container applies it
+	info_container.move_child(_group_badge, 0)  # Place above score label
+
+## Update group badge (no position tracking needed — VBoxContainer handles layout)
+func _update_group_badge() -> void:
+	pass
+
+## Set group badge text and color (called by GolferManager after group assignment)
+func set_group_badge(gid: int, group_size: int) -> void:
+	if not _group_badge:
+		return
+	_group_badge.text = "Group %d" % (gid + 1)
+	var hue = fmod(gid * 0.618033988749895, 1.0)
+	_group_badge.add_theme_color_override("font_color", Color.from_hsv(hue, 0.6, 0.9))
+	_group_badge.visible = true
+
+## Update visual modulate based on mood state
+func _update_mood_visuals() -> void:
+	if not visual:
+		return
+	if current_mood < 0.3:
+		visual.modulate = Color(1.2, 0.85, 0.85)
+	elif current_mood > 0.8:
+		visual.modulate = Color(1.0, 0.98, 0.85)
+	elif current_mood >= 0.4:
+		visual.modulate = Color.WHITE
 
 ## Update visual representation
 func _update_visual() -> void:

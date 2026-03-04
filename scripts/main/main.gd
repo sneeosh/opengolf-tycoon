@@ -13,6 +13,7 @@ var terrain_toolbar: TerrainToolbar = null
 @onready var pause_btn: Button = $UI/HUD/BottomBar/SpeedControls/PauseBtn
 @onready var play_btn: Button = $UI/HUD/BottomBar/SpeedControls/PlayBtn
 @onready var fast_btn: Button = $UI/HUD/BottomBar/SpeedControls/FastBtn
+var ultra_btn: Button = null
 @onready var speed_controls: HBoxContainer = $UI/HUD/BottomBar/SpeedControls
 
 # New UI components
@@ -179,6 +180,7 @@ func _ready() -> void:
 
 	_connect_signals()
 	_connect_ui_buttons()
+	_setup_bottom_bar()
 	_setup_top_hud_bar()
 	_setup_rain_overlay()
 	_setup_placement_preview()
@@ -294,7 +296,10 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 		elif not text_input_focused:
 			# Only process single-key hotkeys when not typing in a text field
-			if event.keycode == KEY_U:
+			if event.keycode == KEY_F:
+				_toggle_panel(financial_panel)
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_U:
 				_toggle_tournament_panel()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_L:
@@ -400,6 +405,14 @@ func _connect_ui_buttons() -> void:
 	$UI/HUD/BottomBar/SpeedControls/PauseBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.PAUSED))
 	$UI/HUD/BottomBar/SpeedControls/PlayBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.NORMAL))
 	$UI/HUD/BottomBar/SpeedControls/FastBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.FAST))
+
+	# Create dedicated ultra speed button
+	ultra_btn = Button.new()
+	ultra_btn.text = ">>>"
+	ultra_btn.name = "UltraBtn"
+	ultra_btn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.ULTRA))
+	speed_controls.add_child(ultra_btn)
+	speed_controls.move_child(ultra_btn, fast_btn.get_index() + 1)
 
 func _setup_terrain_toolbar() -> void:
 	"""Replace old tool panel with organized terrain toolbar"""
@@ -615,6 +628,37 @@ func _setup_placement_preview() -> void:
 	_measure_overlay.terrain_grid = terrain_grid
 	add_child(_measure_overlay)
 
+func _setup_bottom_bar() -> void:
+	"""Style the bottom bar with a dark background and visual separators."""
+	var bottom_bar = $UI/HUD/BottomBar
+
+	# Add a dark background panel behind the bottom bar
+	var bg = Panel.new()
+	bg.name = "BottomBarBG"
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.08, 0.92)
+	style.border_width_top = 1
+	style.border_color = Color(0.2, 0.2, 0.2, 1)
+	bg.add_theme_stylebox_override("panel", style)
+	# Position it exactly behind the BottomBar
+	bg.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bg.offset_top = -60.0
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Insert as sibling just before the bottom bar
+	var hud = $UI/HUD
+	hud.add_child(bg)
+	hud.move_child(bg, bottom_bar.get_index())
+
+	# Add padding to the bottom bar itself
+	bottom_bar.add_theme_constant_override("separation", 6)
+
+	# Add a separator after SpeedControls
+	var sep = VSeparator.new()
+	sep.custom_minimum_size = Vector2(1, 28)
+	sep.modulate = Color(1, 1, 1, 0.3)
+	bottom_bar.add_child(sep)
+	bottom_bar.move_child(sep, speed_controls.get_index() + 1)
+
 func _create_selection_indicator() -> void:
 	"""Create a label showing the currently selected tool/placement mode."""
 	var bottom_bar = $UI/HUD/BottomBar
@@ -633,7 +677,7 @@ func _create_selection_indicator() -> void:
 	selection_label = Label.new()
 	selection_label.name = "SelectionLabel"
 	selection_label.text = "Selected: Fairway"
-	selection_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))  # Yellow-ish
+	selection_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD_DIM)
 	margin.add_child(selection_label)
 
 	# Insert before the coordinate label (which is at the end)
@@ -647,12 +691,12 @@ func _update_selection_indicator() -> void:
 		return
 
 	var text = "Selected: "
-	var color = Color(1.0, 0.9, 0.5)  # Default yellow
+	var color = UIConstants.COLOR_GOLD_DIM
 
 	# Check null selector state first
 	if not _has_active_tool():
 		text += "None (press a tool key to select)"
-		color = Color(0.6, 0.6, 0.6)  # Gray
+		color = UIConstants.COLOR_TEXT_DIM
 		selection_label.text = text
 		selection_label.add_theme_color_override("font_color", color)
 		return
@@ -754,9 +798,13 @@ func _update_button_states() -> void:
 	pause_btn.visible = true
 	play_btn.visible = true
 	fast_btn.visible = true
+	if ultra_btn:
+		ultra_btn.visible = true
 	pause_btn.disabled = false
 	play_btn.disabled = false
 	fast_btn.disabled = false
+	if ultra_btn:
+		ultra_btn.disabled = false
 	play_btn.text = ">"
 	pause_btn.text = "||"
 	fast_btn.text = ">>"
@@ -774,6 +822,8 @@ func _update_button_states() -> void:
 	pause_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.PAUSED else Color(1, 1, 1, 1)
 	play_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.NORMAL else Color(1, 1, 1, 1)
 	fast_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.FAST else Color(1, 1, 1, 1)
+	if ultra_btn:
+		ultra_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.ULTRA else Color(1, 1, 1, 1)
 
 func _handle_mouse_hover() -> void:
 	# Only show coordinates when a tool is active (reduces clutter)
@@ -1683,7 +1733,7 @@ func _on_end_of_day(day_number: int) -> void:
 	GameManager.is_paused = true
 
 	# Calculate and deduct operating costs BEFORE showing summary
-	var terrain_cost = terrain_grid.get_total_maintenance_cost()
+	var terrain_cost = int(terrain_grid.get_total_maintenance_cost() * GameManager.get_maintenance_multiplier())
 	var hole_count = GameManager.current_course.holes.size() if GameManager.current_course else 0
 	var building_costs = _calculate_building_operating_costs()
 
@@ -1748,20 +1798,21 @@ func _on_summary_build_mode() -> void:
 
 func _create_save_load_button() -> void:
 	var bottom_bar = $UI/HUD/BottomBar
+
+	# Add separator before navigation buttons
+	var sep = VSeparator.new()
+	sep.custom_minimum_size = Vector2(1, 28)
+	sep.modulate = Color(1, 1, 1, 0.3)
+	bottom_bar.add_child(sep)
+
 	var menu_btn = Button.new()
 	menu_btn.name = "MenuBtn"
 	menu_btn.text = "Menu"
-	menu_btn.custom_minimum_size = Vector2(60, 30)
+	menu_btn.custom_minimum_size = Vector2(60, UIConstants.TOOL_BUTTON_HEIGHT)
 	menu_btn.pressed.connect(_on_menu_pressed)
 	bottom_bar.add_child(menu_btn)
 
-	# End Day button (for testing/convenience)
-	var end_day_btn = Button.new()
-	end_day_btn.name = "EndDayBtn"
-	end_day_btn.text = "End Day"
-	end_day_btn.custom_minimum_size = Vector2(70, 30)
-	end_day_btn.pressed.connect(_on_end_day_pressed)
-	bottom_bar.add_child(end_day_btn)
+	# End Day functionality handled by ModeToggleBtn in SpeedControls
 
 func _on_end_day_pressed() -> void:
 	if tournament_manager.is_tournament_in_progress():

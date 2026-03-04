@@ -5,7 +5,7 @@ class_name GolferManager
 const GOLFER_SCENE = preload("res://scenes/entities/golfer.tscn")
 const TerrainTypes = preload("res://scripts/terrain/terrain_types.gd")
 
-@export var min_spawn_cooldown_seconds: float = 10.0  # Minimum cooldown between group spawns
+@export var min_spawn_cooldown_seconds: float = 15.0  # Minimum cooldown between group spawns
 
 var active_golfers: Array[Golfer] = []
 var next_golfer_id: int = 0
@@ -62,10 +62,10 @@ func get_group_size_weights() -> Array:
 
 func get_spawn_rate_modifier() -> float:
 	"""Get spawn rate modifier based on course rating, weather, and marketing.
-	1 star = 0.5x (fewer golfers), 3 stars = 1x, 5 stars = 1.5x (more golfers)
+	Uses power curve: 1 star = 0.11x (nearly empty), 3 stars = 1.0x, 5 stars = 2.78x (packed).
 	Bad weather further reduces spawn rate. Marketing campaigns increase it."""
 	var rating = GameManager.course_rating.get("overall", 3.0)
-	var base_modifier = 0.5 + (rating - 1.0) * 0.25
+	var base_modifier = pow(rating / 3.0, 2.0)
 
 	# Apply weather penalty (rain discourages golfers)
 	if GameManager.weather_system:
@@ -85,6 +85,9 @@ func get_spawn_rate_modifier() -> float:
 	var active_event = SeasonalEvents.get_active_event(GameManager.current_day)
 	if active_event:
 		base_modifier *= active_event.spawn_modifier
+
+	# Apply difficulty preset spawn rate modifier (Easy 1.2x, Normal 1.0x, Hard 0.8x)
+	base_modifier *= GameManager.get_spawn_rate_multiplier()
 
 	return base_modifier
 
@@ -254,7 +257,7 @@ func _process(delta: float) -> void:
 
 	# Dynamic spawning: spawn when first tee is clear (with minimum cooldown)
 	# Only spawn during open hours
-	time_since_last_spawn += delta * GameManager.get_game_speed_multiplier()
+	time_since_last_spawn += delta  # delta already scaled by Engine.time_scale
 
 	# Don't spawn regular golfers during tournaments
 	var tournament_active = GameManager.tournament_manager and GameManager.tournament_manager.is_tournament_in_progress()
@@ -285,6 +288,11 @@ func _update_golfers(delta: float) -> void:
 		_cached_sorted_group_ids = _cached_groups.keys()
 		_cached_sorted_group_ids.sort()
 		_groups_dirty = false
+		# Update group badges on all golfers
+		for gid in _cached_sorted_group_ids:
+			var group = _cached_groups[gid]
+			for golfer in group:
+				golfer.set_group_badge(gid, group.size())
 
 	# Process groups in deterministic order (sorted by group_id)
 	for group_id in _cached_sorted_group_ids:
@@ -956,12 +964,23 @@ func _update_visual_offsets() -> void:
 			cluster[idx].visual_offset = offset
 
 func _update_active_golfer_highlights() -> void:
-	"""Mark the golfer who is currently taking their shot so they get a highlight ring."""
+	"""Mark the golfer who is currently taking their shot so they get a highlight ring.
+	Also set ring_opacity for visual hierarchy: active=full, same group=1.0, other groups=0.6."""
+	# Find which group has an active golfer
+	var active_group_id: int = -1
 	for golfer in active_golfers:
-		var was_active = golfer.is_active_golfer
 		var is_active = golfer.current_state in [
 			Golfer.State.PREPARING_SHOT,
 			Golfer.State.SWINGING,
 			Golfer.State.WATCHING
 		]
 		golfer.is_active_golfer = is_active
+		if is_active:
+			active_group_id = golfer.group_id
+
+	# Set ring opacity: full for active group, dimmed for others
+	for golfer in active_golfers:
+		if active_group_id >= 0 and golfer.group_id != active_group_id:
+			golfer.ring_opacity = 0.6
+		else:
+			golfer.ring_opacity = 1.0

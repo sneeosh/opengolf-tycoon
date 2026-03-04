@@ -62,7 +62,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"wind_base_strength": 1.0,
 				"distance_modifier": 1.0,
 				"maintenance_cost_multiplier": 1.0,
-				"green_fee_baseline": 30,
+				"green_fee_baseline": 10,
 				"land_cost_multiplier": 1.0,
 				"satisfaction_ceiling": 1.0,
 			}
@@ -71,7 +71,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"wind_base_strength": 0.8,
 				"distance_modifier": 1.02,  # Dry air, slight distance boost
 				"maintenance_cost_multiplier": 0.7,  # Less water/mowing needed
-				"green_fee_baseline": 25,
+				"green_fee_baseline": 10,
 				"land_cost_multiplier": 0.6,  # Cheap desert land
 				"satisfaction_ceiling": 1.0,
 			}
@@ -80,7 +80,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"wind_base_strength": 1.8,  # Strong persistent coastal wind
 				"distance_modifier": 0.98,
 				"maintenance_cost_multiplier": 0.85,  # Fescue is low-maintenance
-				"green_fee_baseline": 40,
+				"green_fee_baseline": 14,
 				"land_cost_multiplier": 1.2,  # Coastal premium
 				"satisfaction_ceiling": 1.0,
 			}
@@ -89,7 +89,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"wind_base_strength": 1.2,
 				"distance_modifier": 1.05,  # Thinner air = longer drives
 				"maintenance_cost_multiplier": 1.15,
-				"green_fee_baseline": 35,
+				"green_fee_baseline": 12,
 				"land_cost_multiplier": 0.8,
 				"satisfaction_ceiling": 1.0,
 			}
@@ -98,7 +98,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"wind_base_strength": 0.7,  # Buildings block wind
 				"distance_modifier": 1.0,
 				"maintenance_cost_multiplier": 0.6,  # Municipal = cheap
-				"green_fee_baseline": 20,
+				"green_fee_baseline": 10,
 				"land_cost_multiplier": 1.5,  # Urban land is expensive
 				"satisfaction_ceiling": 0.85,  # Can't reach 5 stars
 			}
@@ -107,7 +107,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"wind_base_strength": 1.0,
 				"distance_modifier": 1.0,
 				"maintenance_cost_multiplier": 1.4,  # Tropical gardens cost more
-				"green_fee_baseline": 50,  # Premium pricing
+				"green_fee_baseline": 18,  # Premium pricing
 				"land_cost_multiplier": 1.3,
 				"satisfaction_ceiling": 1.0,
 			}
@@ -116,7 +116,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"wind_base_strength": 1.2,   # Moderate — open inland terrain
 				"distance_modifier": 1.01,   # Firm turf gives extra roll
 				"maintenance_cost_multiplier": 0.75,  # Heathland is low-maintenance
-				"green_fee_baseline": 35,
+				"green_fee_baseline": 12,
 				"land_cost_multiplier": 1.1,  # Desirable heathland is limited
 				"satisfaction_ceiling": 1.0,
 				"rough_penalty_multiplier": 1.4,  # Heather/gorse is brutally penal
@@ -126,7 +126,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"wind_base_strength": 0.6,   # Dense canopy blocks wind heavily
 				"distance_modifier": 0.98,   # Trees limit club choices
 				"maintenance_cost_multiplier": 0.9,  # Natural forest, less landscaping
-				"green_fee_baseline": 35,
+				"green_fee_baseline": 12,
 				"land_cost_multiplier": 0.7,  # Forested land is affordable
 				"satisfaction_ceiling": 1.0,
 				"tree_collision_multiplier": 1.5,  # Dense trees punish errant shots
@@ -136,7 +136,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"wind_base_strength": 1.4,   # Persistent trade winds
 				"distance_modifier": 1.02,   # Warm sea-level air
 				"maintenance_cost_multiplier": 1.2,  # Tropical growth requires management
-				"green_fee_baseline": 45,    # Destination premium
+				"green_fee_baseline": 16,    # Destination premium
 				"land_cost_multiplier": 1.4,  # Island real estate
 				"satisfaction_ceiling": 1.0,
 			}
@@ -145,7 +145,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"wind_base_strength": 1.3,   # Coastal, open terrain
 				"distance_modifier": 1.0,
 				"maintenance_cost_multiplier": 1.1,  # Drainage and environmental mgmt
-				"green_fee_baseline": 40,
+				"green_fee_baseline": 14,
 				"land_cost_multiplier": 0.5,  # Swampland is cheap
 				"satisfaction_ceiling": 1.0,
 			}
