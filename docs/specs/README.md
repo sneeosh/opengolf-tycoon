@@ -13,7 +13,7 @@ This document reviews the current game state and proposes specs that should be w
 |---|----------|----------|----------|--------|
 | — | Course Design Upgrades | [`course-design-upgrades.md`](course-design-upgrades.md) | HIGH | Partial (pin/tee/green move modes done) |
 | 1 | Simulated Tournament Rounds | [`completed/simulated-tournament-rounds.md`](completed/simulated-tournament-rounds.md) | CRITICAL | Completed |
-| 2 | Spectator Camera & Live Scorecard | [`spectator-camera-live-scorecard.md`](spectator-camera-live-scorecard.md) | HIGH | Proposal |
+| 2 | Spectator Camera & Live Scorecard | [`spectator-camera-live-scorecard.md`](spectator-camera-live-scorecard.md) | HIGH | Implemented |
 | 3 | Seasonal System Expansion | [`seasonal-system-expansion.md`](seasonal-system-expansion.md) | HIGH | Proposal |
 | 4 | Economic Balance & Tuning | [`economic-balance-tuning.md`](economic-balance-tuning.md) | HIGH | Proposal |
 | 5 | Premium Land & Prebuilt Courses | [`premium-land-prebuilt-courses.md`](premium-land-prebuilt-courses.md) | MEDIUM-HIGH | Proposal |

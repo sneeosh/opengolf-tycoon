@@ -84,10 +84,17 @@ func _build_ui() -> void:
 		["WASD", "Pan camera"],
 		["Scroll", "Zoom in/out"],
 		["Q", "Rotate camera"],
-		["Tab", "Toggle minimap"],
 		["V", "Shot heatmap"],
 		["Shift+V", "Cycle heatmap mode"],
 		["F3", "Debug overlay"],
+	])
+
+	_add_section(vbox, "Spectator Mode", [
+		["Click golfer", "Follow golfer"],
+		["Tab", "Next golfer"],
+		["Shift+Tab", "Previous golfer"],
+		["1-4", "Select group member"],
+		["Esc", "Exit follow mode"],
 	])
 
 	_add_section(vbox, "General", [

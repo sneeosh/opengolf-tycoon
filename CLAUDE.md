@@ -15,7 +15,7 @@ scripts/
 ├── effects/        # RainOverlay, HoleInOneCelebration, SandSprayEffect
 ├── entities/       # Golfer, Ball, Building, Tree, Rock, Flag
 ├── managers/       # GolferManager, BallManager, HoleManager, PlacementManager, BuildingRegistry, TournamentManager
-├── systems/        # WindSystem, WeatherSystem, CourseRatingSystem, CourseTheme, FeedbackTriggers, GolferTier, TournamentSystem, DayNightSystem, CourseRecords, ShotAI, GolferNeeds, SeasonSystem, MilestoneSystem, TutorialSystem, DifficultyPresets, ColorblindMode
+├── systems/        # WindSystem, WeatherSystem, CourseRatingSystem, CourseTheme, FeedbackTriggers, GolferTier, TournamentSystem, DayNightSystem, CourseRecords, ShotAI, GolferNeeds, SeasonSystem, MilestoneSystem, TutorialSystem, DifficultyPresets, ColorblindMode, FollowMode
 ├── terrain/        # TerrainGrid, TerrainTypes, TilesetGenerator, + 10 overlay classes
 ├── tools/          # HoleCreationTool, ElevationTool, UndoManager, GenerateTileset
 ├── ui/             # 40 UI components (MainMenu, PauseMenu, SettingsMenu, MiniMap, FinancialPanel, MilestonesPanel, HoleStatsPanel, CourseScorecardPanel, SaveLoadPanel, HotkeyPanel, etc.)
@@ -130,10 +130,16 @@ Shot error uses an **angular dispersion** model rather than absolute tile offset
 - **StrokeIndexCalculator**: Derives handicap allocation (1=hardest) from difficulty ratings. Front/back nine interleaving for 10+ holes. See [stroke-index docs](docs/algorithms/stroke-index.md).
 - **CourseScorecardPanel**: Full course scorecard (hotkey `K`) showing all holes with par, yardage, stroke index, average scores, and course records. Adaptive layout for ≤9 vs 10+ holes.
 
+### Spectator / Follow Mode
+- **FollowMode** (`scripts/systems/follow_mode.gd`): Click a golfer to enter follow mode. Camera smoothly tracks the golfer with state-based zoom (zoom in on preparation, pull back during walks/flights). Tab/Shift+Tab cycles between active golfers, number keys 1-4 select group members, Escape exits. Golden highlight ring on followed golfer.
+- **LiveScorecard** (`scripts/ui/live_scorecard.gd`): Bottom-left overlay during follow mode showing hole-by-hole scores with color coding. Solo mode (front/back nine) or group mode (one row per group member with `>` marker on followed golfer). Shows tournament leaderboard position when following a tournament golfer.
+- **EnhancedRoundSummary** (`scripts/ui/enhanced_round_summary.gd`): Full scorecard popup when a followed golfer finishes their round, replacing the brief toast. Shows best/worst holes, satisfaction, and payment.
+- **EventBus signals**: `follow_mode_entered(golfer_id)`, `follow_mode_exited()`, `follow_target_changed(old_id, new_id)`.
+
 ### Tools
 - **ElevationTool**: Raise/lower tiles (-5 to +5). Affects shot distance and ball roll.
 - **UndoManager**: 50-action stack with cost refunds.
-- **IsometricCamera**: WASD pan, mouse wheel zoom, Q rotate.
+- **IsometricCamera**: WASD pan, mouse wheel zoom, Q rotate. Follow mode tracking via FollowMode system.
 
 ## Conventions
 

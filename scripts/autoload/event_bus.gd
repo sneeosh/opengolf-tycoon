@@ -94,6 +94,11 @@ signal load_completed(success: bool)
 # Records Signals
 signal record_broken(record_type: String, golfer_name: String, value: int, hole_number: int)
 
+# Spectator / Follow Mode Signals
+signal follow_mode_entered(golfer_id: int)
+signal follow_mode_exited()
+signal follow_target_changed(old_id: int, new_id: int)
+
 func _ready() -> void:
 	print("EventBus initialized")
 

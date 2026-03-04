@@ -357,6 +357,46 @@ func _get_score_color(diff: int, total_par: int) -> Color:
 		return UIConstants.COLOR_SCORE_PAR
 	return UIConstants.COLOR_SCORE_OVER
 
+## Get a golfer's current position on the leaderboard (1-based).
+## Returns a dict with {position: int, tied: bool, total: int} or null if not found.
+func get_golfer_position(golfer_id: int) -> Variant:
+	if _entries.is_empty():
+		return null
+
+	# Sort same way as display
+	var sorted = _entries.duplicate()
+	sorted.sort_custom(func(a, b):
+		if a.missed_cut != b.missed_cut:
+			return not a.missed_cut
+		var a_diff = a.total_strokes - a.total_par if a.total_par > 0 else 999
+		var b_diff = b.total_strokes - b.total_par if b.total_par > 0 else 999
+		return a_diff < b_diff
+	)
+
+	for i in range(sorted.size()):
+		if sorted[i].golfer_id == golfer_id:
+			# Check for ties
+			var my_diff = sorted[i].total_strokes - sorted[i].total_par
+			var tied = false
+			var pos = i + 1
+			# Look backwards for ties to get actual position
+			for j in range(i - 1, -1, -1):
+				var other_diff = sorted[j].total_strokes - sorted[j].total_par
+				if other_diff == my_diff:
+					pos = j + 1
+					tied = true
+				else:
+					break
+			# Look forwards for ties
+			if not tied:
+				for j in range(i + 1, sorted.size()):
+					var other_diff = sorted[j].total_strokes - sorted[j].total_par
+					if other_diff == my_diff:
+						tied = true
+						break
+			return {"position": pos, "tied": tied, "total": sorted.size()}
+	return null
+
 func _position_panel() -> void:
 	await get_tree().process_frame
 	var vp_size = get_viewport().get_visible_rect().size

@@ -82,6 +82,9 @@ var _bulldoze_drag_cost: int = 0
 var placement_preview: PlacementPreview = null
 var main_menu: MainMenu = null
 var event_feed_panel: EventFeedPanel = null
+var follow_mode_system: FollowMode = null
+var live_scorecard: LiveScorecard = null
+var enhanced_round_summary: EnhancedRoundSummary = null
 
 # Hole context menu and move modes
 enum HoleMoveMode { NONE, MOVING_PIN, MOVING_TEE, MOVING_GREEN }
@@ -207,6 +210,7 @@ func _ready() -> void:
 	_setup_floating_text()
 	_setup_shot_trails()
 	_setup_shot_heatmap()
+	_setup_follow_mode()
 	_setup_audio_controls()
 	_initialize_game()
 	print("Main scene ready")
@@ -239,6 +243,13 @@ func _input(event: InputEvent) -> void:
 		# Escape key: deselect active tool/panel first, then open pause menu
 		if event.keycode == KEY_ESCAPE:
 			if GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
+				# Exit follow mode first (highest priority — non-destructive)
+				if follow_mode_system and follow_mode_system.is_active:
+					follow_mode_system.exit_follow_mode()
+					if enhanced_round_summary and enhanced_round_summary.visible:
+						enhanced_round_summary.hide()
+					get_viewport().set_input_as_handled()
+					return
 				# Close open panel first
 				if _active_panel and _active_panel.visible:
 					_active_panel.hide()
@@ -328,6 +339,21 @@ func _input(event: InputEvent) -> void:
 				else:
 					terrain_grid.toggle_shot_heatmap()
 				get_viewport().set_input_as_handled()
+			# Follow mode: Tab cycles golfers, number keys select group members
+			elif event.keycode == KEY_TAB:
+				if follow_mode_system:
+					if event.shift_pressed:
+						follow_mode_system.cycle_prev_golfer()
+					else:
+						follow_mode_system.cycle_next_golfer()
+					_update_live_scorecard()
+				get_viewport().set_input_as_handled()
+			elif event.keycode in [KEY_1, KEY_2, KEY_3, KEY_4]:
+				if follow_mode_system and follow_mode_system.is_active:
+					var idx = event.keycode - KEY_1 + 1
+					follow_mode_system.select_group_member(idx)
+					_update_live_scorecard()
+					get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Cancel action (ESC/right-click) should always work to deselect tools
@@ -812,6 +838,9 @@ func _start_painting() -> void:
 			if hole:
 				_open_hole_context_menu(hole)
 				return
+		# Clicking empty terrain exits follow mode
+		if follow_mode_system and follow_mode_system.is_active:
+			follow_mode_system.exit_follow_mode()
 		return
 
 	# Check if we're in bulldozer mode — supports click-and-drag
@@ -2637,10 +2666,16 @@ func _on_golfer_info_popup_closed() -> void:
 func _on_golfer_clicked(golfer: Golfer) -> void:
 	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
 		return
-	if _active_panel and _active_panel != golfer_info_popup and _active_panel.visible:
-		_active_panel.hide()
-	_active_panel = golfer_info_popup
-	golfer_info_popup.show_for_golfer(golfer)
+	# Enter follow mode (replaces simple info popup when in simulation mode)
+	if follow_mode_system:
+		follow_mode_system.enter_follow_mode(golfer)
+		_update_live_scorecard()
+	else:
+		# Fallback: show info popup if follow mode not initialized
+		if _active_panel and _active_panel != golfer_info_popup and _active_panel.visible:
+			_active_panel.hide()
+		_active_panel = golfer_info_popup
+		golfer_info_popup.show_for_golfer(golfer)
 
 # --- Round Summary ---
 
@@ -2654,6 +2689,14 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par
 	var golfer = golfer_manager.get_golfer(golfer_id)
 	if not golfer:
 		return
+
+	# If following this golfer, show enhanced round summary instead of toast
+	if follow_mode_system and follow_mode_system.is_active and follow_mode_system.followed_golfer and follow_mode_system.followed_golfer.golfer_id == golfer_id:
+		if enhanced_round_summary:
+			enhanced_round_summary.show_for_golfer(golfer)
+		return
+
+	# Default: brief toast notification
 	round_summary_popup.queue_notification({
 		"name": golfer.golfer_name,
 		"total_strokes": total_strokes,
@@ -2857,6 +2900,56 @@ func _navigate_to_golfer_position(golfer_id: int) -> void:
 		if child is Golfer and child.golfer_id == golfer_id:
 			camera.focus_on(child.global_position, false)
 			return
+
+# --- Follow Mode / Spectator Camera ---
+
+func _setup_follow_mode() -> void:
+	# Core follow mode system
+	follow_mode_system = FollowMode.new()
+	follow_mode_system.name = "FollowMode"
+	add_child(follow_mode_system)
+	follow_mode_system.setup(camera, golfer_manager)
+
+	# Connect to golfer departure so follow mode exits if target leaves
+	EventBus.golfer_left_course.connect(follow_mode_system._on_golfer_left_course)
+
+	# Update live scorecard on follow mode events
+	EventBus.follow_mode_entered.connect(func(_gid): _update_live_scorecard())
+	EventBus.follow_target_changed.connect(func(_old, _new): _update_live_scorecard())
+	EventBus.follow_mode_exited.connect(func():
+		if live_scorecard:
+			live_scorecard.hide()
+	)
+	# Refresh scorecard when any golfer finishes a hole (score updates)
+	EventBus.golfer_finished_hole.connect(func(_gid, _h, _s, _p): _update_live_scorecard())
+	EventBus.shot_taken.connect(func(_gid, _h, _s): _update_live_scorecard())
+
+	# Live scorecard overlay (bottom-left during follow mode)
+	live_scorecard = LiveScorecard.new()
+	live_scorecard.name = "LiveScorecard"
+	$UI.add_child(live_scorecard)
+
+	# Enhanced round summary (full scorecard popup for followed golfer)
+	enhanced_round_summary = EnhancedRoundSummary.new()
+	enhanced_round_summary.name = "EnhancedRoundSummary"
+	enhanced_round_summary.close_requested.connect(_on_enhanced_round_summary_closed)
+	$UI/HUD.add_child(enhanced_round_summary)
+
+func _update_live_scorecard() -> void:
+	if not follow_mode_system or not follow_mode_system.is_active or not follow_mode_system.followed_golfer:
+		if live_scorecard:
+			live_scorecard.hide()
+		return
+	if live_scorecard:
+		var group = follow_mode_system.get_followed_group()
+		live_scorecard.show_for_golfer(follow_mode_system.followed_golfer, group)
+
+func _on_enhanced_round_summary_closed() -> void:
+	if enhanced_round_summary:
+		enhanced_round_summary.hide()
+	# Exit follow mode after dismissing the summary
+	if follow_mode_system and follow_mode_system.is_active:
+		follow_mode_system.exit_follow_mode()
 
 # --- Course Rating Overlay ---
 

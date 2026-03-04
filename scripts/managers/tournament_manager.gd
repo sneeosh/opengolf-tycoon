@@ -919,6 +919,9 @@ func get_cooldown_remaining() -> int:
 func is_tournament_in_progress() -> bool:
 	return current_tournament_state == TournamentSystem.TournamentState.IN_PROGRESS
 
+func get_leaderboard() -> TournamentLeaderboard:
+	return _leaderboard
+
 func get_save_data() -> Dictionary:
 	return {
 		"current_tier": current_tournament_tier,
