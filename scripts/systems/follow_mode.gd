@@ -145,7 +145,8 @@ func _apply_zoom_for_state(state: int) -> void:
 			target_zoom = ZOOM_IDLE
 		_:
 			target_zoom = ZOOM_IDLE
-	camera.zoom_to_point(camera.global_position, target_zoom, ZOOM_TRANSITION_DURATION)
+	var zoom_target = followed_golfer.global_position if followed_golfer and is_instance_valid(followed_golfer) else camera.global_position
+	camera.zoom_to_point(zoom_target, target_zoom, ZOOM_TRANSITION_DURATION)
 
 ## Cycle to the next active (non-finished) golfer on the course
 func cycle_next_golfer() -> void:

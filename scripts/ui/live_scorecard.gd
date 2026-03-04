@@ -100,15 +100,15 @@ func _on_golfer_finished_hole(golfer_id: int, _hole: int, _strokes: int, _par: i
 	if not visible or not _golfer:
 		return
 	# Refresh if the finished golfer is in our group
-	var dominated = false
+	var in_group = false
 	if _golfer.golfer_id == golfer_id:
-		dominated = true
+		in_group = true
 	else:
 		for g in _group:
 			if g.golfer_id == golfer_id:
-				dominated = true
+				in_group = true
 				break
-	if dominated:
+	if in_group:
 		_rebuild_scorecard()
 
 func _on_golfer_started_hole(golfer_id: int, _hole: int) -> void:
