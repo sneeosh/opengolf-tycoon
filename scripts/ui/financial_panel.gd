@@ -281,13 +281,13 @@ func update_display() -> void:
 	var season_row = _create_stat_row("Season:", season_name, season_color)
 	_content_vbox.add_child(season_row)
 
-	var spawn_mod = SeasonSystem.get_spawn_modifier(season)
+	var spawn_mod = SeasonSystem.get_blended_spawn_modifier(GameManager.current_day, GameManager.current_theme)
 	var spawn_pct = int(spawn_mod * 100)
 	var spawn_color = UIConstants.COLOR_SUCCESS if spawn_mod >= 1.0 else (UIConstants.COLOR_WARNING if spawn_mod >= 0.7 else UIConstants.COLOR_DANGER_DIM)
 	var demand_row = _create_stat_row("Demand:", "%d%%" % spawn_pct, spawn_color)
 	_content_vbox.add_child(demand_row)
 
-	var maint_mod = SeasonSystem.get_maintenance_modifier(season)
+	var maint_mod = SeasonSystem.get_blended_maintenance_modifier(GameManager.current_day, GameManager.current_theme)
 	var maint_pct = int(maint_mod * 100)
 	var maint_color = UIConstants.COLOR_SUCCESS if maint_mod <= 1.0 else (UIConstants.COLOR_WARNING if maint_mod <= 1.2 else UIConstants.COLOR_DANGER_DIM)
 	var maint_row = _create_stat_row("Maintenance:", "%d%%" % maint_pct, maint_color)

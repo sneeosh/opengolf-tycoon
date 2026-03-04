@@ -235,6 +235,8 @@ static func _calculate_design_rating(course_data) -> float:
 ## A $30/hole fee on an 18-hole course ($540 total) is fair at high reputation,
 ## but $30/hole on a 1-hole course ($30 total) should still feel overpriced
 ## because the "experience" is so short.
+## Seasonal fee tolerance adjusts what golfers consider "fair" — peak-season
+## golfers accept premium pricing; off-season golfers expect discounts.
 static func _calculate_value_rating(green_fee: int, reputation: float) -> float:
 	# Total cost of a round = per-hole fee x hole count
 	var hole_count = GameManager.get_open_hole_count()
@@ -246,6 +248,10 @@ static func _calculate_value_rating(green_fee: int, reputation: float) -> float:
 	# At 100 rep with 18 holes: fair = $200
 	var hole_factor = clampf(float(hole_count) / 18.0, 0.15, 1.0)
 	var fair_price = max(reputation * 2.0, 20.0) * hole_factor
+
+	# Seasonal fee tolerance: peak season = 1.3× (accept premium), off-season = 0.7× (expect discount)
+	var fee_tolerance = SeasonSystem.get_fee_tolerance(GameManager.current_day, GameManager.current_theme)
+	fair_price *= fee_tolerance
 
 	var price_ratio = float(total_round_cost) / max(fair_price, 1.0)
 

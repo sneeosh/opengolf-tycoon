@@ -38,9 +38,8 @@ func generate_daily_weather() -> void:
 	_generate_daily_weather()
 
 func _generate_daily_weather() -> void:
-	# Seasonal weather weights (Summer = mostly sunny, Winter = more rain)
-	var season = SeasonSystem.get_season(GameManager.current_day)
-	var thresholds = SeasonSystem.get_weather_weights(season)
+	# Blended seasonal weather weights with theme-aware rain modifier
+	var thresholds = SeasonSystem.get_blended_weather_weights(GameManager.current_day, GameManager.current_theme)
 	var roll = randf()
 	if roll < thresholds[0]:
 		weather_type = WeatherType.SUNNY

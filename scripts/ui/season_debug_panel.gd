@@ -111,8 +111,8 @@ func _update_display() -> void:
 	var season_name = SeasonSystem.get_season_name(season)
 	var day_in_season = SeasonSystem.get_day_in_season(day)
 	var year = SeasonSystem.get_year(day)
-	var spawn_mod = SeasonSystem.get_spawn_modifier(season)
-	var maint_mod = SeasonSystem.get_maintenance_modifier(season)
+	var spawn_mod = SeasonSystem.get_blended_spawn_modifier(day, GameManager.current_theme)
+	var maint_mod = SeasonSystem.get_blended_maintenance_modifier(day, GameManager.current_theme)
 
 	_current_label.text = "%s D%d Y%d (Day %d) | Demand: %d%% | Maint: %d%%" % [
 		season_name, day_in_season, year, day,

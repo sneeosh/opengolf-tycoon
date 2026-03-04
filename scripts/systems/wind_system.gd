@@ -25,10 +25,15 @@ func generate_daily_wind() -> void:
 	_generate_new_wind()
 
 ## Generate new wind conditions (called at start and each new day)
+## Applies theme wind modifier from SeasonSystem.THEME_WEATHER_MODIFIERS.
 func _generate_new_wind() -> void:
 	_base_direction = randf() * TAU
 	wind_direction = _base_direction
-	wind_speed = randf_range(2.0, 20.0)
+	var base_speed = randf_range(2.0, 20.0)
+	# Apply theme wind modifier (e.g. Links 1.5×, Tropical 0.7×)
+	var weather_mods = SeasonSystem.get_theme_weather_modifiers(GameManager.current_theme)
+	var wind_mod = weather_mods.get("wind", 1.0)
+	wind_speed = clampf(base_speed * wind_mod, 0.0, 30.0)
 	_drift_rate = randf_range(-0.3, 0.3)  # How much direction drifts per hour
 	_emit_wind_changed()
 

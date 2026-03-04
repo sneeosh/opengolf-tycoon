@@ -70,7 +70,7 @@ Detailed algorithm docs live in **`docs/algorithms/`** — see [`docs/algorithms
 
 **When modifying any algorithm or adding a new one, update the corresponding doc in `docs/algorithms/`.** If adding a new system, create a new markdown file and add it to the README index.
 
-Key docs: [shot-accuracy](docs/algorithms/shot-accuracy.md) · [putting](docs/algorithms/putting-system.md) · [shot-ai](docs/algorithms/shot-ai-target-finding.md) · [ball-physics](docs/algorithms/ball-physics.md) · [wind](docs/algorithms/wind-system.md) · [weather](docs/algorithms/weather-system.md) · [course-rating](docs/algorithms/course-rating.md) · [difficulty](docs/algorithms/difficulty-calculator.md) · [stroke-index](docs/algorithms/stroke-index.md) · [economy](docs/algorithms/economy.md) · [reputation](docs/algorithms/reputation.md) · [golfer-spawning](docs/algorithms/golfer-spawning.md) · [satisfaction](docs/algorithms/satisfaction-feedback.md) · [golfer-needs](docs/algorithms/golfer-needs.md) · [tournaments](docs/algorithms/tournament-system.md) · [day-night](docs/algorithms/day-night-cycle.md)
+Key docs: [shot-accuracy](docs/algorithms/shot-accuracy.md) · [putting](docs/algorithms/putting-system.md) · [shot-ai](docs/algorithms/shot-ai-target-finding.md) · [ball-physics](docs/algorithms/ball-physics.md) · [wind](docs/algorithms/wind-system.md) · [weather](docs/algorithms/weather-system.md) · [course-rating](docs/algorithms/course-rating.md) · [difficulty](docs/algorithms/difficulty-calculator.md) · [stroke-index](docs/algorithms/stroke-index.md) · [economy](docs/algorithms/economy.md) · [reputation](docs/algorithms/reputation.md) · [golfer-spawning](docs/algorithms/golfer-spawning.md) · [satisfaction](docs/algorithms/satisfaction-feedback.md) · [golfer-needs](docs/algorithms/golfer-needs.md) · [tournaments](docs/algorithms/tournament-system.md) · [day-night](docs/algorithms/day-night-cycle.md) · [seasonal-calendar](docs/algorithms/seasonal-calendar.md)
 
 ## Core Systems
 
@@ -104,10 +104,11 @@ Shot error uses an **angular dispersion** model rather than absolute tile offset
 - Reputation: 0-100, daily decay by star level, per-golfer mood-based gains. See [reputation docs](docs/algorithms/reputation.md).
 
 ### Weather & Time
-- **WindSystem**: Per-day random direction/speed (0-30 mph), hourly drift. Club-specific sensitivity (Driver 1.0x, Putter 0.0x). See [wind docs](docs/algorithms/wind-system.md).
-- **WeatherSystem**: 6 types (SUNNY → HEAVY_RAIN). State machine transitions. See [weather docs](docs/algorithms/weather-system.md).
+- **WindSystem**: Per-day random direction/speed (0-30 mph), hourly drift. Club-specific sensitivity (Driver 1.0x, Putter 0.0x). Theme wind modifier applied on generation (e.g. Links 1.5×, Tropical 0.7×). See [wind docs](docs/algorithms/wind-system.md).
+- **WeatherSystem**: 6 types (SUNNY → HEAVY_RAIN). State machine transitions. Uses blended, theme-aware weather probability tables (e.g. Desert 0.3× rain, Tropical 1.8× rain). See [weather docs](docs/algorithms/weather-system.md).
 - **DayNightSystem**: 6 AM - 8 PM course hours. Visual tinting with sunrise/sunset. See [day-night docs](docs/algorithms/day-night-cycle.md).
-- **TournamentSystem**: 4 tiers (Local/Regional/National/Championship) with escalating requirements. See [tournament docs](docs/algorithms/tournament-system.md).
+- **SeasonSystem**: 28-day year (7 days/season). Theme-aware spawn/maintenance modifier tables (10 themes × 4 seasons). Gradual 2-day transitions at season boundaries. Green fee tolerance (0.7×–1.3×) maps demand to pricing willingness. Tournament prestige multipliers by season. 2-day advance event notifications. See [seasonal calendar docs](docs/algorithms/seasonal-calendar.md).
+- **TournamentSystem**: 4 tiers (Local/Regional/National/Championship) with escalating requirements. Reputation reward scaled by seasonal prestige modifier. See [tournament docs](docs/algorithms/tournament-system.md).
 
 ### Course Themes
 - **CourseTheme** (`scripts/systems/course_theme.gd`): Static class with 10 theme types (PARKLAND, DESERT, LINKS, MOUNTAIN, CITY, RESORT, HEATHLAND, WOODLAND, TROPICAL, MARSHLAND). Each theme provides:

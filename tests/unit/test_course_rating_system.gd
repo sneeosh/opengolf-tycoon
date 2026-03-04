@@ -1,6 +1,20 @@
 extends GutTest
 ## Tests for CourseRatingSystem - Course quality and difficulty calculations
 
+# Value rating uses seasonal fee tolerance via GameManager.current_day/theme.
+# Set a stable mid-season day so blending doesn't shift expected values.
+var _saved_day: int
+var _saved_theme: int
+
+func before_each() -> void:
+	_saved_day = GameManager.current_day
+	_saved_theme = GameManager.current_theme
+	GameManager.current_day = 4   # Spring day 4 (no blend), fee tolerance ~0.995
+	GameManager.current_theme = CourseTheme.Type.PARKLAND
+
+func after_each() -> void:
+	GameManager.current_day = _saved_day
+	GameManager.current_theme = _saved_theme
 
 # --- Helper: create a mock CourseData with specified holes ---
 
