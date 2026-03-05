@@ -333,6 +333,15 @@ func _input(event: InputEvent) -> void:
 				else:
 					terrain_grid.toggle_shot_heatmap()
 				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_SPACE:
+				# Space = pause/play toggle
+				if GameManager.current_mode == GameManager.GameMode.SIMULATING:
+					if GameManager.current_speed == GameManager.GameSpeed.PAUSED:
+						GameManager.set_speed(GameManager.GameSpeed.NORMAL)
+					else:
+						GameManager.set_speed(GameManager.GameSpeed.PAUSED)
+					_update_button_states()
+					get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Cancel action (ESC/right-click) should always work to deselect tools

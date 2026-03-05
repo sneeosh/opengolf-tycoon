@@ -39,6 +39,7 @@ var _target_alpha: float = 0.0
 func _ready() -> void:
 	set_process(true)
 	z_index = 100  # Render above terrain
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 func _process(delta: float) -> void:
 	_pulse_time += delta * 3.0
@@ -300,11 +301,21 @@ func _draw_entity_ghost(alpha_mod: float) -> void:
 
 func _draw_tree_ghost(pos: Vector2, color: Color) -> void:
 	var tree_type = placement_manager.selected_tree_type if placement_manager else "oak"
+
+	# Use pixel art sprite if available
+	if tree_type in TreeEntity.SPRITE_PATHS:
+		var tex = load(TreeEntity.SPRITE_PATHS[tree_type]) as Texture2D
+		if tex:
+			var base_y = TreeEntity.SPRITE_BASE_OFFSETS.get(tree_type, 40.0)
+			var tex_pos = pos - Vector2(tex.get_width() / 2.0, base_y)
+			draw_texture(tex, tex_pos, Color(1, 1, 1, color.a))
+			return
+
+	# Fallback to procedural polygon ghost
 	var props = TreeEntity.TREE_PROPERTIES.get(tree_type, {})
 	var base_foliage = props.get("color", Color(0.2, 0.5, 0.2))
 	var base_trunk = props.get("trunk_color", Color(0.4, 0.2, 0.1))
 
-	# Generate position-based variation to match what the placed tree will look like
 	var var_params = TreeEntity.TREE_VARIATION.get(tree_type, TreeEntity.TREE_VARIATION["oak"])
 	var variation = PropVariation.generate_custom_variation(
 		current_grid_pos, var_params["scale"], var_params["rotation"], var_params["hue"])
@@ -313,15 +324,12 @@ func _draw_tree_ghost(pos: Vector2, color: Color) -> void:
 	var visual_h = props.get("visual_height", 48.0) * scale_v
 	var base_w = props.get("base_width", 32.0) * scale_v
 
-	# Apply color variation then blend with ghost tint
 	var varied_foliage = variation.apply_color_shift(base_foliage)
 	var foliage_color = Color(varied_foliage.r, varied_foliage.g, varied_foliage.b, color.a)
 	var varied_trunk = variation.apply_color_shift(base_trunk)
 	var trunk_color = Color(varied_trunk.r, varied_trunk.g, varied_trunk.b, color.a)
 
-	# Apply rotation around the base point
 	draw_set_transform(pos, variation.rotation)
-	# Draw relative to origin (pos is now the transform origin)
 	var o = Vector2.ZERO
 
 	if tree_type in TreeEntity.TRUNKLESS_TYPES:
@@ -385,11 +393,20 @@ func _draw_tree_ghost(pos: Vector2, color: Color) -> void:
 				draw_circle(o + Vector2(0, -trunk_h - foliage_r * 0.7), foliage_r, foliage_color)
 				draw_circle(o + Vector2(0, -trunk_h - foliage_r * 1.5), foliage_r * 0.7, foliage_color)
 
-	# Reset transform so subsequent draws aren't affected
 	draw_set_transform(Vector2.ZERO, 0.0)
 
 func _draw_rock_ghost(pos: Vector2, color: Color) -> void:
-	# Draw a simple rock shape (irregular polygon)
+	# Use pixel art sprite if available
+	var rock_size = placement_manager.selected_rock_size if placement_manager else "medium"
+	if rock_size in Rock.SPRITE_PATHS:
+		var tex = load(Rock.SPRITE_PATHS[rock_size]) as Texture2D
+		if tex:
+			var offset_y = Rock.SPRITE_BASE_OFFSETS.get(rock_size, 12.0)
+			var tex_pos = pos - Vector2(tex.get_width() / 2.0, offset_y)
+			draw_texture(tex, tex_pos, Color(1, 1, 1, color.a))
+			return
+
+	# Fallback to procedural polygon ghost
 	var rock_color = Color(0.5, 0.5, 0.5, color.a)
 	var points = PackedVector2Array([
 		pos + Vector2(-12, 0),
@@ -402,7 +419,6 @@ func _draw_rock_ghost(pos: Vector2, color: Color) -> void:
 	])
 	draw_colored_polygon(points, rock_color)
 
-	# Highlight
 	var highlight = rock_color
 	highlight.a *= 0.5
 	draw_circle(pos + Vector2(-3, -6), 4, highlight)
@@ -420,6 +436,25 @@ func _draw_building_ghost(pos: Vector2, color: Color) -> void:
 	var h = fh * 32.0
 	var a = color.a
 	var building_type = placement_manager.selected_building_type
+
+	# Use pixel art sprite if available
+	var sprite_key = building_type
+	if building_type == "clubhouse":
+		sprite_key = "clubhouse_1"  # Preview shows base level
+	if sprite_key in Building.SPRITE_PATHS:
+		var sprite_path = Building.SPRITE_PATHS[sprite_key]
+		if FileAccess.file_exists(sprite_path):
+			var tex = load(sprite_path) as Texture2D
+			if tex:
+				var tex_size = tex.get_size()
+				var tex_pos = Vector2(
+					pos.x + (w - tex_size.x) / 2.0,
+					pos.y + h - tex_size.y
+				)
+				# Tint sprite green (valid) or red (invalid) to show placement state
+				var tint = Color(color.r * 1.5, color.g * 1.5, color.b * 1.5, a)
+				draw_texture(tex, tex_pos, tint)
+				return
 
 	match building_type:
 		"clubhouse":

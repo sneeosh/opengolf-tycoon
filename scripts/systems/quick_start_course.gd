@@ -2,12 +2,13 @@ extends RefCounted
 class_name QuickStartCourse
 ## QuickStartCourse - Builds a pre-made 9-hole course for Quick Start
 ##
-## Programmatically lays out fairways, greens, tee boxes, and buildings
+## Programmatically lays out fairways, greens, and tee boxes
 ## so first-time players can immediately press Play and see golfers.
+## Buildings are NOT placed — players must build their own amenities.
 
 ## Build a 9-hole course on the given terrain grid.
 ## Par distribution: 2x par 3, 5x par 4, 2x par 5 = Par 36
-## Paints terrain, creates holes, places buildings.
+## Paints terrain and creates holes. Clears trees/rocks from course areas.
 ## Assumes terrain_grid is initialised with natural terrain already generated.
 static func build(terrain_grid: TerrainGrid, entity_layer: EntityLayer, hole_tool: HoleCreationTool) -> void:
 	# Layout uses the full 128x128 grid
@@ -70,44 +71,6 @@ static func build(terrain_grid: TerrainGrid, entity_layer: EntityLayer, hole_too
 	var h9_green := Vector2i(24, 52)
 	_paint_hole(terrain_grid, h9_tee, h9_green, 5)
 	_create_hole(terrain_grid, hole_tool, h9_tee, h9_green)
-
-	# ─── Buildings ───
-
-	# Clubhouse near hole 1 tee and hole 9 green (start/finish hub)
-	var clubhouse_pos := Vector2i(18, 24)
-	if entity_layer:
-		var building_data := _load_building_data("clubhouse")
-		if not building_data.is_empty():
-			entity_layer.place_building("clubhouse", clubhouse_pos, {"clubhouse": building_data})
-
-	# Restroom near hole 4 (mid-front)
-	var restroom1_pos := Vector2i(62, 52)
-	if entity_layer:
-		var restroom_data := _load_building_data("restroom")
-		if not restroom_data.is_empty():
-			entity_layer.place_building("restroom", restroom1_pos, {"restroom": restroom_data})
-
-	# Restroom near hole 7 (mid-back)
-	var restroom2_pos := Vector2i(63, 90)
-	if entity_layer:
-		var restroom_data := _load_building_data("restroom")
-		if not restroom_data.is_empty():
-			entity_layer.place_building("restroom", restroom2_pos, {"restroom": restroom_data})
-
-	# Snack bar at the turn (between hole 5 and 6)
-	var snack_pos := Vector2i(78, 76)
-	if entity_layer:
-		var snack_data := _load_building_data("snack_bar")
-		if not snack_data.is_empty():
-			entity_layer.place_building("snack_bar", snack_pos, {"snack_bar": snack_data})
-
-	# Benches at a few spots
-	var bench_positions := [Vector2i(34, 30), Vector2i(74, 58), Vector2i(44, 72)]
-	for bp in bench_positions:
-		if entity_layer:
-			var bench_data := _load_building_data("bench")
-			if not bench_data.is_empty():
-				entity_layer.place_building("bench", bp, {"bench": bench_data})
 
 	# Remove trees and rocks that ended up on fairways, greens, tee boxes, or bunkers
 	_clear_entities_on_course(terrain_grid, entity_layer)
@@ -238,14 +201,3 @@ static func _clear_entities_on_course(terrain_grid: TerrainGrid, entity_layer: E
 			rock_positions_to_remove.append(pos)
 	for pos in rock_positions_to_remove:
 		entity_layer.remove_rock(pos)
-
-
-## Load a single building definition from buildings.json
-static func _load_building_data(building_type: String) -> Dictionary:
-	var file := FileAccess.open("res://data/buildings.json", FileAccess.READ)
-	if file == null:
-		return {}
-	var data = JSON.parse_string(file.get_as_text())
-	if data and data.has("buildings") and data["buildings"].has(building_type):
-		return data["buildings"][building_type]
-	return {}

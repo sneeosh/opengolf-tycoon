@@ -54,6 +54,38 @@ const TREE_VARIATION: Dictionary = {
 ## Types that don't draw a standard tree trunk
 const TRUNKLESS_TYPES: Array = ["cactus", "fescue", "cattails", "bush", "heather"]
 
+## Sprite textures for types that have pixel art assets (others use procedural drawing)
+const SPRITE_PATHS: Dictionary = {
+	"oak": "res://assets/sprites/trees/oak.png",
+	"pine": "res://assets/sprites/trees/pine.png",
+	"maple": "res://assets/sprites/trees/maple.png",
+	"birch": "res://assets/sprites/trees/birch.png",
+	"palm": "res://assets/sprites/trees/palm.png",
+	"bush": "res://assets/sprites/trees/bush.png",
+	"cactus": "res://assets/sprites/trees/cactus.png",
+	"fescue": "res://assets/sprites/trees/fescue.png",
+	"cattails": "res://assets/sprites/trees/cattails.png",
+	"dead_tree": "res://assets/sprites/trees/dead_tree.png",
+	"heather": "res://assets/sprites/trees/heather.png",
+}
+
+## Base offsets for sprite-based trees (half sprite height to align bottom with origin)
+const SPRITE_BASE_OFFSETS: Dictionary = {
+	# Offset = trunk_ground_from_top - sprite_height/2
+	# Positions the trunk's ground contact point at tile center
+	"oak": 22.0,       # 80px sprite, trunk ground ~62px from top
+	"pine": 32.0,      # 80px sprite, trunk ground ~72px from top
+	"maple": 20.0,     # 72px sprite, trunk ground ~56px from top
+	"birch": 25.0,     # 80px sprite, trunk ground ~65px from top
+	"palm": 22.0,      # 80px sprite, trunk ground ~62px from top
+	"bush": 12.0,      # 40px sprite, base ground ~32px from top
+	"cactus": 24.0,    # 64px sprite, base ground ~56px from top
+	"fescue": 10.0,    # 32px sprite, base ground ~26px from top
+	"cattails": 16.0,  # 48px sprite, base ground ~40px from top
+	"dead_tree": 28.0, # 80px sprite, trunk ground ~68px from top
+	"heather": 10.0,   # 32px sprite, base ground ~26px from top
+}
+
 ## Y-coordinate of the visual base (trunk bottom or ground-level base) for each type.
 ## Used to shift the Visual node so the base aligns with the entity origin (tile center).
 const BASE_OFFSETS: Dictionary = {
@@ -193,36 +225,30 @@ func _update_visuals() -> void:
 	add_child(shadow_container)
 	_shadow_refs = ShadowRenderer.add_shadows_to_entity(shadow_container, _shadow_config, shadow_system)
 
-	# Draw trunk only for types that have one
-	if tree_type not in TRUNKLESS_TYPES:
-		_draw_trunk(visual, trunk_color)
+	# Use sprite if available, otherwise fall back to procedural drawing
+	if tree_type in SPRITE_PATHS:
+		_draw_sprite(visual)
+	else:
+		# Draw trunk only for types that have one
+		if tree_type not in TRUNKLESS_TYPES:
+			_draw_trunk(visual, trunk_color)
 
-	# Draw canopy/body based on tree type
-	match tree_type:
-		"oak":
-			_draw_oak_canopy(visual, color)
-		"pine":
-			_draw_pine_canopy(visual, color)
-		"maple":
-			_draw_maple_canopy(visual, color)
-		"birch":
-			_draw_birch_canopy(visual, color)
-		"cactus":
-			_draw_cactus(visual, color, trunk_color)
-		"fescue":
-			_draw_fescue(visual, color)
-		"cattails":
-			_draw_cattails(visual, color, trunk_color)
-		"bush":
-			_draw_bush(visual, color)
-		"palm":
-			_draw_palm_canopy(visual, color)
-		"dead_tree":
-			_draw_dead_tree(visual, color, trunk_color)
-		"heather":
-			_draw_heather(visual, color)
-		_:
-			_draw_oak_canopy(visual, color)
+		# Draw canopy/body based on tree type
+		match tree_type:
+			"birch":
+				_draw_birch_canopy(visual, color)
+			"cactus":
+				_draw_cactus(visual, color, trunk_color)
+			"fescue":
+				_draw_fescue(visual, color)
+			"cattails":
+				_draw_cattails(visual, color, trunk_color)
+			"dead_tree":
+				_draw_dead_tree(visual, color, trunk_color)
+			"heather":
+				_draw_heather(visual, color)
+			_:
+				_draw_oak_canopy(visual, color)
 
 	# Apply scale and rotation variation to the visual node
 	if _variation:
@@ -232,8 +258,24 @@ func _update_visuals() -> void:
 	# Shift visual UP so the trunk/base sits at entity origin (tile center).
 	# This ensures clicking a tile places the tree base on that tile,
 	# with the canopy extending above.
-	var base_y = BASE_OFFSETS.get(tree_type, 45.0)
+	var base_y: float
+	if tree_type in SPRITE_BASE_OFFSETS:
+		base_y = SPRITE_BASE_OFFSETS[tree_type]
+	else:
+		base_y = BASE_OFFSETS.get(tree_type, 45.0)
 	visual.position.y = -base_y * scale_mult
+
+func _draw_sprite(visual: Node2D) -> void:
+	"""Draw tree using pixel art sprite texture"""
+	var sprite = Sprite2D.new()
+	sprite.name = "TreeSprite"
+	sprite.texture = load(SPRITE_PATHS[tree_type])
+	sprite.centered = true
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# Apply color variation as a modulate tint
+	if _variation:
+		sprite.modulate = _variation.apply_color_shift(Color.WHITE)
+	visual.add_child(sprite)
 
 func _draw_trunk(visual: Node2D, trunk_color: Color) -> void:
 	"""Draw a standard tree trunk with bark texture"""
