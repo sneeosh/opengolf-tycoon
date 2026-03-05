@@ -20,6 +20,20 @@ var _custom_shadow: Polygon2D = null  # Building-specific shadow shape
 @onready var sprite: Sprite2D = $Sprite2D if has_node("Sprite2D") else null
 @onready var collision_shape: CollisionShape2D = $Area2D/CollisionShape2D if has_node("Area2D/CollisionShape2D") else null
 
+## Sprite paths for pixel art building assets
+const SPRITE_PATHS: Dictionary = {
+	"clubhouse_1": "res://assets/sprites/buildings/clubhouse_1.png",
+	"clubhouse_2": "res://assets/sprites/buildings/clubhouse_2.png",
+	"clubhouse_3": "res://assets/sprites/buildings/clubhouse_3.png",
+	"pro_shop": "res://assets/sprites/buildings/pro_shop.png",
+	"restaurant": "res://assets/sprites/buildings/restaurant.png",
+	"snack_bar": "res://assets/sprites/buildings/snack_bar.png",
+	"driving_range": "res://assets/sprites/buildings/driving_range.png",
+	"cart_shed": "res://assets/sprites/buildings/cart_shed.png",
+	"restroom": "res://assets/sprites/buildings/restroom.png",
+	"bench": "res://assets/sprites/buildings/bench.png",
+}
+
 signal building_selected(building: Building)
 signal building_destroyed(building: Building)
 
@@ -187,30 +201,48 @@ func _update_visuals() -> void:
 		visual.add_child(contact)
 		_shadow_refs["contact"] = contact
 
-	# Draw based on building type (each draws its own drop shadow)
-	match building_type:
-		"clubhouse":
-			_draw_clubhouse(visual, size_x, size_y)
-		"pro_shop":
-			_draw_pro_shop(visual, size_x, size_y)
-		"restaurant":
-			_draw_restaurant(visual, size_x, size_y)
-		"snack_bar":
-			_draw_snack_bar(visual, size_x, size_y)
-		"driving_range":
-			_draw_driving_range(visual, size_x, size_y)
-		"cart_shed":
-			_draw_cart_shed(visual, size_x, size_y)
-		"restroom":
-			_draw_restroom(visual, size_x, size_y)
-		"bench":
-			_draw_bench(visual, size_x, size_y)
-		_:
-			_draw_generic(visual, size_x, size_y)
+	# Try sprite-based rendering first
+	var sprite_key = building_type
+	if building_type == "clubhouse":
+		sprite_key = "clubhouse_%d" % upgrade_level
+	if sprite_key in SPRITE_PATHS and FileAccess.file_exists(SPRITE_PATHS[sprite_key]):
+		var building_sprite = Sprite2D.new()
+		building_sprite.name = "BuildingSprite"
+		building_sprite.texture = load(SPRITE_PATHS[sprite_key])
+		building_sprite.centered = false
+		building_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		# Position sprite centered on the building footprint
+		var tex_size = building_sprite.texture.get_size()
+		building_sprite.position = Vector2(
+			(size_x - tex_size.x) / 2.0,
+			size_y - tex_size.y  # Align bottom of sprite with building base
+		)
+		visual.add_child(building_sprite)
+	else:
+		# Fall back to polygon drawing
+		match building_type:
+			"clubhouse":
+				_draw_clubhouse(visual, size_x, size_y)
+			"pro_shop":
+				_draw_pro_shop(visual, size_x, size_y)
+			"restaurant":
+				_draw_restaurant(visual, size_x, size_y)
+			"snack_bar":
+				_draw_snack_bar(visual, size_x, size_y)
+			"driving_range":
+				_draw_driving_range(visual, size_x, size_y)
+			"cart_shed":
+				_draw_cart_shed(visual, size_x, size_y)
+			"restroom":
+				_draw_restroom(visual, size_x, size_y)
+			"bench":
+				_draw_bench(visual, size_x, size_y)
+			_:
+				_draw_generic(visual, size_x, size_y)
 
-	# Add isometric side wall strip for 3D depth (skip bench — it's open)
-	if building_type != "bench":
-		_add_isometric_depth(visual, size_x, size_y)
+		# Add isometric side wall strip for 3D depth (skip bench — it's open)
+		if building_type != "bench":
+			_add_isometric_depth(visual, size_x, size_y)
 
 	# Add click detection area
 	var click_area = Area2D.new()

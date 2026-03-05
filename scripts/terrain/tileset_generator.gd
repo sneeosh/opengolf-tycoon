@@ -99,7 +99,7 @@ static func generate_expanded_tileset() -> ImageTexture:
 		_fill_tile(image, 5, TerrainRow.SINGLES, get_color("flower_bed"))
 		_fill_tile(image, 6, TerrainRow.SINGLES, get_color("rocks"))
 	else:
-		# Desktop: Full per-pixel detail tileset
+		# Desktop: Full procedural terrain — designed for seamless tiling with edge blending
 		_generate_terrain_row(image, TerrainRow.GRASS, "_draw_grass_variant")
 		_generate_terrain_row(image, TerrainRow.FAIRWAY, "_draw_fairway_variant")
 		_generate_terrain_row(image, TerrainRow.GREEN, "_draw_green_variant")
@@ -616,17 +616,8 @@ static func _draw_oob_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise, base.g + noise, base.b + noise))
 
 static func _draw_trees_tile(image: Image, col: int, row: int) -> void:
-	# Use grass color so the tile blends invisibly — tree entity sprites provide the visual
-	var base = get_color("grass")
-	var rect = _get_tile_rect(col, row)
-	var rng = RandomNumberGenerator.new()
-	rng.seed = 3456
-
-	for x in range(rect.position.x, rect.position.x + rect.size.x):
-		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			var noise = rng.randf_range(-0.06, 0.06)
-			var dapple = sin(x * 0.4) * cos(y * 0.6) * 0.05
-			image.set_pixel(x, y, Color(base.r + noise + dapple, base.g + noise * 1.2 + dapple, base.b + noise * 0.8))
+	# Draw as grass variant (edge_mask=0) so it blends invisibly with surrounding grass
+	_draw_grass_variant(image, col, row, 0)
 
 static func _draw_flower_bed_tile(image: Image, col: int, row: int) -> void:
 	var base = get_color("flower_bed")
@@ -643,17 +634,8 @@ static func _draw_flower_bed_tile(image: Image, col: int, row: int) -> void:
 			image.set_pixel(x, y, Color(base.r + noise + mulch, base.g + noise * 0.8 + mulch, base.b + noise * 0.6 + mulch))
 
 static func _draw_rocks_tile(image: Image, col: int, row: int) -> void:
-	# Use grass color so the tile blends invisibly — rock entity sprites provide the visual
-	var base = get_color("grass")
-	var rect = _get_tile_rect(col, row)
-	var rng = RandomNumberGenerator.new()
-	rng.seed = 5678
-
-	for x in range(rect.position.x, rect.position.x + rect.size.x):
-		for y in range(rect.position.y, rect.position.y + rect.size.y):
-			var noise = rng.randf_range(-0.1, 0.1)
-			var rocky = sin(x * 0.3 + y * 0.2) * 0.06
-			image.set_pixel(x, y, Color(base.r + noise + rocky, base.g + noise * 0.98 + rocky, base.b + noise * 0.95 + rocky))
+	# Draw as grass variant (edge_mask=0) so it blends invisibly with surrounding grass
+	_draw_grass_variant(image, col, row, 0)
 
 # ============ UTILITY FUNCTIONS FOR TERRAIN GRID ============
 

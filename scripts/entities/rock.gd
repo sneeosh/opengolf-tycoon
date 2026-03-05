@@ -25,6 +25,22 @@ const ROCK_PROPERTIES: Dictionary = {
 	"large": {"name": "Large Rock", "cost": 20, "width": 1.5, "height": 1.2, "color": Color(0.55, 0.55, 0.55), "visual_height": 24.0, "base_width": 28.0},
 }
 
+## Sprite textures for rocks that have pixel art assets
+const SPRITE_PATHS: Dictionary = {
+	"small": "res://assets/sprites/rocks/small.png",
+	"medium": "res://assets/sprites/rocks/medium.png",
+	"large": "res://assets/sprites/rocks/large.png",
+}
+
+## Base offsets for sprite-based rocks (half sprite height)
+const SPRITE_BASE_OFFSETS: Dictionary = {
+	# Offset = rock_base_from_top - sprite_height/2
+	# Positions the rock's ground contact point at tile center
+	"small": 6.0,    # 32px sprite, rock base ~22px from top
+	"medium": 10.0,  # 48px sprite, rock base ~34px from top
+	"large": 14.0,   # 64px sprite, rock base ~46px from top
+}
+
 ## Variation parameters per rock size (rocks have more rotation variety)
 const ROCK_VARIATION: Dictionary = {
 	"small": {"scale": Vector2(0.85, 1.15), "rotation": Vector2(-20.0, 20.0), "hue": Vector2(-0.02, 0.02)},
@@ -148,16 +164,29 @@ func _update_visuals() -> void:
 	# Add shadows (rendered below rock)
 	_shadow_refs = ShadowRenderer.add_shadows_to_entity(visual, _shadow_config, shadow_system)
 
-	# Draw rock shape based on size
-	match rock_size:
-		"small":
-			_draw_small_rock(visual, color)
-		"medium":
-			_draw_medium_rock(visual, color)
-		"large":
-			_draw_large_rock(visual, color)
-		_:
-			_draw_medium_rock(visual, color)
+	# Use sprite if available, otherwise fall back to procedural drawing
+	if rock_size in SPRITE_PATHS:
+		var sprite = Sprite2D.new()
+		sprite.name = "RockSprite"
+		sprite.texture = load(SPRITE_PATHS[rock_size])
+		sprite.centered = true
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		if _variation:
+			sprite.modulate = _variation.apply_color_shift(Color.WHITE)
+		# Shift sprite up so bottom aligns with base (offset = height/2 for centered)
+		var offset_y = SPRITE_BASE_OFFSETS.get(rock_size, 24.0)
+		sprite.position.y = -offset_y
+		visual.add_child(sprite)
+	else:
+		match rock_size:
+			"small":
+				_draw_small_rock(visual, color)
+			"medium":
+				_draw_medium_rock(visual, color)
+			"large":
+				_draw_large_rock(visual, color)
+			_:
+				_draw_medium_rock(visual, color)
 
 	# Apply scale and rotation variation to the visual node
 	if _variation:

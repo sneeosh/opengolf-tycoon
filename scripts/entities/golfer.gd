@@ -147,6 +147,19 @@ var _is_hovered: bool = false
 ## Group badge label
 var _group_badge: Label = null
 
+## Sprite-based rendering (replaces polygon visuals when available)
+var _animated_sprite: AnimatedSprite2D = null
+var _use_sprites: bool = false
+var _current_direction: String = "south"  # south, east, north, west + diagonals
+
+## Tier-to-sprite-folder mapping
+const TIER_SPRITE_FOLDERS = {
+	GolferTier.Tier.BEGINNER: "beginner",
+	GolferTier.Tier.CASUAL: "casual",
+	GolferTier.Tier.SERIOUS: "serious",
+	GolferTier.Tier.PRO: "pro",
+}
+
 ## Walk animation state
 var _walk_frame: int = 0  # 0 or 1, alternates for leg swap
 var _walk_timer: float = 0.0
@@ -255,8 +268,121 @@ func _ready() -> void:
 	# Connect to green fee payment signal
 	EventBus.green_fee_paid.connect(_on_green_fee_paid)
 
+	# Try to set up sprite-based rendering
+	_setup_sprite_animations()
+
 	_update_visual()
 	_update_score_display()
+
+## Set up AnimatedSprite2D with PixelLab-generated frames
+func _setup_sprite_animations() -> void:
+	# Try tier-specific path first, then fall back to generic path
+	var tier_folder = TIER_SPRITE_FOLDERS.get(golfer_tier, "casual")
+	var base_path = "res://assets/sprites/golfer/%s/animations/" % tier_folder
+	var test_file = base_path + "idle/south/frame_000.png"
+	if not FileAccess.file_exists(test_file):
+		# Fall back to generic (non-tier) path for backwards compatibility
+		base_path = "res://assets/sprites/golfer/animations/"
+		test_file = base_path + "idle/south/frame_000.png"
+		if not FileAccess.file_exists(test_file):
+			return
+
+	var sprite_frames = SpriteFrames.new()
+	if sprite_frames.has_animation("default"):
+		sprite_frames.remove_animation("default")
+
+	var anim_types = {
+		"idle": {"path": "idle", "fps": 4.0, "loop": true},
+		"walk": {"path": "walk", "fps": 8.0, "loop": true},
+		"swing": {"path": "swing", "fps": 10.0, "loop": false},
+	}
+	# 8 directions with fallback mapping for missing diagonals
+	var directions = ["south", "south-east", "east", "north-east", "north", "north-west", "west", "south-west"]
+	# Fallback: diagonal → nearest cardinal if diagonal frames don't exist
+	var diagonal_fallbacks = {
+		"south-east": "south", "north-east": "east",
+		"north-west": "north", "south-west": "west",
+	}
+
+	var has_any_animation = false
+	for anim_name in anim_types:
+		var anim_info = anim_types[anim_name]
+		for dir in directions:
+			var full_name = "%s_%s" % [anim_name, dir]
+			var dir_path = base_path + "%s/%s/" % [anim_info["path"], dir]
+
+			# Check if directory has frames; try fallback for diagonals
+			var frame_path = dir_path + "frame_000.png"
+			if not FileAccess.file_exists(frame_path):
+				var fallback = diagonal_fallbacks.get(dir, "")
+				if fallback != "":
+					dir_path = base_path + "%s/%s/" % [anim_info["path"], fallback]
+					frame_path = dir_path + "frame_000.png"
+					if not FileAccess.file_exists(frame_path):
+						continue
+				else:
+					continue
+
+			sprite_frames.add_animation(full_name)
+			sprite_frames.set_animation_speed(full_name, anim_info["fps"])
+			sprite_frames.set_animation_loop(full_name, anim_info["loop"])
+
+			for i in range(16):
+				var fpath = dir_path + "frame_%03d.png" % i
+				if not FileAccess.file_exists(fpath):
+					break
+				var texture = load(fpath)
+				if texture:
+					sprite_frames.add_frame(full_name, texture)
+					has_any_animation = true
+
+	if not has_any_animation:
+		return
+
+	_animated_sprite = AnimatedSprite2D.new()
+	_animated_sprite.name = "GolferSprite"
+	_animated_sprite.sprite_frames = sprite_frames
+	_animated_sprite.centered = true
+	_animated_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_animated_sprite.position = Vector2(0, -8)
+	visual.add_child(_animated_sprite)
+
+	for child in visual.get_children():
+		if child != _animated_sprite:
+			child.visible = false
+
+	_use_sprites = true
+
+	if _animated_sprite.sprite_frames.has_animation("idle_south"):
+		_animated_sprite.play("idle_south")
+
+## Get direction from movement vector (8-direction when sprites support it)
+func _get_direction_from_velocity(vel: Vector2) -> String:
+	if vel.length_squared() < 1.0:
+		return _current_direction
+	# Use angle to determine 8 directions
+	var angle = vel.angle()  # radians, 0 = right, PI/2 = down
+	# Normalize to 0-360 degrees
+	var deg = rad_to_deg(angle)
+	if deg < 0:
+		deg += 360.0
+	# 8 direction sectors (each 45 degrees)
+	if deg < 22.5 or deg >= 337.5:
+		return "east"
+	elif deg < 67.5:
+		return "south-east"
+	elif deg < 112.5:
+		return "south"
+	elif deg < 157.5:
+		return "south-west"
+	elif deg < 202.5:
+		return "west"
+	elif deg < 247.5:
+		return "north-west"
+	elif deg < 292.5:
+		return "north"
+	else:
+		return "north-east"
 
 ## Randomize golfer appearance with variety
 func _randomize_appearance() -> void:
@@ -597,7 +723,22 @@ func _process_walking(delta: float) -> void:
 	var arm_swing_max = 0.08 if is_fatigued else 0.15
 	var frame_duration = WALK_FRAME_DURATION * 1.4 if is_fatigued else WALK_FRAME_DURATION
 
-	# Walking animation - bob + leg swap
+	# Sprite-based walk animation
+	if _use_sprites and _animated_sprite:
+		# Detect direction from velocity
+		var new_dir = _get_direction_from_velocity(velocity)
+		var anim_name = "walk_%s" % new_dir
+		if _animated_sprite.sprite_frames.has_animation(anim_name):
+			if _current_direction != new_dir or _animated_sprite.animation != anim_name:
+				_current_direction = new_dir
+				_animated_sprite.play(anim_name)
+		# Subtle bob for sprite mode too
+		if visual:
+			var bob_amount = sin(Time.get_ticks_msec() / 150.0) * bob_max * 0.5
+			visual.position = visual_offset + Vector2(0, bob_amount)
+		return
+
+	# Polygon-based walking animation - bob + leg swap
 	if visual:
 		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * bob_max
 		visual.position = visual_offset + Vector2(0, bob_amount)
@@ -632,7 +773,7 @@ var swing_animation_playing: bool = false
 
 func _process_swinging(_delta: float) -> void:
 	# Play swing animation once
-	if not swing_animation_playing and arms:
+	if not swing_animation_playing and (_use_sprites or arms):
 		swing_animation_playing = true
 		var terrain_grid = GameManager.terrain_grid
 		var current_terrain = terrain_grid.get_tile(ball_position) if terrain_grid else -1
@@ -640,11 +781,33 @@ func _process_swinging(_delta: float) -> void:
 		_play_swing_animation(on_green)
 
 func _play_swing_animation(is_putt: bool = false) -> void:
-	if not arms:
-		return
-
 	# Prevent double-triggering from both take_shot() and _process_swinging()
 	swing_animation_playing = true
+
+	# Sprite-based swing animation
+	if _use_sprites and _animated_sprite:
+		var anim = "swing_%s" % _current_direction
+		if _animated_sprite.sprite_frames.has_animation(anim):
+			_animated_sprite.play(anim)
+			await _animated_sprite.animation_finished
+			if not is_instance_valid(self):
+				return
+			# Return to idle
+			var idle_anim = "idle_%s" % _current_direction
+			if _animated_sprite.sprite_frames.has_animation(idle_anim):
+				_animated_sprite.play(idle_anim)
+			swing_animation_playing = false
+			return
+		else:
+			# No swing sprite — just pause briefly as placeholder
+			await get_tree().create_timer(0.5).timeout
+			if not is_instance_valid(self):
+				return
+			swing_animation_playing = false
+			return
+
+	if not arms:
+		return
 
 	# Show the golf club during swing
 	if golf_club:
@@ -2314,6 +2477,41 @@ func _update_visual() -> void:
 	if not visual:
 		return
 
+	# Sprite-based visual update
+	if _use_sprites and _animated_sprite:
+		visual.position = visual_offset
+		_walk_frame = 0
+		_walk_timer = 0.0
+
+		var dir = _current_direction
+		match current_state:
+			State.IDLE, State.PREPARING_SHOT:
+				var anim = "idle_%s" % dir
+				if _animated_sprite.sprite_frames.has_animation(anim):
+					_animated_sprite.play(anim)
+			State.WALKING:
+				pass  # Handled in _process_walking
+			State.SWINGING:
+				# Use swing animation if available, otherwise idle
+				var anim = "swing_%s" % dir
+				if _animated_sprite.sprite_frames.has_animation(anim):
+					_animated_sprite.play(anim)
+				else:
+					var idle_anim = "idle_%s" % dir
+					if _animated_sprite.sprite_frames.has_animation(idle_anim):
+						_animated_sprite.play(idle_anim)
+			State.WATCHING:
+				var anim = "idle_%s" % dir
+				if _animated_sprite.sprite_frames.has_animation(anim):
+					_animated_sprite.play(anim)
+			State.FINISHED:
+				var anim = "idle_%s" % dir
+				if _animated_sprite.sprite_frames.has_animation(anim):
+					_animated_sprite.play(anim)
+				_animated_sprite.modulate = _animated_sprite.modulate.darkened(0.15)
+		return
+
+	# --- Polygon-based visual update (fallback) ---
 	# Reset to default pose — apply visual offset for co-location separation
 	visual.position = visual_offset
 	if arms:

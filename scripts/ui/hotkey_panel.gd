@@ -83,7 +83,7 @@ func _build_ui() -> void:
 
 	_add_section(vbox, "Camera & View", [
 		["WASD", "Pan camera"],
-		["Scroll", "Zoom in/out"],
+		["Scroll / [ ]", "Zoom in/out"],
 		["Q", "Rotate camera"],
 		["Tab", "Toggle minimap"],
 		["V", "Shot heatmap"],
@@ -92,6 +92,7 @@ func _build_ui() -> void:
 	])
 
 	_add_section(vbox, "General", [
+		["Space", "Pause / Resume"],
 		["Ctrl+S", "Quick save"],
 		["Ctrl+Z", "Undo"],
 		["Ctrl+Shift+Z", "Redo"],

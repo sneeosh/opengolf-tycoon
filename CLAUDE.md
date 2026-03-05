@@ -197,6 +197,8 @@ When running the game for playtesting via the Godot MCP tools:
 3. Speed tiers: `>` = Normal (1x), `>>` = Fast (3x), `>>>` = Ultra (8x). Speed uses `Engine.time_scale` so all systems (golfer movement, ball flight, tweens) scale uniformly.
 4. Playtest findings should be logged in `playtest_findings.md` at the project root
 
+**Detailed MCP playtesting guide** (node paths, gotchas, navigation tips) is in the auto-memory file `playtesting.md`. Consult it before starting a visual playtest session.
+
 ## Development Notes
 
 - **SoundManager** (`scripts/autoload/sound_manager.gd`): Procedural audio system using `AudioStreamGenerator`. Synthesized swing, impact, ambient (wind, birds, rain), and UI sounds. Event-driven via EventBus signals. Master/SFX/ambient volume controls with mute toggle.
