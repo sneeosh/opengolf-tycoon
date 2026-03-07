@@ -91,6 +91,9 @@ var needs: GolferNeeds = GolferNeeds.new()
 ## Waiting time accumulator (seconds spent in IDLE waiting for turn)
 var _wait_time_accumulated: float = 0.0
 
+## Total open holes when this golfer started their round (for partial-round detection)
+var _round_total_holes: int = 0
+
 ## Course progress
 var current_hole: int = 0
 var current_strokes: int = 0
@@ -933,6 +936,7 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	if hole_number == 0:
 		_visited_buildings.clear()
 		_wait_time_accumulated = 0.0
+		_round_total_holes = GameManager.get_open_hole_count()
 
 	var screen_pos = GameManager.terrain_grid.grid_to_screen_center(tee_position) if GameManager.terrain_grid else Vector2.ZERO
 	global_position = screen_pos
@@ -1223,9 +1227,11 @@ func finish_round() -> void:
 	_change_state(State.FINISHED)
 
 	# Only record course record if golfer completed all holes (not a partial round)
-	var total_holes = GameManager.get_open_hole_count()
+	# Use the hole count from when this golfer started, not the current count
+	# (holes may have been opened/closed mid-round)
+	var total_holes = _round_total_holes if _round_total_holes > 0 else GameManager.get_open_hole_count()
 	if hole_scores.size() >= total_holes and total_holes > 0:
-		GameManager.check_round_record(golfer_name, total_strokes)
+		GameManager.check_round_record(golfer_name, total_strokes, total_holes)
 
 	# Apply clubhouse effects (golfer visits clubhouse after round)
 	_apply_clubhouse_effects()
@@ -2715,7 +2721,7 @@ func _apply_clubhouse_effects() -> void:
 		# Skip if already visited this round (to prevent double-charging)
 		var building_id = building.get_instance_id()
 		if _visited_buildings.has(building_id):
-			break
+			continue
 
 		# Mark as visited
 		_visited_buildings[building_id] = true

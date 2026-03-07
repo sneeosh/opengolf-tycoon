@@ -2723,6 +2723,7 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par
 		"tier": golfer.golfer_tier,
 		"green_fee": GameManager.green_fee,
 		"holes_played": golfer.hole_scores.size(),
+		"total_holes": golfer._round_total_holes if golfer._round_total_holes > 0 else GameManager.get_open_hole_count(),
 	})
 
 # --- Milestone System ---
