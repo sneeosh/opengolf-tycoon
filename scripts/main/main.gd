@@ -1553,6 +1553,7 @@ func _place_building(grid_pos: Vector2i, cost: int) -> void:
 	# Check if this is a unique building that already exists
 	if building_data.get("required", false) and entity_layer.has_building_of_type(building_type):
 		EventBus.notify("Only one %s allowed!" % building_name, "error")
+		placement_manager.cancel_placement()
 		return
 
 	var building = entity_layer.place_building(building_type, grid_pos, building_registry)
