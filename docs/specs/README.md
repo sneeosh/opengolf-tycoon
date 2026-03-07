@@ -15,7 +15,7 @@ This document reviews the current game state and proposes specs that should be w
 | 1 | Simulated Tournament Rounds | [`completed/simulated-tournament-rounds.md`](completed/simulated-tournament-rounds.md) | CRITICAL | Completed |
 | 2 | Spectator Camera & Live Scorecard | [`spectator-camera-live-scorecard.md`](spectator-camera-live-scorecard.md) | HIGH | Proposal |
 | 3 | Seasonal System Expansion | [`completed/seasonal-system-expansion.md`](completed/seasonal-system-expansion.md) | HIGH | Completed |
-| 4 | Economic Balance & Tuning | [`economic-balance-tuning.md`](economic-balance-tuning.md) | HIGH | Proposal |
+| 4 | Economic Balance & Tuning | [`completed/economic-balance-tuning.md`](completed/economic-balance-tuning.md) | HIGH | Completed |
 | 5 | Premium Land & Prebuilt Courses | [`premium-land-prebuilt-courses.md`](premium-land-prebuilt-courses.md) | MEDIUM-HIGH | Proposal |
 | 6 | Career / Progression Mode | [`career-progression-mode.md`](career-progression-mode.md) | MEDIUM-HIGH | Proposal |
 | 7 | Audio Design Document | [`audio-design.md`](audio-design.md) | MEDIUM | Proposal |
