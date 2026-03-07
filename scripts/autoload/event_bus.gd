@@ -74,6 +74,7 @@ signal course_closing()
 
 # Season Signals
 signal season_changed(old_season: int, new_season: int)
+signal seasonal_event_upcoming(event_name: String, days_until: int)
 
 # Tournament Signals
 signal tournament_scheduled(tier: int, start_day: int)

@@ -433,7 +433,10 @@ func check_hole_records(golfer_name: String, hole_number: int, strokes: int) -> 
 
 ## Check if golfer set the course record (call when round finishes)
 ## Returns true if new course record was set
-func check_round_record(golfer_name: String, total_strokes: int) -> bool:
+func check_round_record(golfer_name: String, total_strokes: int, holes_played: int = 0) -> bool:
+	# Sanity check: reject impossibly low scores (minimum 1 stroke per hole)
+	if holes_played > 0 and total_strokes < holes_played:
+		return false
 	var current = course_records.lowest_round
 	if current == null or total_strokes < current.value:
 		course_records.lowest_round = CourseRecords.RecordEntry.new(
@@ -568,6 +571,12 @@ func advance_to_next_day() -> void:
 	var new_season = SeasonSystem.get_season(current_day + 1)
 	if old_season != new_season:
 		EventBus.season_changed.emit(old_season, new_season)
+
+	# Check for upcoming seasonal events (2-day advance warning)
+	var upcoming = SeasonalEvents.get_upcoming_events(current_day, 3)
+	for entry in upcoming:
+		if entry.days_until <= 2:
+			EventBus.seasonal_event_upcoming.emit(entry.event.name, entry.days_until)
 
 	# Archive today's stats for analytics (rolling 30-day history)
 	_archive_daily_stats()
@@ -776,9 +785,9 @@ class DailyStatistics:
 	## hole_count: number of holes on the course
 	## building_costs: total operating costs from all buildings
 	func calculate_operating_costs(terrain_cost: int, hole_count: int, building_costs: int = 0) -> void:
-		# Terrain maintenance from actual tiles, scaled by seasonal modifier
+		# Terrain maintenance from actual tiles, scaled by theme-aware seasonal modifier
 		var season = SeasonSystem.get_season(GameManager.current_day)
-		var season_mod = SeasonSystem.get_maintenance_modifier(season)
+		var season_mod = SeasonSystem.get_maintenance_modifier(season, GameManager.current_theme)
 		terrain_maintenance = int(terrain_cost * season_mod)
 
 		# Base operating cost

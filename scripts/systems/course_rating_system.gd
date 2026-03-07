@@ -247,6 +247,10 @@ static func _calculate_value_rating(green_fee: int, reputation: float) -> float:
 	var hole_factor = clampf(float(hole_count) / 18.0, 0.15, 1.0)
 	var fair_price = max(reputation * 2.0, 20.0) * hole_factor
 
+	# Seasonal fee tolerance: peak-season golfers accept higher fees, off-season expects lower
+	var fee_tolerance = SeasonSystem.get_fee_tolerance(GameManager.current_day, GameManager.current_theme)
+	fair_price *= fee_tolerance
+
 	var price_ratio = float(total_round_cost) / max(fair_price, 1.0)
 
 	# Apply difficulty-based green fee sensitivity
