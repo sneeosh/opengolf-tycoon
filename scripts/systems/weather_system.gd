@@ -219,6 +219,23 @@ func get_sky_tint() -> Color:
 			return Color(0.55, 0.58, 0.65, 0.4)
 	return Color(1.0, 1.0, 1.0, 0.0)
 
+## Get light intensity modifier for elevation shader (1.0 = full sun, lower = dimmer)
+func get_light_modifier() -> float:
+	match weather_type:
+		WeatherType.SUNNY:
+			return 1.0
+		WeatherType.PARTLY_CLOUDY:
+			return 0.85
+		WeatherType.CLOUDY:
+			return 0.65
+		WeatherType.LIGHT_RAIN:
+			return 0.55
+		WeatherType.RAIN:
+			return 0.45
+		WeatherType.HEAVY_RAIN:
+			return 0.35
+	return 1.0
+
 ## Check if it's currently raining
 func is_raining() -> bool:
 	return weather_type >= WeatherType.LIGHT_RAIN

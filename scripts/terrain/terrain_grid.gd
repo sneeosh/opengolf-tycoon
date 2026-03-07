@@ -34,8 +34,12 @@ var _debug_overlay: TerrainDebugOverlay = null
 var _noise_overlay: TerrainNoiseOverlay = null
 var _land_boundary_overlay: LandBoundaryOverlay = null
 var _wind_flag_overlay: WindFlagOverlay = null
-var _elevation_shading_overlay: ElevationShadingOverlay = null
 var _shot_heatmap_overlay: ShotHeatmapOverlay = null
+
+## Shader-driven heightmap elevation system
+var _heightmap: Heightmap = null
+var _elevation_shader_controller: ElevationShaderController = null
+var _elevation_shader_rect: ColorRect = null
 
 ## Camera tracking for viewport-culling overlays — redraw when camera moves
 var _last_camera_pos: Vector2 = Vector2.ZERO
@@ -61,7 +65,7 @@ func _ready() -> void:
 	_setup_noise_overlay()
 	_setup_land_boundary_overlay()
 	_setup_wind_flag_overlay()
-	_setup_elevation_shading_overlay()
+	_setup_elevation_shader()
 
 	# Force a complete redraw after one frame to ensure shader is fully applied
 	# This fixes the issue where initial tiles don't get shader variation
@@ -273,8 +277,8 @@ func refresh_all_overlays() -> void:
 		_path_overlay.queue_redraw()
 	if _ob_markers_overlay and _ob_markers_overlay.has_method("_calculate_boundaries"):
 		_ob_markers_overlay._calculate_boundaries()
-	if _elevation_shading_overlay:
-		_elevation_shading_overlay.queue_redraw()
+	if _heightmap:
+		_heightmap.rebuild_from_grids(self)
 	if _shot_heatmap_overlay:
 		_shot_heatmap_overlay.queue_redraw()
 	queue_redraw()
@@ -508,11 +512,64 @@ func _setup_wind_flag_overlay() -> void:
 	add_child(_wind_flag_overlay)
 	_wind_flag_overlay.initialize(self)
 
-func _setup_elevation_shading_overlay() -> void:
-	_elevation_shading_overlay = ElevationShadingOverlay.new()
-	_elevation_shading_overlay.name = "ElevationShadingOverlay"
-	add_child(_elevation_shading_overlay)
-	_elevation_shading_overlay.setup(self)
+func _setup_elevation_shader() -> void:
+	# Create heightmap data model
+	_heightmap = Heightmap.new(grid_width, grid_height)
+
+	# Load platform-appropriate shader
+	var shader_path: String
+	if OS.get_name() == "Web" and ResourceLoader.exists("res://shaders/elevation_lighting_web.gdshader"):
+		shader_path = "res://shaders/elevation_lighting_web.gdshader"
+	elif ResourceLoader.exists("res://shaders/elevation_lighting.gdshader"):
+		shader_path = "res://shaders/elevation_lighting.gdshader"
+	else:
+		return
+
+	var shader = load(shader_path)
+	if not shader:
+		return
+
+	var material = ShaderMaterial.new()
+	material.shader = shader
+	material.set_shader_parameter("heightmap", _heightmap.get_texture())
+	material.set_shader_parameter("heightmap_size", Vector2(grid_width * Heightmap.PIXELS_PER_TILE, grid_height * Heightmap.PIXELS_PER_TILE))
+	material.set_shader_parameter("grid_size", Vector2(grid_width, grid_height))
+	material.set_shader_parameter("tile_size", Vector2(tile_width, tile_height))
+
+	# Create full-viewport ColorRect for shader overlay
+	_elevation_shader_rect = ColorRect.new()
+	_elevation_shader_rect.name = "ElevationShaderRect"
+	_elevation_shader_rect.z_index = 3
+	_elevation_shader_rect.material = material
+	# Size to cover the full viewport — shader handles screen-to-world mapping
+	_elevation_shader_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_elevation_shader_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# ColorRect needs to be in a CanvasLayer to cover the viewport, but since
+	# TerrainGrid is a Node2D, we size the rect to cover the entire world instead
+	_elevation_shader_rect.position = Vector2.ZERO
+	_elevation_shader_rect.size = Vector2(grid_width * tile_width, grid_height * tile_height)
+	add_child(_elevation_shader_rect)
+
+	# Create controller node to update uniforms each frame
+	_elevation_shader_controller = ElevationShaderController.new()
+	_elevation_shader_controller.name = "ElevationShaderController"
+	add_child(_elevation_shader_controller)
+	_elevation_shader_controller.setup(self, _elevation_shader_rect, material)
+
+	# Connect signals for heightmap updates
+	elevation_changed.connect(_on_elevation_changed_heightmap)
+	tile_changed.connect(_on_tile_changed_heightmap)
+
+	# Build initial heightmap from current grid state
+	_heightmap.rebuild_from_grids(self)
+
+func _on_elevation_changed_heightmap(pos: Vector2i, _old: int, new_elev: int) -> void:
+	if _heightmap:
+		_heightmap.set_tile_elevation_blended(pos, new_elev, get_tile(pos), self)
+
+func _on_tile_changed_heightmap(pos: Vector2i, _old: int, new_type: int) -> void:
+	if _heightmap:
+		_heightmap.set_tile_elevation_blended(pos, get_elevation(pos), new_type, self)
 
 ## Set up shot heatmap overlay (called from main.gd after tracker is created)
 func setup_shot_heatmap_overlay(tracker: ShotHeatmapTracker) -> void:
@@ -585,6 +642,12 @@ func get_slope_direction(pos: Vector2i) -> Vector2:
 			if diff > 0:
 				slope += n[1] * float(diff)
 	return slope.normalized() if slope.length() > 0 else Vector2.ZERO
+
+## Get the heightmap texture for external use (e.g., shader debugging)
+func get_heightmap_texture() -> ImageTexture:
+	if _heightmap:
+		return _heightmap.get_texture()
+	return null
 
 ## Toggle elevation overlay prominence
 func set_elevation_overlay_active(active: bool) -> void:
@@ -719,5 +782,5 @@ func deserialize_elevation(data: Dictionary) -> void:
 	if _elevation_overlay:
 		_elevation_overlay._needs_redraw = true
 		_elevation_overlay.queue_redraw()
-	if _elevation_shading_overlay:
-		_elevation_shading_overlay.queue_redraw()
+	if _heightmap:
+		_heightmap.rebuild_from_grids(self)
