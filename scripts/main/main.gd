@@ -1565,10 +1565,10 @@ func _place_building(grid_pos: Vector2i, cost: int) -> void:
 		print("Placed %s at %s" % [building_type, grid_pos])
 		# Placement feedback
 		_play_placement_feedback(grid_pos, "building")
-		# Clear the building selector after successful placement
-		placement_manager.cancel_placement()
 	else:
 		EventBus.notify("Cannot place here - overlaps with existing building!", "error")
+	# Always clear the building selector after placement attempt
+	placement_manager.cancel_placement()
 
 func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 	"""Place a rock at the grid position"""
