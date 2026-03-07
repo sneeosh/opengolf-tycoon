@@ -33,6 +33,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Tournament System](tournament-system.md) — 4 tiers, qualification, scheduling, live scoring, revenue/reputation rewards
 - [Tournament Simulation](tournament-simulation.md) — Shot-by-shot headless simulation, multi-round format, cut lines, field generation, dramatic moments
 - [Day/Night Cycle](day-night-cycle.md) — Time progression, sunrise/sunset tinting, weather tint blending, course hours
+- [Seasonal Calendar](seasonal-calendar.md) — Theme-aware seasonal modifiers: spawn demand, maintenance, fee tolerance, tournament prestige, weather
 - [Event Feed](event-feed.md) — Persistent event log, priority system, fast-forward batching, click-to-navigate
 
 ## How to Use for Tuning

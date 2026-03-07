@@ -111,9 +111,10 @@ func _connect_signals() -> void:
 	EventBus.golfer_finished_round.connect(_on_golfer_finished_round)
 	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole)
 
-	# Weather
+	# Weather & Seasons
 	EventBus.weather_changed.connect(_on_weather_changed)
 	EventBus.season_changed.connect(_on_season_changed)
+	EventBus.seasonal_event_upcoming.connect(_on_seasonal_event_upcoming)
 
 	# Tournaments
 	EventBus.tournament_scheduled.connect(_on_tournament_scheduled)
@@ -328,8 +329,16 @@ func _on_weather_changed(weather_type: int, _intensity: float) -> void:
 
 func _on_season_changed(old_season: int, new_season: int) -> void:
 	var season_names := {0: "Spring", 1: "Summer", 2: "Fall", 3: "Winter"}
-	var name = season_names.get(new_season, "Unknown")
-	add_event(Category.WEATHER, Priority.NORMAL, "Season changed to %s" % name)
+	var season_name = season_names.get(new_season, "Unknown")
+	var active_event = SeasonalEvents.get_active_event(GameManager.current_day + 1)
+	var detail = " — %s!" % active_event.name if active_event else ""
+	add_event(Category.WEATHER, Priority.NORMAL, "Season changed to %s%s" % [season_name, detail])
+
+func _on_seasonal_event_upcoming(event_name: String, days_until: int) -> void:
+	if days_until == 1:
+		add_event(Category.WEATHER, Priority.NORMAL, "%s tomorrow!" % event_name)
+	elif days_until == 2:
+		add_event(Category.WEATHER, Priority.INFO, "%s in 2 days" % event_name)
 
 func _on_tournament_scheduled(tier: int, start_day: int) -> void:
 	var tier_names := {0: "Local", 1: "Regional", 2: "National", 3: "Championship"}
