@@ -50,7 +50,7 @@ func _build_ui() -> void:
 
 	# Version
 	var version := Label.new()
-	version.text = "v0.1.0 Alpha"
+	version.text = "v0.2.0 Alpha"
 	version.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	version.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

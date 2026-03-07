@@ -127,13 +127,13 @@ func test_daily_stats_calculate_operating_costs() -> void:
 
 	# terrain = int(100 * 0.7) = 70 (Fall modifier)
 	assert_eq(stats.terrain_maintenance, 70)
-	# base = 50 + 9*30 = 320
-	assert_eq(stats.base_operating_cost, 320)
+	# base = 100 + 9*50 = 550
+	assert_eq(stats.base_operating_cost, 550)
 	# staff = 9 * 10 = 90
 	assert_eq(stats.staff_wages, 90)
 	assert_eq(stats.building_operating_costs, 50)
-	# total = 70 + 320 + 90 + 50 = 530
-	assert_eq(stats.operating_costs, 530)
+	# total = 70 + 550 + 90 + 50 = 760
+	assert_eq(stats.operating_costs, 760)
 
 	GameManager.current_staff_tier = original_tier
 	GameManager.current_day = original_day
@@ -145,12 +145,12 @@ func test_daily_stats_calculate_operating_costs_part_time() -> void:
 	var stats = GameManager.DailyStatistics.new()
 	stats.calculate_operating_costs(0, 4, 0)  # terrain=0, 4 holes, no buildings
 
-	# base = 50 + 4*30 = 170
-	assert_eq(stats.base_operating_cost, 170)
+	# base = 100 + 4*50 = 300
+	assert_eq(stats.base_operating_cost, 300)
 	# staff = 4 * 5 = 20
 	assert_eq(stats.staff_wages, 20)
-	# total = 0 + 170 + 20 + 0 = 190
-	assert_eq(stats.operating_costs, 190)
+	# total = 0 + 300 + 20 + 0 = 320
+	assert_eq(stats.operating_costs, 320)
 
 	GameManager.current_staff_tier = original_tier
 

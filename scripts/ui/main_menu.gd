@@ -194,7 +194,7 @@ func _ready() -> void:
 
 	# Version label
 	var version = Label.new()
-	version.text = "v0.1.0 Alpha"
+	version.text = "v0.2.0 Alpha"
 	version.add_theme_font_size_override("font_size", 12)
 	version.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

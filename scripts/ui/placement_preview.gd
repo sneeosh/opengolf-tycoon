@@ -307,7 +307,7 @@ func _draw_tree_ghost(pos: Vector2, color: Color) -> void:
 		var tex = load(TreeEntity.SPRITE_PATHS[tree_type]) as Texture2D
 		if tex:
 			var base_y = TreeEntity.SPRITE_BASE_OFFSETS.get(tree_type, 40.0)
-			var tex_pos = pos - Vector2(tex.get_width() / 2.0, base_y)
+			var tex_pos = pos - Vector2(tex.get_width() / 2.0, base_y + tex.get_height() / 2.0)
 			draw_texture(tex, tex_pos, Color(1, 1, 1, color.a))
 			return
 

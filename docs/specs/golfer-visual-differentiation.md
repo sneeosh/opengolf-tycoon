@@ -305,6 +305,44 @@ Phase 4 (Tournament):
 
 ---
 
+## Phase 5: Tier-Specific PixelLab Sprites
+
+**Status:** Not started
+**Priority:** MEDIUM — biggest visual payoff for tier differentiation
+
+### Problem
+
+All golfers currently share a single red-shirt PixelLab sprite. The code in `golfer.gd:156-160` defines `TIER_SPRITE_FOLDERS` and `_setup_sprite_animations()` (line 278) already checks tier-specific paths first, but only the generic fallback (`assets/sprites/golfer/animations/`) has sprites.
+
+### Approach
+
+Generate 4 distinct PixelLab characters, one per tier:
+
+| Tier | Folder | Character Description |
+|------|--------|----------------------|
+| Beginner | `assets/sprites/golfer/beginner/animations/` | Casual clothes — t-shirt and jeans, bright/mismatched colors |
+| Casual | `assets/sprites/golfer/casual/animations/` | Basic polo and khakis, muted colors |
+| Serious | `assets/sprites/golfer/serious/animations/` | Fitted polo and slacks, coordinated dark colors |
+| Pro | `assets/sprites/golfer/pro/animations/` | Sleek athletic wear, white/black/gold |
+
+Each character needs:
+- `idle/` — 4 directions (south, east, north, west)
+- `walk/` — 4 directions
+- `swing/` — 4 directions
+
+### PixelLab Generation
+
+- `create_character`: 4 directions, `size: 48`, `view: "low top-down"`, `outline: "single color black outline"`, `shading: "basic shading"`
+- `animate_character`: `walk` and `swing` templates
+- Extract idle frames from base character rotations
+- Match style consistency across all 4 characters
+
+### Code Changes
+
+None required — the existing fallback logic handles everything. When tier-specific folders are populated, golfers will automatically use them.
+
+---
+
 ## Out of Scope
 
 | Feature | Reason |

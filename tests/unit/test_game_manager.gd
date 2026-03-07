@@ -64,7 +64,7 @@ func test_set_green_fee_clamps_to_min() -> void:
 	assert_eq(GameManager.green_fee, GameManager.MIN_GREEN_FEE, "Should clamp to minimum")
 
 func test_set_green_fee_clamps_to_effective_max() -> void:
-	# With 18 holes, effective max = min(18*15, 200) = $200
+	# With 18 holes, effective max = min(18*10, 200) = $180
 	var course = GameManager.CourseData.new()
 	for i in range(18):
 		var hole = GameManager.HoleData.new()
@@ -73,10 +73,10 @@ func test_set_green_fee_clamps_to_effective_max() -> void:
 		course.add_hole(hole)
 	GameManager.current_course = course
 	GameManager.set_green_fee(999)
-	assert_eq(GameManager.green_fee, GameManager.MAX_GREEN_FEE, "18 holes should allow max $200")
+	assert_eq(GameManager.green_fee, 180, "18 holes should allow max $180")
 
 func test_set_green_fee_clamps_by_hole_count() -> void:
-	# With 3 holes, effective max = 3*15 = $45
+	# With 3 holes, effective max = 3*10 = $30
 	var course = GameManager.CourseData.new()
 	for i in range(3):
 		var hole = GameManager.HoleData.new()
@@ -85,19 +85,19 @@ func test_set_green_fee_clamps_by_hole_count() -> void:
 		course.add_hole(hole)
 	GameManager.current_course = course
 	GameManager.set_green_fee(100)
-	assert_eq(GameManager.green_fee, 45, "3 holes should cap fee at $45")
+	assert_eq(GameManager.green_fee, 30, "3 holes should cap fee at $30")
 
 func test_set_green_fee_accepts_valid_value() -> void:
-	# Set up enough holes so $75 is under the cap (need 5+ holes: 5*15=75)
+	# Set up enough holes so $75 is under the cap (need 8+ holes: 8*10=80)
 	var course = GameManager.CourseData.new()
-	for i in range(5):
+	for i in range(8):
 		var hole = GameManager.HoleData.new()
 		hole.par = 4
 		hole.is_open = true
 		course.add_hole(hole)
 	GameManager.current_course = course
 	GameManager.set_green_fee(75)
-	assert_eq(GameManager.green_fee, 75, "Should accept 75 as valid fee with 5 holes")
+	assert_eq(GameManager.green_fee, 75, "Should accept 75 as valid fee with 8 holes")
 
 func test_set_green_fee_accepts_min_boundary() -> void:
 	GameManager.set_green_fee(GameManager.MIN_GREEN_FEE)
@@ -111,8 +111,8 @@ func test_get_effective_max_fee_scales_with_holes() -> void:
 		hole.is_open = true
 		course.add_hole(hole)
 	GameManager.current_course = course
-	# 6 holes * $15 = $90
-	assert_eq(GameManager.get_effective_max_green_fee(), 90, "6 holes should have max fee $90")
+	# 6 holes * $10 = $60
+	assert_eq(GameManager.get_effective_max_green_fee(), 60, "6 holes should have max fee $60")
 
 
 # --- Reputation ---
@@ -143,12 +143,12 @@ func test_get_game_speed_multiplier_normal() -> void:
 func test_get_game_speed_multiplier_fast() -> void:
 	GameManager.is_paused = false
 	GameManager.current_speed = GameManager.GameSpeed.FAST
-	assert_eq(GameManager.get_game_speed_multiplier(), 2.0)
+	assert_eq(GameManager.get_game_speed_multiplier(), 3.0)
 
 func test_get_game_speed_multiplier_ultra() -> void:
 	GameManager.is_paused = false
 	GameManager.current_speed = GameManager.GameSpeed.ULTRA
-	assert_eq(GameManager.get_game_speed_multiplier(), 4.0)
+	assert_eq(GameManager.get_game_speed_multiplier(), 8.0)
 
 func test_get_game_speed_multiplier_paused() -> void:
 	GameManager.is_paused = true
@@ -216,7 +216,7 @@ func test_new_game_resets_state() -> void:
 	assert_eq(GameManager.reputation, 50.0, "Reputation should reset to 50")
 	assert_eq(GameManager.current_day, 1, "Day should reset to 1")
 	assert_eq(GameManager.course_name, "Test Course", "Course name should be set")
-	assert_eq(GameManager.green_fee, 30, "Green fee should reset to 30")
+	assert_eq(GameManager.green_fee, GameManager.MIN_GREEN_FEE, "Green fee should reset to min (no holes yet)")
 	assert_eq(GameManager.current_hour, GameManager.COURSE_OPEN_HOUR, "Hour should reset to opening")
 
 
