@@ -77,9 +77,9 @@ func get_spawn_rate_modifier() -> float:
 		var marketing_modifier = GameManager.marketing_manager.get_spawn_rate_modifier()
 		base_modifier *= marketing_modifier
 
-	# Apply seasonal demand modifier (Summer peak, Winter trough)
+	# Apply seasonal demand modifier (theme-aware: Desert peaks in winter, Parkland in summer)
 	var season = SeasonSystem.get_season(GameManager.current_day)
-	base_modifier *= SeasonSystem.get_spawn_modifier(season)
+	base_modifier *= SeasonSystem.get_spawn_modifier(season, GameManager.current_theme)
 
 	# Apply seasonal event modifier (special events boost/reduce demand)
 	var active_event = SeasonalEvents.get_active_event(GameManager.current_day)
@@ -96,6 +96,19 @@ func get_effective_spawn_cooldown() -> float:
 	Higher rating = shorter cooldown = more golfers."""
 	# Use cached modifier to avoid expensive recalculation every frame
 	return min_spawn_cooldown_seconds / _cached_spawn_modifier
+
+## Estimated game-hours per hole for last tee time calculation
+const HOURS_PER_HOLE: float = 0.33  # ~20 minutes per hole
+
+func _is_before_last_tee_time() -> bool:
+	"""Check if it's early enough in the day to start a new group.
+	Prevents spawning golfers who can't finish before course closes."""
+	var hole_count = GameManager.get_open_hole_count()
+	if hole_count <= 0:
+		return false
+	var estimated_round_hours = hole_count * HOURS_PER_HOLE
+	var last_tee_time = GameManager.COURSE_CLOSE_HOUR - estimated_round_hours
+	return GameManager.current_hour < last_tee_time
 
 ## Landing zone constants
 const LANDING_ZONE_BASE_RADIUS: float = 2.0    # Minimum radius in tiles (~44 yards)
@@ -262,7 +275,7 @@ func _process(delta: float) -> void:
 	# Don't spawn regular golfers during tournaments
 	var tournament_active = GameManager.tournament_manager and GameManager.tournament_manager.is_tournament_in_progress()
 
-	if GameManager.is_course_open() and not tournament_active:
+	if GameManager.is_course_open() and not tournament_active and _is_before_last_tee_time():
 		var effective_cooldown = get_effective_spawn_cooldown()
 		if time_since_last_spawn >= effective_cooldown:
 			if _is_at_golfer_cap():
@@ -537,10 +550,13 @@ func _advance_golfer(golfer: Golfer) -> void:
 		return
 
 	# Course closing: finish current hole but don't start new ones
-	# Tournament golfers are exempt — they play to completion
+	# Tournament golfers and golfers past halfway are exempt — they play to completion
 	if not GameManager.is_course_open() and golfer.current_strokes == 0 and not golfer.is_tournament_golfer:
-		golfer.finish_round()
-		return
+		var holes_played = golfer.hole_scores.size()
+		var total_holes = golfer._round_total_holes if golfer._round_total_holes > 0 else course_data.holes.size()
+		if holes_played < total_holes / 2:
+			golfer.finish_round()
+			return
 
 	var hole_data = course_data.holes[next_hole_index]
 
@@ -592,10 +608,13 @@ func _advance_golfer(golfer: Golfer) -> void:
 				return
 
 			# If course is closed, don't start a new hole - finish the round
-			# Tournament golfers are exempt — they play to completion
+			# Tournament golfers and golfers past halfway are exempt — they play to completion
 			if not GameManager.is_course_open() and not golfer.is_tournament_golfer:
-				golfer.finish_round()
-				return
+				var holes_done = golfer.hole_scores.size()
+				var round_holes = golfer._round_total_holes if golfer._round_total_holes > 0 else course_data.holes.size()
+				if holes_done < round_holes / 2:
+					golfer.finish_round()
+					return
 
 			# Immediately walk to the next tee to clear the green
 			# Don't wait for turn - golfers should move off the green right away
