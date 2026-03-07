@@ -443,7 +443,7 @@ func _draw_building_ghost(pos: Vector2, color: Color) -> void:
 		sprite_key = "clubhouse_1"  # Preview shows base level
 	if sprite_key in Building.SPRITE_PATHS:
 		var sprite_path = Building.SPRITE_PATHS[sprite_key]
-		if FileAccess.file_exists(sprite_path):
+		if ResourceLoader.exists(sprite_path):
 			var tex = load(sprite_path) as Texture2D
 			if tex:
 				var tex_size = tex.get_size()

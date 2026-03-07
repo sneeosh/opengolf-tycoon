@@ -205,7 +205,7 @@ func _update_visuals() -> void:
 	var sprite_key = building_type
 	if building_type == "clubhouse":
 		sprite_key = "clubhouse_%d" % upgrade_level
-	if sprite_key in SPRITE_PATHS and FileAccess.file_exists(SPRITE_PATHS[sprite_key]):
+	if sprite_key in SPRITE_PATHS and ResourceLoader.exists(SPRITE_PATHS[sprite_key]):
 		var building_sprite = Sprite2D.new()
 		building_sprite.name = "BuildingSprite"
 		building_sprite.texture = load(SPRITE_PATHS[sprite_key])

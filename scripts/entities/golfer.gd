@@ -280,11 +280,11 @@ func _setup_sprite_animations() -> void:
 	var tier_folder = TIER_SPRITE_FOLDERS.get(golfer_tier, "casual")
 	var base_path = "res://assets/sprites/golfer/%s/animations/" % tier_folder
 	var test_file = base_path + "idle/south/frame_000.png"
-	if not FileAccess.file_exists(test_file):
+	if not ResourceLoader.exists(test_file):
 		# Fall back to generic (non-tier) path for backwards compatibility
 		base_path = "res://assets/sprites/golfer/animations/"
 		test_file = base_path + "idle/south/frame_000.png"
-		if not FileAccess.file_exists(test_file):
+		if not ResourceLoader.exists(test_file):
 			return
 
 	var sprite_frames = SpriteFrames.new()
@@ -313,12 +313,12 @@ func _setup_sprite_animations() -> void:
 
 			# Check if directory has frames; try fallback for diagonals
 			var frame_path = dir_path + "frame_000.png"
-			if not FileAccess.file_exists(frame_path):
+			if not ResourceLoader.exists(frame_path):
 				var fallback = diagonal_fallbacks.get(dir, "")
 				if fallback != "":
 					dir_path = base_path + "%s/%s/" % [anim_info["path"], fallback]
 					frame_path = dir_path + "frame_000.png"
-					if not FileAccess.file_exists(frame_path):
+					if not ResourceLoader.exists(frame_path):
 						continue
 				else:
 					continue
@@ -329,7 +329,7 @@ func _setup_sprite_animations() -> void:
 
 			for i in range(16):
 				var fpath = dir_path + "frame_%03d.png" % i
-				if not FileAccess.file_exists(fpath):
+				if not ResourceLoader.exists(fpath):
 					break
 				var texture = load(fpath)
 				if texture:
