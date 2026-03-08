@@ -29,6 +29,9 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Satisfaction & Feedback](satisfaction-feedback.md) — Thought bubble triggers, price sensitivity, daily satisfaction metric
 - [Golfer Needs](golfer-needs.md) — Energy, comfort, hunger, pace needs that decay over time and are satisfied by buildings
 
+### Land & Courses
+- [Premium Land & Prebuilt Courses](premium-land.md) — Land tiers (Standard/Premium/Elite), terrain feature generation, prebuilt course packages
+
 ### Events & Time
 - [Tournament System](tournament-system.md) — 4 tiers, qualification, scheduling, live scoring, revenue/reputation rewards
 - [Tournament Simulation](tournament-simulation.md) — Shot-by-shot headless simulation, multi-round format, cut lines, field generation, dramatic moments

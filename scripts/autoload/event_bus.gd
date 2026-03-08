@@ -85,6 +85,9 @@ signal tournament_moment(moment: Dictionary)
 signal tournament_simulation_started(tier: int, round_number: int)
 signal tournament_simulation_completed(tier: int, round_number: int)
 
+# Land/Course Package Signals
+signal course_package_purchased(package_type: int)
+
 # Save/Load Signals
 signal save_requested()
 signal save_completed(success: bool)

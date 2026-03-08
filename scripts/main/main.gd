@@ -56,6 +56,7 @@ var hole_stats_panel: HoleStatsPanel = null
 var tournament_manager: TournamentManager = null
 var tournament_panel: TournamentPanel = null
 var land_panel: LandPanel = null
+var course_packages_panel: CoursePackagesPanel = null
 var marketing_panel: MarketingPanel = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
@@ -164,6 +165,7 @@ func _ready() -> void:
 	land_mgr.name = "LandManager"
 	add_child(land_mgr)
 	GameManager.land_manager = land_mgr
+	land_mgr.set_references(terrain_grid, entity_layer)
 
 	var staff_mgr = StaffManager.new()
 	staff_mgr.name = "StaffManager"
@@ -192,6 +194,7 @@ func _ready() -> void:
 	_setup_hole_stats_panel()
 	_setup_tournament_panel()
 	_setup_land_panel()
+	_setup_course_packages_panel()
 	_setup_marketing_panel()
 	_setup_hotkey_panel()
 	_setup_weather_debug_panel()
@@ -325,6 +328,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_K:
 				_toggle_course_scorecard_panel()
+			elif event.keycode == KEY_P:
+				_toggle_course_packages_panel()
+				get_viewport().set_input_as_handled()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_V:
 				if event.shift_pressed:
@@ -566,7 +572,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard", "CourseRatingOverlay", "EventFeedPanel", "CourseScorecardPanel"]
+	var popup_panels = ["MainMenu", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "StaffPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "CoursePackagesPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentLeaderboard", "CourseRatingOverlay", "EventFeedPanel", "CourseScorecardPanel"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -1433,6 +1439,10 @@ func _on_new_game_started() -> void:
 	# Clear shot heatmap data for new game
 	if shot_heatmap_tracker:
 		shot_heatmap_tracker.clear()
+
+	# Initialize parcel tiers for the selected theme
+	if GameManager.land_manager:
+		GameManager.land_manager.initialize_parcel_tiers(GameManager.current_theme)
 
 	# Generate natural terrain features using batch mode to avoid per-tile signal spam.
 	# Without batch mode, each set_tile() triggers 12+ signal handlers (overlays, undo,
@@ -2561,6 +2571,41 @@ func _toggle_land_panel() -> void:
 	"""Toggle the land panel visibility."""
 	if land_panel:
 		_toggle_panel(land_panel)
+
+# --- Course Packages Panel ---
+
+func _setup_course_packages_panel() -> void:
+	"""Add course packages panel to the HUD."""
+	var hud = $UI/HUD
+
+	course_packages_panel = CoursePackagesPanel.new()
+	course_packages_panel.name = "CoursePackagesPanel"
+	course_packages_panel.close_requested.connect(_on_course_packages_panel_closed)
+	course_packages_panel.build_course_requested.connect(_on_build_course_requested)
+	hud.add_child(course_packages_panel)
+	course_packages_panel.hide()
+
+	# Connect land panel's packages button
+	if land_panel:
+		land_panel.open_packages_requested.connect(_toggle_course_packages_panel)
+
+func _on_course_packages_panel_closed() -> void:
+	course_packages_panel.hide()
+	if _active_panel == course_packages_panel:
+		_active_panel = null
+
+func _toggle_course_packages_panel() -> void:
+	if course_packages_panel:
+		_toggle_panel(course_packages_panel)
+
+func _on_build_course_requested(package_type: int) -> void:
+	_suppress_tile_undo = true
+	terrain_grid.begin_batch()
+	PrebuiltCourses.build(package_type, terrain_grid, entity_layer, hole_tool)
+	terrain_grid.end_batch()
+	terrain_grid.refresh_all_overlays()
+	_suppress_tile_undo = false
+	EventBus.course_package_purchased.emit(package_type)
 
 # --- Marketing Panel ---
 
