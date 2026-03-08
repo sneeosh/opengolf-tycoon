@@ -22,7 +22,7 @@ const CONTOUR_ALPHA_MAJOR: float = 0.45 # Thick contour lines (every 2 levels)
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
-	z_index = 4  # Above the shader overlay (z_index=3)
+	z_index = 4  # Above terrain overlays when elevation tool active
 
 	# Listen for elevation changes to invalidate cache
 	if terrain_grid.has_signal("elevation_changed"):
@@ -46,7 +46,7 @@ func _rebuild_relevant_tiles() -> void:
 		_relevant_tiles[pos] = true
 		# Include all 4 neighbors (for contour rendering at boundaries)
 		for offset in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-			var neighbor = pos + offset
+			var neighbor: Vector2i = pos + offset
 			if terrain_grid.is_valid_position(neighbor):
 				_relevant_tiles[neighbor] = true
 
@@ -65,13 +65,13 @@ func _draw() -> void:
 	if _relevant_tiles.is_empty():
 		return
 
-	var tw = terrain_grid.tile_width
-	var th = terrain_grid.tile_height
+	var tw: int = terrain_grid.tile_width
+	var th: int = terrain_grid.tile_height
 
-	for pos in _relevant_tiles:
-		var elevation = terrain_grid.get_elevation(pos)
-		var screen_pos = terrain_grid.grid_to_screen(pos)
-		var local_pos = to_local(screen_pos)
+	for pos: Vector2i in _relevant_tiles:
+		var elevation: int = terrain_grid.get_elevation(pos)
+		var screen_pos: Vector2 = terrain_grid.grid_to_screen(pos)
+		var local_pos: Vector2 = to_local(screen_pos)
 
 		# --- Contour lines at elevation boundaries ---
 		if elevation != 0 or _has_elevated_neighbor(pos):
@@ -79,8 +79,8 @@ func _draw() -> void:
 
 		# --- Elevation numbers ---
 		if elevation != 0:
-			var text_pos = local_pos + Vector2(tw * 0.35, th * 0.7)
-			var sign_str = "+" if elevation > 0 else ""
+			var text_pos: Vector2 = local_pos + Vector2(tw * 0.35, th * 0.7)
+			var sign_str: String = "+" if elevation > 0 else ""
 			draw_string(
 				ThemeDB.fallback_font,
 				text_pos,
@@ -94,39 +94,36 @@ func _draw() -> void:
 ## Check if any of the 4 neighbors has non-zero elevation
 func _has_elevated_neighbor(pos: Vector2i) -> bool:
 	for offset in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-		var neighbor = pos + offset
+		var neighbor: Vector2i = pos + offset
 		if terrain_grid.is_valid_position(neighbor) and terrain_grid.get_elevation(neighbor) != 0:
 			return true
 	return false
 
 ## Draw contour lines with variable weight at elevation boundaries
 func _draw_contour_lines(pos: Vector2i, local_pos: Vector2, tw: int, th: int) -> void:
-	var elevation = terrain_grid.get_elevation(pos)
+	var elevation: int = terrain_grid.get_elevation(pos)
 
-	# Check each edge for elevation change
-	var neighbors = {
-		"right": Vector2i(pos.x + 1, pos.y),
-		"bottom": Vector2i(pos.x, pos.y + 1),
-		"left": Vector2i(pos.x - 1, pos.y),
-		"top": Vector2i(pos.x, pos.y - 1),
-	}
+	# Check each edge for elevation change (right, bottom, left, top)
+	var offsets: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)]
+	var line_starts: Array[Vector2] = [Vector2(tw, 0), Vector2(0, th), Vector2.ZERO, Vector2.ZERO]
+	var line_ends: Array[Vector2] = [Vector2(tw, th), Vector2(tw, th), Vector2(0, th), Vector2(tw, 0)]
 
-	for edge in neighbors:
-		var n_pos = neighbors[edge]
+	for i in offsets.size():
+		var n_pos: Vector2i = pos + offsets[i]
 		if not terrain_grid.is_valid_position(n_pos):
 			continue
-		var n_elev = terrain_grid.get_elevation(n_pos)
+		var n_elev: int = terrain_grid.get_elevation(n_pos)
 		if n_elev == elevation:
 			continue
 
 		# Determine line weight: thick for major intervals (crossing even levels)
-		var elev_diff = abs(elevation - n_elev)
-		var is_major = elev_diff >= 2 or (elevation % 2 == 0 and n_elev % 2 != 0) or (elevation != 0 and n_elev == 0)
-		var line_width = 2.0 if is_major else 1.0
-		var alpha = CONTOUR_ALPHA_MAJOR if is_major else CONTOUR_ALPHA_MINOR
+		var elev_diff: int = abs(elevation - n_elev)
+		var is_major: bool = elev_diff >= 2 or (elevation % 2 == 0 and n_elev % 2 != 0) or (elevation != 0 and n_elev == 0)
+		var line_width: float = 2.0 if is_major else 1.0
+		var alpha: float = CONTOUR_ALPHA_MAJOR if is_major else CONTOUR_ALPHA_MINOR
 
 		# Color: brown for boundaries, darker for deeper
-		var avg_elev = (elevation + n_elev) / 2.0
+		var avg_elev: float = (elevation + n_elev) / 2.0
 		var contour_color: Color
 		if avg_elev >= 0:
 			contour_color = Color(0.55, 0.4, 0.25, alpha)  # Warm brown
@@ -134,12 +131,4 @@ func _draw_contour_lines(pos: Vector2i, local_pos: Vector2, tw: int, th: int) ->
 			contour_color = Color(0.2, 0.25, 0.4, alpha)    # Cool blue-gray
 
 		# Draw the edge line
-		match edge:
-			"right":
-				draw_line(local_pos + Vector2(tw, 0), local_pos + Vector2(tw, th), contour_color, line_width, true)
-			"bottom":
-				draw_line(local_pos + Vector2(0, th), local_pos + Vector2(tw, th), contour_color, line_width, true)
-			"left":
-				draw_line(local_pos, local_pos + Vector2(0, th), contour_color, line_width, true)
-			"top":
-				draw_line(local_pos, local_pos + Vector2(tw, 0), contour_color, line_width, true)
+		draw_line(local_pos + line_starts[i], local_pos + line_ends[i], contour_color, line_width, true)

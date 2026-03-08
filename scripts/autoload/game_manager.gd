@@ -12,6 +12,7 @@ var current_course: CourseData = null
 var course_name: String = "New Course"
 var current_theme: int = CourseTheme.Type.PARKLAND
 var current_difficulty: int = DifficultyPresets.Preset.NORMAL
+var heightmap_noise_seed: int = 0
 var colorblind_mode: int = ColorblindMode.Mode.OFF
 var invert_zoom_scroll: bool = false
 # Default starting values (overridden by difficulty preset in new_game)
@@ -479,6 +480,7 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 	daily_history.clear()
 	_stagnation_hole_count = 0
 	_stagnation_day_started = 1
+	heightmap_noise_seed = randi()
 
 	# Apply theme colors to tileset generator (with colorblind remapping if active)
 	var base_colors := CourseTheme.get_terrain_colors(theme)

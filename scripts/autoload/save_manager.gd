@@ -153,6 +153,7 @@ func _build_save_data() -> Dictionary:
 			"difficulty": DifficultyPresets.to_string_name(GameManager.current_difficulty),
 			"stagnation_hole_count": GameManager._stagnation_hole_count,
 			"stagnation_day_started": GameManager._stagnation_day_started,
+			"heightmap_noise_seed": GameManager.heightmap_noise_seed,
 		},
 	}
 
@@ -260,6 +261,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	GameManager.loan_balance = int(game.get("loan_balance", 0))
 	GameManager._stagnation_hole_count = int(game.get("stagnation_hole_count", 0))
 	GameManager._stagnation_day_started = int(game.get("stagnation_day_started", 1))
+	GameManager.heightmap_noise_seed = int(game.get("heightmap_noise_seed", 0))
 
 	# Restore difficulty preset (defaults to Normal for older saves)
 	var diff_name = game.get("difficulty", "normal")

@@ -10,46 +10,36 @@ uniform vec2 tile_size = vec2(64.0, 32.0);
 
 // --- Lighting ---
 uniform vec2 light_direction = vec2(-0.7, -0.7);  // NW, normalized
-uniform float light_intensity : hint_range(0.0, 1.0) = 0.45;
-uniform float shadow_intensity : hint_range(0.0, 1.0) = 0.35;
-uniform float ambient_light : hint_range(0.0, 1.0) = 0.3;
+uniform float light_intensity : hint_range(0.0, 1.0) = 0.5;
+uniform float shadow_intensity : hint_range(0.0, 1.0) = 0.4;
 
 // --- Cel shading ---
-uniform int cel_steps : hint_range(2, 8) = 4;
-uniform float cel_smoothness : hint_range(0.0, 0.1) = 0.02;
+uniform int cel_steps : hint_range(2, 8) = 3;
+uniform float cel_smoothness : hint_range(0.0, 0.1) = 0.03;
+
+// --- Debug ---
+uniform bool debug_heightmap = false;  // Set true to visualize raw heightmap data
 
 // --- Contour lines ---
 uniform bool contour_enabled = true;
-uniform float contour_interval = 0.1;      // In heightmap UV-space elevation units
-uniform float contour_line_width = 0.003;   // Thickness in UV space
-uniform float contour_opacity : hint_range(0.0, 1.0) = 0.35;
-uniform vec3 contour_color_high = vec3(0.55, 0.40, 0.25);  // Warm brown
-uniform vec3 contour_color_low = vec3(0.20, 0.25, 0.40);   // Cool blue-gray
+uniform float contour_line_width = 1.5;  // In world pixels
+uniform float contour_opacity : hint_range(0.0, 1.0) = 0.3;
+uniform vec3 contour_color_high = vec3(0.45, 0.35, 0.25);  // Warm brown
+uniform vec3 contour_color_low = vec3(0.25, 0.30, 0.40);   // Cool blue-gray
 
-// --- Camera mapping ---
-// These are set from GDScript each frame to map screen pixels -> heightmap UVs
-uniform vec2 camera_offset = vec2(0.0, 0.0);
-uniform float camera_zoom = 1.0;
-uniform vec2 viewport_size = vec2(1600.0, 1000.0);
-
-varying vec2 world_position;
+varying vec2 world_pos;
 
 void vertex() {
-	world_position = VERTEX;
+	world_pos = VERTEX;
 }
 
-// Sample heightmap at a world position, converting through isometric grid coords
-vec2 world_to_heightmap_uv(vec2 world_pos) {
-	// Screen -> grid coordinate (inverse isometric transform)
-	float grid_x = world_pos.x / tile_size.x + world_pos.y / tile_size.y;
-	float grid_y = world_pos.y / tile_size.y - world_pos.x / tile_size.x;
-
-	// Grid -> heightmap UV
-	return vec2(grid_x, grid_y) / grid_size;
+// Convert world position to heightmap UV
+vec2 world_to_uv(vec2 wp) {
+	return wp / (grid_size * tile_size);
 }
 
-float sample_height(vec2 world_pos) {
-	vec2 uv = world_to_heightmap_uv(world_pos);
+float sample_height(vec2 wp) {
+	vec2 uv = world_to_uv(wp);
 	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
 		return 0.5;  // Sea level for out-of-bounds
 	}
@@ -57,105 +47,158 @@ float sample_height(vec2 world_pos) {
 }
 
 // Compute pseudo-normal from heightmap gradient using central differences
-vec3 compute_normal(vec2 world_pos) {
-	// Step size in world space corresponding to one heightmap texel
-	float step_world = tile_size.x / 4.0;  // 4 pixels per tile -> 16 world px
+vec3 compute_normal(vec2 wp, out float slope_mag) {
+	float step_x = tile_size.x / 4.0;
+	float step_y = tile_size.y / 4.0;
 
-	float h_l = sample_height(world_pos - vec2(step_world, 0.0));
-	float h_r = sample_height(world_pos + vec2(step_world, 0.0));
-	float h_u = sample_height(world_pos - vec2(0.0, step_world));
-	float h_d = sample_height(world_pos + vec2(0.0, step_world));
+	float h_l = sample_height(wp - vec2(step_x, 0.0));
+	float h_r = sample_height(wp + vec2(step_x, 0.0));
+	float h_u = sample_height(wp - vec2(0.0, step_y));
+	float h_d = sample_height(wp + vec2(0.0, step_y));
 
-	// Gradient (dh/dx, dh/dy) -- height is [0,1], we scale to make normals visible
-	float height_scale = 4.0;  // Amplify height differences for visual effect
+	// Scale for visible slopes — more = steeper perceived hills
+	float height_scale = 8.0;
 	float dx = (h_r - h_l) * height_scale;
 	float dy = (h_d - h_u) * height_scale;
 
-	// Construct normal from gradient (pointing "up" with z=1, tilted by slope)
+	slope_mag = length(vec2(dx, dy));
 	return normalize(vec3(-dx, -dy, 1.0));
 }
 
-// Quantize lighting into cel-shading steps
+// Compute ambient occlusion from heightmap curvature (Laplacian)
+// Concavities (valleys) return positive values, convexities (ridges) return negative
+float compute_ao(vec2 wp, float center_height) {
+	float step_x = tile_size.x / 4.0;
+	float step_y = tile_size.y / 4.0;
+
+	float h_l = sample_height(wp - vec2(step_x, 0.0));
+	float h_r = sample_height(wp + vec2(step_x, 0.0));
+	float h_u = sample_height(wp - vec2(0.0, step_y));
+	float h_d = sample_height(wp + vec2(0.0, step_y));
+
+	// Laplacian: sum of neighbors minus 4x center
+	// Positive = valley (concave), negative = ridge (convex)
+	float laplacian = (h_l + h_r + h_u + h_d) - 4.0 * center_height;
+	return laplacian * 40.0;  // Scale for visibility
+}
+
+// Quantize lighting into clean cel-shading bands
 float cel_shade(float ndotl) {
 	float steps_f = float(cel_steps);
 	float quantized = floor(ndotl * steps_f) / steps_f;
-	// Smooth transition at step boundaries to avoid harsh banding
 	float frac_part = fract(ndotl * steps_f);
 	float smooth_edge = smoothstep(0.0, cel_smoothness * steps_f, frac_part);
 	return mix(quantized, quantized + 1.0 / steps_f, smooth_edge);
 }
 
 void fragment() {
-	// Map this fragment to world position
-	vec2 screen_pos = FRAGCOORD.xy;
-	vec2 world_pos = (screen_pos - viewport_size * 0.5) / camera_zoom + camera_offset;
-
-	// Sample height at this pixel
+	vec2 uv = world_to_uv(world_pos);
 	float height = sample_height(world_pos);
-	vec2 hm_uv = world_to_heightmap_uv(world_pos);
+	float rel_height = height - 0.5;
 
-	// Check bounds -- don't shade outside the grid
-	if (hm_uv.x < 0.0 || hm_uv.x > 1.0 || hm_uv.y < 0.0 || hm_uv.y > 1.0) {
+	bool in_bounds = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+
+	if (!in_bounds) {
 		COLOR = vec4(0.0);
-		return;
+	} else if (debug_heightmap) {
+		if (abs(rel_height) > 0.005) {
+			if (rel_height > 0.0) {
+				COLOR = vec4(1.0, 0.0, 1.0, 0.6);
+			} else {
+				COLOR = vec4(0.0, 1.0, 1.0, 0.6);
+			}
+		} else {
+			float grid_line = step(0.98, fract(uv.x * grid_size.x)) + step(0.98, fract(uv.y * grid_size.y));
+			COLOR = vec4(0.0, 1.0, 0.0, grid_line * 0.15);
+		}
+	} else {
+		// --- Directional cel-shading ---
+		float slope_mag = 0.0;
+		vec3 normal = compute_normal(world_pos, slope_mag);
+		vec3 light_dir_3d = normalize(vec3(light_direction, 0.6));
+		float ndotl = dot(normal, light_dir_3d);
+		float lighting = cel_shade(ndotl * 0.5 + 0.5);
+
+		// Shade range: shadow_intensity below neutral, light_intensity above
+		float shade = mix(1.0 - shadow_intensity, 1.0 + light_intensity, lighting);
+
+		float alpha = 0.0;
+		vec3 out_color = vec3(1.0);
+
+		// Tight dead zone — only truly flat terrain stays clean
+		if (shade < 0.99) {
+			// Shadow: cool-tinted darkening
+			out_color = vec3(0.12, 0.10, 0.20);
+			alpha = (1.0 - shade) * 0.85;
+		} else if (shade > 1.01) {
+			// Highlight: warm-tinted brightening
+			out_color = vec3(1.0, 0.98, 0.93);
+			alpha = (shade - 1.0) * 0.70;
+		}
+
+		// --- Ambient occlusion from curvature ---
+		float ao = compute_ao(world_pos, height);
+		// Positive ao = valley (darken), negative ao = ridge (lighten slightly)
+		if (ao > 0.03) {
+			// Valley darkening — cool shadow
+			float ao_alpha = clamp(ao * 0.5, 0.0, 0.30);
+			out_color = mix(out_color, vec3(0.10, 0.08, 0.15), ao_alpha);
+			alpha = max(alpha, ao_alpha);
+		} else if (ao < -0.03) {
+			// Ridge brightening — warm highlight
+			float ao_alpha = clamp(-ao * 0.25, 0.0, 0.15);
+			out_color = mix(out_color, vec3(1.0, 0.97, 0.90), ao_alpha);
+			alpha = max(alpha, ao_alpha);
+		}
+
+		// --- Slope-dependent terrain tinting ---
+		// Steep slopes shift toward earth/soil tone (exposed ground on hillsides)
+		float slope_tint = smoothstep(0.2, 1.2, slope_mag);
+		if (slope_tint > 0.0) {
+			vec3 soil_color = vec3(0.45, 0.38, 0.28);  // Earthy brown
+			float slope_alpha = slope_tint * 0.25;
+			out_color = mix(out_color, soil_color, slope_alpha);
+			alpha = max(alpha, slope_alpha);
+		}
+
+		// --- Height-based tint ---
+		float height_tint_alpha = abs(rel_height) * 2.0;
+		height_tint_alpha = clamp(height_tint_alpha, 0.0, 0.25);
+
+		if (rel_height > 0.03) {
+			out_color = mix(out_color, vec3(1.0, 0.95, 0.88), 0.4);
+			alpha = max(alpha, height_tint_alpha);
+		} else if (rel_height < -0.03) {
+			out_color = mix(out_color, vec3(0.15, 0.18, 0.25), 0.4);
+			alpha = max(alpha, height_tint_alpha);
+		}
+
+		// --- Contour lines (only at integer elevation boundaries) ---
+		float contour_mask = 0.0;
+		if (contour_enabled && abs(rel_height) > 0.02) {
+			float elev_scale = 25.6 / 255.0;
+			float elev_continuous = rel_height / elev_scale;
+			float dist_to_boundary = abs(fract(elev_continuous + 0.5) - 0.5);
+
+			float grad_mag = length(vec2(dFdx(elev_continuous), dFdy(elev_continuous)));
+			float line_width_elev = contour_line_width * grad_mag;
+			line_width_elev = max(line_width_elev, 0.04);
+
+			contour_mask = 1.0 - smoothstep(0.0, line_width_elev, dist_to_boundary);
+			contour_mask *= contour_opacity;
+
+			// Major contour lines every 2 levels slightly thicker
+			float major_continuous = elev_continuous * 0.5;
+			float major_dist = abs(fract(major_continuous + 0.5) - 0.5);
+			float major_mask = 1.0 - smoothstep(0.0, line_width_elev * 1.8, major_dist);
+			contour_mask = max(contour_mask, major_mask * contour_opacity * 1.3);
+		}
+
+		vec3 c_color = rel_height >= 0.0 ? contour_color_high : contour_color_low;
+		out_color = mix(out_color, c_color, contour_mask);
+		alpha = max(alpha, contour_mask);
+
+		// Cap alpha to keep terrain readable underneath
+		COLOR = vec4(out_color, clamp(alpha, 0.0, 0.75));
 	}
-
-	// --- Normal-based directional lighting ---
-	vec3 normal = compute_normal(world_pos);
-	// Light direction in 3D (flatten 2D direction onto XY, pointing up in Z)
-	vec3 light_dir_3d = normalize(vec3(light_direction, 0.5));
-	float ndotl = dot(normal, light_dir_3d);
-
-	// Remap from [-1,1] to [0,1] and apply cel shading
-	float lighting = cel_shade(ndotl * 0.5 + 0.5);
-
-	// Compute final shade multiplier
-	float shade = mix(1.0 - shadow_intensity, 1.0 + light_intensity, lighting);
-	shade = mix(1.0, shade, 1.0 - ambient_light);  // Blend toward 1.0 by ambient amount
-
-	// Height relative to sea level
-	float rel_height = height - 0.5;  // 0.5 = sea level in [0,1]
-
-	// --- Contour lines ---
-	float contour_mask = 0.0;
-	if (contour_enabled) {
-		// Distance to nearest contour interval
-		float contour_pos = rel_height / contour_interval;
-		float dist_to_line = abs(fract(contour_pos + 0.5) - 0.5);
-
-		// Anti-aliased contour line using screen-space derivatives
-		float line_half_width = contour_line_width * 0.5;
-		contour_mask = 1.0 - smoothstep(0.0, line_half_width, dist_to_line);
-		contour_mask *= contour_opacity;
-
-		// Major contour lines every 2 intervals are thicker
-		float major_pos = rel_height / (contour_interval * 2.0);
-		float major_dist = abs(fract(major_pos + 0.5) - 0.5);
-		float major_mask = 1.0 - smoothstep(0.0, line_half_width * 1.8, major_dist);
-		contour_mask = max(contour_mask, major_mask * contour_opacity * 1.3);
-	}
-
-	// --- Compose output ---
-	// Shade < 1.0 = darken (multiply), shade > 1.0 = lighten (screen blend)
-	// Output as multiplicative overlay: RGB = shade color, A = blend strength
-
-	float alpha = 0.0;
-	vec3 out_color = vec3(1.0);
-
-	if (shade < 1.0) {
-		// Shadow: darken underlying terrain
-		out_color = vec3(0.05, 0.05, 0.15);  // Cool shadow color
-		alpha = (1.0 - shade) * 0.7;
-	} else if (shade > 1.0) {
-		// Highlight: brighten underlying terrain
-		out_color = vec3(1.0, 0.97, 0.90);  // Warm highlight
-		alpha = (shade - 1.0) * 0.5;
-	}
-
-	// Blend contour lines
-	vec3 c_color = rel_height >= 0.0 ? contour_color_high : contour_color_low;
-	out_color = mix(out_color, c_color, contour_mask);
-	alpha = max(alpha, contour_mask);
-
-	COLOR = vec4(out_color, alpha);
 }

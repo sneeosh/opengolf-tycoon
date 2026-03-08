@@ -158,11 +158,11 @@ func _apply_variation_shader() -> void:
 	else:
 		return
 
-	var shader = load(shader_path)
+	var shader: Shader = load(shader_path) as Shader
 	if not shader:
 		return
 
-	var material = ShaderMaterial.new()
+	var material: ShaderMaterial = ShaderMaterial.new()
 	material.shader = shader
 
 	# Atlas layout for proper tile center sampling
@@ -514,7 +514,7 @@ func _setup_wind_flag_overlay() -> void:
 
 func _setup_elevation_shader() -> void:
 	# Create heightmap data model
-	_heightmap = Heightmap.new(grid_width, grid_height)
+	_heightmap = Heightmap.new(grid_width, grid_height, GameManager.heightmap_noise_seed)
 
 	# Load platform-appropriate shader
 	var shader_path: String
@@ -525,11 +525,11 @@ func _setup_elevation_shader() -> void:
 	else:
 		return
 
-	var shader = load(shader_path)
+	var shader: Shader = load(shader_path) as Shader
 	if not shader:
 		return
 
-	var material = ShaderMaterial.new()
+	var material: ShaderMaterial = ShaderMaterial.new()
 	material.shader = shader
 	material.set_shader_parameter("heightmap", _heightmap.get_texture())
 	material.set_shader_parameter("heightmap_size", Vector2(grid_width * Heightmap.PIXELS_PER_TILE, grid_height * Heightmap.PIXELS_PER_TILE))
@@ -539,13 +539,11 @@ func _setup_elevation_shader() -> void:
 	# Create full-viewport ColorRect for shader overlay
 	_elevation_shader_rect = ColorRect.new()
 	_elevation_shader_rect.name = "ElevationShaderRect"
-	_elevation_shader_rect.z_index = 3
+	_elevation_shader_rect.z_index = 0  # Same as terrain; renders above TileMapLayer by tree order, below entities
 	_elevation_shader_rect.material = material
-	# Size to cover the full viewport — shader handles screen-to-world mapping
-	_elevation_shader_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_elevation_shader_rect.color = Color(1, 1, 1, 0)  # Transparent base — shader controls all output
 	_elevation_shader_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# ColorRect needs to be in a CanvasLayer to cover the viewport, but since
-	# TerrainGrid is a Node2D, we size the rect to cover the entire world instead
+	# Size to cover the entire world (TerrainGrid is a Node2D, so no anchors)
 	_elevation_shader_rect.position = Vector2.ZERO
 	_elevation_shader_rect.size = Vector2(grid_width * tile_width, grid_height * tile_height)
 	add_child(_elevation_shader_rect)
