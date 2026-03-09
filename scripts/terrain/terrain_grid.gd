@@ -9,6 +9,7 @@ class_name TerrainGrid
 
 var _grid: Dictionary = {}
 var _elevation_grid: Dictionary = {}  # Vector2i -> int (-5 to +5)
+var _bunker_depth_grid: Dictionary = {}  # Vector2i -> 0 (SHALLOW) or 1 (DEEP)
 var _player_placed_tiles: Dictionary = {}  # Vector2i -> true for tiles player placed (for maintenance)
 var _elevation_overlay: ElevationOverlay = null
 
@@ -35,6 +36,7 @@ var _noise_overlay: TerrainNoiseOverlay = null
 var _land_boundary_overlay: LandBoundaryOverlay = null
 var _wind_flag_overlay: WindFlagOverlay = null
 var _shot_heatmap_overlay: ShotHeatmapOverlay = null
+var _fairway_width_overlay: FairwayWidthOverlay = null
 
 ## Shader-driven heightmap elevation system
 var _heightmap: Heightmap = null
@@ -66,12 +68,16 @@ func _ready() -> void:
 	_setup_land_boundary_overlay()
 	_setup_wind_flag_overlay()
 	_setup_elevation_shader()
+	_setup_fairway_width_overlay()
 
 	# Force a complete redraw after one frame to ensure shader is fully applied
 	# This fixes the issue where initial tiles don't get shader variation
 	call_deferred("_refresh_all_tiles")
 
 func _process(_delta: float) -> void:
+	# Flush any pending heightmap blur + texture uploads (batched for performance)
+	if _heightmap:
+		_heightmap.flush_dirty()
 	# Overlays use viewport culling in _draw() so their content depends on
 	# camera position. Redraw them when the camera has moved.
 	var camera = get_viewport().get_camera_2d() if get_viewport() else null
@@ -373,6 +379,31 @@ func get_brush_tiles(center: Vector2i, brush_size: int) -> Array:
 				tiles.append(pos)
 	return tiles
 
+const GREEN_PRESETS = {
+	"small": [Vector2i(0, 0)],
+	"medium": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1)],
+	"large": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)],
+}
+
+func get_green_preset_tiles(center: Vector2i, preset_name: String) -> Array:
+	var offsets = GREEN_PRESETS.get(preset_name, [Vector2i(0, 0)])
+	var tiles: Array = []
+	for offset in offsets:
+		var pos = center + offset
+		if is_valid_position(pos):
+			tiles.append(pos)
+	return tiles
+
+func get_bunker_depth(pos: Vector2i) -> int:
+	return _bunker_depth_grid.get(pos, 0)
+
+func set_bunker_depth(pos: Vector2i, depth: int) -> void:
+	if depth == 0:
+		_bunker_depth_grid.erase(pos)
+	else:
+		_bunker_depth_grid[pos] = depth
+	EventBus.terrain_tile_changed.emit(pos, TerrainTypes.Type.BUNKER, TerrainTypes.Type.BUNKER)
+
 func calculate_distance_yards(from: Vector2i, to: Vector2i) -> int:
 	const YARDS_PER_TILE: float = 22.0
 	var distance_tiles = Vector2(to - from).length()
@@ -569,6 +600,16 @@ func _on_tile_changed_heightmap(pos: Vector2i, _old: int, new_type: int) -> void
 	if _heightmap:
 		_heightmap.set_tile_elevation_blended(pos, get_elevation(pos), new_type, self)
 
+func _setup_fairway_width_overlay() -> void:
+	_fairway_width_overlay = FairwayWidthOverlay.new()
+	_fairway_width_overlay.name = "FairwayWidthOverlay"
+	add_child(_fairway_width_overlay)
+	_fairway_width_overlay.initialize(self)
+
+func toggle_fairway_width_overlay() -> void:
+	if _fairway_width_overlay:
+		_fairway_width_overlay.toggle()
+
 ## Set up shot heatmap overlay (called from main.gd after tracker is created)
 func setup_shot_heatmap_overlay(tracker: ShotHeatmapTracker) -> void:
 	_shot_heatmap_overlay = ShotHeatmapOverlay.new()
@@ -744,6 +785,12 @@ func serialize_elevation() -> Dictionary:
 		data["%d,%d" % [pos.x, pos.y]] = _elevation_grid[pos]
 	return data
 
+func serialize_bunker_depth() -> Dictionary:
+	var data: Dictionary = {}
+	for pos in _bunker_depth_grid:
+		data["%d,%d" % [pos.x, pos.y]] = _bunker_depth_grid[pos]
+	return data
+
 func deserialize(data: Dictionary) -> void:
 	_initialize_grid()
 	_player_placed_tiles.clear()
@@ -782,3 +829,12 @@ func deserialize_elevation(data: Dictionary) -> void:
 		_elevation_overlay.queue_redraw()
 	if _heightmap:
 		_heightmap.rebuild_from_grids(self)
+
+func deserialize_bunker_depth(data: Dictionary) -> void:
+	_bunker_depth_grid.clear()
+	for key in data:
+		var parts = key.split(",")
+		if parts.size() == 2:
+			var pos = Vector2i(int(parts[0]), int(parts[1]))
+			if is_valid_position(pos):
+				_bunker_depth_grid[pos] = int(data[key])

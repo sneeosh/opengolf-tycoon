@@ -45,6 +45,7 @@ var _grid_height: int
 var _noise_detail: FastNoiseLite  # Small-scale texture (freq 0.15)
 var _noise_broad: FastNoiseLite   # Broad rolling hills (freq 0.03)
 var _noise_seed: int
+var _dirty_tiles: Array[Vector2i] = []  # Tiles needing blur + texture upload
 
 func _init(grid_width: int = 128, grid_height: int = 128, noise_seed: int = 0) -> void:
 	_grid_width = grid_width
@@ -114,8 +115,7 @@ func set_tile_elevation(pos: Vector2i, base_elevation: int, terrain_type: int) -
 			var final_gray: int = clampi(base_gray + offset_gray + noise_offset, 0, 255)
 			_set_pixel_safe(px + lx, py + ly, final_gray)
 
-	_blur_region(pos)
-	_texture.update(_image)
+	_dirty_tiles.append(pos)
 
 ## Write heightmap with 1-pixel border blending into neighbors
 func set_tile_elevation_blended(pos: Vector2i, base_elevation: int, terrain_type: int,
@@ -148,7 +148,15 @@ func set_tile_elevation_blended(pos: Vector2i, base_elevation: int, terrain_type
 					  n_pos.x * PIXELS_PER_TILE, n_pos.y * PIXELS_PER_TILE,
 					  n_profile, n_base_gray, n_type, NEIGHBOR_DIRS[dir_idx])
 
-	_blur_region(pos)
+	_dirty_tiles.append(pos)
+
+## Flush all pending blur + texture uploads. Call once per frame from TerrainGrid.
+func flush_dirty() -> void:
+	if _dirty_tiles.is_empty():
+		return
+	for tile_pos in _dirty_tiles:
+		_blur_region(tile_pos)
+	_dirty_tiles.clear()
 	_texture.update(_image)
 
 ## Bulk rebuild — call after loading a save or generating terrain

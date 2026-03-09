@@ -101,10 +101,15 @@ func _refresh_display() -> void:
 	mod_header.add_theme_color_override("font_color", UIConstants.COLOR_INFO)
 	_content.add_child(mod_header)
 
-	var spawn_mod = SeasonSystem.get_spawn_modifier(season)
-	var maint_mod = SeasonSystem.get_maintenance_modifier(season)
+	var theme = GameManager.current_theme
+	var spawn_mod = SeasonSystem.get_blended_spawn_modifier(day, theme)
+	var maint_mod = SeasonSystem.get_blended_maintenance_modifier(day, theme)
+	var fee_tol = SeasonSystem.get_fee_tolerance(day, theme)
+	var prestige = SeasonSystem.get_tournament_prestige(day, theme)
 	_add_stat_row(_content, "Golfer Demand", _format_modifier(spawn_mod), _get_modifier_color(spawn_mod))
 	_add_stat_row(_content, "Maintenance Cost", _format_modifier(maint_mod), _get_modifier_color(maint_mod, true))
+	_add_stat_row(_content, "Fee Tolerance", _format_modifier(fee_tol), _get_modifier_color(fee_tol))
+	_add_stat_row(_content, "Tournament Prestige", _format_modifier(prestige), _get_modifier_color(prestige))
 
 	# Upcoming events
 	_content.add_child(HSeparator.new())
@@ -196,11 +201,12 @@ func _add_season_row(parent: VBoxContainer, s: int, current_season: int, current
 
 		row.add_child(day_box)
 
-	# Spawn modifier
+	# Spawn modifier (theme-aware)
+	var spawn = SeasonSystem.get_spawn_modifier(s, GameManager.current_theme)
 	var mod = Label.new()
-	mod.text = _format_modifier(SeasonSystem.get_spawn_modifier(s))
+	mod.text = _format_modifier(spawn)
 	mod.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-	mod.add_theme_color_override("font_color", _get_modifier_color(SeasonSystem.get_spawn_modifier(s)))
+	mod.add_theme_color_override("font_color", _get_modifier_color(spawn))
 	mod.custom_minimum_size = Vector2(50, 0)
 	mod.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(mod)

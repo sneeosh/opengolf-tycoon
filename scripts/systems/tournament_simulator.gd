@@ -263,7 +263,8 @@ static func _calculate_shot_headless(from: Vector2i, target: Vector2i, club: int
 	var distance_to_target = Vector2(from).distance_to(Vector2(target))
 
 	# Lie modifier
-	var lie_modifier = GolfRules.get_lie_modifier(current_terrain, club)
+	var bunker_depth = terrain_grid.get_bunker_depth(from) if current_terrain == TerrainTypes.Type.BUNKER else 0
+	var lie_modifier = GolfRules.get_lie_modifier(current_terrain, club, bunker_depth)
 
 	# Skill-based accuracy
 	var skill_accuracy = _get_shot_accuracy(sim_golfer, club)
@@ -288,7 +289,7 @@ static func _calculate_shot_headless(from: Vector2i, target: Vector2i, club: int
 	var distance_modifier = _get_distance_modifier(club)
 
 	# Terrain distance penalty
-	var terrain_distance_modifier = GolfRules.get_terrain_distance_modifier(current_terrain)
+	var terrain_distance_modifier = GolfRules.get_terrain_distance_modifier(current_terrain, bunker_depth)
 	distance_modifier *= terrain_distance_modifier
 
 	# Wind effects

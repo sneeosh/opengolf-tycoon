@@ -264,16 +264,36 @@ func _build_gameplay_tab() -> void:
 	var inner = VBoxContainer.new()
 	inner.add_theme_constant_override("separation", 16)
 
-	# Info text
-	var info = Label.new()
-	info.text = "Gameplay options coming soon."
-	info.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
-	info.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
-	inner.add_child(info)
+	# Multiple Tee Boxes toggle
+	var tee_row = HBoxContainer.new()
+	tee_row.add_theme_constant_override("separation", 8)
+	var tee_check = CheckBox.new()
+	tee_check.text = "Multiple Tee Boxes"
+	tee_check.button_pressed = GameManager.multi_tee_enabled
+	tee_check.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
+	tee_check.toggled.connect(_on_multi_tee_toggled)
+	tee_row.add_child(tee_check)
+	inner.add_child(tee_row)
+
+	var tee_desc = Label.new()
+	tee_desc.text = "Auto-generates forward and middle tee boxes for each hole.\nAdds variety but makes course design more complex."
+	tee_desc.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SMALL)
+	tee_desc.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
+	inner.add_child(tee_desc)
 
 	margin.add_child(inner)
 	gameplay_tab.add_child(margin)
 	_tab_container.add_child(gameplay_tab)
+
+func _on_multi_tee_toggled(enabled: bool) -> void:
+	GameManager.multi_tee_enabled = enabled
+	_save_gameplay_settings()
+
+func _save_gameplay_settings() -> void:
+	var config := ConfigFile.new()
+	config.load(SaveManager.SETTINGS_PATH)
+	config.set_value("gameplay", "multi_tee_enabled", GameManager.multi_tee_enabled)
+	config.save(SaveManager.SETTINGS_PATH)
 
 func _build_controls_tab() -> void:
 	var controls_tab = VBoxContainer.new()

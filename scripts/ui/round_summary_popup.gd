@@ -115,8 +115,12 @@ func _show_next() -> void:
 	_mood_label.add_theme_color_override("font_color", _get_mood_color(mood))
 
 	var holes = data.get("holes_played", 0)
+	var total_holes = data.get("total_holes", holes)
 	var fee = data.get("green_fee", 0) * holes
-	_fee_label.text = "Paid: $%d (%d holes)" % [fee, holes]
+	if holes < total_holes:
+		_fee_label.text = "Paid: $%d (%d/%d holes)" % [fee, holes, total_holes]
+	else:
+		_fee_label.text = "Paid: $%d (%d holes)" % [fee, holes]
 
 	# Position bottom-right
 	_panel.custom_minimum_size = Vector2(PANEL_WIDTH, 0)

@@ -2,8 +2,8 @@
 
 **Author:** Claude (Product)
 **Date:** 2026-02-18
-**Status:** Proposal
-**Version:** 0.1.0-alpha context
+**Status:** Complete — All Priority 1 and Priority 2 items implemented. Pin/tee/green move modes, stroke index, par override, forced carry display, routing overlay, multiple tee boxes, pin rotation, bunker depth, green presets, fairway width indicator.
+**Version:** 0.2.0-alpha context
 
 ---
 
