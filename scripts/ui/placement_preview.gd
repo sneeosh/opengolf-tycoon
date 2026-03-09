@@ -14,6 +14,7 @@ var elevation_mode_active: bool = false  # Whether elevation tool is active
 var elevation_raising: bool = true  # True = raising, false = lowering
 var bulldozer_mode_active: bool = false  # Whether bulldozer mode is active
 var brush_size: int = 1  # Current brush size (1, 3, or 5)
+var green_preset: String = ""  # Active green preset ("small"/"medium"/"large" or "")
 var _hole_move_mode: int = 0  # 0=NONE, matches main.gd HoleMoveMode enum
 
 # Preview state
@@ -124,7 +125,9 @@ func _update_preview(delta: float) -> void:
 		current_preview_valid = placement_manager.can_place_at(grid_pos, terrain_grid)
 	else:
 		# Terrain painting mode - show full brush area
-		if brush_size <= 1:
+		if green_preset != "" and current_terrain_tool == TerrainTypes.Type.GREEN:
+			current_preview_positions = terrain_grid.get_green_preset_tiles(grid_pos, green_preset)
+		elif brush_size <= 1:
 			current_preview_positions = [grid_pos]
 		else:
 			current_preview_positions = terrain_grid.get_brush_tiles(grid_pos, brush_size)
@@ -656,6 +659,16 @@ func _draw_hole_move_preview() -> void:
 			is_valid = tile != TerrainTypes.Type.WATER and tile != TerrainTypes.Type.OUT_OF_BOUNDS
 			preview_color = Color(0.3, 0.9, 0.5, 0.5) if is_valid else Color(0.9, 0.3, 0.3, 0.3)
 			label_text = "Green"
+		4:  # MOVING_FORWARD_TEE
+			var tile = terrain_grid.get_tile(hover_pos)
+			is_valid = tile != TerrainTypes.Type.WATER and tile != TerrainTypes.Type.OUT_OF_BOUNDS
+			preview_color = Color(0.9, 0.3, 0.3, 0.5) if is_valid else Color(0.9, 0.3, 0.3, 0.3)
+			label_text = "Fwd Tee"
+		5:  # MOVING_MIDDLE_TEE
+			var tile = terrain_grid.get_tile(hover_pos)
+			is_valid = tile != TerrainTypes.Type.WATER and tile != TerrainTypes.Type.OUT_OF_BOUNDS
+			preview_color = Color(0.85, 0.85, 0.85, 0.5) if is_valid else Color(0.9, 0.3, 0.3, 0.3)
+			label_text = "Mid Tee"
 
 	if not is_valid:
 		return
@@ -782,6 +795,24 @@ func _draw_hole_creation_preview() -> void:
 		var tw = terrain_grid.tile_width
 		var th = terrain_grid.tile_height
 		draw_rect(Rect2(screen_pos, Vector2(tw, th)), green_preview_color)
+
+	# Show where forward/middle tees will be auto-placed (when multi-tee enabled)
+	if is_valid and GameManager.multi_tee_enabled:
+		var dir = Vector2(hover_grid_pos - tee_pos)
+		var dir_len = dir.length()
+		if dir_len >= 2.0:
+			var forward_pos = Vector2i(Vector2(tee_pos) + dir * 0.4)
+			var middle_pos = Vector2i(Vector2(tee_pos) + dir * 0.25)
+			var tee_previews = [
+				{"pos": forward_pos, "color": Color(0.9, 0.2, 0.2, 0.35 * pulse), "label": "Fwd"},
+				{"pos": middle_pos, "color": Color(0.9, 0.9, 0.9, 0.35 * pulse), "label": "Mid"},
+			]
+			for tp in tee_previews:
+				if tp["pos"] != tee_pos and terrain_grid.is_valid_position(tp["pos"]):
+					var tp_screen = terrain_grid.grid_to_screen(tp["pos"])
+					draw_rect(Rect2(tp_screen, Vector2(terrain_grid.tile_width, terrain_grid.tile_height)), tp["color"])
+					var label_pos = terrain_grid.grid_to_screen_center(tp["pos"]) + Vector2(-10, -12)
+					draw_string(font, label_pos, tp["label"], HORIZONTAL_ALIGNMENT_CENTER, -1, 10, tp["color"])
 
 # =============================================================================
 # PUBLIC API

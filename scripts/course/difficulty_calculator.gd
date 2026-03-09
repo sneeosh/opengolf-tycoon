@@ -25,15 +25,17 @@ static func calculate_hole_difficulty(hole_data: GameManager.HoleData, terrain_g
 	var green_difficulty = _calculate_green_difficulty(hole_data, terrain_grid)
 	var landing_zone_difficulty = _calculate_landing_zone_difficulty(hole_data, terrain_grid)
 
-	var total_difficulty = base_difficulty + hazard_difficulty + elevation_difficulty + dogleg_difficulty + green_difficulty + landing_zone_difficulty
+	var carry_difficulty = _calculate_carry_difficulty(hole_data, terrain_grid)
+
+	var total_difficulty = base_difficulty + hazard_difficulty + elevation_difficulty + dogleg_difficulty + green_difficulty + landing_zone_difficulty + carry_difficulty
 	return clampf(total_difficulty, 1.0, 10.0)
 
 ## Count and weight hazards in the corridor
 static func _calculate_hazard_difficulty(corridor_tiles: Array, terrain_grid: TerrainGrid) -> float:
 	var water_count: int = 0
-	var bunker_count: int = 0
 	var ob_count: int = 0
 	var tree_count: int = 0
+	var bunker_difficulty: float = 0.0
 
 	for tile_pos in corridor_tiles:
 		var terrain_type = terrain_grid.get_tile(tile_pos)
@@ -41,7 +43,8 @@ static func _calculate_hazard_difficulty(corridor_tiles: Array, terrain_grid: Te
 			TerrainTypes.Type.WATER:
 				water_count += 1
 			TerrainTypes.Type.BUNKER:
-				bunker_count += 1
+				var depth = terrain_grid.get_bunker_depth(tile_pos)
+				bunker_difficulty += 0.25 if depth == 1 else 0.15
 			TerrainTypes.Type.OUT_OF_BOUNDS:
 				ob_count += 1
 			TerrainTypes.Type.TREES:
@@ -49,7 +52,7 @@ static func _calculate_hazard_difficulty(corridor_tiles: Array, terrain_grid: Te
 
 	var difficulty: float = 0.0
 	difficulty += water_count * 0.3
-	difficulty += bunker_count * 0.15
+	difficulty += bunker_difficulty
 	difficulty += ob_count * 0.2
 	difficulty += tree_count * 0.1
 	return difficulty
@@ -230,3 +233,26 @@ static func _get_corridor_tiles(from: Vector2i, to: Vector2i, terrain_grid: Terr
 				tiles.append(sample_pos)
 
 	return tiles
+
+## Calculate difficulty contribution from forced carries over hazards
+static func _calculate_carry_difficulty(hole_data: GameManager.HoleData, terrain_grid: TerrainGrid) -> float:
+	var segments = ForcedCarryCalculator.calculate_carries(hole_data, terrain_grid)
+	var difficulty: float = 0.0
+	for seg in segments:
+		if seg.hazard_type == TerrainTypes.Type.WATER:
+			if seg.carry_yards > 200:
+				difficulty += 1.5
+			elif seg.carry_yards > 150:
+				difficulty += 1.0
+			elif seg.carry_yards > 100:
+				difficulty += 0.5
+			else:
+				difficulty += 0.2
+		elif seg.hazard_type == TerrainTypes.Type.BUNKER:
+			if seg.carry_yards > 150:
+				difficulty += 0.5
+			elif seg.carry_yards > 80:
+				difficulty += 0.3
+			else:
+				difficulty += 0.1
+	return clampf(difficulty, 0.0, 2.0)

@@ -29,6 +29,7 @@ var selection_label: Label = null
 
 var current_tool: int = -1  # Start with no tool selected
 var brush_size: int = 1
+var _green_preset: String = ""  # Active green preset ("small"/"medium"/"large" or "" for brush)
 var is_painting: bool = false
 var last_paint_pos: Vector2i = Vector2i(-1, -1)
 
@@ -85,10 +86,11 @@ var main_menu: MainMenu = null
 var event_feed_panel: EventFeedPanel = null
 
 # Hole context menu and move modes
-enum HoleMoveMode { NONE, MOVING_PIN, MOVING_TEE, MOVING_GREEN }
+enum HoleMoveMode { NONE, MOVING_PIN, MOVING_TEE, MOVING_GREEN, MOVING_FORWARD_TEE, MOVING_MIDDLE_TEE }
 var _hole_move_mode: int = HoleMoveMode.NONE
 var _hole_move_data: GameManager.HoleData = null
 var _hole_context_menu: HoleContextMenu = null
+var routing_overlay: RoutingOverlay = null
 
 func _ready() -> void:
 	# Set terrain grid reference in GameManager
@@ -113,6 +115,12 @@ func _ready() -> void:
 
 	# Set up hole manager
 	hole_manager.set_terrain_grid(terrain_grid)
+
+	# Set up routing overlay for inter-hole walking routes
+	routing_overlay = RoutingOverlay.new()
+	routing_overlay.name = "RoutingOverlay"
+	$Holes.add_child(routing_overlay)
+	routing_overlay.initialize(terrain_grid)
 
 	# Add hole creation tool
 	add_child(hole_tool)
@@ -326,12 +334,22 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_K:
 				_toggle_course_scorecard_panel()
 				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_R and event.shift_pressed:
+				if routing_overlay:
+					routing_overlay.toggle()
+				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_V:
 				if event.shift_pressed:
 					if terrain_grid.is_shot_heatmap_enabled():
 						terrain_grid.cycle_shot_heatmap_mode()
 				else:
 					terrain_grid.toggle_shot_heatmap()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_J:
+				terrain_grid.toggle_fairway_width_overlay()
+				HoleVisualizer.carry_annotations_visible = not HoleVisualizer.carry_annotations_visible
+				for vis in hole_manager.get_all_hole_visualizers():
+					vis._update_carry_annotations()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_SPACE:
 				# Space = pause/play toggle
@@ -450,6 +468,7 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
 	terrain_toolbar.staff_pressed.connect(_on_staff_pressed)
 	terrain_toolbar.brush_size_changed.connect(_on_brush_size_changed)
+	terrain_toolbar.green_preset_selected.connect(_on_green_preset_selected)
 
 func _initialize_game() -> void:
 	# Show main menu instead of auto-starting
@@ -720,6 +739,12 @@ func _update_selection_indicator() -> void:
 	elif _hole_move_mode == HoleMoveMode.MOVING_GREEN:
 		text += "Move Green — Click to place | ESC to cancel"
 		color = Color(0.5, 1.0, 0.5)  # Green
+	elif _hole_move_mode == HoleMoveMode.MOVING_FORWARD_TEE:
+		text += "Move Forward Tee — Click to place | ESC to cancel"
+		color = Color(0.9, 0.3, 0.3)  # Red (forward tee color)
+	elif _hole_move_mode == HoleMoveMode.MOVING_MIDDLE_TEE:
+		text += "Move Middle Tee — Click to place | ESC to cancel"
+		color = Color(0.85, 0.85, 0.85)  # White (middle tee color)
 	# Check placement modes (they take priority)
 	elif hole_tool.placement_mode == HoleCreationTool.PlacementMode.PLACING_TEE:
 		text += "Place Tee Box"
@@ -844,6 +869,10 @@ func _handle_mouse_hover() -> void:
 	var grid_pos = terrain_grid.screen_to_grid(mouse_world)
 	if terrain_grid.is_valid_position(grid_pos):
 		var terrain_name = TerrainTypes.get_type_name(terrain_grid.get_tile(grid_pos))
+		var tile_type = terrain_grid.get_tile(grid_pos)
+		if tile_type == TerrainTypes.Type.BUNKER:
+			var depth_name = "Deep" if terrain_grid.get_bunker_depth(grid_pos) == 1 else "Shallow"
+			terrain_name += " (%s)" % depth_name
 		var elevation = terrain_grid.get_elevation(grid_pos)
 		if elevation != 0:
 			var sign_str = "+" if elevation > 0 else ""
@@ -908,6 +937,18 @@ func _start_painting() -> void:
 		_paint_elevation_at_mouse()
 		return
 
+	# Shift+click on bunker tile toggles depth (shallow/deep)
+	if Input.is_key_pressed(KEY_SHIFT):
+		var mouse_world = camera.get_mouse_world_position()
+		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+		if terrain_grid.is_valid_position(grid_pos) and terrain_grid.get_tile(grid_pos) == TerrainTypes.Type.BUNKER:
+			var current_depth = terrain_grid.get_bunker_depth(grid_pos)
+			var new_depth = 0 if current_depth == 1 else 1
+			terrain_grid.set_bunker_depth(grid_pos, new_depth)
+			var depth_name = "Deep" if new_depth == 1 else "Shallow"
+			EventBus.notify("Bunker set to %s" % depth_name, "info")
+			return
+
 	is_painting = true
 	undo_manager.begin_stroke()
 	_paint_at_mouse()
@@ -939,7 +980,13 @@ func _paint_at_mouse() -> void:
 			EventBus.notify("Not enough money!", "error")
 		return
 
-	var tiles_to_paint = [grid_pos] if brush_size <= 1 else terrain_grid.get_brush_tiles(grid_pos, brush_size)
+	var tiles_to_paint: Array
+	if current_tool == TerrainTypes.Type.GREEN and _green_preset != "":
+		tiles_to_paint = terrain_grid.get_green_preset_tiles(grid_pos, _green_preset)
+	elif brush_size <= 1:
+		tiles_to_paint = [grid_pos]
+	else:
+		tiles_to_paint = terrain_grid.get_brush_tiles(grid_pos, brush_size)
 	var total_cost = 0
 	var obstacle_removal_cost = 0
 	var blocked_by_land = false
@@ -981,6 +1028,12 @@ func _paint_at_mouse() -> void:
 				_suppress_tile_undo = false
 				obstacle_removal_cost += tile_removal_cost
 			terrain_grid.set_tile(tile_pos, current_tool)
+			# Apply theme-default bunker depth for newly placed bunkers
+			if current_tool == TerrainTypes.Type.BUNKER:
+				var modifiers = CourseTheme.get_gameplay_modifiers(GameManager.current_theme)
+				var default_depth = modifiers.get("default_bunker_depth", 0)
+				if default_depth > 0:
+					terrain_grid.set_bunker_depth(tile_pos, default_depth)
 			total_cost += cost
 
 	if tiles_to_paint.size() > 1:
@@ -1065,11 +1118,15 @@ func _on_tool_selected(tool_type: int) -> void:
 	is_painting = false
 
 	current_tool = tool_type
+	# Clear green preset when switching away from GREEN tool
+	if tool_type != TerrainTypes.Type.GREEN:
+		_green_preset = ""
 	# Update toolbar highlight
 	if terrain_toolbar:
 		terrain_toolbar.set_current_tool(tool_type)
 	# Update placement preview for terrain painting
 	if placement_preview:
+		placement_preview.green_preset = _green_preset
 		placement_preview.set_terrain_tool(tool_type)
 		placement_preview.set_brush_size(brush_size)
 		placement_preview.set_terrain_painting_enabled(true)
@@ -1079,6 +1136,10 @@ func _on_brush_size_changed(new_size: int) -> void:
 	brush_size = new_size
 	if placement_preview:
 		placement_preview.set_brush_size(new_size)
+
+func _on_green_preset_selected(preset_name: String) -> void:
+	_green_preset = preset_name
+	placement_preview.green_preset = preset_name
 
 func _on_create_hole_pressed() -> void:
 	# Cancel any building/tree placement, elevation, bulldozer, or terrain painting
@@ -1890,9 +1951,12 @@ func _open_hole_context_menu(hole_data: GameManager.HoleData) -> void:
 	# Connect signals
 	_hole_context_menu.move_pin_requested.connect(_on_context_move_pin)
 	_hole_context_menu.move_tee_requested.connect(_on_context_move_tee)
+	_hole_context_menu.move_forward_tee_requested.connect(_on_context_move_forward_tee)
+	_hole_context_menu.move_middle_tee_requested.connect(_on_context_move_middle_tee)
 	_hole_context_menu.move_green_requested.connect(_on_context_move_green)
 	_hole_context_menu.toggle_hole_requested.connect(_on_context_toggle_hole)
 	_hole_context_menu.view_stats_requested.connect(_on_context_view_stats)
+	_hole_context_menu.par_override_requested.connect(_on_context_par_override)
 	_hole_context_menu.menu_closed.connect(_on_context_menu_closed)
 
 	# Highlight the hole
@@ -1922,6 +1986,16 @@ func _on_context_move_tee(hole_number: int) -> void:
 	if hole:
 		_enter_hole_move_mode(HoleMoveMode.MOVING_TEE, hole)
 
+func _on_context_move_forward_tee(hole_number: int) -> void:
+	var hole = _find_hole_data(hole_number)
+	if hole:
+		_enter_hole_move_mode(HoleMoveMode.MOVING_FORWARD_TEE, hole)
+
+func _on_context_move_middle_tee(hole_number: int) -> void:
+	var hole = _find_hole_data(hole_number)
+	if hole:
+		_enter_hole_move_mode(HoleMoveMode.MOVING_MIDDLE_TEE, hole)
+
 func _on_context_move_green(hole_number: int) -> void:
 	var hole = _find_hole_data(hole_number)
 	if hole:
@@ -1931,6 +2005,19 @@ func _on_context_toggle_hole(hole_number: int) -> void:
 	if GameManager.current_course:
 		var is_open = GameManager.current_course.toggle_hole_open(hole_number)
 		EventBus.notify("Hole %d %s" % [hole_number, "opened" if is_open else "closed"], "info")
+
+func _on_context_par_override(hole_number: int, new_par: int) -> void:
+	var hole = _find_hole_data(hole_number)
+	if not hole:
+		return
+	var auto_par = GolfRules.calculate_par(hole.distance_yards)
+	hole.par_override = -1 if new_par == auto_par else new_par
+	hole.par = new_par
+	hole.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole, terrain_grid)
+	GameManager.current_course._recalculate_par()
+	EventBus.hole_updated.emit(hole_number)
+	var label = "Par %d (auto)" % new_par if new_par == auto_par else "Par %d (manual)" % new_par
+	EventBus.notify("Hole %d set to %s" % [hole_number, label], "info")
 
 func _on_context_view_stats(hole_number: int) -> void:
 	_show_hole_stats(hole_number)
@@ -1975,6 +2062,12 @@ func _handle_hole_move_click(grid_pos: Vector2i) -> void:
 		HoleMoveMode.MOVING_GREEN:
 			if _is_valid_green_position(grid_pos):
 				_execute_green_move(grid_pos)
+		HoleMoveMode.MOVING_FORWARD_TEE:
+			if _is_valid_secondary_tee_position(grid_pos):
+				_execute_forward_tee_move(grid_pos)
+		HoleMoveMode.MOVING_MIDDLE_TEE:
+			if _is_valid_secondary_tee_position(grid_pos):
+				_execute_middle_tee_move(grid_pos)
 
 func _is_valid_pin_position(pos: Vector2i) -> bool:
 	if terrain_grid.get_tile(pos) != TerrainTypes.Type.GREEN:
@@ -2142,6 +2235,52 @@ func _execute_green_move(new_pos: Vector2i) -> void:
 
 	var label = "placed" if not old_green_was_green else "moved"
 	EventBus.notify("Hole %d green %s" % [hole_number, label], "success")
+	_cancel_hole_move_mode()
+
+func _is_valid_secondary_tee_position(pos: Vector2i) -> bool:
+	if not terrain_grid.is_valid_position(pos):
+		return false
+	var tile = terrain_grid.get_tile(pos)
+	if tile == TerrainTypes.Type.WATER or tile == TerrainTypes.Type.OUT_OF_BOUNDS:
+		return false
+	if entity_layer and entity_layer.is_tile_occupied_by_building(pos):
+		return false
+	# Must be between back tee and green (no further back than back tee)
+	if pos == _hole_move_data.tee_position:
+		return false
+	# Not another hole's tee or green
+	for hole in GameManager.current_course.holes:
+		if hole.hole_number != _hole_move_data.hole_number:
+			if pos == hole.tee_position or pos == hole.green_position or pos == hole.hole_position:
+				return false
+	return true
+
+func _execute_forward_tee_move(new_pos: Vector2i) -> void:
+	var hole_number = _hole_move_data.hole_number
+	var old_pos = _hole_move_data.tee_positions.get("forward", _hole_move_data.tee_position)
+	_hole_move_data.tee_positions["forward"] = new_pos
+	_hole_move_data.recalculate_par_by_tee(terrain_grid)
+
+	var visualizer = hole_manager.get_hole_visualizer(hole_number)
+	if visualizer:
+		visualizer.update_visualization()
+
+	EventBus.hole_updated.emit(hole_number)
+	EventBus.notify("Hole %d forward tee moved" % hole_number, "success")
+	_cancel_hole_move_mode()
+
+func _execute_middle_tee_move(new_pos: Vector2i) -> void:
+	var hole_number = _hole_move_data.hole_number
+	var old_pos = _hole_move_data.tee_positions.get("middle", _hole_move_data.tee_position)
+	_hole_move_data.tee_positions["middle"] = new_pos
+	_hole_move_data.recalculate_par_by_tee(terrain_grid)
+
+	var visualizer = hole_manager.get_hole_visualizer(hole_number)
+	if visualizer:
+		visualizer.update_visualization()
+
+	EventBus.hole_updated.emit(hole_number)
+	EventBus.notify("Hole %d middle tee moved" % hole_number, "success")
 	_cancel_hole_move_mode()
 
 # --- Undo/Redo System ---

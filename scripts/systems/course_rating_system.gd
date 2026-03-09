@@ -286,12 +286,20 @@ static func _calculate_pace_rating(daily_stats) -> float:
 	# 0% bad = 5 stars, 50%+ bad = 2 stars
 	var base_rating = 5.0 - (bad_ratio * 6.0)
 
+	# Walk distance penalty: long average walks between holes slow pace
+	var avg_walk = RoutingOverlay.calculate_avg_walk_distance()
+	var walk_penalty: float = 0.0
+	if avg_walk > 60.0:
+		walk_penalty = clampf((avg_walk - 60.0) * 0.033, 0.0, 1.0)  # Up to -1.0 star at 90+ tiles
+	elif avg_walk > 40.0:
+		walk_penalty = (avg_walk - 40.0) * 0.005  # Mild penalty 0-0.1
+
 	# Apply marshal pace modifier (0.6-1.0 from staff_manager)
 	# Without marshals (0.6) pace rating is reduced, with marshals (1.0) full rating
 	var pace_mod = 1.0
 	if GameManager.staff_manager:
 		pace_mod = GameManager.staff_manager.get_pace_modifier()
-	var rating = base_rating * pace_mod
+	var rating = (base_rating - walk_penalty) * pace_mod
 
 	return clampf(rating, 2.0, 5.0)
 

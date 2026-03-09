@@ -562,9 +562,22 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 	# Start the hole or prepare for next shot
 	if golfer.current_strokes == 0:
+		# Select tee based on golfer tier (tournament golfers always use back tee)
+		var selected_tee: Vector2i
+		if golfer.is_tournament_golfer or hole_data.tee_positions.is_empty() or not GameManager.multi_tee_enabled:
+			selected_tee = hole_data.tee_position
+			golfer.current_tee_key = "back"
+		else:
+			selected_tee = hole_data.get_tee_for_tier(golfer.golfer_tier)
+			# Determine which tee key was selected for par tracking
+			for tee_key in hole_data.tee_positions:
+				if hole_data.tee_positions[tee_key] == selected_tee:
+					golfer.current_tee_key = tee_key
+					break
+
 		# For holes after the first, walk from previous green to the next tee
 		if next_hole_index > 0 and GameManager.terrain_grid:
-			var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(hole_data.tee_position)
+			var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(selected_tee)
 			var distance_to_tee = golfer.global_position.distance_to(tee_screen_pos)
 			if distance_to_tee > 10.0:
 				# Walk to the next tee first
@@ -573,7 +586,7 @@ func _advance_golfer(golfer: Golfer) -> void:
 				golfer._change_state(Golfer.State.WALKING)
 				return
 		# At the tee (or first hole) - start the hole
-		golfer.start_hole(next_hole_index, hole_data.tee_position)
+		golfer.start_hole(next_hole_index, selected_tee)
 	else:
 		# Already hit at least one shot
 		# Check if close enough to hole it (use sub-tile precision for putting accuracy)
@@ -592,10 +605,12 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 		if ball_holed:
 			# Close enough to hole out
-			var score_name = GolfRules.get_score_name(golfer.current_strokes, hole_data.par)
-			print("%s (ID:%d) holes out on hole %d: %d strokes (Par %d) - %s" % [golfer.golfer_name, golfer.golfer_id, golfer.current_hole + 1, golfer.current_strokes, hole_data.par, score_name])
+			# Use per-tee par for the golfer's selected tee
+			var effective_par = hole_data.get_par_for_tee(golfer.current_tee_key)
+			var score_name = GolfRules.get_score_name(golfer.current_strokes, effective_par)
+			print("%s (ID:%d) holes out on hole %d: %d strokes (Par %d, %s tee) - %s" % [golfer.golfer_name, golfer.golfer_id, golfer.current_hole + 1, golfer.current_strokes, effective_par, golfer.current_tee_key, score_name])
 			EventBus.ball_in_hole.emit(golfer.golfer_id, hole_data.hole_number)
-			golfer.finish_hole(hole_data.par)
+			golfer.finish_hole(effective_par)
 			golfer.current_hole += 1
 			golfer.current_strokes = 0
 
@@ -620,11 +635,17 @@ func _advance_golfer(golfer: Golfer) -> void:
 			# Don't wait for turn - golfers should move off the green right away
 			if GameManager.terrain_grid and golfer.current_hole < course_data.holes.size():
 				var next_hole_data = course_data.holes[golfer.current_hole]
+				# Pre-select next tee for walk destination
+				var next_tee: Vector2i
+				if golfer.is_tournament_golfer or next_hole_data.tee_positions.is_empty() or not GameManager.multi_tee_enabled:
+					next_tee = next_hole_data.tee_position
+				else:
+					next_tee = next_hole_data.get_tee_for_tier(golfer.golfer_tier)
 				# Update ball position to next tee immediately to prevent visual glitch
 				# where ball briefly appears at old hole position while walking
-				golfer.ball_position = next_hole_data.tee_position
-				golfer.ball_position_precise = Vector2(next_hole_data.tee_position)
-				var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(next_hole_data.tee_position)
+				golfer.ball_position = next_tee
+				golfer.ball_position_precise = Vector2(next_tee)
+				var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(next_tee)
 				golfer.path = golfer._find_path_to(tee_screen_pos)
 				golfer.path_index = 0
 				golfer._change_state(Golfer.State.WALKING)
