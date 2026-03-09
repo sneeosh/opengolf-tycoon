@@ -676,8 +676,9 @@ func set_colorblind_mode(mode: int) -> void:
 func get_time_string() -> String:
 	var hour_int = int(current_hour)
 	var minute_int = int((current_hour - hour_int) * 60)
-	var am_pm = "AM" if hour_int < 12 else "PM"
-	var display_hour = hour_int % 12
+	var h = hour_int % 24  # Normalize 24 → 0
+	var am_pm = "AM" if h < 12 else "PM"
+	var display_hour = h % 12
 	if display_hour == 0: display_hour = 12
 	return "%d:%02d %s" % [display_hour, minute_int, am_pm]
 

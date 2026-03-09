@@ -287,6 +287,15 @@ func _process(delta: float) -> void:
 	# Check if all golfers have left after closing
 	_check_end_of_day()
 
+	# Safety net: force-remove stuck golfers 2 hours after course close
+	if GameManager.is_end_of_day_pending() and not active_golfers.is_empty():
+		if GameManager.current_hour >= GameManager.COURSE_CLOSE_HOUR + 2.0:
+			var to_remove: Array[int] = []
+			for golfer in active_golfers:
+				to_remove.append(golfer.golfer_id)
+			for gid in to_remove:
+				remove_golfer(gid)
+
 	# Update active golfers
 	_update_golfers(delta)
 
