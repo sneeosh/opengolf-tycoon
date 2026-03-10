@@ -318,6 +318,13 @@ func _on_start_pressed() -> void:
 		course_name = "My Golf Course"
 	new_game_requested.emit(course_name, _selected_theme)
 
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if event.is_action_pressed("quick_start"):
+		_on_quick_start_pressed()
+		get_viewport().set_input_as_handled()
+
 func _on_quick_start_pressed() -> void:
 	var course_name = _course_name_input.text.strip_edges()
 	if course_name.is_empty():
