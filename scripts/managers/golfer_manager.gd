@@ -77,9 +77,9 @@ func get_spawn_rate_modifier() -> float:
 		var marketing_modifier = GameManager.marketing_manager.get_spawn_rate_modifier()
 		base_modifier *= marketing_modifier
 
-	# Apply seasonal demand modifier (Summer peak, Winter trough)
+	# Apply seasonal demand modifier (theme-aware: Desert peaks in winter, Parkland in summer)
 	var season = SeasonSystem.get_season(GameManager.current_day)
-	base_modifier *= SeasonSystem.get_spawn_modifier(season)
+	base_modifier *= SeasonSystem.get_spawn_modifier(season, GameManager.current_theme)
 
 	# Apply seasonal event modifier (special events boost/reduce demand)
 	var active_event = SeasonalEvents.get_active_event(GameManager.current_day)
@@ -96,6 +96,19 @@ func get_effective_spawn_cooldown() -> float:
 	Higher rating = shorter cooldown = more golfers."""
 	# Use cached modifier to avoid expensive recalculation every frame
 	return min_spawn_cooldown_seconds / _cached_spawn_modifier
+
+## Estimated game-hours per hole for last tee time calculation
+const HOURS_PER_HOLE: float = 0.33  # ~20 minutes per hole
+
+func _is_before_last_tee_time() -> bool:
+	"""Check if it's early enough in the day to start a new group.
+	Prevents spawning golfers who can't finish before course closes."""
+	var hole_count = GameManager.get_open_hole_count()
+	if hole_count <= 0:
+		return false
+	var estimated_round_hours = hole_count * HOURS_PER_HOLE
+	var last_tee_time = GameManager.COURSE_CLOSE_HOUR - estimated_round_hours
+	return GameManager.current_hour < last_tee_time
 
 ## Landing zone constants
 const LANDING_ZONE_BASE_RADIUS: float = 2.0    # Minimum radius in tiles (~44 yards)
@@ -262,7 +275,7 @@ func _process(delta: float) -> void:
 	# Don't spawn regular golfers during tournaments
 	var tournament_active = GameManager.tournament_manager and GameManager.tournament_manager.is_tournament_in_progress()
 
-	if GameManager.is_course_open() and not tournament_active:
+	if GameManager.is_course_open() and not tournament_active and _is_before_last_tee_time():
 		var effective_cooldown = get_effective_spawn_cooldown()
 		if time_since_last_spawn >= effective_cooldown:
 			if _is_at_golfer_cap():
@@ -273,6 +286,15 @@ func _process(delta: float) -> void:
 
 	# Check if all golfers have left after closing
 	_check_end_of_day()
+
+	# Safety net: force-remove stuck golfers 2 hours after course close
+	if GameManager.is_end_of_day_pending() and not active_golfers.is_empty():
+		if GameManager.current_hour >= GameManager.COURSE_CLOSE_HOUR + 2.0:
+			var to_remove: Array[int] = []
+			for golfer in active_golfers:
+				to_remove.append(golfer.golfer_id)
+			for gid in to_remove:
+				remove_golfer(gid)
 
 	# Update active golfers
 	_update_golfers(delta)
@@ -537,18 +559,34 @@ func _advance_golfer(golfer: Golfer) -> void:
 		return
 
 	# Course closing: finish current hole but don't start new ones
-	# Tournament golfers are exempt — they play to completion
+	# Tournament golfers and golfers past halfway are exempt — they play to completion
 	if not GameManager.is_course_open() and golfer.current_strokes == 0 and not golfer.is_tournament_golfer:
-		golfer.finish_round()
-		return
+		var holes_played = golfer.hole_scores.size()
+		var total_holes = golfer._round_total_holes if golfer._round_total_holes > 0 else course_data.holes.size()
+		if holes_played < total_holes / 2:
+			golfer.finish_round()
+			return
 
 	var hole_data = course_data.holes[next_hole_index]
 
 	# Start the hole or prepare for next shot
 	if golfer.current_strokes == 0:
+		# Select tee based on golfer tier (tournament golfers always use back tee)
+		var selected_tee: Vector2i
+		if golfer.is_tournament_golfer or hole_data.tee_positions.is_empty() or not GameManager.multi_tee_enabled:
+			selected_tee = hole_data.tee_position
+			golfer.current_tee_key = "back"
+		else:
+			selected_tee = hole_data.get_tee_for_tier(golfer.golfer_tier)
+			# Determine which tee key was selected for par tracking
+			for tee_key in hole_data.tee_positions:
+				if hole_data.tee_positions[tee_key] == selected_tee:
+					golfer.current_tee_key = tee_key
+					break
+
 		# For holes after the first, walk from previous green to the next tee
 		if next_hole_index > 0 and GameManager.terrain_grid:
-			var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(hole_data.tee_position)
+			var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(selected_tee)
 			var distance_to_tee = golfer.global_position.distance_to(tee_screen_pos)
 			if distance_to_tee > 10.0:
 				# Walk to the next tee first
@@ -557,7 +595,7 @@ func _advance_golfer(golfer: Golfer) -> void:
 				golfer._change_state(Golfer.State.WALKING)
 				return
 		# At the tee (or first hole) - start the hole
-		golfer.start_hole(next_hole_index, hole_data.tee_position)
+		golfer.start_hole(next_hole_index, selected_tee)
 	else:
 		# Already hit at least one shot
 		# Check if close enough to hole it (use sub-tile precision for putting accuracy)
@@ -576,10 +614,12 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 		if ball_holed:
 			# Close enough to hole out
-			var score_name = GolfRules.get_score_name(golfer.current_strokes, hole_data.par)
-			print("%s (ID:%d) holes out on hole %d: %d strokes (Par %d) - %s" % [golfer.golfer_name, golfer.golfer_id, golfer.current_hole + 1, golfer.current_strokes, hole_data.par, score_name])
+			# Use per-tee par for the golfer's selected tee
+			var effective_par = hole_data.get_par_for_tee(golfer.current_tee_key)
+			var score_name = GolfRules.get_score_name(golfer.current_strokes, effective_par)
+			print("%s (ID:%d) holes out on hole %d: %d strokes (Par %d, %s tee) - %s" % [golfer.golfer_name, golfer.golfer_id, golfer.current_hole + 1, golfer.current_strokes, effective_par, golfer.current_tee_key, score_name])
 			EventBus.ball_in_hole.emit(golfer.golfer_id, hole_data.hole_number)
-			golfer.finish_hole(hole_data.par)
+			golfer.finish_hole(effective_par)
 			golfer.current_hole += 1
 			golfer.current_strokes = 0
 
@@ -592,20 +632,29 @@ func _advance_golfer(golfer: Golfer) -> void:
 				return
 
 			# If course is closed, don't start a new hole - finish the round
-			# Tournament golfers are exempt — they play to completion
+			# Tournament golfers and golfers past halfway are exempt — they play to completion
 			if not GameManager.is_course_open() and not golfer.is_tournament_golfer:
-				golfer.finish_round()
-				return
+				var holes_done = golfer.hole_scores.size()
+				var round_holes = golfer._round_total_holes if golfer._round_total_holes > 0 else course_data.holes.size()
+				if holes_done < round_holes / 2:
+					golfer.finish_round()
+					return
 
 			# Immediately walk to the next tee to clear the green
 			# Don't wait for turn - golfers should move off the green right away
 			if GameManager.terrain_grid and golfer.current_hole < course_data.holes.size():
 				var next_hole_data = course_data.holes[golfer.current_hole]
+				# Pre-select next tee for walk destination
+				var next_tee: Vector2i
+				if golfer.is_tournament_golfer or next_hole_data.tee_positions.is_empty() or not GameManager.multi_tee_enabled:
+					next_tee = next_hole_data.tee_position
+				else:
+					next_tee = next_hole_data.get_tee_for_tier(golfer.golfer_tier)
 				# Update ball position to next tee immediately to prevent visual glitch
 				# where ball briefly appears at old hole position while walking
-				golfer.ball_position = next_hole_data.tee_position
-				golfer.ball_position_precise = Vector2(next_hole_data.tee_position)
-				var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(next_hole_data.tee_position)
+				golfer.ball_position = next_tee
+				golfer.ball_position_precise = Vector2(next_tee)
+				var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(next_tee)
 				golfer.path = golfer._find_path_to(tee_screen_pos)
 				golfer.path_index = 0
 				golfer._change_state(Golfer.State.WALKING)

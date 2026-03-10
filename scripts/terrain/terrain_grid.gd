@@ -9,6 +9,7 @@ class_name TerrainGrid
 
 var _grid: Dictionary = {}
 var _elevation_grid: Dictionary = {}  # Vector2i -> int (-5 to +5)
+var _bunker_depth_grid: Dictionary = {}  # Vector2i -> 0 (SHALLOW) or 1 (DEEP)
 var _player_placed_tiles: Dictionary = {}  # Vector2i -> true for tiles player placed (for maintenance)
 var _elevation_overlay: ElevationOverlay = null
 
@@ -34,8 +35,13 @@ var _debug_overlay: TerrainDebugOverlay = null
 var _noise_overlay: TerrainNoiseOverlay = null
 var _land_boundary_overlay: LandBoundaryOverlay = null
 var _wind_flag_overlay: WindFlagOverlay = null
-var _elevation_shading_overlay: ElevationShadingOverlay = null
 var _shot_heatmap_overlay: ShotHeatmapOverlay = null
+var _fairway_width_overlay: FairwayWidthOverlay = null
+
+## Shader-driven heightmap elevation system
+var _heightmap: Heightmap = null
+var _elevation_shader_controller: ElevationShaderController = null
+var _elevation_shader_rect: ColorRect = null
 
 ## Camera tracking for viewport-culling overlays — redraw when camera moves
 var _last_camera_pos: Vector2 = Vector2.ZERO
@@ -61,13 +67,17 @@ func _ready() -> void:
 	_setup_noise_overlay()
 	_setup_land_boundary_overlay()
 	_setup_wind_flag_overlay()
-	_setup_elevation_shading_overlay()
+	_setup_elevation_shader()
+	_setup_fairway_width_overlay()
 
 	# Force a complete redraw after one frame to ensure shader is fully applied
 	# This fixes the issue where initial tiles don't get shader variation
 	call_deferred("_refresh_all_tiles")
 
 func _process(_delta: float) -> void:
+	# Flush any pending heightmap blur + texture uploads (batched for performance)
+	if _heightmap:
+		_heightmap.flush_dirty()
 	# Overlays use viewport culling in _draw() so their content depends on
 	# camera position. Redraw them when the camera has moved.
 	var camera = get_viewport().get_camera_2d() if get_viewport() else null
@@ -154,11 +164,11 @@ func _apply_variation_shader() -> void:
 	else:
 		return
 
-	var shader = load(shader_path)
+	var shader: Shader = load(shader_path) as Shader
 	if not shader:
 		return
 
-	var material = ShaderMaterial.new()
+	var material: ShaderMaterial = ShaderMaterial.new()
 	material.shader = shader
 
 	# Atlas layout for proper tile center sampling
@@ -273,8 +283,8 @@ func refresh_all_overlays() -> void:
 		_path_overlay.queue_redraw()
 	if _ob_markers_overlay and _ob_markers_overlay.has_method("_calculate_boundaries"):
 		_ob_markers_overlay._calculate_boundaries()
-	if _elevation_shading_overlay:
-		_elevation_shading_overlay.queue_redraw()
+	if _heightmap:
+		_heightmap.rebuild_from_grids(self)
 	if _shot_heatmap_overlay:
 		_shot_heatmap_overlay.queue_redraw()
 	queue_redraw()
@@ -368,6 +378,31 @@ func get_brush_tiles(center: Vector2i, brush_size: int) -> Array:
 			if is_valid_position(pos):
 				tiles.append(pos)
 	return tiles
+
+const GREEN_PRESETS = {
+	"small": [Vector2i(0, 0)],
+	"medium": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1)],
+	"large": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)],
+}
+
+func get_green_preset_tiles(center: Vector2i, preset_name: String) -> Array:
+	var offsets = GREEN_PRESETS.get(preset_name, [Vector2i(0, 0)])
+	var tiles: Array = []
+	for offset in offsets:
+		var pos = center + offset
+		if is_valid_position(pos):
+			tiles.append(pos)
+	return tiles
+
+func get_bunker_depth(pos: Vector2i) -> int:
+	return _bunker_depth_grid.get(pos, 0)
+
+func set_bunker_depth(pos: Vector2i, depth: int) -> void:
+	if depth == 0:
+		_bunker_depth_grid.erase(pos)
+	else:
+		_bunker_depth_grid[pos] = depth
+	EventBus.terrain_tile_changed.emit(pos, TerrainTypes.Type.BUNKER, TerrainTypes.Type.BUNKER)
 
 func calculate_distance_yards(from: Vector2i, to: Vector2i) -> int:
 	const YARDS_PER_TILE: float = 22.0
@@ -508,11 +543,72 @@ func _setup_wind_flag_overlay() -> void:
 	add_child(_wind_flag_overlay)
 	_wind_flag_overlay.initialize(self)
 
-func _setup_elevation_shading_overlay() -> void:
-	_elevation_shading_overlay = ElevationShadingOverlay.new()
-	_elevation_shading_overlay.name = "ElevationShadingOverlay"
-	add_child(_elevation_shading_overlay)
-	_elevation_shading_overlay.setup(self)
+func _setup_elevation_shader() -> void:
+	# Create heightmap data model
+	_heightmap = Heightmap.new(grid_width, grid_height, GameManager.heightmap_noise_seed)
+
+	# Load platform-appropriate shader
+	var shader_path: String
+	if OS.get_name() == "Web" and ResourceLoader.exists("res://shaders/elevation_lighting_web.gdshader"):
+		shader_path = "res://shaders/elevation_lighting_web.gdshader"
+	elif ResourceLoader.exists("res://shaders/elevation_lighting.gdshader"):
+		shader_path = "res://shaders/elevation_lighting.gdshader"
+	else:
+		return
+
+	var shader: Shader = load(shader_path) as Shader
+	if not shader:
+		return
+
+	var material: ShaderMaterial = ShaderMaterial.new()
+	material.shader = shader
+	material.set_shader_parameter("heightmap", _heightmap.get_texture())
+	material.set_shader_parameter("heightmap_size", Vector2(grid_width * Heightmap.PIXELS_PER_TILE, grid_height * Heightmap.PIXELS_PER_TILE))
+	material.set_shader_parameter("grid_size", Vector2(grid_width, grid_height))
+	material.set_shader_parameter("tile_size", Vector2(tile_width, tile_height))
+
+	# Create full-viewport ColorRect for shader overlay
+	_elevation_shader_rect = ColorRect.new()
+	_elevation_shader_rect.name = "ElevationShaderRect"
+	_elevation_shader_rect.z_index = 0  # Same as terrain; renders above TileMapLayer by tree order, below entities
+	_elevation_shader_rect.material = material
+	_elevation_shader_rect.color = Color(1, 1, 1, 0)  # Transparent base — shader controls all output
+	_elevation_shader_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Size to cover the entire world (TerrainGrid is a Node2D, so no anchors)
+	_elevation_shader_rect.position = Vector2.ZERO
+	_elevation_shader_rect.size = Vector2(grid_width * tile_width, grid_height * tile_height)
+	add_child(_elevation_shader_rect)
+
+	# Create controller node to update uniforms each frame
+	_elevation_shader_controller = ElevationShaderController.new()
+	_elevation_shader_controller.name = "ElevationShaderController"
+	add_child(_elevation_shader_controller)
+	_elevation_shader_controller.setup(self, _elevation_shader_rect, material)
+
+	# Connect signals for heightmap updates
+	elevation_changed.connect(_on_elevation_changed_heightmap)
+	tile_changed.connect(_on_tile_changed_heightmap)
+
+	# Build initial heightmap from current grid state
+	_heightmap.rebuild_from_grids(self)
+
+func _on_elevation_changed_heightmap(pos: Vector2i, _old: int, new_elev: int) -> void:
+	if _heightmap:
+		_heightmap.set_tile_elevation_blended(pos, new_elev, get_tile(pos), self)
+
+func _on_tile_changed_heightmap(pos: Vector2i, _old: int, new_type: int) -> void:
+	if _heightmap:
+		_heightmap.set_tile_elevation_blended(pos, get_elevation(pos), new_type, self)
+
+func _setup_fairway_width_overlay() -> void:
+	_fairway_width_overlay = FairwayWidthOverlay.new()
+	_fairway_width_overlay.name = "FairwayWidthOverlay"
+	add_child(_fairway_width_overlay)
+	_fairway_width_overlay.initialize(self)
+
+func toggle_fairway_width_overlay() -> void:
+	if _fairway_width_overlay:
+		_fairway_width_overlay.toggle()
 
 ## Set up shot heatmap overlay (called from main.gd after tracker is created)
 func setup_shot_heatmap_overlay(tracker: ShotHeatmapTracker) -> void:
@@ -585,6 +681,12 @@ func get_slope_direction(pos: Vector2i) -> Vector2:
 			if diff > 0:
 				slope += n[1] * float(diff)
 	return slope.normalized() if slope.length() > 0 else Vector2.ZERO
+
+## Get the heightmap texture for external use (e.g., shader debugging)
+func get_heightmap_texture() -> ImageTexture:
+	if _heightmap:
+		return _heightmap.get_texture()
+	return null
 
 ## Toggle elevation overlay prominence
 func set_elevation_overlay_active(active: bool) -> void:
@@ -683,6 +785,12 @@ func serialize_elevation() -> Dictionary:
 		data["%d,%d" % [pos.x, pos.y]] = _elevation_grid[pos]
 	return data
 
+func serialize_bunker_depth() -> Dictionary:
+	var data: Dictionary = {}
+	for pos in _bunker_depth_grid:
+		data["%d,%d" % [pos.x, pos.y]] = _bunker_depth_grid[pos]
+	return data
+
 func deserialize(data: Dictionary) -> void:
 	_initialize_grid()
 	_player_placed_tiles.clear()
@@ -719,5 +827,14 @@ func deserialize_elevation(data: Dictionary) -> void:
 	if _elevation_overlay:
 		_elevation_overlay._needs_redraw = true
 		_elevation_overlay.queue_redraw()
-	if _elevation_shading_overlay:
-		_elevation_shading_overlay.queue_redraw()
+	if _heightmap:
+		_heightmap.rebuild_from_grids(self)
+
+func deserialize_bunker_depth(data: Dictionary) -> void:
+	_bunker_depth_grid.clear()
+	for key in data:
+		var parts = key.split(",")
+		if parts.size() == 2:
+			var pos = Vector2i(int(parts[0]), int(parts[1]))
+			if is_valid_position(pos):
+				_bunker_depth_grid[pos] = int(data[key])

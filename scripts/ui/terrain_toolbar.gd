@@ -13,6 +13,7 @@ signal lower_elevation_pressed
 signal bulldozer_pressed
 signal staff_pressed
 signal brush_size_changed(new_size: int)
+signal green_preset_selected(preset_name: String)
 
 var _current_tool: int = TerrainTypes.Type.FAIRWAY
 var _tool_buttons: Dictionary = {}  # tool_type -> ToolButton
@@ -21,6 +22,9 @@ var _scroll_container: ScrollContainer
 var _content_vbox: VBoxContainer
 var _brush_size: int = 1
 var _brush_label: Label = null
+var _green_preset_row: HBoxContainer = null
+var _green_preset_buttons: Dictionary = {}  # preset_name -> Button
+var _active_green_preset: String = ""
 const BRUSH_SIZES = [1, 3, 5]
 
 const TOOL_SECTIONS = {
@@ -148,6 +152,29 @@ func _build_ui() -> void:
 	brush_row.add_child(brush_increase)
 
 	main_vbox.add_child(brush_row)
+
+	# Green preset row (hidden until GREEN tool selected)
+	_green_preset_row = HBoxContainer.new()
+	_green_preset_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_green_preset_row.add_theme_constant_override("separation", 4)
+	_green_preset_row.visible = false
+
+	var preset_title = Label.new()
+	preset_title.text = "Green:"
+	preset_title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	preset_title.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+	_green_preset_row.add_child(preset_title)
+
+	for preset_name in ["small", "medium", "large"]:
+		var preset_btn = Button.new()
+		preset_btn.text = preset_name.substr(0, 1).to_upper()
+		preset_btn.tooltip_text = "%s green (%d tiles)" % [preset_name.capitalize(), TerrainGrid.GREEN_PRESETS[preset_name].size()]
+		preset_btn.custom_minimum_size = Vector2(30, 26)
+		preset_btn.pressed.connect(_on_green_preset_pressed.bind(preset_name))
+		_green_preset_row.add_child(preset_btn)
+		_green_preset_buttons[preset_name] = preset_btn
+
+	main_vbox.add_child(_green_preset_row)
 
 	main_vbox.add_child(HSeparator.new())
 
@@ -290,6 +317,7 @@ func _on_tool_button_pressed(tool_type) -> void:
 	if tool_type is int:
 		_current_tool = tool_type
 		_update_selection_highlight()
+		_update_green_preset_visibility()
 		tool_selected.emit(tool_type)
 	else:
 		# Handle special tool types
@@ -356,6 +384,8 @@ func _input(event: InputEvent) -> void:
 				KEY_MINUS:  # Shift+- = _
 					_on_tool_button_pressed("lower")
 					get_viewport().set_input_as_handled()
+					return
+				KEY_R:  # Shift+R = routing overlay (handled in main.gd)
 					return
 
 		# Check for tool hotkeys
@@ -436,3 +466,29 @@ func _on_brush_increase() -> void:
 func _update_brush_label() -> void:
 	if _brush_label:
 		_brush_label.text = "%dx%d" % [_brush_size, _brush_size]
+
+func _update_green_preset_visibility() -> void:
+	if _green_preset_row:
+		_green_preset_row.visible = (_current_tool == TerrainTypes.Type.GREEN)
+		if _current_tool != TerrainTypes.Type.GREEN:
+			_active_green_preset = ""
+			_update_green_preset_highlight()
+
+func _on_green_preset_pressed(preset_name: String) -> void:
+	if _active_green_preset == preset_name:
+		_active_green_preset = ""  # Toggle off
+	else:
+		_active_green_preset = preset_name
+	_update_green_preset_highlight()
+	green_preset_selected.emit(_active_green_preset)
+
+func _update_green_preset_highlight() -> void:
+	for pname in _green_preset_buttons:
+		var btn: Button = _green_preset_buttons[pname]
+		if pname == _active_green_preset:
+			btn.add_theme_color_override("font_color", UIConstants.COLOR_PRIMARY_HOVER)
+		else:
+			btn.remove_theme_color_override("font_color")
+
+func get_active_green_preset() -> String:
+	return _active_green_preset

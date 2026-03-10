@@ -44,11 +44,16 @@ func _generate_dots_for_tile(pos: Vector2i) -> void:
 	var rng = RandomNumberGenerator.new()
 	rng.seed = seed_val
 
-	var dot_count = rng.randi_range(3, 5) if _is_web else rng.randi_range(6, 12)
+	var is_deep = terrain_grid.get_bunker_depth(pos) == 1
+	var min_dots = 5 if _is_web else (10 if is_deep else 6)
+	var max_dots = 8 if _is_web else (18 if is_deep else 12)
+	var dot_count = rng.randi_range(min_dots, max_dots)
+	var min_radius = 1.0 if is_deep else 0.8
+	var max_radius = 2.0 if is_deep else 1.5
 	for i in range(dot_count):
 		var dx = rng.randf_range(4.0, terrain_grid.tile_width - 4.0)
 		var dy = rng.randf_range(3.0, terrain_grid.tile_height - 3.0)
-		var radius = rng.randf_range(0.8, 1.5)
+		var radius = rng.randf_range(min_radius, max_radius)
 		dots.append(Vector3(dx, dy, radius))
 
 	_dot_offsets[pos] = dots
@@ -57,7 +62,8 @@ func _on_terrain_tile_changed(position: Vector2i, old_type: int, new_type: int) 
 	if new_type == TerrainTypes.Type.BUNKER:
 		if position not in _bunker_positions:
 			_bunker_positions.append(position)
-			_generate_dots_for_tile(position)
+		# Always regenerate dots (depth may have changed)
+		_generate_dots_for_tile(position)
 	elif old_type == TerrainTypes.Type.BUNKER:
 		_bunker_positions.erase(position)
 		_dot_offsets.erase(position)
@@ -81,7 +87,9 @@ func _draw() -> void:
 		if not _dot_offsets.has(pos):
 			continue
 
+		var is_deep = terrain_grid.get_bunker_depth(pos) == 1
+		var dot_color = Color(0.60, 0.55, 0.35, 0.45) if is_deep else Color(0.75, 0.68, 0.45, 0.35)
 		var dots = _dot_offsets[pos]
 		for dot in dots:
 			var dot_pos = local_pos + Vector2(dot.x, dot.y)
-			draw_circle(dot_pos, dot.z, Color(0.75, 0.68, 0.45, 0.35))
+			draw_circle(dot_pos, dot.z, dot_color)

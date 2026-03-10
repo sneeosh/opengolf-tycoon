@@ -78,6 +78,11 @@ func fire_staff(index: int) -> bool:
 	var staff = hired_staff[index]
 	var data = STAFF_DATA.get(staff.type, {})
 	var name_str = data.get("name", "Staff")
+
+	# Firing a groundskeeper disrupts ongoing maintenance — immediate condition penalty
+	if staff.type == StaffType.GROUNDSKEEPER:
+		course_condition = clampf(course_condition - 0.10, 0.0, 1.0)
+
 	hired_staff.remove_at(index)
 	staff_changed.emit()
 	EventBus.notify("Fired %s" % name_str, "info")

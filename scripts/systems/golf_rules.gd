@@ -213,7 +213,8 @@ static func get_putt_miss_characteristics(distance_tiles: float, putting_skill: 
 
 ## Get accuracy modifier for a given terrain type and club.
 ## Returns 0.0-1.05 where 1.0 = perfect lie, lower = harder.
-static func get_lie_modifier(terrain_type: int, club: int) -> float:
+## bunker_depth: 0 = SHALLOW (default), 1 = DEEP (pot bunker)
+static func get_lie_modifier(terrain_type: int, club: int, bunker_depth: int = 0) -> float:
 	match terrain_type:
 		TerrainTypes.Type.GRASS, TerrainTypes.Type.FAIRWAY:
 			return 1.0  # Perfect lie
@@ -226,7 +227,8 @@ static func get_lie_modifier(terrain_type: int, club: int) -> float:
 		TerrainTypes.Type.HEAVY_ROUGH:
 			return 0.5   # 50% accuracy penalty
 		TerrainTypes.Type.BUNKER:
-			# Wedges handle sand better
+			if bunker_depth == 1:  # DEEP
+				return 0.45 if club == Golfer.Club.WEDGE else 0.25
 			return 0.6 if club == Golfer.Club.WEDGE else 0.4
 		TerrainTypes.Type.TREES:
 			return 0.3   # Very difficult shot
@@ -237,14 +239,15 @@ static func get_lie_modifier(terrain_type: int, club: int) -> float:
 
 ## Get distance modifier for a given terrain type.
 ## Returns 0.0-1.0 where 1.0 = full distance.
-static func get_terrain_distance_modifier(terrain_type: int) -> float:
+## bunker_depth: 0 = SHALLOW, 1 = DEEP
+static func get_terrain_distance_modifier(terrain_type: int, bunker_depth: int = 0) -> float:
 	match terrain_type:
 		TerrainTypes.Type.ROUGH:
 			return 0.85  # 15% distance loss
 		TerrainTypes.Type.HEAVY_ROUGH:
 			return 0.7   # 30% distance loss
 		TerrainTypes.Type.BUNKER:
-			return 0.75  # 25% distance loss
+			return 0.60 if bunker_depth == 1 else 0.75  # Deep: 40%, Shallow: 25% loss
 		TerrainTypes.Type.TREES:
 			return 0.6   # 40% distance loss (punch out)
 		TerrainTypes.Type.ROCKS:

@@ -179,7 +179,7 @@ func _build_nine_grid(holes: Array, label: String) -> VBoxContainer:
 	var par_sum := 0
 	for h in holes:
 		par_sum += h.par
-	container.add_child(_build_row("Par", holes.map(func(h): return str(h.par)), str(par_sum), BG_DATA_ROW_B, Color.WHITE))
+	container.add_child(_build_row("Par", holes.map(func(h): return str(h.par) + ("*" if h.par_override > 0 else "")), str(par_sum), BG_DATA_ROW_B, Color.WHITE))
 
 	# Row 4: Handicap (stroke index)
 	container.add_child(_build_row("Hcp", holes.map(func(h): return str(h.stroke_index) if h.stroke_index > 0 else "-"), "", BG_DATA_ROW_A, UIConstants.COLOR_TEXT_DIM))

@@ -64,6 +64,9 @@ var golfer_tier: int = GolferTier.Tier.CASUAL
 ## Tournament flag — tournament golfers skip green fees and course-closing checks
 var is_tournament_golfer: bool = false
 
+## Which tee the golfer is playing from this round ("forward", "middle", or "back")
+var current_tee_key: String = "back"
+
 ## Per-hole score tracking for scorecard display
 var hole_scores: Array = []  # Array of {hole: int, strokes: int, par: int}
 
@@ -90,6 +93,9 @@ var needs: GolferNeeds = GolferNeeds.new()
 
 ## Waiting time accumulator (seconds spent in IDLE waiting for turn)
 var _wait_time_accumulated: float = 0.0
+
+## Total open holes when this golfer started their round (for partial-round detection)
+var _round_total_holes: int = 0
 
 ## Course progress
 var current_hole: int = 0
@@ -933,6 +939,7 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 	if hole_number == 0:
 		_visited_buildings.clear()
 		_wait_time_accumulated = 0.0
+		_round_total_holes = GameManager.get_open_hole_count()
 
 	var screen_pos = GameManager.terrain_grid.grid_to_screen_center(tee_position) if GameManager.terrain_grid else Vector2.ZERO
 	global_position = screen_pos
@@ -1223,9 +1230,11 @@ func finish_round() -> void:
 	_change_state(State.FINISHED)
 
 	# Only record course record if golfer completed all holes (not a partial round)
-	var total_holes = GameManager.get_open_hole_count()
+	# Use the hole count from when this golfer started, not the current count
+	# (holes may have been opened/closed mid-round)
+	var total_holes = _round_total_holes if _round_total_holes > 0 else GameManager.get_open_hole_count()
 	if hole_scores.size() >= total_holes and total_holes > 0:
-		GameManager.check_round_record(golfer_name, total_strokes)
+		GameManager.check_round_record(golfer_name, total_strokes, total_holes)
 
 	# Apply clubhouse effects (golfer visits clubhouse after round)
 	_apply_clubhouse_effects()
@@ -1704,11 +1713,19 @@ func _gaussian_random() -> float:
 
 ## Get lie modifier based on terrain type and club — delegates to GolfRules
 func _get_lie_modifier(terrain_type: int, club: Club) -> float:
-	return GolfRules.get_lie_modifier(terrain_type, club)
+	var depth = _get_bunker_depth_at_ball()
+	return GolfRules.get_lie_modifier(terrain_type, club, depth)
 
 ## Get distance modifier based on terrain — delegates to GolfRules
 func _get_terrain_distance_modifier(terrain_type: int) -> float:
-	return GolfRules.get_terrain_distance_modifier(terrain_type)
+	var depth = _get_bunker_depth_at_ball()
+	return GolfRules.get_terrain_distance_modifier(terrain_type, depth)
+
+func _get_bunker_depth_at_ball() -> int:
+	var tg = GameManager.terrain_grid
+	if tg and tg.get_tile(ball_position) == TerrainTypes.Type.BUNKER:
+		return tg.get_bunker_depth(ball_position)
+	return 0
 
 ## Calculate rollout after ball lands. Returns Dictionary with final_position,
 ## rollout_distance (tiles), and is_backspin flag.
@@ -2715,7 +2732,7 @@ func _apply_clubhouse_effects() -> void:
 		# Skip if already visited this round (to prevent double-charging)
 		var building_id = building.get_instance_id()
 		if _visited_buildings.has(building_id):
-			break
+			continue
 
 		# Mark as visited
 		_visited_buildings[building_id] = true

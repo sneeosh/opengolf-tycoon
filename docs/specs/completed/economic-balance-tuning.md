@@ -2,7 +2,7 @@
 
 **Author:** Claude (Product)
 **Date:** 2026-02-27
-**Status:** Partially Implemented (v1 tuning pass)
+**Status:** Complete (v2 — all exploits verified, mitigations in place)
 **Priority:** HIGH
 **Version:** 0.1.0-alpha context
 
@@ -214,13 +214,13 @@ Document and validate each potential exploit:
 | # | Exploit | Status | Mitigation |
 |---|---------|--------|------------|
 | 1 | 3-hole coast forever | **Mitigated** | Stagnation rep penalty + power 2.0 spawn curve + lower fees + higher costs |
-| 2 | Max loan → buy buildings → profit from buildings alone | Needs testing | Loan interest should eat profit |
+| 2 | Max loan → buy buildings → profit from buildings alone | **Not exploitable** | Buildings alone lose ~$335/day. Loan interest (~$357/day) makes it worse. Green fees are the real revenue. |
 | 3 | Set $200 green fee on 1 hole | **Mitigated** | Fee cap ($10/hole) limits to $10 max on 1 hole |
 | 4 | Spam marketing campaigns for infinite golfers | **Mitigated** | sqrt() diminishing returns |
-| 5 | Fire all staff, keep money, rehire later | Needs testing | Course condition degrades → rating drops |
-| 6 | Never buy land, play on starting 40×40 forever | Needs testing | 40×40 limits to ~4 holes max |
-| 7 | Tournament spam (play every 8 days) | Needs testing | Entry cost + cooldown limits this |
-| 8 | Buy bench army (cheap, $0 upkeep, satisfaction boost) | Needs testing | Diminishing returns on satisfaction? |
+| 5 | Fire all staff, keep money, rehire later | **Mitigated** | Firing groundskeeper now applies 0.10 condition penalty. Recovery takes ~3 days per cycle, not worth $240 savings. |
+| 6 | Never buy land, play on starting 40×40 forever | **Self-limiting** | Max 4-5 holes on 40×40. Stagnation penalty (-0.3 rep/day after 28 days), design rating capped ~2.75★, Local tournaments only. |
+| 7 | Tournament spam (play every 8 days) | **Already balanced** | Tournaments are net-negative financially (Local: -$200 avg). 7-day cooldown. Lost green fee revenue on tournament days. Value is reputation, not money. |
+| 8 | Buy bench army (cheap, $0 upkeep, satisfaction boost) | **Self-limiting** | `_visited_buildings` prevents re-visits per round. 20% interact chance when need is high. Tiny mood boost (0.02). Only restores energy. A restroom provides more value per dollar. |
 
 ---
 

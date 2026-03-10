@@ -79,6 +79,7 @@ func _build_ui() -> void:
 		["G", "Milestones"],
 		["C", "Calendar"],
 		["N", "Event Feed"],
+		["Shift+R", "Routing overlay"],
 	])
 
 	_add_section(vbox, "Camera & View", [
@@ -88,6 +89,7 @@ func _build_ui() -> void:
 		["Tab", "Toggle minimap"],
 		["V", "Shot heatmap"],
 		["Shift+V", "Cycle heatmap mode"],
+		["J", "Fairway width + carry overlay"],
 		["F3", "Debug overlay"],
 	])
 
@@ -96,6 +98,7 @@ func _build_ui() -> void:
 		["Ctrl+S", "Quick save"],
 		["Ctrl+Z", "Undo"],
 		["Ctrl+Shift+Z", "Redo"],
+		["Shift+Click", "Toggle bunker depth"],
 		["Esc", "Cancel / Deselect tool"],
 		["F1", "This help panel"],
 		["F2", "Weather debug"],

@@ -9,9 +9,12 @@ var _just_opened: bool = true
 
 signal move_pin_requested(hole_number: int)
 signal move_tee_requested(hole_number: int)
+signal move_forward_tee_requested(hole_number: int)
+signal move_middle_tee_requested(hole_number: int)
 signal move_green_requested(hole_number: int)
 signal toggle_hole_requested(hole_number: int)
 signal view_stats_requested(hole_number: int)
+signal par_override_requested(hole_number: int, new_par: int)
 signal menu_closed()
 
 func _init(p_hole_data: GameManager.HoleData, p_terrain_grid: TerrainGrid) -> void:
@@ -89,6 +92,20 @@ func _build_ui() -> void:
 	tee_btn.pressed.connect(func(): move_tee_requested.emit(hole_data.hole_number); _close())
 	vbox.add_child(tee_btn)
 
+	# Move Forward/Middle Tee buttons (only when multi-tee enabled)
+	if GameManager.multi_tee_enabled:
+		var fwd_tee_btn = _create_menu_button("  Move Forward Tee")
+		fwd_tee_btn.add_theme_font_size_override("font_size", 12)
+		fwd_tee_btn.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))  # Red tint
+		fwd_tee_btn.pressed.connect(func(): move_forward_tee_requested.emit(hole_data.hole_number); _close())
+		vbox.add_child(fwd_tee_btn)
+
+		var mid_tee_btn = _create_menu_button("  Move Middle Tee")
+		mid_tee_btn.add_theme_font_size_override("font_size", 12)
+		mid_tee_btn.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))  # White tint
+		mid_tee_btn.pressed.connect(func(): move_middle_tee_requested.emit(hole_data.hole_number); _close())
+		vbox.add_child(mid_tee_btn)
+
 	# Move Green button
 	var green_label = "Place Green" if green_orphaned else "Move Green"
 	var green_btn = _create_menu_button(green_label)
@@ -96,6 +113,21 @@ func _build_ui() -> void:
 		green_btn.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
 	green_btn.pressed.connect(func(): move_green_requested.emit(hole_data.hole_number); _close())
 	vbox.add_child(green_btn)
+
+	# Cycle Par button
+	var auto_par = GolfRules.calculate_par(hole_data.distance_yards)
+	var par_text = "Par %d" % hole_data.par
+	if hole_data.par_override > 0:
+		par_text += "*"
+	else:
+		par_text += " (auto)"
+	var par_btn = _create_menu_button("Cycle Par  [%s]" % par_text)
+	par_btn.pressed.connect(func():
+		var new_par = _cycle_par(hole_data.par, auto_par)
+		par_override_requested.emit(hole_data.hole_number, new_par)
+		_close()
+	)
+	vbox.add_child(par_btn)
 
 	# Open/Close toggle
 	var toggle_label = "Close Hole" if hole_data.is_open else "Open Hole"
@@ -163,6 +195,14 @@ func _build_ui() -> void:
 	var stats_btn = _create_menu_button("View Statistics")
 	stats_btn.pressed.connect(func(): view_stats_requested.emit(hole_data.hole_number); _close())
 	vbox.add_child(stats_btn)
+
+func _cycle_par(current_par: int, auto_par: int) -> int:
+	var min_par = max(3, auto_par - 1)
+	var max_par = min(6, auto_par + 1)
+	var next_par = current_par + 1
+	if next_par > max_par:
+		next_par = min_par
+	return next_par
 
 func _create_menu_button(text: String) -> Button:
 	var btn = Button.new()

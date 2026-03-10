@@ -83,6 +83,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"green_fee_baseline": 14,
 				"land_cost_multiplier": 1.2,  # Coastal premium
 				"satisfaction_ceiling": 1.0,
+				"default_bunker_depth": 1,  # Deep pot bunkers are a links staple
 			}
 		Type.MOUNTAIN:
 			return {
@@ -120,6 +121,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 				"land_cost_multiplier": 1.1,  # Desirable heathland is limited
 				"satisfaction_ceiling": 1.0,
 				"rough_penalty_multiplier": 1.4,  # Heather/gorse is brutally penal
+				"default_bunker_depth": 1,  # Heathland pot bunkers are traditionally deep
 			}
 		Type.WOODLAND:
 			return {

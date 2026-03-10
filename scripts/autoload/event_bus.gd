@@ -40,6 +40,7 @@ signal hole_difficulty_changed(hole_number: int, difficulty: float)
 signal pin_position_changed(hole_number: int, old_position: Vector2i, new_position: Vector2i)
 signal hole_tee_moved(hole_number: int, old_position: Vector2i, new_position: Vector2i)
 signal hole_green_moved(hole_number: int, old_position: Vector2i, new_position: Vector2i)
+signal pins_rotated  # Emitted when daily pin rotation occurs
 
 # Golfer Signals
 signal golfer_spawned(golfer_id: int, golfer_name: String)
@@ -74,6 +75,7 @@ signal course_closing()
 
 # Season Signals
 signal season_changed(old_season: int, new_season: int)
+signal seasonal_event_upcoming(event_name: String, days_until: int)
 
 # Tournament Signals
 signal tournament_scheduled(tier: int, start_day: int)

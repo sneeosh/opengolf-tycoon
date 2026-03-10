@@ -153,6 +153,7 @@ func _build_save_data() -> Dictionary:
 			"difficulty": DifficultyPresets.to_string_name(GameManager.current_difficulty),
 			"stagnation_hole_count": GameManager._stagnation_hole_count,
 			"stagnation_day_started": GameManager._stagnation_day_started,
+			"heightmap_noise_seed": GameManager.heightmap_noise_seed,
 		},
 	}
 
@@ -161,6 +162,7 @@ func _build_save_data() -> Dictionary:
 		data["terrain"] = terrain_grid.serialize()
 		data["elevation"] = terrain_grid.serialize_elevation()
 		data["player_placed"] = terrain_grid.serialize_player_placed()
+		data["bunker_depth"] = terrain_grid.serialize_bunker_depth()
 
 	# Entities
 	if entity_layer:
@@ -229,7 +231,25 @@ func _serialize_holes(holes: Array) -> Array:
 			"is_open": hole.is_open,
 			"difficulty_rating": hole.difficulty_rating,
 			"total_revenue": hole.total_revenue,
+			"par_override": hole.par_override,
+			"tee_positions": _serialize_tee_positions(hole.tee_positions),
+			"par_by_tee": hole.par_by_tee.duplicate(),
+			"pin_positions": _serialize_pin_positions(hole.pin_positions),
+			"current_pin_index": hole.current_pin_index,
 		})
+	return result
+
+func _serialize_tee_positions(tee_positions: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for key in tee_positions:
+		var pos = tee_positions[key]
+		result[key] = {"x": pos.x, "y": pos.y}
+	return result
+
+func _serialize_pin_positions(pin_positions: Array) -> Array:
+	var result: Array = []
+	for pos in pin_positions:
+		result.append({"x": pos.x, "y": pos.y})
 	return result
 
 ## Apply loaded save data
@@ -260,6 +280,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	GameManager.loan_balance = int(game.get("loan_balance", 0))
 	GameManager._stagnation_hole_count = int(game.get("stagnation_hole_count", 0))
 	GameManager._stagnation_day_started = int(game.get("stagnation_day_started", 1))
+	GameManager.heightmap_noise_seed = int(game.get("heightmap_noise_seed", 0))
 
 	# Restore difficulty preset (defaults to Normal for older saves)
 	var diff_name = game.get("difficulty", "normal")
@@ -283,6 +304,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	if terrain_grid and data.has("player_placed"):
 		terrain_grid.deserialize_player_placed(data["player_placed"])
 	if terrain_grid:
+		terrain_grid.deserialize_bunker_depth(data.get("bunker_depth", {}))
 		terrain_grid.queue_redraw()
 
 	# Milestones — restore BEFORE holes so hole_created signals don't re-award
@@ -367,6 +389,35 @@ func _deserialize_holes(holes_data: Array) -> void:
 		hole.is_open = h.get("is_open", true)
 		hole.difficulty_rating = float(h.get("difficulty_rating", 1.0))
 		hole.total_revenue = int(h.get("total_revenue", 0))
+		hole.par_override = int(h.get("par_override", -1))
+
+		# Multiple tee boxes (backward compat: generate from tee_position if absent)
+		var saved_tee_positions = h.get("tee_positions", {})
+		if saved_tee_positions.is_empty():
+			hole.tee_positions = {"forward": hole.tee_position, "middle": hole.tee_position, "back": hole.tee_position}
+		else:
+			for key in saved_tee_positions:
+				var tp = saved_tee_positions[key]
+				hole.tee_positions[key] = Vector2i(int(tp.get("x", 0)), int(tp.get("y", 0)))
+		hole.par_by_tee = {}
+		var saved_par_by_tee = h.get("par_by_tee", {})
+		if saved_par_by_tee.is_empty():
+			for key in hole.tee_positions:
+				hole.par_by_tee[key] = hole.par
+		else:
+			for key in saved_par_by_tee:
+				hole.par_by_tee[key] = int(saved_par_by_tee[key])
+
+		# Pin positions (backward compat: use hole_position as single pin)
+		var saved_pins = h.get("pin_positions", [])
+		if saved_pins.is_empty():
+			hole.pin_positions = [hole.hole_position]
+		else:
+			hole.pin_positions = []
+			for pp in saved_pins:
+				hole.pin_positions.append(Vector2i(int(pp.get("x", 0)), int(pp.get("y", 0))))
+		hole.current_pin_index = int(h.get("current_pin_index", 0))
+
 		GameManager.current_course.holes.append(hole)
 
 	GameManager.current_course._recalculate_par()
@@ -415,6 +466,8 @@ func _load_user_settings() -> void:
 		call_deferred("_apply_display_settings", config)
 	if config.has_section("controls"):
 		_apply_controls_settings(config)
+	if config.has_section("gameplay"):
+		_apply_gameplay_settings(config)
 
 func _apply_audio_settings(config: ConfigFile) -> void:
 	if not SoundManager:
@@ -441,6 +494,9 @@ func _apply_display_settings(config: ConfigFile) -> void:
 
 func _apply_controls_settings(config: ConfigFile) -> void:
 	GameManager.invert_zoom_scroll = config.get_value("controls", "invert_zoom_scroll", false)
+
+func _apply_gameplay_settings(config: ConfigFile) -> void:
+	GameManager.multi_tee_enabled = config.get_value("gameplay", "multi_tee_enabled", false)
 
 func save_user_settings() -> void:
 	var config := ConfigFile.new()
