@@ -12,6 +12,7 @@ const PARTICLE_COLORS: Array = [
 ]
 
 var _particles_finished: int = 0
+var _web_mode: bool = false
 
 func _ready() -> void:
 	z_index = 200  # Above everything
@@ -59,8 +60,6 @@ static func create_at(parent: Node, world_position: Vector2) -> WaterSplashEffec
 		effect._web_mode = true
 	parent.add_child(effect)
 	return effect
-
-var _web_mode: bool = false
 
 func _on_particle_finished() -> void:
 	_particles_finished += 1

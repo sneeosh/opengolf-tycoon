@@ -341,6 +341,8 @@ static func _generate_trees(terrain_grid: TerrainGrid, entity_layer: EntityLayer
 	var all_tree_types = CourseTheme.get_tree_types(GameManager.current_theme)
 	var waterside_only: Array = ["cattails"]
 	var tree_types: Array = all_tree_types.filter(func(t): return t not in waterside_only)
+	if tree_types.is_empty():
+		return
 	var cluster_range: Vector2i = params.get("tree_clusters", Vector2i(5, 10))
 	var cluster_count = rng.randi_range(cluster_range.x, cluster_range.y)
 	var radius_range: Vector2 = params.get("tree_cluster_radius", Vector2(8, 20))

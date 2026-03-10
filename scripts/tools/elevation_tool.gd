@@ -10,7 +10,6 @@ enum ElevationMode {
 
 var elevation_mode: ElevationMode = ElevationMode.NONE
 var is_painting: bool = false
-var last_paint_pos: Vector2i = Vector2i(-1, -1)
 
 signal elevation_mode_changed(mode: ElevationMode)
 
@@ -25,7 +24,6 @@ func start_lowering() -> void:
 func cancel() -> void:
 	elevation_mode = ElevationMode.NONE
 	is_painting = false
-	last_paint_pos = Vector2i(-1, -1)
 	elevation_mode_changed.emit(elevation_mode)
 
 func is_active() -> bool:

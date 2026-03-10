@@ -62,6 +62,12 @@ func _ready() -> void:
 		if shadow_system.has_signal("sun_direction_changed"):
 			shadow_system.sun_direction_changed.connect(_on_sun_direction_changed)
 
+func _exit_tree() -> void:
+	if has_node("/root/ShadowSystem"):
+		var shadow_system = get_node("/root/ShadowSystem")
+		if shadow_system.sun_direction_changed.is_connected(_on_sun_direction_changed):
+			shadow_system.sun_direction_changed.disconnect(_on_sun_direction_changed)
+
 func _on_click_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		building_selected.emit(self)
@@ -321,7 +327,7 @@ func _draw_clubhouse(visual: Node2D, width_px: int, height_px: int) -> void:
 		Color(0.92, 0.87, 0.78),  # Level 2: Soft tan
 		Color(0.88, 0.82, 0.72),  # Level 3: Rich beige
 	]
-	var wall_color = wall_colors[min(upgrade_level - 1, 2)]
+	var wall_color = wall_colors[clampi(upgrade_level - 1, 0, 2)]
 
 	# Main wall with subtle texture lines
 	var main_wall = Polygon2D.new()
@@ -364,7 +370,7 @@ func _draw_clubhouse(visual: Node2D, width_px: int, height_px: int) -> void:
 		Color(0.42, 0.24, 0.20),  # Level 2: Deep brown
 		Color(0.28, 0.22, 0.24),  # Level 3: Charcoal slate
 	]
-	var roof_color = roof_colors[min(upgrade_level - 1, 2)]
+	var roof_color = roof_colors[clampi(upgrade_level - 1, 0, 2)]
 
 	# Main roof
 	var roof = Polygon2D.new()

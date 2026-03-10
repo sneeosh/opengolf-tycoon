@@ -121,6 +121,10 @@ func _exit_tree() -> void:
 		EventBus.hour_changed.disconnect(_on_hour_changed)
 	if EventBus.game_mode_changed.is_connected(_on_game_mode_changed):
 		EventBus.game_mode_changed.disconnect(_on_game_mode_changed)
+	if _bird_timer:
+		_bird_timer.stop()
+		if _bird_timer.timeout.is_connected(_on_bird_timer):
+			_bird_timer.timeout.disconnect(_on_bird_timer)
 
 # ─── Public API ───────────────────────────────────────────────────
 
