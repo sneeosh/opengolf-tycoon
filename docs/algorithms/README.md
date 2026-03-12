@@ -29,6 +29,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Bunker Depth](bunker-depth.md) — Shallow vs deep bunkers, lie/distance modifiers, visual differentiation, theme defaults
 
 ### Economy & Progression
+- [Premium Land & Prebuilt Courses](premium-land.md) — 3-tier land parcels (Standard/Premium/Elite), cost multipliers, terrain feature generation, prebuilt course packages
 - [Economy & Financial System](economy.md) — Green fees, operating costs, loans, staff tiers, profit calculation
 - [Reputation System](reputation.md) — Daily decay, per-golfer mood-based gains, tournament bonuses, prestige multiplier
 - [Golfer Spawning & Tier System](golfer-spawning.md) — Spawn rates, tier selection weights, group sizes, landing zone safety

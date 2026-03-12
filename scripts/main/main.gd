@@ -175,6 +175,7 @@ func _ready() -> void:
 	land_mgr.name = "LandManager"
 	add_child(land_mgr)
 	GameManager.land_manager = land_mgr
+	land_mgr.land_purchased.connect(_on_parcel_purchased)
 
 	var staff_mgr = StaffManager.new()
 	staff_mgr.name = "StaffManager"
@@ -502,6 +503,7 @@ func _show_main_menu() -> void:
 	main_menu.name = "MainMenu"
 	main_menu.new_game_requested.connect(_on_main_menu_new_game)
 	main_menu.quick_start_requested.connect(_on_main_menu_quick_start)
+	main_menu.prebuilt_course_requested.connect(_on_main_menu_prebuilt_course)
 	main_menu.load_game_requested.connect(_on_main_menu_load)
 	main_menu.settings_requested.connect(_on_main_menu_settings)
 	main_menu.credits_requested.connect(_on_main_menu_credits)
@@ -530,6 +532,30 @@ func _on_main_menu_new_game(course_name: String, theme_type: int) -> void:
 		placement_preview.set_terrain_painting_enabled(false)
 
 var _quick_start_pending: bool = false
+var _prebuilt_pending: String = ""  # Package ID, empty = not pending
+var _prebuilt_money: int = 0  # Money to restore after new_game() resets it
+
+func _on_main_menu_prebuilt_course(course_name: String, theme_type: int, package_id: String) -> void:
+	"""Start a new game with a prebuilt course, preserving player money."""
+	var difficulty := main_menu.get_selected_difficulty() if main_menu else DifficultyPresets.Preset.NORMAL
+	if main_menu:
+		main_menu.queue_free()
+		main_menu = null
+	_set_gameplay_ui_visible(true)
+
+	# Save money before new_game() resets it (already has cost deducted)
+	_prebuilt_money = GameManager.money
+	_prebuilt_pending = package_id
+	GameManager.new_game(course_name, theme_type, difficulty)
+
+	var center_x = (terrain_grid.grid_width / 2) * terrain_grid.tile_width
+	var center_y = (terrain_grid.grid_height / 2) * terrain_grid.tile_height
+	camera.focus_on(Vector2(center_x, center_y), true)
+	current_tool = -1
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
+	if placement_preview:
+		placement_preview.set_terrain_painting_enabled(false)
 
 func _on_main_menu_quick_start(course_name: String, theme_type: int) -> void:
 	"""Start a new game with a pre-built 3-hole course."""
@@ -1649,6 +1675,7 @@ func _on_new_game_started() -> void:
 
 	# Build pre-made course if Quick Start was selected
 	var is_quick_start := _quick_start_pending
+	var is_prebuilt := not _prebuilt_pending.is_empty()
 	if _quick_start_pending:
 		_quick_start_pending = false
 		_suppress_tile_undo = true
@@ -1658,11 +1685,26 @@ func _on_new_game_started() -> void:
 		terrain_grid.refresh_all_overlays()
 		_suppress_tile_undo = false
 
+	# Build prebuilt course package if selected from main menu
+	if is_prebuilt:
+		var pkg_id := _prebuilt_pending
+		_prebuilt_pending = ""
+		# Restore earned money (cost already deducted before new_game)
+		GameManager.money = _prebuilt_money
+		EventBus.money_changed.emit(0, _prebuilt_money)
+		_prebuilt_money = 0
+		_suppress_tile_undo = true
+		terrain_grid.begin_batch()
+		PrebuiltCourseGenerator.build(pkg_id, terrain_grid, entity_layer, hole_tool)
+		terrain_grid.end_batch_quiet()
+		terrain_grid.refresh_all_overlays()
+		_suppress_tile_undo = false
+
 	# Remove loading screen
 	loading_overlay.queue_free()
 
-	# Start tutorial for first-time players (skip for Quick Start — they already have a course)
-	if not is_quick_start and not TutorialSystem.is_tutorial_completed():
+	# Start tutorial for first-time players (skip for Quick Start/Prebuilt — they already have a course)
+	if not is_quick_start and not is_prebuilt and not TutorialSystem.is_tutorial_completed():
 		_start_tutorial()
 
 func _create_loading_overlay(message: String) -> CanvasLayer:
@@ -2900,6 +2942,22 @@ func _toggle_land_panel() -> void:
 	"""Toggle the land panel visibility."""
 	if land_panel:
 		_toggle_panel(land_panel)
+
+func _on_parcel_purchased(parcel: Vector2i) -> void:
+	"""Generate premium terrain features when a premium/elite parcel is purchased."""
+	var lm = GameManager.land_manager
+	if not lm or lm.has_features_generated(parcel):
+		return
+	var tier: int = lm.get_parcel_tier(parcel)
+	if tier == 0:  # TIER_STANDARD
+		return
+	# Deterministic seed from parcel position
+	var rng = RandomNumberGenerator.new()
+	rng.seed = parcel.x * 1000 + parcel.y + hash(GameManager.current_theme)
+	terrain_grid.begin_batch()
+	PremiumFeatureGenerator.generate_for_parcel(parcel, terrain_grid, entity_layer, rng)
+	terrain_grid.end_batch_quiet()
+	terrain_grid.refresh_all_overlays()
 
 # --- Marketing Panel ---
 
