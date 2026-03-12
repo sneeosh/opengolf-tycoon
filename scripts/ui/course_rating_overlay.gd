@@ -14,6 +14,8 @@ var _overall_label: Label = null
 var _condition_label: Label = null
 var _design_label: Label = null
 var _value_label: Label = null
+var _pace_label: Label = null
+var _aesthetics_label: Label = null
 var _difficulty_label: Label = null
 
 func _build_ui() -> void:
@@ -55,9 +57,11 @@ func _build_ui() -> void:
 	vbox.add_child(HSeparator.new())
 
 	_overall_label = _add_row(vbox, "Overall:", "---")
-	_condition_label = _add_row(vbox, "Condition:", "---")
-	_design_label = _add_row(vbox, "Design:", "---")
-	_value_label = _add_row(vbox, "Value:", "---")
+	_condition_label = _add_row(vbox, "Condition (25%):", "---")
+	_design_label = _add_row(vbox, "Design (15%):", "---")
+	_value_label = _add_row(vbox, "Value (30%):", "---")
+	_pace_label = _add_row(vbox, "Pace (20%):", "---")
+	_aesthetics_label = _add_row(vbox, "Aesthetics (10%):", "---")
 	_difficulty_label = _add_row(vbox, "Difficulty:", "---")
 
 func _add_row(parent: VBoxContainer, label_text: String, initial_value: String) -> Label:
@@ -88,7 +92,8 @@ func _update_rating() -> void:
 		GameManager.current_course,
 		GameManager.daily_stats,
 		GameManager.green_fee,
-		GameManager.reputation
+		GameManager.reputation,
+		GameManager.entity_layer
 	)
 
 	var stars: float = rating.get("overall", 3.0)
@@ -98,6 +103,8 @@ func _update_rating() -> void:
 	_condition_label.text = "%.1f" % rating.get("condition", 0.0)
 	_design_label.text = "%.1f" % rating.get("design", 0.0)
 	_value_label.text = "%.1f" % rating.get("value", 0.0)
+	_pace_label.text = "%.1f" % rating.get("pace", 0.0)
+	_aesthetics_label.text = "%.1f" % rating.get("aesthetics", 0.0)
 
 	var diff: float = rating.get("difficulty", 5.0)
 	_difficulty_label.text = "%s (%.1f)" % [CourseRatingSystem.get_difficulty_text(diff), diff]

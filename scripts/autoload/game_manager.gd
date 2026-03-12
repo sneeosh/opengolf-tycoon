@@ -121,12 +121,13 @@ var hole_statistics: Dictionary = {}  # hole_number -> HoleStatistics
 
 # Course rating (1-5 stars)
 var course_rating: Dictionary = {
-	"condition": 3.0,
-	"design": 3.0,
-	"value": 3.0,
-	"pace": 3.0,
-	"overall": 3.0,
-	"stars": 3,
+	"condition": 1.0,
+	"design": 1.0,
+	"value": 1.0,
+	"pace": 1.0,
+	"aesthetics": 1.0,
+	"overall": 1.0,
+	"stars": 1,
 	"difficulty": 0.0,
 	"slope": 113,
 	"course_rating": 72.0
@@ -368,7 +369,7 @@ func update_course_rating() -> void:
 	if not current_course or not terrain_grid:
 		return
 	course_rating = CourseRatingSystem.calculate_rating(
-		terrain_grid, current_course, daily_stats, green_fee, reputation
+		terrain_grid, current_course, daily_stats, green_fee, reputation, entity_layer
 	)
 	EventBus.course_rating_changed.emit(course_rating)
 
@@ -913,6 +914,7 @@ class DailyStatistics:
 	var base_operating_cost: int = 0  # Fixed daily cost based on course size
 	var staff_wages: int = 0  # Staff costs based on number of holes
 	var building_operating_costs: int = 0  # Daily costs from buildings
+	var decoration_operating_costs: int = 0  # Daily costs from decorations
 
 	# Building revenue from amenities
 	var building_revenue: int = 0
@@ -947,6 +949,7 @@ class DailyStatistics:
 		base_operating_cost = 0
 		staff_wages = 0
 		building_operating_costs = 0
+		decoration_operating_costs = 0
 		tier_counts = {
 			GolferTier.Tier.BEGINNER: 0,
 			GolferTier.Tier.CASUAL: 0,
@@ -958,7 +961,7 @@ class DailyStatistics:
 	## terrain_cost: total maintenance cost from terrain grid
 	## hole_count: number of holes on the course
 	## building_costs: total operating costs from all buildings
-	func calculate_operating_costs(terrain_cost: int, hole_count: int, building_costs: int = 0) -> void:
+	func calculate_operating_costs(terrain_cost: int, hole_count: int, building_costs: int = 0, decoration_costs: int = 0) -> void:
 		# Terrain maintenance from actual tiles, scaled by theme-aware seasonal modifier
 		var season = SeasonSystem.get_season(GameManager.current_day)
 		var season_mod = SeasonSystem.get_maintenance_modifier(season, GameManager.current_theme)
@@ -975,8 +978,11 @@ class DailyStatistics:
 		# Building operating costs (daily upkeep for amenities)
 		building_operating_costs = building_costs
 
+		# Decoration operating costs (daily upkeep for decorations)
+		decoration_operating_costs = decoration_costs
+
 		# Total
-		operating_costs = terrain_maintenance + base_operating_cost + staff_wages + building_operating_costs
+		operating_costs = terrain_maintenance + base_operating_cost + staff_wages + building_operating_costs + decoration_operating_costs
 
 	func get_profit() -> int:
 		return revenue + building_revenue + tournament_revenue - operating_costs - tournament_entry_fee

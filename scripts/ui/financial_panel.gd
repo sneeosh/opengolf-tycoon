@@ -162,6 +162,9 @@ func update_display() -> void:
 	if stats.building_operating_costs > 0:
 		var building_costs_row = _create_stat_row("  Buildings:", "-$%d" % stats.building_operating_costs, dim_color)
 		_content_vbox.add_child(building_costs_row)
+	if stats.decoration_operating_costs > 0:
+		var decoration_costs_row = _create_stat_row("  Decorations:", "-$%d" % stats.decoration_operating_costs, dim_color)
+		_content_vbox.add_child(decoration_costs_row)
 
 	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % stats.operating_costs, UIConstants.COLOR_DANGER_DIM)
 	_content_vbox.add_child(total_costs_row)

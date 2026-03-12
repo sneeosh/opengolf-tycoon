@@ -8,6 +8,7 @@ signal tree_placement_pressed
 signal rock_placement_pressed
 signal flower_bed_pressed
 signal building_placement_pressed
+signal decoration_placement_pressed
 signal raise_elevation_pressed
 signal lower_elevation_pressed
 signal bulldozer_pressed
@@ -53,7 +54,8 @@ const TOOL_SECTIONS = {
 			{"type": "rock", "name": "Rocks", "icon": "[*]", "hotkey": "R", "desc": "Decorative rock formations"},
 			{"type": TerrainTypes.Type.FLOWER_BED, "name": "Flower Bed", "icon": "[f]", "hotkey": "F", "desc": "Colorful landscaping"},
 			{"type": "building", "name": "Buildings", "icon": "[B]", "hotkey": "B", "desc": "Place amenity buildings"},
-			{"type": "bulldozer", "name": "Bulldozer", "icon": "[D]", "hotkey": "X", "desc": "Removes trees, rocks, flowers"},
+			{"type": "decoration", "name": "Decorations", "icon": "[✦]", "hotkey": "O", "desc": "Aesthetic decorations for course rating"},
+			{"type": "bulldozer", "name": "Bulldozer", "icon": "[D]", "hotkey": "X", "desc": "Removes trees, rocks, flowers, decorations"},
 		]
 	},
 	"Elevation": {
@@ -328,6 +330,8 @@ func _on_tool_button_pressed(tool_type) -> void:
 				rock_placement_pressed.emit()
 			"building":
 				building_placement_pressed.emit()
+			"decoration":
+				decoration_placement_pressed.emit()
 			"create_hole":
 				create_hole_pressed.emit()
 			"raise":
@@ -422,6 +426,8 @@ func _input(event: InputEvent) -> void:
 				_on_tool_button_pressed(TerrainTypes.Type.FLOWER_BED)
 			KEY_B:
 				_on_tool_button_pressed("building")
+			KEY_O:
+				_on_tool_button_pressed("decoration")
 			KEY_H:
 				_expand_section("Course")
 				_on_tool_button_pressed("create_hole")

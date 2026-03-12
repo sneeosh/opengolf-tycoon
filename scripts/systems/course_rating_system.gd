@@ -3,38 +3,43 @@ class_name CourseRatingSystem
 ## CourseRatingSystem - Calculates 1-5 star course rating and course difficulty
 ##
 ## Rating categories:
-## - Condition: Quality of terrain in play corridors (premium vs rough)
-## - Design: Variety of hole pars (has par 3s, 4s, 5s)
-## - Value: Green fee vs reputation (fair pricing)
-## - Pace: Ratio of bogeys (proxy for slow play)
+## - Condition (25%): Quality of terrain in play corridors (premium vs rough)
+## - Design (15%): Variety of hole pars (has par 3s, 4s, 5s)
+## - Value (30%): Green fee vs reputation (fair pricing)
+## - Pace (20%): Ratio of bogeys (proxy for slow play)
+## - Aesthetics (10%): Decorations, trees, and landscaping near holes
 ##
 ## Course Difficulty:
 ## - Average of all hole difficulty ratings (1-10 scale)
 ## - Slope Rating: How much harder course is for avg vs scratch golfer (55-155)
 ##
-## Overall rating is weighted average: condition 30%, design 20%, value 30%, pace 20%
+## Overall rating is weighted average: condition 25%, design 15%, value 30%, pace 20%, aesthetics 10%
 
 ## Calculate overall course rating (returns Dictionary with all ratings)
+## entity_layer is optional — pass null to skip aesthetics (defaults to 2.5)
 static func calculate_rating(
 	terrain_grid,  # TerrainGrid
 	course_data,   # GameManager.CourseData
 	daily_stats,   # GameManager.DailyStatistics
 	green_fee: int,
-	reputation: float
+	reputation: float,
+	entity_layer = null  # EntityLayer (optional)
 ) -> Dictionary:
 	var ratings = {
 		"condition": _calculate_condition_rating(terrain_grid, course_data),
 		"design": _calculate_design_rating(course_data),
 		"value": _calculate_value_rating(green_fee, reputation),
 		"pace": _calculate_pace_rating(daily_stats),
+		"aesthetics": _calculate_aesthetics_rating(entity_layer, course_data),
 	}
 
-	# Weighted average (condition and value matter most)
+	# Weighted average
 	var overall = (
-		ratings.condition * 0.30 +
-		ratings.design * 0.20 +
+		ratings.condition * 0.25 +
+		ratings.design * 0.15 +
 		ratings.value * 0.30 +
-		ratings.pace * 0.20
+		ratings.pace * 0.20 +
+		ratings.aesthetics * 0.10
 	)
 	ratings["overall"] = clampf(overall, 1.0, 5.0)
 	ratings["stars"] = int(round(ratings.overall))  # For display
@@ -302,6 +307,117 @@ static func _calculate_pace_rating(daily_stats) -> float:
 	var rating = (base_rating - walk_penalty) * pace_mod
 
 	return clampf(rating, 2.0, 5.0)
+
+## Aesthetics rating: decorations, trees, and rocks near holes
+## Scores each open hole based on nearby decorations within 8-tile radius of tee and green.
+## Variety bonus for using different decoration types, theme bonus for matching decorations.
+## Trees and rocks also contribute small amounts.
+static func _calculate_aesthetics_rating(entity_layer, course_data) -> float:
+	if not entity_layer or not course_data:
+		return 2.5
+
+	var holes = course_data.holes
+	if holes.is_empty():
+		return 2.5
+
+	var open_count: int = 0
+	var total_score: float = 0.0
+	var search_radius: int = 8
+
+	for hole in holes:
+		if not hole.is_open:
+			continue
+		open_count += 1
+
+		# Gather decorations near tee and green
+		var tee_pos: Vector2i = hole.tee_position
+		var green_pos: Vector2i = hole.green_position
+
+		var tee_area_min = tee_pos - Vector2i(search_radius, search_radius)
+		var tee_area_max = tee_pos + Vector2i(search_radius, search_radius)
+		var green_area_min = green_pos - Vector2i(search_radius, search_radius)
+		var green_area_max = green_pos + Vector2i(search_radius, search_radius)
+
+		# Get decorations near tee and green (may overlap — deduplicate)
+		var tee_decorations = entity_layer.get_decorations_in_area(tee_area_min, tee_area_max)
+		var green_decorations = entity_layer.get_decorations_in_area(green_area_min, green_area_max)
+
+		# Deduplicate by position
+		var seen_positions: Dictionary = {}
+		var all_decorations: Array = []
+		for dec in tee_decorations + green_decorations:
+			var pos_key = dec.grid_position
+			if not seen_positions.has(pos_key):
+				seen_positions[pos_key] = true
+				all_decorations.append(dec)
+
+		# Score decorations with diminishing returns per type
+		var type_counts: Dictionary = {}
+		var decoration_score: float = 0.0
+		var unique_types: int = 0
+
+		for dec in all_decorations:
+			var dec_type = dec.decoration_type
+			if not type_counts.has(dec_type):
+				type_counts[dec_type] = 0
+				unique_types += 1
+			type_counts[dec_type] += 1
+
+			var base_value = dec.aesthetics_value
+			# Diminishing returns: value / (1 + 0.2 * same_type_count_nearby)
+			var diminished = base_value / (1.0 + 0.2 * (type_counts[dec_type] - 1))
+
+			# Theme bonus: 1.5x for theme-appropriate decorations
+			if _is_theme_appropriate(dec):
+				diminished *= 1.5
+
+			decoration_score += diminished
+
+		# Trees contribute 0.15 each, rocks 0.1 each
+		var tee_trees = entity_layer.get_trees_in_area(tee_area_min, tee_area_max)
+		var green_trees = entity_layer.get_trees_in_area(green_area_min, green_area_max)
+		var tree_positions: Dictionary = {}
+		for tree in tee_trees + green_trees:
+			if not tree_positions.has(tree.grid_position):
+				tree_positions[tree.grid_position] = true
+				decoration_score += 0.15
+
+		# Count rocks in area (rocks dict keyed by position)
+		var all_rocks = entity_layer.get_all_rocks()
+		for rock in all_rocks:
+			var rpos = rock.grid_position
+			if (rpos.x >= tee_area_min.x and rpos.x <= tee_area_max.x and
+				rpos.y >= tee_area_min.y and rpos.y <= tee_area_max.y) or \
+			   (rpos.x >= green_area_min.x and rpos.x <= green_area_max.x and
+				rpos.y >= green_area_min.y and rpos.y <= green_area_max.y):
+				decoration_score += 0.1
+
+		# Variety bonus
+		if unique_types >= 4:
+			decoration_score += 0.5
+		elif unique_types >= 2:
+			decoration_score += 0.25
+
+		# Cap per-hole contribution at 4.0 raw points
+		decoration_score = minf(decoration_score, 4.0)
+
+		# Map raw score to 1-5 star range
+		# 0 points = 1 star, 2+ points = 5 stars
+		var hole_rating = clampf(1.0 + decoration_score * 2.0, 1.0, 5.0)
+		total_score += hole_rating
+
+	if open_count == 0:
+		return 2.5
+
+	return clampf(total_score / float(open_count), 1.0, 5.0)
+
+## Check if decoration matches current course theme
+static func _is_theme_appropriate(decoration) -> bool:
+	var theme_bonus = decoration.decoration_data.get("theme_bonus", [])
+	if theme_bonus.is_empty():
+		return false
+	var current_theme_name = CourseTheme.Type.keys()[GameManager.current_theme] if GameManager.current_theme < CourseTheme.Type.size() else ""
+	return current_theme_name in theme_bonus
 
 ## Get a text description of the rating
 static func get_rating_text(stars: int) -> String:

@@ -117,7 +117,7 @@ func _update_preview(delta: float) -> void:
 				current_preview_positions = [grid_pos]
 			PlacementManager.PlacementMode.ROCK:
 				current_preview_positions = [grid_pos]
-			PlacementManager.PlacementMode.BUILDING:
+			PlacementManager.PlacementMode.BUILDING, PlacementManager.PlacementMode.DECORATION:
 				current_preview_positions = _get_building_footprint(grid_pos)
 			_:
 				current_preview_positions = [grid_pos]
@@ -220,6 +220,9 @@ func _is_tile_valid_for_placement(grid_pos: Vector2i) -> bool:
 			if building_data and building_data.get("placeable_on_course", false):
 				valid_tiles += [TerrainTypes.Type.PATH]
 			return terrain_type in valid_tiles
+		PlacementManager.PlacementMode.DECORATION:
+			# Decoration uses can_place_at from placement_manager which handles terrain validation
+			return placement_manager.can_place_at(grid_pos, terrain_grid)
 
 	return false
 
@@ -301,6 +304,9 @@ func _draw_entity_ghost(alpha_mod: float) -> void:
 		PlacementManager.PlacementMode.BUILDING:
 			var top_left = terrain_grid.grid_to_screen(current_grid_pos)
 			_draw_building_ghost(top_left, ghost_color)
+		PlacementManager.PlacementMode.DECORATION:
+			var top_left_dec = terrain_grid.grid_to_screen(current_grid_pos)
+			_draw_decoration_ghost(top_left_dec, ghost_color)
 
 func _draw_tree_ghost(pos: Vector2, color: Color) -> void:
 	var tree_type = placement_manager.selected_tree_type if placement_manager else "oak"
@@ -478,6 +484,48 @@ func _draw_building_ghost(pos: Vector2, color: Color) -> void:
 			_draw_ghost_bench(pos, w, h, a)
 		_:
 			_draw_ghost_generic(pos, w, h, a)
+
+func _draw_decoration_ghost(pos: Vector2, color: Color) -> void:
+	"""Draw ghost preview for decoration placement using Decoration sprites/fallback"""
+	var footprint = placement_manager.get_placement_footprint()
+	var fw = 1
+	var fh = 1
+	for offset in footprint:
+		fw = max(fw, offset.x + 1)
+		fh = max(fh, offset.y + 1)
+
+	var w = fw * 64.0
+	var h = fh * 32.0
+	var a = color.a
+	var dec_type = placement_manager.selected_decoration_type
+
+	# Use pixel art sprite if available
+	if dec_type in Decoration.SPRITE_PATHS:
+		var sprite_path = Decoration.SPRITE_PATHS[dec_type]
+		if ResourceLoader.exists(sprite_path):
+			var tex = load(sprite_path) as Texture2D
+			if tex:
+				var tex_size = tex.get_size()
+				var tex_pos = Vector2(
+					pos.x + (w - tex_size.x) / 2.0,
+					pos.y + h - tex_size.y
+				)
+				var tint = Color(color.r * 1.5, color.g * 1.5, color.b * 1.5, a)
+				draw_texture(tex, tex_pos, tint)
+				return
+
+	# Procedural fallback: simple colored shape
+	var dec_color = Decoration.DECORATION_COLORS.get(dec_type, Color(0.5, 0.5, 0.5))
+	dec_color.a = a
+	var cx = pos.x + w / 2.0
+	var cy = pos.y + h / 2.0
+	# Draw a diamond/rhombus shape
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx, pos.y + 2),
+		Vector2(pos.x + w - 4, cy),
+		Vector2(cx, pos.y + h - 2),
+		Vector2(pos.x + 4, cy)
+	]), dec_color)
 
 func _draw_ghost_clubhouse(pos: Vector2, w: float, h: float, a: float) -> void:
 	var cx = pos.x + w / 2.0
@@ -837,4 +885,6 @@ func confirm_placement() -> void:
 				placement_type = "rock"
 			PlacementManager.PlacementMode.BUILDING:
 				placement_type = "building"
+			PlacementManager.PlacementMode.DECORATION:
+				placement_type = "decoration"
 		placement_confirmed.emit(current_grid_pos, placement_type)

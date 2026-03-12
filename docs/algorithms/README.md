@@ -24,7 +24,8 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Multiple Tee Boxes](multiple-tee-boxes.md) — 3-tier tee system (forward/middle/back), tier-based selection, per-tee par
 - [Pin Position Rotation](pin-rotation.md) — Auto-generated pin positions, daily rotation, green quadrant algorithm
 - [Stroke Index](stroke-index.md) — Hole handicap allocation (1=hardest) derived from difficulty ratings, front/back nine interleaving
-- [Course Rating (Stars)](course-rating.md) — 4-category weighted rating: condition, design, value, pace. Slope and course rating
+- [Course Rating (Stars)](course-rating.md) — 5-category weighted rating: condition, design, value, pace, aesthetics. Slope and course rating
+- [Aesthetics Rating](aesthetics-rating.md) — Decoration scoring near holes: diminishing returns, variety bonus, theme matching
 - [Bunker Depth](bunker-depth.md) — Shallow vs deep bunkers, lie/distance modifiers, visual differentiation, theme defaults
 
 ### Economy & Progression
@@ -55,7 +56,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 Many algorithms feed into each other. Key dependency chains:
 
 ```
-Course Rating ← Difficulty Calculator + Terrain + Stats + Pricing
+Course Rating ← Difficulty Calculator + Terrain + Stats + Pricing + Aesthetics (Decorations)
      ↓
 Golfer Spawning ← Course Rating + Reputation + Weather + Season
      ↓

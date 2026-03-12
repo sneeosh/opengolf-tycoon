@@ -1,14 +1,16 @@
 extends Node2D
 class_name EntityLayer
-## EntityLayer - Manages all placed buildings and trees on the course
+## EntityLayer - Manages all placed buildings, trees, rocks, and decorations on the course
 
-var buildings: Dictionary = {}  # key: Vector2i (grid_pos), value: Building node
-var trees: Dictionary = {}      # key: Vector2i (grid_pos), value: TreeEntity node
-var rocks: Dictionary = {}      # key: Vector2i (grid_pos), value: Rock node
+var buildings: Dictionary = {}     # key: Vector2i (grid_pos), value: Building node
+var trees: Dictionary = {}         # key: Vector2i (grid_pos), value: TreeEntity node
+var rocks: Dictionary = {}         # key: Vector2i (grid_pos), value: Rock node
+var decorations: Dictionary = {}   # key: Vector2i (grid_pos), value: Decoration node
 var _original_terrain: Dictionary = {}  # key: Vector2i, value: int (terrain type before entity was placed)
 
 var terrain_grid: TerrainGrid
 var building_registry: Dictionary = {}  # Can accept either Node or Dictionary
+var decoration_registry: Dictionary = {}  # Loaded from data/decorations.json
 
 ## Map seed for deterministic prop variations
 ## Set once at game start or load for consistent visual results
@@ -17,29 +19,35 @@ var map_seed: int = 0
 signal building_placed(building: Building, cost: int)
 signal tree_placed(tree: TreeEntity, cost: int)
 signal rock_placed(rock: Rock, cost: int)
+signal decoration_placed(decoration: Decoration, cost: int)
 signal building_removed(grid_pos: Vector2i)
 signal tree_removed(grid_pos: Vector2i)
 signal rock_removed(grid_pos: Vector2i)
+signal decoration_removed(grid_pos: Vector2i)
 signal building_selected(building: Building)
 
 @onready var buildings_container = Node2D.new()
 @onready var trees_container = Node2D.new()
 @onready var rocks_container = Node2D.new()
+@onready var decorations_container = Node2D.new()
 
 func _ready() -> void:
 	buildings_container.name = "Buildings"
 	trees_container.name = "Trees"
 	rocks_container.name = "Rocks"
+	decorations_container.name = "Decorations"
 
 	# Enable Y-sorting for proper isometric depth ordering
 	# Objects lower on screen (higher Y) render in front of objects higher on screen
 	buildings_container.y_sort_enabled = true
 	trees_container.y_sort_enabled = true
 	rocks_container.y_sort_enabled = true
+	decorations_container.y_sort_enabled = true
 
 	add_child(buildings_container)
 	add_child(trees_container)
 	add_child(rocks_container)
+	add_child(decorations_container)
 
 	# Generate a random map seed if not set (new game)
 	if map_seed == 0:
@@ -63,6 +71,9 @@ func set_terrain_grid(grid: TerrainGrid) -> void:
 
 func set_building_registry(registry) -> void:
 	building_registry = registry
+
+func set_decoration_registry(registry: Dictionary) -> void:
+	decoration_registry = registry
 
 func place_building(building_type: String, grid_pos: Vector2i, building_registry) -> Building:
 	"""Place a building at the specified grid position"""
@@ -250,6 +261,108 @@ func remove_rock(grid_pos: Vector2i) -> void:
 		_restore_terrain(grid_pos)
 		rock_removed.emit(grid_pos)
 
+func place_decoration(dec_type: String, grid_pos: Vector2i, dec_registry: Dictionary) -> Decoration:
+	"""Place a decoration at the specified grid position"""
+	var dec_data = dec_registry.get(dec_type, {})
+	if dec_data.is_empty():
+		push_error("Unknown decoration type: %s" % dec_type)
+		return null
+
+	var sz = dec_data.get("size", [1, 1])
+	var dec_width = int(sz[0])
+	var dec_height = int(sz[1])
+
+	# Check for overlap with existing entities (buildings, decorations)
+	if _would_overlap_building(grid_pos, dec_width, dec_height):
+		push_error("Cannot place decoration: overlaps with existing building")
+		return null
+	if _would_overlap_decoration(grid_pos, dec_width, dec_height):
+		push_error("Cannot place decoration: overlaps with existing decoration")
+		return null
+
+	# Check individual tiles for tree/rock occupancy
+	for x in range(dec_width):
+		for y in range(dec_height):
+			var check_pos = grid_pos + Vector2i(x, y)
+			if trees.has(check_pos) or rocks.has(check_pos):
+				push_error("Cannot place decoration: tile occupied by tree or rock")
+				return null
+
+	var decoration = Decoration.new()
+	decoration.set_terrain_grid(terrain_grid)
+	decoration.set_decoration_type(dec_type, dec_data)
+	decoration.set_position_in_grid(grid_pos)
+
+	decorations_container.add_child(decoration)
+
+	# Store by grid position (anchor tile)
+	decorations[grid_pos] = decoration
+
+	decoration.decoration_selected.connect(_on_decoration_selected)
+	decoration.decoration_destroyed.connect(_on_decoration_destroyed)
+
+	decoration_placed.emit(decoration, dec_data.get("cost", 0))
+	return decoration
+
+func remove_decoration(grid_pos: Vector2i) -> void:
+	var decoration = decorations.get(grid_pos, null)
+	if decoration:
+		decoration.destroy()
+		decorations.erase(grid_pos)
+		decoration_removed.emit(grid_pos)
+
+func get_decoration_at(grid_pos: Vector2i) -> Decoration:
+	"""Get decoration at position, checking both anchor tiles and footprints"""
+	# Direct lookup first
+	if decorations.has(grid_pos):
+		return decorations[grid_pos]
+	# Check if grid_pos falls within any multi-tile decoration's footprint
+	for dec in decorations.values():
+		if dec.size.x > 1 or dec.size.y > 1:
+			var footprint = dec.get_footprint()
+			if grid_pos in footprint:
+				return dec
+	return null
+
+func get_all_decorations() -> Array:
+	return decorations.values()
+
+func get_decorations_in_area(top_left: Vector2i, bottom_right: Vector2i) -> Array:
+	"""Get all decorations within the specified area (checks footprint for multi-tile)"""
+	var result: Array = []
+	for dec in decorations.values():
+		var pos = dec.grid_position
+		# Check if any tile in footprint is within the area
+		var in_area = false
+		for tile_pos in dec.get_footprint():
+			if tile_pos.x >= top_left.x and tile_pos.x <= bottom_right.x and \
+			   tile_pos.y >= top_left.y and tile_pos.y <= bottom_right.y:
+				in_area = true
+				break
+		if in_area:
+			result.append(dec)
+	return result
+
+func _would_overlap_decoration(new_pos: Vector2i, new_width: int, new_height: int) -> bool:
+	"""Check if a new entity would overlap with any existing decoration"""
+	for existing in decorations.values():
+		var ex_pos = existing.grid_position
+		var ex_width = existing.size.x
+		var ex_height = existing.size.y
+
+		var new_right = new_pos.x + new_width
+		var new_bottom = new_pos.y + new_height
+		var ex_right = ex_pos.x + ex_width
+		var ex_bottom = ex_pos.y + ex_height
+
+		if new_pos.x < ex_right and new_right > ex_pos.x and new_pos.y < ex_bottom and new_bottom > ex_pos.y:
+			return true
+	return false
+
+func is_tile_occupied_by_decoration(grid_pos: Vector2i) -> bool:
+	"""Check if a tile is occupied by any decoration (including multi-tile)"""
+	return get_decoration_at(grid_pos) != null
+
 func _restore_terrain(grid_pos: Vector2i) -> void:
 	"""Restore the original terrain type after removing an entity"""
 	if not terrain_grid:
@@ -309,6 +422,7 @@ func serialize() -> Dictionary:
 		"buildings": {},
 		"trees": {},
 		"rocks": {},
+		"decorations": {},
 		"original_terrain": {}
 	}
 
@@ -320,6 +434,9 @@ func serialize() -> Dictionary:
 
 	for pos in rocks:
 		data["rocks"]["%d,%d" % [pos.x, pos.y]] = rocks[pos].get_rock_info()
+
+	for pos in decorations:
+		data["decorations"]["%d,%d" % [pos.x, pos.y]] = decorations[pos].get_decoration_info()
 
 	for pos in _original_terrain:
 		data["original_terrain"]["%d,%d" % [pos.x, pos.y]] = _original_terrain[pos]
@@ -337,6 +454,9 @@ func clear_all() -> void:
 	for pos in rocks.keys():
 		rocks[pos].destroy()
 	rocks.clear()
+	for pos in decorations.keys():
+		decorations[pos].destroy()
+	decorations.clear()
 	_original_terrain.clear()
 
 func deserialize(data: Dictionary) -> void:
@@ -394,6 +514,18 @@ func deserialize(data: Dictionary) -> void:
 					rock_size_val = rock_data_saved.get("size", rock_data_saved.get("rock_size", "medium"))
 				place_rock(pos, rock_size_val)
 
+	if data.has("decorations"):
+		for key in data["decorations"]:
+			var parts = key.split(",")
+			if parts.size() == 2:
+				var pos = Vector2i(int(parts[0]), int(parts[1]))
+				var dec_data_saved = data["decorations"][key]
+				var dec_type = ""
+				if dec_data_saved is Dictionary:
+					dec_type = dec_data_saved.get("type", "")
+				if not dec_type.is_empty() and not decoration_registry.is_empty():
+					place_decoration(dec_type, pos, decoration_registry)
+
 func _on_building_selected(building: Building) -> void:
 	building_selected.emit(building)
 
@@ -410,4 +542,10 @@ func _on_rock_selected(rock: Rock) -> void:
 	pass  # Handle rock selection if needed
 
 func _on_rock_destroyed(rock: Rock) -> void:
+	pass  # Clean up if needed
+
+func _on_decoration_selected(decoration: Decoration) -> void:
+	pass  # Handle decoration selection if needed
+
+func _on_decoration_destroyed(decoration: Decoration) -> void:
 	pass  # Clean up if needed

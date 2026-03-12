@@ -11,7 +11,7 @@ This document reviews the current game state and proposes specs that should be w
 
 | # | Document | Location | Priority | Status |
 |---|----------|----------|----------|--------|
-| — | Course Design Upgrades | [`course-design-upgrades.md`](course-design-upgrades.md) | HIGH | Partial (pin/tee/green move modes done) |
+| — | Course Design Upgrades | [`completed/course-design-upgrades.md`](completed/course-design-upgrades.md) | HIGH | Completed |
 | 1 | Simulated Tournament Rounds | [`completed/simulated-tournament-rounds.md`](completed/simulated-tournament-rounds.md) | CRITICAL | Completed |
 | 2 | Spectator Camera & Live Scorecard | [`spectator-camera-live-scorecard.md`](spectator-camera-live-scorecard.md) | HIGH | Proposal |
 | 3 | Seasonal System Expansion | [`completed/seasonal-system-expansion.md`](completed/seasonal-system-expansion.md) | HIGH | Completed |
@@ -20,7 +20,7 @@ This document reviews the current game state and proposes specs that should be w
 | 6 | Career / Progression Mode | [`career-progression-mode.md`](career-progression-mode.md) | MEDIUM-HIGH | Proposal |
 | 7 | Audio Design Document | [`audio-design.md`](audio-design.md) | MEDIUM | Proposal |
 | 8 | Notification & Event Feed | [`completed/notification-event-feed.md`](completed/notification-event-feed.md) | MEDIUM | Completed |
-| 9 | Expanded Decorations & Aesthetics | [`expanded-decorations-aesthetic-rating.md`](expanded-decorations-aesthetic-rating.md) | MEDIUM | Proposal |
+| 9 | Expanded Decorations & Aesthetics | [`completed/expanded-decorations-aesthetic-rating.md`](completed/expanded-decorations-aesthetic-rating.md) | MEDIUM | Completed |
 | 10 | Course Scorecard & Hole Handicaps | [`completed/course-scorecard-hole-handicaps.md`](completed/course-scorecard-hole-handicaps.md) | MEDIUM | Completed |
 | 11 | Golfer Visual Differentiation | [`golfer-visual-differentiation.md`](golfer-visual-differentiation.md) | MEDIUM | Proposal |
 | 12 | Visual Polish (Sprites/Art) | [`visual-polish.md`](visual-polish.md) | MEDIUM | Proposal |

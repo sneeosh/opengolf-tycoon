@@ -2,8 +2,9 @@
 
 **Author:** Claude (Product)
 **Date:** 2026-02-27
-**Status:** Proposal
+**Status:** Completed
 **Priority:** MEDIUM
+**Completed:** 2026-03-12
 **Version:** 0.1.0-alpha context
 
 ---
@@ -394,3 +395,34 @@ Phase 5 (Algorithm Doc):
 | Decoration "sets" / themed packs | Simple individual placement is sufficient |
 | Golfer interaction with decorations (sitting on bench) | Requires new golfer states |
 | Decoration tool (drag-to-resize hedge rows) | Individual placement is simpler |
+
+---
+
+## Implementation Notes
+
+**Completed 2026-03-12.** Implemented as a subset of the full proposal:
+
+### What was built
+- **12 decoration types** (of 30+ proposed): flower_garden, ornamental_grass, topiary, fountain, bird_bath, gazebo, course_signage, ball_washer, park_bench, waste_bin, golfer_statue, sundial
+- **All decorations are 1×1 tiles** (spec proposed 2×2/3×3 for some — simplified after playtesting)
+- **Aesthetics rating** (10% of course rating) with diminishing returns, variety bonus, theme bonus
+- **PixelLab-generated sprites** for all 12 types with procedural polygon fallback
+- **Full economy integration**: daily upkeep in financial panel, operating costs
+- **Undo/redo support**, bulldozer removal, save/load serialization
+- **Hotkey O** (spec proposed D, but D conflicts with WASD camera controls)
+- **Unlock gates**: fountain (3-star), golfer_statue (4-star), sundial (50 rep)
+
+### What was deferred
+- 18+ additional decoration types (hedge row, decorative pond, waterfall, bridge, pergola, picnic area, planter box, tee marker, yardage marker, course logo stone, trophy display)
+- Multi-place mode (Shift to repeat)
+- Condition × aesthetics coupling (low condition halving aesthetics)
+- Category tab UI (implemented as grouped list in AcceptDialog instead)
+
+### Key files
+- `data/decorations.json` — decoration definitions
+- `scripts/entities/decoration.gd` — entity class
+- `scripts/course/entity_layer.gd` — placement/removal/serialization
+- `scripts/systems/course_rating_system.gd` — aesthetics rating calculation
+- `scripts/managers/placement_manager.gd` — DECORATION placement mode
+- `docs/algorithms/aesthetics-rating.md` — algorithm documentation
+- `docs/algorithms/course-rating.md` — updated weights documentation

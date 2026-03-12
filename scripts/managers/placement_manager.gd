@@ -9,13 +9,16 @@ enum PlacementMode {
 	NONE = 0,
 	BUILDING = 1,
 	TREE = 2,
-	ROCK = 3
+	ROCK = 3,
+	DECORATION = 4
 }
 
 var placement_mode: PlacementMode = PlacementMode.NONE
 var selected_building_type: String = ""
 var selected_tree_type: String = "oak"
 var selected_rock_size: String = "medium"
+var selected_decoration_type: String = ""
+var selected_decoration_data: Dictionary = {}
 var current_placement_data: Dictionary = {}
 
 func start_building_placement(building_type: String, building_data: Dictionary) -> void:
@@ -41,9 +44,20 @@ func start_rock_placement(rock_size: String = "medium") -> void:
 	placement_mode_changed.emit(placement_mode)
 	print("Started rock placement: %s" % rock_size)
 
+func start_decoration_placement(dec_type: String, dec_data: Dictionary) -> void:
+	placement_mode = PlacementMode.DECORATION
+	selected_building_type = ""
+	selected_decoration_type = dec_type
+	selected_decoration_data = dec_data.duplicate(true)
+	current_placement_data = dec_data.duplicate(true)
+	placement_mode_changed.emit(placement_mode)
+	print("Started decoration placement: %s" % dec_type)
+
 func cancel_placement() -> void:
 	placement_mode = PlacementMode.NONE
 	selected_building_type = ""
+	selected_decoration_type = ""
+	selected_decoration_data = {}
 	current_placement_data = {}
 	placement_mode_changed.emit(placement_mode)
 
@@ -57,6 +71,8 @@ func can_place_at(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 		return _can_place_building(grid_pos, terrain_grid)
 	elif placement_mode == PlacementMode.ROCK:
 		return _can_place_rock(grid_pos, terrain_grid)
+	elif placement_mode == PlacementMode.DECORATION:
+		return _can_place_decoration(grid_pos, terrain_grid)
 
 	return false
 
@@ -121,6 +137,36 @@ func _can_place_building(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 	
 	return true
 
+func _can_place_decoration(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
+	if not terrain_grid.is_valid_position(grid_pos):
+		return false
+
+	var sz = selected_decoration_data.get("size", [1, 1])
+	var width = int(sz[0])
+	var height = int(sz[1])
+	var placeable = selected_decoration_data.get("placeable_terrain", ["grass"])
+
+	# Map terrain name strings to TerrainTypes
+	var valid_types: Array = []
+	for terrain_name in placeable:
+		match terrain_name:
+			"grass": valid_types.append(TerrainTypes.Type.GRASS)
+			"fairway": valid_types.append(TerrainTypes.Type.FAIRWAY)
+			"rough": valid_types.append(TerrainTypes.Type.ROUGH)
+			"heavy_rough": valid_types.append(TerrainTypes.Type.HEAVY_ROUGH)
+			"path": valid_types.append(TerrainTypes.Type.PATH)
+
+	for x in range(width):
+		for y in range(height):
+			var check_pos = grid_pos + Vector2i(x, y)
+			if not terrain_grid.is_valid_position(check_pos):
+				return false
+			var tile_type = terrain_grid.get_tile(check_pos)
+			if not (tile_type in valid_types):
+				return false
+
+	return true
+
 func get_placement_cost() -> int:
 	if placement_mode == PlacementMode.TREE:
 		var tree_data = TreeEntity.TREE_PROPERTIES.get(selected_tree_type, {})
@@ -135,21 +181,27 @@ func get_placement_cost() -> int:
 		return rock_costs.get(selected_rock_size, 15)
 	elif placement_mode == PlacementMode.BUILDING:
 		return current_placement_data.get("cost", 0)
+	elif placement_mode == PlacementMode.DECORATION:
+		return selected_decoration_data.get("cost", 0)
 
 	return 0
 
-func get_building_footprint() -> Array:
-	"""Returns array of Vector2i positions for building footprint"""
-	if placement_mode != PlacementMode.BUILDING:
+func get_placement_footprint() -> Array:
+	"""Returns array of Vector2i positions for building or decoration footprint"""
+	if placement_mode != PlacementMode.BUILDING and placement_mode != PlacementMode.DECORATION:
 		return []
-	
+
 	var size = current_placement_data.get("size", [1, 1])
 	var width = size[0] as int
 	var height = size[1] as int
 	var footprint: Array = []
-	
+
 	for x in range(width):
 		for y in range(height):
 			footprint.append(Vector2i(x, y))
-	
+
 	return footprint
+
+func get_building_footprint() -> Array:
+	"""Returns array of Vector2i positions for building footprint (legacy, calls get_placement_footprint)"""
+	return get_placement_footprint()

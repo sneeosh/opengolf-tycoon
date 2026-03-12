@@ -4,15 +4,17 @@
 
 ## Plain English
 
-The course rating system evaluates the course on a **1-5 star scale** across four categories. Each category measures a different aspect of the golfer experience:
+The course rating system evaluates the course on a **1-5 star scale** across five categories. Each category measures a different aspect of the golfer experience:
 
-- **Condition (30% weight):** How well-maintained is the course? Measures the ratio of premium terrain (fairway, green, tee box) in play corridors. A course that's mostly rough with thin fairways scores poorly; wide, well-manicured fairways score well. Staff quality (groundskeepers) applies a condition modifier.
+- **Condition (25% weight):** How well-maintained is the course? Measures the ratio of premium terrain (fairway, green, tee box) in play corridors. A course that's mostly rough with thin fairways scores poorly; wide, well-manicured fairways score well. Staff quality (groundskeepers) applies a condition modifier.
 
-- **Design (20% weight):** Does the course have variety? Rewards having a mix of par 3s, 4s, and 5s. The biggest factor is hole count — an 18-hole course gets a large bonus; a 1-hole course barely registers. A single hole with no variety starts at a low base score.
+- **Design (15% weight):** Does the course have variety? Rewards having a mix of par 3s, 4s, and 5s. The biggest factor is hole count — an 18-hole course gets a large bonus; a 1-hole course barely registers. A single hole with no variety starts at a low base score.
 
 - **Value (30% weight):** Is the course fairly priced? Compares what the golfer pays (green fee x holes) to what the course "should" charge based on reputation and hole count. Charging half the fair price earns 5 stars; charging double earns 1 star. This creates natural pricing pressure — raising fees without improving reputation tanks the rating.
 
 - **Pace (20% weight):** How fast does play move? Uses the bogey-or-worse ratio as a proxy for slow play (more bogeys = more strokes = slower rounds). Marshals (from staff system) improve pace.
+
+- **Aesthetics (10% weight):** How well-landscaped is the course? Scores decorations, trees, and rocks within 8 tiles of each hole's tee and green. Diminishing returns per same type, variety bonuses, and theme-matching multiplier. See [aesthetics-rating.md](aesthetics-rating.md) for full algorithm.
 
 The system also calculates **slope rating** (how much harder the course is for average vs scratch golfers) and **course rating** (expected score for a scratch golfer), following USGA conventions.
 
@@ -27,7 +29,7 @@ A separate prestige multiplier scales reputation gains. Difficult courses (7+ di
 ### 1. Overall Rating
 
 ```
-overall = condition * 0.30 + design * 0.20 + value * 0.30 + pace * 0.20
+overall = condition * 0.25 + design * 0.15 + value * 0.30 + pace * 0.20 + aesthetics * 0.10
 overall = clamp(overall, 1.0, 5.0)
 stars   = round(overall)    # Integer for display
 ```
@@ -189,7 +191,7 @@ if overall < 2.0:
 
 | Parameter | Location | Current Value | Effect |
 | --- | --- | --- | --- |
-| Category weights | `course_rating_system.gd:33-37` | 30/20/30/20 | How much each category matters |
+| Category weights | `course_rating_system.gd:33-38` | 25/15/30/20/10 | How much each category matters |
 | Corridor width | `course_rating_system.gd:163` | 12 tiles | Width of terrain scan |
 | Premium ratio divisor | `course_rating_system.gd:178` | 0.15 | Lower = easier to get 5-star condition |
 | Design base score | `course_rating_system.gd:211` | 1.5 | Starting design score |

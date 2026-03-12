@@ -29,6 +29,8 @@ signal terrain_tile_changed(position: Vector2i, old_type: int, new_type: int)
 signal building_placed(building_type: String, position: Vector2i)
 signal building_removed(position: Vector2i)
 signal building_upgraded(building, new_level: int)
+signal decoration_placed(decoration_type: String, position: Vector2i)
+signal decoration_removed(position: Vector2i)
 
 # Course Design Signals
 signal hole_created(hole_number: int, par: int, distance_yards: int)

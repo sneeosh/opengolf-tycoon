@@ -48,6 +48,7 @@ var rain_overlay: RainOverlay = null
 var day_night_system: DayNightSystem = null
 var elevation_tool: ElevationTool = ElevationTool.new()
 var building_registry: Dictionary = {}
+var decoration_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
 var building_info_panel: BuildingInfoPanel = null
 var financial_panel: FinancialPanel = null
@@ -96,13 +97,15 @@ func _ready() -> void:
 	# Set terrain grid reference in GameManager
 	GameManager.terrain_grid = terrain_grid
 
-	# Load buildings from JSON
+	# Load buildings and decorations from JSON
 	_load_buildings_data()
+	_load_decorations_data()
 
 	entity_layer = EntityLayer.new()
 	add_child(entity_layer)
 	entity_layer.set_terrain_grid(terrain_grid)
 	entity_layer.set_building_registry(building_registry)
+	entity_layer.set_decoration_registry(decoration_registry)
 	entity_layer.building_selected.connect(_on_building_clicked)
 	GameManager.entity_layer = entity_layer
 
@@ -236,6 +239,22 @@ func _load_buildings_data() -> void:
 		print("Loaded %d building types" % building_registry.size())
 	else:
 		push_error("Invalid buildings.json format")
+
+func _load_decorations_data() -> void:
+	"""Load decorations from decorations.json"""
+	var file = FileAccess.open("res://data/decorations.json", FileAccess.READ)
+	if file == null:
+		push_error("Failed to load decorations.json")
+		return
+
+	var json_string = file.get_as_text()
+	var data = JSON.parse_string(json_string)
+
+	if data and data.has("decorations"):
+		decoration_registry = data["decorations"]
+		print("Loaded %d decoration types" % decoration_registry.size())
+	else:
+		push_error("Invalid decorations.json format")
 
 func _process(_delta: float) -> void:
 	_update_ui()
@@ -398,6 +417,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed("select"):
 		_start_painting()
+		# Consume the event when in placement/bulldozer mode to prevent propagation
+		if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE or bulldozer_mode:
+			get_viewport().set_input_as_handled()
 	elif event.is_action_released("select"):
 		_stop_painting()
 	if is_painting and event is InputEventMouseMotion:
@@ -463,6 +485,7 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.tree_placement_pressed.connect(_on_tree_placement_pressed)
 	terrain_toolbar.rock_placement_pressed.connect(_on_rock_placement_pressed)
 	terrain_toolbar.building_placement_pressed.connect(_on_building_placement_pressed)
+	terrain_toolbar.decoration_placement_pressed.connect(_on_decoration_placement_pressed)
 	terrain_toolbar.raise_elevation_pressed.connect(_on_raise_elevation_pressed)
 	terrain_toolbar.lower_elevation_pressed.connect(_on_lower_elevation_pressed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
@@ -762,6 +785,10 @@ func _update_selection_indicator() -> void:
 		var building_name = placement_manager.selected_building_type.capitalize().replace("_", " ")
 		text += "Building (%s)" % building_name
 		color = Color(0.8, 0.6, 0.4)  # Brown
+	elif placement_manager.placement_mode == PlacementManager.PlacementMode.DECORATION:
+		var dec_name = placement_manager.selected_decoration_data.get("name", placement_manager.selected_decoration_type.capitalize())
+		text += "Decoration (%s)" % dec_name
+		color = Color(0.9, 0.7, 0.5)  # Gold
 	elif bulldozer_mode:
 		text += "Bulldozer"
 		color = Color(1.0, 0.5, 0.3)  # Orange
@@ -1412,6 +1439,121 @@ func _on_rock_size_selected(rock_size: String, dialog: AcceptDialog) -> void:
 	placement_manager.start_rock_placement(rock_size)
 	print("Rock placement mode: %s" % rock_size)
 
+func _on_decoration_placement_pressed() -> void:
+	"""Show decoration selection menu and start decoration placement mode"""
+	_cancel_hole_move_mode()
+	_close_hole_context_menu()
+	hole_tool.cancel_placement()
+	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
+	_disable_terrain_painting_preview()
+	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
+
+	if decoration_registry.is_empty():
+		EventBus.notify("Decoration system not initialized!", "error")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.title = "Place Decoration"
+	dialog.size = Vector2i(420, 400)
+
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(400, 350)
+	var vbox = VBoxContainer.new()
+
+	# Group by category
+	var categories = {"landscaping": "Landscaping", "water": "Water Features", "structures": "Structures", "furniture": "Furniture", "sculptures": "Sculptures"}
+	for cat_id in categories:
+		var cat_name = categories[cat_id]
+		var has_items = false
+		for dec_type in decoration_registry:
+			if decoration_registry[dec_type].get("category", "") == cat_id:
+				has_items = true
+				break
+		if not has_items:
+			continue
+
+		# Category header
+		var header = Label.new()
+		header.text = "— %s —" % cat_name
+		header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		header.add_theme_font_size_override("font_size", 13)
+		header.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
+		vbox.add_child(header)
+
+		for dec_type in decoration_registry:
+			var dec_data = decoration_registry[dec_type]
+			if dec_data.get("category", "") != cat_id:
+				continue
+
+			var dec_name = dec_data.get("name", dec_type.capitalize())
+			var cost_val = dec_data.get("cost", 0)
+			var upkeep = dec_data.get("daily_upkeep", 0)
+			var unlocked = _is_decoration_unlocked(dec_data)
+
+			var btn = Button.new()
+			if upkeep > 0:
+				btn.text = "%s ($%d, $%d/day)" % [dec_name, cost_val, upkeep]
+			else:
+				btn.text = "%s ($%d)" % [dec_name, cost_val]
+			btn.custom_minimum_size = Vector2(380, 32)
+
+			if not unlocked:
+				btn.disabled = true
+				var unlock = dec_data.get("unlock", {})
+				var req_text = _get_unlock_requirement_text(unlock)
+				btn.text = "%s [%s]" % [dec_name, req_text]
+				btn.tooltip_text = "Requires: %s" % req_text
+			else:
+				btn.pressed.connect(_on_decoration_type_selected.bind(dec_type, dialog))
+
+			vbox.add_child(btn)
+
+	scroll.add_child(vbox)
+	dialog.add_child(scroll)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered_ratio(0.4)
+
+func _on_decoration_type_selected(dec_type: String, dialog: AcceptDialog) -> void:
+	"""Handle decoration type selection"""
+	dialog.queue_free()
+	if dec_type in decoration_registry:
+		var dec_data = decoration_registry[dec_type]
+		placement_manager.start_decoration_placement(dec_type, dec_data)
+		print("Decoration placement mode: %s" % dec_type)
+
+func _is_decoration_unlocked(dec_data: Dictionary) -> bool:
+	"""Check if a decoration meets its unlock requirements"""
+	var unlock = dec_data.get("unlock")
+	if unlock == null or (unlock is Dictionary and unlock.is_empty()):
+		return true
+	if not unlock is Dictionary:
+		return true
+	match unlock.get("type", ""):
+		"star_rating":
+			return GameManager.course_rating.get("stars", 0) >= unlock.get("value", 99)
+		"reputation":
+			return GameManager.reputation >= unlock.get("value", 999)
+		"holes_built":
+			var hole_count = GameManager.current_course.holes.size() if GameManager.current_course else 0
+			return hole_count >= unlock.get("value", 99)
+	return false
+
+func _get_unlock_requirement_text(unlock) -> String:
+	"""Get human-readable text for unlock requirement"""
+	if unlock == null or not unlock is Dictionary:
+		return "Unknown"
+	match unlock.get("type", ""):
+		"star_rating":
+			return "%d★ rating" % unlock.get("value", 0)
+		"reputation":
+			return "%d reputation" % unlock.get("value", 0)
+		"holes_built":
+			return "%d holes" % unlock.get("value", 0)
+	return "Unknown"
+
 func _on_raise_elevation_pressed() -> void:
 	_cancel_hole_move_mode()
 	_close_hole_context_menu()
@@ -1589,6 +1731,8 @@ func _handle_placement_click(grid_pos: Vector2i) -> void:
 		_place_building(grid_pos, cost)
 	elif placement_manager.placement_mode == PlacementManager.PlacementMode.ROCK:
 		_place_rock(grid_pos, cost)
+	elif placement_manager.placement_mode == PlacementManager.PlacementMode.DECORATION:
+		_place_decoration(grid_pos, cost)
 
 func _place_tree(grid_pos: Vector2i, cost: int) -> void:
 	"""Place a tree at the grid position"""
@@ -1647,6 +1791,28 @@ func _place_rock(grid_pos: Vector2i, cost: int) -> void:
 	else:
 		EventBus.notify("Failed to place rock!", "error")
 
+func _place_decoration(grid_pos: Vector2i, cost: int) -> void:
+	"""Place a decoration at the grid position"""
+	var dec_type = placement_manager.selected_decoration_type
+	var dec_data = placement_manager.selected_decoration_data
+	var dec_name = dec_data.get("name", dec_type.capitalize())
+
+	var decoration = entity_layer.place_decoration(dec_type, grid_pos, decoration_registry)
+
+	if decoration:
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Decoration: %s" % dec_name, -cost)
+		EventBus.decoration_placed.emit(dec_type, grid_pos)
+		undo_manager.record_entity_placement("decoration", grid_pos, dec_type, cost)
+		print("Placed %s at %s" % [dec_type, grid_pos])
+		_play_placement_feedback(grid_pos, "decoration")
+	else:
+		EventBus.notify("Cannot place here!", "error")
+	# Multi-tile decorations clear placement after placing (like buildings)
+	var sz = dec_data.get("size", [1, 1])
+	if int(sz[0]) > 1 or int(sz[1]) > 1:
+		placement_manager.cancel_placement()
+
 func _play_placement_feedback(grid_pos: Vector2i, placement_type: String) -> void:
 	"""Play visual feedback effects when placing an entity"""
 	var world_pos = terrain_grid.grid_to_screen_center(grid_pos)
@@ -1690,7 +1856,8 @@ func _bulldoze_at_mouse() -> void:
 const BULLDOZER_COSTS = {
 	"tree": 15,
 	"rock": 10,
-	"flower_bed": 20
+	"flower_bed": 20,
+	"decoration": 20
 }
 
 func _handle_bulldozer_click(grid_pos: Vector2i, mouse_world: Vector2 = Vector2.ZERO) -> void:
@@ -1763,6 +1930,26 @@ func _handle_bulldozer_click(grid_pos: Vector2i, mouse_world: Vector2 = Vector2.
 			EventBus.notify("Rock removed (-$%d)" % cost, "info")
 		return
 
+	# Remove decoration at this tile
+	var hit_decoration = entity_layer.get_decoration_at(grid_pos)
+	if hit_decoration:
+		var cost = BULLDOZER_COSTS.get("decoration", 20)
+		if not GameManager.can_afford(cost):
+			if not dragging:
+				if GameManager.is_bankrupt():
+					EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+				else:
+					EventBus.notify("Not enough money to remove decoration ($%d)" % cost, "error")
+			return
+		GameManager.modify_money(-cost)
+		EventBus.log_transaction("Remove decoration", -cost)
+		entity_layer.remove_decoration(hit_decoration.grid_position)
+		_bulldoze_drag_count += 1
+		_bulldoze_drag_cost += cost
+		if not dragging:
+			EventBus.notify("Decoration removed (-$%d)" % cost, "info")
+		return
+
 	# Check for flower bed terrain (exact tile only — flower beds fill their tile)
 	var tile_type = terrain_grid.get_tile(grid_pos)
 	if tile_type == TerrainTypes.Type.FLOWER_BED:
@@ -1798,6 +1985,14 @@ func _calculate_building_operating_costs() -> int:
 			total += op_cost
 	return total
 
+func _calculate_decoration_operating_costs() -> int:
+	"""Sum daily upkeep costs from all placed decorations."""
+	var total: int = 0
+	if entity_layer:
+		for dec in entity_layer.get_all_decorations():
+			total += dec.daily_upkeep
+	return total
+
 func _on_end_of_day(day_number: int) -> void:
 	"""Handle end of day — show summary panel."""
 	# Pause the game while showing the summary
@@ -1807,6 +2002,7 @@ func _on_end_of_day(day_number: int) -> void:
 	var terrain_cost = int(terrain_grid.get_total_maintenance_cost() * GameManager.get_maintenance_multiplier())
 	var hole_count = GameManager.current_course.holes.size() if GameManager.current_course else 0
 	var building_costs = _calculate_building_operating_costs()
+	var decoration_costs = _calculate_decoration_operating_costs()
 
 	# Staff payroll
 	var staff_payroll: int = 0
@@ -1819,7 +2015,7 @@ func _on_end_of_day(day_number: int) -> void:
 	if GameManager.marketing_manager:
 		marketing_cost = GameManager.marketing_manager.process_daily()
 
-	GameManager.daily_stats.calculate_operating_costs(terrain_cost, hole_count, building_costs)
+	GameManager.daily_stats.calculate_operating_costs(terrain_cost, hole_count, building_costs, decoration_costs)
 
 	var total_cost = GameManager.daily_stats.operating_costs + staff_payroll + marketing_cost
 	if total_cost > 0:
@@ -2349,6 +2545,8 @@ func _execute_undo_action(action: Dictionary) -> void:
 					entity_layer.remove_building(grid_pos)
 				"rock":
 					entity_layer.remove_rock(grid_pos)
+				"decoration":
+					entity_layer.remove_decoration(grid_pos)
 			if cost > 0:
 				GameManager.modify_money(cost)
 		"pin_move":
@@ -2425,6 +2623,8 @@ func _execute_redo_action(action: Dictionary) -> void:
 					entity_layer.place_building(subtype, grid_pos, building_registry)
 				"rock":
 					entity_layer.place_rock(grid_pos, subtype)
+				"decoration":
+					entity_layer.place_decoration(subtype, grid_pos, decoration_registry)
 			if cost > 0:
 				GameManager.modify_money(-cost)
 		"pin_move":
@@ -3098,7 +3298,8 @@ func _update_top_bar_rating() -> void:
 		GameManager.current_course,
 		GameManager.daily_stats,
 		GameManager.green_fee,
-		GameManager.reputation
+		GameManager.reputation,
+		GameManager.entity_layer
 	)
 	var stars: float = rating.get("overall", 3.0)
 	top_hud_bar.update_rating(stars)
