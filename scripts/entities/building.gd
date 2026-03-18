@@ -17,6 +17,15 @@ var _shadow_refs: Dictionary = {}
 var _shadow_config: ShadowRenderer.ShadowConfig = null
 var _custom_shadow: Polygon2D = null  # Building-specific shadow shape
 
+## Chimney smoke animation
+var _has_smoke: bool = false
+var _smoke_wisps: Array[Polygon2D] = []
+var _smoke_origin: Vector2 = Vector2.ZERO
+
+## Window glow for dusk/night
+var _window_glow_overlays: Array[Polygon2D] = []
+var _windows_glowing: bool = false
+
 @onready var sprite: Sprite2D = $Sprite2D if has_node("Sprite2D") else null
 @onready var collision_shape: CollisionShape2D = $Area2D/CollisionShape2D if has_node("Area2D/CollisionShape2D") else null
 
@@ -32,6 +41,23 @@ const SPRITE_PATHS: Dictionary = {
 	"cart_shed": "res://assets/sprites/buildings/cart_shed.png",
 	"restroom": "res://assets/sprites/buildings/restroom.png",
 	"bench": "res://assets/sprites/buildings/bench.png",
+}
+
+## Chimney position offsets relative to sprite position (fraction of tex_size)
+const CHIMNEY_OFFSETS: Dictionary = {
+	"restaurant": Vector2(0.72, 0.05),
+	"clubhouse_2": Vector2(0.48, 0.02),
+	"clubhouse_3": Vector2(0.42, 0.02),
+}
+
+## Window glow rectangles relative to sprite position (Rect2 in pixels from sprite origin)
+## These are approximate and may need tuning per sprite
+const WINDOW_GLOW_RECTS: Dictionary = {
+	"clubhouse_1": [Rect2(28, 48, 16, 14), Rect2(88, 48, 16, 14)],
+	"clubhouse_3": [Rect2(32, 35, 14, 12), Rect2(68, 35, 14, 12)],
+	"pro_shop": [Rect2(18, 32, 50, 22)],
+	"snack_bar": [Rect2(14, 22, 28, 14)],
+	"restroom": [Rect2(14, 22, 10, 10), Rect2(38, 22, 10, 10)],
 }
 
 signal building_selected(building: Building)
@@ -62,11 +88,16 @@ func _ready() -> void:
 		if shadow_system.has_signal("sun_direction_changed"):
 			shadow_system.sun_direction_changed.connect(_on_sun_direction_changed)
 
+	# Connect to hour changes for window glow
+	EventBus.hour_changed.connect(_on_hour_changed_for_glow)
+
 func _exit_tree() -> void:
 	if has_node("/root/ShadowSystem"):
 		var shadow_system = get_node("/root/ShadowSystem")
 		if shadow_system.sun_direction_changed.is_connected(_on_sun_direction_changed):
 			shadow_system.sun_direction_changed.disconnect(_on_sun_direction_changed)
+	if EventBus.hour_changed.is_connected(_on_hour_changed_for_glow):
+		EventBus.hour_changed.disconnect(_on_hour_changed_for_glow)
 
 func _on_click_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -137,6 +168,10 @@ func upgrade() -> bool:
 	EventBus.log_transaction("Upgraded %s" % building_type, -cost)
 
 	upgrade_level += 1
+
+	# Clean up smoke/glow state before rebuilding visuals
+	_smoke_wisps.clear()
+	_window_glow_overlays.clear()
 
 	# Refresh visuals - use call_deferred to avoid race with queue_free
 	for child in get_children():
@@ -249,6 +284,12 @@ func _update_visuals() -> void:
 		# Add isometric side wall strip for 3D depth (skip bench — it's open)
 		if building_type != "bench":
 			_add_isometric_depth(visual, size_x, size_y)
+
+	# Set up chimney smoke for restaurant and clubhouse L2+
+	_setup_smoke(visual)
+
+	# Set up window glow overlays (initially hidden)
+	_setup_window_glow(visual)
 
 	# Add click detection area
 	var click_area = Area2D.new()
@@ -1351,12 +1392,192 @@ func restore_from_info(info: Dictionary) -> void:
 	var new_level = info.get("upgrade_level", 1)
 	if new_level != upgrade_level:
 		upgrade_level = new_level
+		# Clean up smoke/glow state before rebuilding visuals
+		_smoke_wisps.clear()
+		_window_glow_overlays.clear()
 		# Refresh visuals to match upgraded state
 		for child in get_children():
 			if child.name == "Visual" or child.name == "ClickArea":
 				child.queue_free()
 		# Use call_deferred to ensure old nodes are freed first
 		call_deferred("_update_visuals")
+
+## ── Chimney Smoke ──────────────────────────────────────────────────────────
+
+func _setup_smoke(visual: Node2D) -> void:
+	"""Set up chimney smoke wisps for restaurant and clubhouse L2+"""
+	_smoke_wisps.clear()
+	_has_smoke = false
+
+	# Determine smoke key
+	var smoke_key = ""
+	if building_type == "restaurant":
+		smoke_key = "restaurant"
+	elif building_type == "clubhouse" and upgrade_level >= 2:
+		smoke_key = "clubhouse_%d" % upgrade_level
+
+	if smoke_key.is_empty() or smoke_key not in CHIMNEY_OFFSETS:
+		return
+
+	# Find the building sprite to get chimney position
+	var sprite_key = smoke_key if smoke_key != "restaurant" else "restaurant"
+	if building_type == "clubhouse":
+		sprite_key = "clubhouse_%d" % upgrade_level
+	if sprite_key not in SPRITE_PATHS or not ResourceLoader.exists(SPRITE_PATHS[sprite_key]):
+		return
+
+	var tex = load(SPRITE_PATHS[sprite_key])
+	if not tex:
+		return
+
+	var tex_size = tex.get_size()
+	var tile_w = 64
+	var tile_h = 32
+	var size_x = width * tile_w
+	var size_y = height * tile_h
+
+	# Sprite position (same as in _update_visuals)
+	var sprite_pos = Vector2(
+		(size_x - tex_size.x) / 2.0,
+		size_y - tex_size.y
+	)
+
+	# Chimney offset is fraction of tex_size
+	var offset = CHIMNEY_OFFSETS[smoke_key]
+	_smoke_origin = sprite_pos + Vector2(tex_size.x * offset.x, tex_size.y * offset.y)
+
+	_has_smoke = true
+
+	# Create 3 smoke wisp circles
+	for i in range(3):
+		var wisp = Polygon2D.new()
+		wisp.name = "SmokeWisp_%d" % i
+		# Small circle (6 points)
+		var points = PackedVector2Array()
+		for j in range(6):
+			var angle = (j / 6.0) * TAU
+			points.append(Vector2(cos(angle) * 3, sin(angle) * 3))
+		wisp.polygon = points
+		wisp.color = Color(0.75, 0.75, 0.8, 0.0)  # Start invisible
+		wisp.position = _smoke_origin
+		wisp.z_index = 1
+		visual.add_child(wisp)
+		_smoke_wisps.append(wisp)
+
+	# Start the smoke animation loop
+	_start_smoke_animation()
+
+func _start_smoke_animation() -> void:
+	"""Start a repeating smoke animation using a timer callback"""
+	if _smoke_wisps.is_empty():
+		return
+	# Kick off the first wisp, then stagger the rest
+	for i in range(_smoke_wisps.size()):
+		# Use a one-shot timer for initial stagger
+		get_tree().create_timer(i * 0.9).timeout.connect(_animate_single_wisp.bind(i))
+
+func _animate_single_wisp(index: int) -> void:
+	"""Animate a single smoke wisp rising and fading, then loop"""
+	if index < 0 or index >= _smoke_wisps.size():
+		return
+	var wisp = _smoke_wisps[index]
+	if not is_instance_valid(wisp):
+		return
+
+	var duration = 2.5
+
+	# Reset to origin
+	wisp.position = _smoke_origin
+	wisp.scale = Vector2.ONE
+	wisp.color = Color(0.75, 0.75, 0.8, 0.0)
+
+	var drift_x = randf_range(-4, 4)
+
+	# Movement tween (parallel): rise, drift, expand over full duration
+	var move_tween = create_tween().set_parallel(true)
+	move_tween.tween_property(wisp, "position:y", _smoke_origin.y - 18, duration).set_ease(Tween.EASE_OUT)
+	move_tween.tween_property(wisp, "position:x", _smoke_origin.x + drift_x, duration).set_ease(Tween.EASE_OUT)
+	move_tween.tween_property(wisp, "scale", Vector2(1.6, 1.6), duration).set_ease(Tween.EASE_OUT)
+
+	# Alpha tween (sequential): fade in quickly, then fade out
+	var alpha_tween = create_tween()
+	alpha_tween.tween_property(wisp, "color:a", 0.22, duration * 0.15).set_ease(Tween.EASE_IN)
+	alpha_tween.tween_property(wisp, "color:a", 0.0, duration * 0.85).set_ease(Tween.EASE_OUT)
+
+	# When movement finishes, loop this wisp
+	move_tween.chain().tween_callback(_animate_single_wisp.bind(index))
+
+## ── Window Glow ───────────────────────────────────────────────────────────
+
+func _setup_window_glow(visual: Node2D) -> void:
+	"""Set up warm window glow overlays for dusk/night"""
+	_window_glow_overlays.clear()
+	_windows_glowing = false
+
+	var sprite_key = building_type
+	if building_type == "clubhouse":
+		sprite_key = "clubhouse_%d" % upgrade_level
+
+	if sprite_key not in WINDOW_GLOW_RECTS:
+		return
+
+	if sprite_key not in SPRITE_PATHS or not ResourceLoader.exists(SPRITE_PATHS[sprite_key]):
+		return
+
+	var tex = load(SPRITE_PATHS[sprite_key])
+	if not tex:
+		return
+
+	var tex_size = tex.get_size()
+	var tile_w = 64
+	var tile_h = 32
+	var size_x = width * tile_w
+	var size_y = height * tile_h
+
+	# Sprite position (same as in _update_visuals)
+	var sprite_pos = Vector2(
+		(size_x - tex_size.x) / 2.0,
+		size_y - tex_size.y
+	)
+
+	var rects = WINDOW_GLOW_RECTS[sprite_key]
+	for rect in rects:
+		var glow = Polygon2D.new()
+		glow.name = "WindowGlow"
+		glow.color = Color(1.0, 0.9, 0.5, 0.35)
+		var r: Rect2 = rect
+		glow.polygon = PackedVector2Array([
+			sprite_pos + Vector2(r.position.x, r.position.y),
+			sprite_pos + Vector2(r.position.x + r.size.x, r.position.y),
+			sprite_pos + Vector2(r.position.x + r.size.x, r.position.y + r.size.y),
+			sprite_pos + Vector2(r.position.x, r.position.y + r.size.y),
+		])
+		glow.visible = false
+		glow.z_index = 1
+		visual.add_child(glow)
+		_window_glow_overlays.append(glow)
+
+	# Apply current hour state immediately
+	if GameManager.current_hour >= 17.0 or GameManager.current_hour < 6.0:
+		_set_glow_visible(true)
+
+func _on_hour_changed_for_glow(hour: float) -> void:
+	"""Toggle window glow based on time of day"""
+	if hour >= 17.0 or hour < 6.0:
+		_set_glow_visible(true)
+	else:
+		_set_glow_visible(false)
+
+func _set_glow_visible(show_glow: bool) -> void:
+	"""Show or hide window glow overlays"""
+	if show_glow == _windows_glowing:
+		return
+	_windows_glowing = show_glow
+	for glow in _window_glow_overlays:
+		if is_instance_valid(glow):
+			glow.visible = show_glow
+
+## ── Shadow Updates ─────────────────────────────────────────────────────────
 
 func _on_sun_direction_changed(_new_direction: float) -> void:
 	"""Update shadow colors when sun direction changes"""

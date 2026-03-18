@@ -54,6 +54,29 @@ const TREE_VARIATION: Dictionary = {
 ## Types that don't draw a standard tree trunk
 const TRUNKLESS_TYPES: Array = ["cactus", "fescue", "cattails", "bush", "heather"]
 
+## Deciduous tree types that change with seasons
+const DECIDUOUS_TYPES: Array = ["oak", "maple", "birch"]
+
+## Course themes where pine trees get snow in winter
+var SNOWY_THEMES: Array = [CourseTheme.Type.PARKLAND, CourseTheme.Type.MOUNTAIN, CourseTheme.Type.HEATHLAND]
+
+## Seasonal sprite paths for deciduous trees + snowy pine
+const SEASONAL_SPRITE_PATHS: Dictionary = {
+	"oak_spring": "res://assets/sprites/trees/spring/oak.png",
+	"oak_fall": "res://assets/sprites/trees/fall/oak.png",
+	"oak_winter": "res://assets/sprites/trees/winter/oak.png",
+	"maple_spring": "res://assets/sprites/trees/spring/maple.png",
+	"maple_fall": "res://assets/sprites/trees/fall/maple.png",
+	"maple_winter": "res://assets/sprites/trees/winter/maple.png",
+	"birch_spring": "res://assets/sprites/trees/spring/birch.png",
+	"birch_fall": "res://assets/sprites/trees/fall/birch.png",
+	"birch_winter": "res://assets/sprites/trees/winter/birch.png",
+	"pine_winter": "res://assets/sprites/trees/winter/pine.png",
+}
+
+## Track current season to detect changes
+var _current_season: int = -1
+
 ## Sprite textures for types that have pixel art assets (others use procedural drawing)
 const SPRITE_PATHS: Dictionary = {
 	"oak": "res://assets/sprites/trees/oak.png",
@@ -121,11 +144,53 @@ func _ready() -> void:
 		if shadow_system.has_signal("sun_direction_changed"):
 			shadow_system.sun_direction_changed.connect(_on_sun_direction_changed)
 
+	# Connect to season changes for deciduous trees and snowy pines
+	if _is_season_affected():
+		_current_season = SeasonSystem.get_season(GameManager.current_day)
+		EventBus.season_changed.connect(_on_season_changed)
+
 func _exit_tree() -> void:
 	if has_node("/root/ShadowSystem"):
 		var shadow_system = get_node("/root/ShadowSystem")
 		if shadow_system.sun_direction_changed.is_connected(_on_sun_direction_changed):
 			shadow_system.sun_direction_changed.disconnect(_on_sun_direction_changed)
+	if EventBus.season_changed.is_connected(_on_season_changed):
+		EventBus.season_changed.disconnect(_on_season_changed)
+
+func _is_season_affected() -> bool:
+	"""Check if this tree type changes appearance with seasons"""
+	if tree_type in DECIDUOUS_TYPES:
+		return true
+	if tree_type == "pine":
+		return true  # May get snow on appropriate themes
+	return false
+
+func _get_seasonal_sprite_path() -> String:
+	"""Get the appropriate sprite path based on current season and theme"""
+	var season = SeasonSystem.get_season(GameManager.current_day)
+	var season_name = SeasonSystem.get_season_name(season).to_lower()
+
+	# Deciduous trees change every season except summer
+	if tree_type in DECIDUOUS_TYPES and season_name != "summer":
+		var key = "%s_%s" % [tree_type, season_name]
+		if key in SEASONAL_SPRITE_PATHS and ResourceLoader.exists(SEASONAL_SPRITE_PATHS[key]):
+			return SEASONAL_SPRITE_PATHS[key]
+
+	# Pine gets snowy in winter on appropriate themes
+	if tree_type == "pine" and season_name == "winter":
+		if GameManager.current_theme in SNOWY_THEMES:
+			var key = "pine_winter"
+			if key in SEASONAL_SPRITE_PATHS and ResourceLoader.exists(SEASONAL_SPRITE_PATHS[key]):
+				return SEASONAL_SPRITE_PATHS[key]
+
+	# Fall back to default sprite
+	return SPRITE_PATHS.get(tree_type, "")
+
+func _on_season_changed(_old_season: int, new_season: int) -> void:
+	"""Rebuild visuals when season changes"""
+	if new_season != _current_season:
+		_current_season = new_season
+		_update_visuals()
 
 func set_tree_type(type: String) -> void:
 	"""Set the tree type and load its data"""
@@ -272,10 +337,16 @@ func _update_visuals() -> void:
 	visual.position.y = -base_y * scale_mult
 
 func _draw_sprite(visual: Node2D) -> void:
-	"""Draw tree using pixel art sprite texture"""
+	"""Draw tree using pixel art sprite texture, with seasonal variants"""
+	var sprite_path = _get_seasonal_sprite_path()
+	if sprite_path.is_empty():
+		sprite_path = SPRITE_PATHS.get(tree_type, "")
+	if sprite_path.is_empty():
+		return
+
 	var sprite = Sprite2D.new()
 	sprite.name = "TreeSprite"
-	sprite.texture = load(SPRITE_PATHS[tree_type])
+	sprite.texture = load(sprite_path)
 	sprite.centered = true
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	# Apply color variation as a modulate tint
