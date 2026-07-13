@@ -2,8 +2,9 @@
 .godot/
 *.uid
 
-# Claude Code
-.claude/
+# Claude Code (local session state stays ignored; shared skills are committed)
+.claude/*
+!.claude/skills/
 .mcp.json
 
 # MCP addons (local dev tools)
