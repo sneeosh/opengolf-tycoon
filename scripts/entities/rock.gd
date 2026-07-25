@@ -36,7 +36,7 @@ const SPRITE_PATHS: Dictionary = {
 const SPRITE_BASE_OFFSETS: Dictionary = {
 	# Offset = rock_base_from_top - sprite_height/2
 	# Positions the rock's ground contact point at tile center
-	"small": 6.0,    # 32px sprite, rock base ~22px from top
+	"small": 14.0,   # 32px Parkland sprite, rock base ~30px from top
 	"medium": 10.0,  # 48px sprite, rock base ~34px from top
 	"large": 14.0,   # 64px sprite, rock base ~46px from top
 }

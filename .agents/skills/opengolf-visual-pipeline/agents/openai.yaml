@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenGolf Visual Pipeline"
+  short_description: "Generate and validate cohesive OpenGolf art"
+  default_prompt: "Use $opengolf-visual-pipeline to plan or execute a guarded visual upgrade for OpenGolf Tycoon."

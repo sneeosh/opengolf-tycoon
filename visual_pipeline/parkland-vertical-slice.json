@@ -1,0 +1,71 @@
+{
+  "id": "parkland-vertical-slice",
+  "status": "runtime-validated-with-followups",
+  "goal": "Approve one cohesive Parkland gameplay screen before expanding to other themes.",
+  "canonical_view": {
+    "projection": "orthographic 2:1 isometric",
+    "tile_diamond_px": [64, 32],
+    "viewport_px": [1600, 1000],
+    "light_direction": "upper-left"
+  },
+  "batches": [
+    {
+      "id": "hero-building",
+      "priority": 1,
+      "status": "runtime-validated",
+      "slots": ["clubhouse_1"],
+      "canvas_px": [200, 160],
+      "acceptance": [
+        "matches the existing footprint and bottom-center anchor",
+        "reads clearly at normal gameplay zoom",
+        "establishes the projection, material, edge, and lighting language"
+      ]
+    },
+    {
+      "id": "golfer-proof",
+      "priority": 2,
+      "status": "proof-only",
+      "slots": ["beginner_idle_east", "beginner_walk_east", "beginner_swing_east"],
+      "canvas_px": [48, 48],
+      "acceptance": [
+        "feet remain stable across frames",
+        "pose and golf club survive 48px downscaling",
+        "directional strategy is compatible with existing flip/rotation behavior"
+      ]
+    },
+    {
+      "id": "core-building-family",
+      "priority": 3,
+      "status": "runtime-validated-partial-family",
+      "slots": ["clubhouse_2", "clubhouse_3", "pro_shop", "snack_bar", "restroom", "bench"],
+      "canvas_px": [200, 160],
+      "acceptance": [
+        "shared material and lighting language",
+        "distinct silhouettes and upgrade hierarchy",
+        "placement previews and selection bounds remain correct"
+      ]
+    },
+    {
+      "id": "environment-proof",
+      "priority": 4,
+      "status": "runtime-validated-with-seasonal-followups",
+      "slots": ["oak", "pine", "rock", "flowers", "flag", "golf_cart"],
+      "acceptance": [
+        "consistent scale and ground contact",
+        "seasonal and weather states remain readable",
+        "no doubled baked/runtime shadows"
+      ]
+    },
+    {
+      "id": "terrain-ui-polish",
+      "priority": 5,
+      "status": "ui-runtime-validated-terrain-reference-only",
+      "slots": ["terrain_atlas", "hud_chrome", "information_panel", "placement_preview"],
+      "acceptance": [
+        "terrain types remain instantly distinguishable",
+        "UI retains accessible contrast and colorblind cues",
+        "web build maintains its performance target"
+      ]
+    }
+  ]
+}

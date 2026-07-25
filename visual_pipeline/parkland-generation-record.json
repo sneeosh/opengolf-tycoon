@@ -1,0 +1,53 @@
+{
+  "slice": "parkland",
+  "generated_on": "2026-07-24",
+  "art_direction": "Friendly premium management-game illustration, orthographic 2:1 isometric projection, readable silhouettes at gameplay zoom, warm upper-left light, cream painted surfaces, cedar-brown roofs and trim, deep parkland green accents, restrained dark outlines, transparent background, no text or logos, no baked cast shadow.",
+  "providers": {
+    "images": "gemini-3.1-flash-image-preview",
+    "motion": "grok-imagine-video"
+  },
+  "image_batches": [
+    {
+      "brief": "Generate the Parkland clubhouse hero and matching pro shop, snack bar, restroom, bench, and wide six-bay driving range as separate transparent drop-in game assets using the shared art direction and existing canvas/anchor contracts.",
+      "outputs": ["clubhouse_1", "pro_shop", "snack_bar", "restroom", "bench", "driving_range"],
+      "calls": 8,
+      "cost_usd": 0.56,
+      "notes": "Driving range used two revisions. The runtime-validated final isolates the primary pavilion from the third generation's concept sheet and prepares it as a deeper 270x124 subject inside the unchanged 384x128 canvas."
+    },
+    {
+      "brief": "Generate a cohesive Parkland environment set: tall mature oak, narrow pine, small gray rock, low flower bed, pin flag, and compact golf cart, each isolated on transparency with bottom-center ground contact.",
+      "outputs": ["oak", "pine", "small_rock", "flower_bed", "flag", "golf_cart"],
+      "calls": 7,
+      "cost_usd": 0.49,
+      "notes": "Oak used one reroll to improve its tall gameplay silhouette."
+    },
+    {
+      "brief": "Create two full-body golfer tier references in the Parkland style: a beginner in white cap, coral polo, tan shorts, and a pro in white visor, navy polo, stone trousers; preserve a clear golf club and stable feet for animation reference.",
+      "outputs": ["beginner_reference", "pro_reference"],
+      "calls": 2,
+      "cost_usd": 0.14
+    },
+    {
+      "brief": "Create a seven-material Parkland terrain reference board showing grass, striped fairway, rough, putting green, bunker sand, water, and path with consistent isometric lighting and immediately distinct gameplay reads.",
+      "outputs": ["terrain_material_board"],
+      "calls": 1,
+      "resolution": "2K",
+      "cost_usd": 0.10
+    }
+  ],
+  "motion_batch": {
+    "brief": "Animate each approved golfer reference as a short side-view walk and golf swing while preserving costume, proportions, stable ground contact, and the reference illustration style.",
+    "outputs": ["beginner_walk", "beginner_swing", "pro_walk", "pro_swing"],
+    "calls": 4,
+    "duration_seconds_each": 1,
+    "resolution": "480p",
+    "cost_usd": 0.20,
+    "notes": "Beginner walk is proof-only because the club position drifts between frames."
+  },
+  "total_cost_usd": 1.49,
+  "approved_slice_cost_usd": 1.35,
+  "approved_slice_cap_usd": 1.40,
+  "post_validation_replacement_cost_usd": 0.07,
+  "cumulative_slice_cost_usd": 1.42,
+  "promotion_policy": "Only visually reviewed, contract-safe static assets were promoted. Motion and terrain-board outputs remain references."
+}
