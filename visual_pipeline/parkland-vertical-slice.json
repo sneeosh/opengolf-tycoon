@@ -1,6 +1,6 @@
 {
   "id": "parkland-vertical-slice",
-  "status": "static-assets-integrated",
+  "status": "runtime-validated-with-followups",
   "goal": "Approve one cohesive Parkland gameplay screen before expanding to other themes.",
   "canonical_view": {
     "projection": "orthographic 2:1 isometric",
@@ -12,7 +12,7 @@
     {
       "id": "hero-building",
       "priority": 1,
-      "status": "integrated",
+      "status": "runtime-validated",
       "slots": ["clubhouse_1"],
       "canvas_px": [200, 160],
       "acceptance": [
@@ -36,7 +36,7 @@
     {
       "id": "core-building-family",
       "priority": 3,
-      "status": "partially-integrated",
+      "status": "runtime-validated-partial-family",
       "slots": ["clubhouse_2", "clubhouse_3", "pro_shop", "snack_bar", "restroom", "bench"],
       "canvas_px": [200, 160],
       "acceptance": [
@@ -48,7 +48,7 @@
     {
       "id": "environment-proof",
       "priority": 4,
-      "status": "integrated",
+      "status": "runtime-validated-with-seasonal-followups",
       "slots": ["oak", "pine", "rock", "flowers", "flag", "golf_cart"],
       "acceptance": [
         "consistent scale and ground contact",
@@ -59,7 +59,7 @@
     {
       "id": "terrain-ui-polish",
       "priority": 5,
-      "status": "ui-integrated-terrain-reference-only",
+      "status": "ui-runtime-validated-terrain-reference-only",
       "slots": ["terrain_atlas", "hud_chrome", "information_panel", "placement_preview"],
       "acceptance": [
         "terrain types remain instantly distinguishable",
