@@ -1,0 +1,5 @@
+google-genai
+numpy
+pillow
+requests
+xai-sdk

@@ -12,15 +12,21 @@ GODOT ?= $(shell \
 		echo ""; \
 	fi)
 
-.PHONY: test run editor help
+# Override with the Python environment containing Pillow and the API SDKs.
+VISUAL_PYTHON ?= python3
+
+.PHONY: test run editor visual-check visual-audit help
 
 help:
 	@echo "OpenGolf Tycoon - Available commands:"
 	@echo "  make test    - Run unit tests"
 	@echo "  make run     - Run the game"
 	@echo "  make editor  - Open in Godot editor"
+	@echo "  make visual-check - Check visual pipeline dependencies"
+	@echo "  make visual-audit - Inventory committed PNG dimensions"
 	@echo ""
 	@echo "Override Godot path: make test GODOT=/path/to/godot"
+	@echo "Override visual Python: make visual-check VISUAL_PYTHON=/path/to/python"
 
 test:
 	@if [ -z "$(GODOT)" ]; then \
@@ -43,3 +49,9 @@ editor:
 		exit 1; \
 	fi
 	@$(GODOT) --editor --path .
+
+visual-check:
+	@$(VISUAL_PYTHON) .agents/skills/opengolf-visual-pipeline/scripts/check_environment.py
+
+visual-audit:
+	@$(VISUAL_PYTHON) .agents/skills/opengolf-visual-pipeline/scripts/audit_assets.py assets

@@ -50,3 +50,7 @@ package-lock.json
 # Local development
 .env
 .env.local
+.venv/
+
+# Adapted Godogen visual-pipeline scratch outputs
+.visual-pipeline/
