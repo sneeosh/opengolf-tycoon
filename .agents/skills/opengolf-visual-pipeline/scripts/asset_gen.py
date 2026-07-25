@@ -67,7 +67,9 @@ def generate_gemini(args: argparse.Namespace, output: Path) -> None:
         )
     contents.append(args.prompt)
 
-    client = genai.Client()
+    client = genai.Client(
+        http_options=types.HttpOptions(timeout=args.timeout_seconds * 1000)
+    )
     response = client.models.generate_content(
         model=GEMINI_MODEL,
         contents=contents,
@@ -169,6 +171,12 @@ def main() -> None:
     image_parser.add_argument("--size", choices=("512", "1K", "2K", "4K"), default="1K")
     image_parser.add_argument("--aspect-ratio", default="1:1")
     image_parser.add_argument("--image", help="Optional image-to-image reference")
+    image_parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=180,
+        help="Gemini request timeout in seconds (default: 180)",
+    )
     image_parser.add_argument("-o", "--output", required=True)
     image_parser.set_defaults(func=command_image)
 
