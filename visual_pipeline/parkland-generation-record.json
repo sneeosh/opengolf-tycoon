@@ -10,9 +10,9 @@
     {
       "brief": "Generate the Parkland clubhouse hero and matching pro shop, snack bar, restroom, bench, and wide six-bay driving range as separate transparent drop-in game assets using the shared art direction and existing canvas/anchor contracts.",
       "outputs": ["clubhouse_1", "pro_shop", "snack_bar", "restroom", "bench", "driving_range"],
-      "calls": 7,
-      "cost_usd": 0.49,
-      "notes": "Driving range used one reroll to obtain the required wide silhouette."
+      "calls": 8,
+      "cost_usd": 0.56,
+      "notes": "Driving range used two revisions. The runtime-validated final isolates the primary pavilion from the third generation's concept sheet and prepares it as a deeper 270x124 subject inside the unchanged 384x128 canvas."
     },
     {
       "brief": "Generate a cohesive Parkland environment set: tall mature oak, narrow pine, small gray rock, low flower bed, pin flag, and compact golf cart, each isolated on transparency with bottom-center ground contact.",
@@ -44,8 +44,10 @@
     "cost_usd": 0.20,
     "notes": "Beginner walk is proof-only because the club position drifts between frames."
   },
-  "total_cost_usd": 1.42,
+  "total_cost_usd": 1.49,
   "approved_slice_cost_usd": 1.35,
   "approved_slice_cap_usd": 1.40,
+  "post_validation_replacement_cost_usd": 0.07,
+  "cumulative_slice_cost_usd": 1.42,
   "promotion_policy": "Only visually reviewed, contract-safe static assets were promoted. Motion and terrain-board outputs remain references."
 }

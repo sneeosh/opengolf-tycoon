@@ -15,7 +15,7 @@ Validated on 2026-07-25 with the official Godot 4.6.3 macOS universal build on A
 ## Accepted observations
 
 - The six-building family is cohesive and readable at normal gameplay zoom.
-- The 384x128 driving range correctly spans its six-tile footprint; its long, low silhouette remains identifiable at 0.5x.
+- The revised driving range preserves the 384x128 runtime canvas and 6x3 gameplay footprint while using a deeper 270x124 pavilion silhouette. Its three hitting stations remain identifiable at 0.5x without reading as a covered walkway.
 - Runtime shadows do not visibly double the generated art.
 - Dusk toning preserves entity and UI contrast. Old hard-coded glow rectangles remain disabled because they do not match the new windows.
 
