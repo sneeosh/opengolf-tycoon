@@ -96,8 +96,8 @@ const SPRITE_PATHS: Dictionary = {
 const SPRITE_BASE_OFFSETS: Dictionary = {
 	# Offset = trunk_ground_from_top - sprite_height/2
 	# Positions the trunk's ground contact point at tile center
-	"oak": 22.0,       # 80px sprite, trunk ground ~62px from top
-	"pine": 32.0,      # 80px sprite, trunk ground ~72px from top
+	"oak": 40.0,       # 84px Parkland sprite, trunk ground ~82px from top
+	"pine": 38.0,      # 80px Parkland sprite, trunk ground ~78px from top
 	"maple": 20.0,     # 72px sprite, trunk ground ~56px from top
 	"birch": 25.0,     # 80px sprite, trunk ground ~65px from top
 	"palm": 22.0,      # 80px sprite, trunk ground ~62px from top

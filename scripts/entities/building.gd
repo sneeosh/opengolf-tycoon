@@ -53,11 +53,7 @@ const CHIMNEY_OFFSETS: Dictionary = {
 ## Window glow rectangles relative to sprite position (Rect2 in pixels from sprite origin)
 ## These are approximate and may need tuning per sprite
 const WINDOW_GLOW_RECTS: Dictionary = {
-	"clubhouse_1": [Rect2(28, 48, 16, 14), Rect2(88, 48, 16, 14)],
 	"clubhouse_3": [Rect2(32, 35, 14, 12), Rect2(68, 35, 14, 12)],
-	"pro_shop": [Rect2(18, 32, 50, 22)],
-	"snack_bar": [Rect2(14, 22, 28, 14)],
-	"restroom": [Rect2(14, 22, 10, 10), Rect2(38, 22, 10, 10)],
 }
 
 signal building_selected(building: Building)
