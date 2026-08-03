@@ -4,9 +4,10 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"predev": "node tools/copy-data.mjs",
+		"predev": "node tools/copy-data.mjs && node tools/pack-sprites.mjs",
 		"dev": "vite",
-		"prebuild": "node tools/copy-data.mjs",
+		"prebuild": "node tools/copy-data.mjs && node tools/pack-sprites.mjs",
+		"pack": "node tools/pack-sprites.mjs --force",
 		"build": "tsc --noEmit && vite build",
 		"preview": "vite preview",
 		"test": "vitest run",
@@ -16,6 +17,8 @@
 		"pixi.js": "^8.6.6"
 	},
 	"devDependencies": {
+		"@types/pngjs": "^6.0.5",
+		"pngjs": "^7.0.0",
 		"typescript": "^5.7.3",
 		"vite": "^6.0.11",
 		"vitest": "^3.0.5"
