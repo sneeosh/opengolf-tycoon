@@ -51,7 +51,13 @@ image assets are needed for terrain.
       values from the docs plus 10k-sample statistical checks. Interactive **Shot Lab**
       panel: fire volleys at painted terrain, see carry/final scatter color-coded by
       outcome, tweak club/skills/tendency/wind live.
-- [ ] Phase 3 — holes + ShotAI port
+- [x] **Phase 3 — holes + ShotAI**: hole model (auto-par, forward/middle/back tees,
+      quadrant pin rotation), difficulty calculator (7 factors incl. forced carries),
+      stroke index with front/back interleaving, the full 1:1 shot_ai.gd port (1,068
+      lines: candidate scanning, multi-shot planning, recovery, green reading, wind
+      compensation, risk sampling), and a headless shot-by-shot hole player with USGA
+      relief (water drop-at-entry, OB stroke-and-distance). Hole Lab in the sandbox:
+      define a hole with two clicks, AI plays it with a numbered shot trace. 52 new tests.
 - [ ] Phase 4 — golfers (sprites shared from ../assets/sprites)
 - [ ] Phase 5 — tycoon core loop (economy, spawning, day cycle, HUD)
 - [ ] …through Phase 12 — full parity + deploy (see plan in repo history)

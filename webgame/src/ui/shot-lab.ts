@@ -73,6 +73,9 @@ export class ShotLabPanel {
 
 	onSettingsChanged: (() => void) | null = null
 	onClear: (() => void) | null = null
+	onDefineHole: (() => void) | null = null
+	onPlayHole: (() => void) | null = null
+	onClearHole: (() => void) | null = null
 
 	private root: HTMLDivElement
 	private toggleButton: HTMLButtonElement
@@ -80,6 +83,7 @@ export class ShotLabPanel {
 	private statsLabel: HTMLDivElement
 	private tendencySlider!: HTMLInputElement
 	private tendencyReadout!: HTMLSpanElement
+	private defineHoleButton!: HTMLButtonElement
 
 	get skills(): GolferSkills {
 		return { ...SKILL_PRESETS[this.presetIndex].skills, missTendency: this.missTendency }
@@ -201,6 +205,16 @@ export class ShotLabPanel {
 		volleyRow.appendChild(this.button('Clear', () => this.onClear?.()))
 		this.body.appendChild(volleyRow)
 
+		// Hole simulation section
+		this.body.appendChild(this.label('Hole simulation'))
+		const holeRow = document.createElement('div')
+		holeRow.style.cssText = 'display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;'
+		this.defineHoleButton = this.button('Define hole', () => this.onDefineHole?.())
+		holeRow.appendChild(this.defineHoleButton)
+		holeRow.appendChild(this.button('▶ Play hole', () => this.onPlayHole?.()))
+		holeRow.appendChild(this.button('Clear hole', () => this.onClearHole?.()))
+		this.body.appendChild(holeRow)
+
 		this.statsLabel = document.createElement('div')
 		this.statsLabel.style.cssText = 'opacity: 0.8; line-height: 1.5; white-space: pre-line;'
 		this.body.appendChild(this.statsLabel)
@@ -223,6 +237,11 @@ export class ShotLabPanel {
 
 	setStats(text: string): void {
 		this.statsLabel.textContent = text
+	}
+
+	setDefiningHole(active: boolean): void {
+		this.defineHoleButton.style.borderColor = active ? '#8fd14f' : '#3a4a35'
+		this.defineHoleButton.style.background = active ? '#33421f' : '#222b1f'
 	}
 
 	private label(text: string, block = true): HTMLSpanElement {

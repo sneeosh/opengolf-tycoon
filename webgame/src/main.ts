@@ -16,6 +16,12 @@ import { ShotLabPanel } from '@ui/shot-lab'
 import { calculateShot, type ShotResult } from '@sim/golf/shot'
 import { WindSystem } from '@sim/world/wind'
 import { vec } from '@sim/core/vec'
+import { HoleOverlay } from '@render/hole-overlay'
+import { createHole, type HoleData } from '@sim/course/hole'
+import { calculateHoleDifficulty } from '@sim/course/difficulty'
+import { playHole } from '@sim/golf/hole-player'
+import { getScoreName } from '@sim/golf/golf-rules'
+import { CLUB_STATS } from '@sim/golf/clubs'
 
 async function boot(): Promise<void> {
 	const gameData = await loadGameData()
@@ -127,6 +133,72 @@ async function boot(): Promise<void> {
 		)
 	}
 
+	// Hole Lab: define a hole (tee → green), then AI plays it with a shot trace
+	const holeOverlay = new HoleOverlay()
+	world.addChild(holeOverlay.container)
+	let currentHole: HoleData | null = null
+	let holeDefineStep: 0 | 1 | 2 = 0 // 0 = off, 1 = awaiting tee, 2 = awaiting green
+	let pendingTee = { x: 0, y: 0 }
+
+	shotLab.onDefineHole = () => {
+		holeDefineStep = 1
+		shotLab.setDefiningHole(true)
+		shotLab.setStats('Click the TEE position…')
+	}
+	shotLab.onClearHole = () => {
+		currentHole = null
+		holeDefineStep = 0
+		shotLab.setDefiningHole(false)
+		holeOverlay.clear()
+		shotLab.setStats('')
+	}
+	shotLab.onPlayHole = () => {
+		if (!currentHole) {
+			shotLab.setStats('Define a hole first.')
+			return
+		}
+		labWind.windSpeed = shotLab.windSpeed
+		labWind.windDirection = (shotLab.windDirectionDeg * Math.PI) / 180
+		const ctx = { terrain: game.terrain, rng: game.rng, wind: labWind, course: null }
+		const result = playHole(
+			ctx,
+			{ ...shotLab.skills, aggression: 0.5, patience: 0.5 },
+			currentHole,
+		)
+		holeOverlay.clearTraces()
+		holeOverlay.drawHole(currentHole)
+		holeOverlay.drawShotTrace(result.trace)
+		const clubs = result.trace
+			.filter((t) => !t.isPenalty)
+			.map((t) => CLUB_STATS[t.club].name.split(' ')[0])
+			.join(', ')
+		shotLab.setStats(
+			`${result.holed ? getScoreName(result.strokes, result.par) : 'Picked up'}: ` +
+				`${result.strokes} strokes (par ${result.par})` +
+				(result.penalties ? ` · ${result.penalties} penalty` : '') +
+				`\n${clubs}`,
+		)
+	}
+
+	function defineHoleClick(gridPos: { x: number; y: number }): void {
+		if (holeDefineStep === 1) {
+			pendingTee = gridPos
+			holeDefineStep = 2
+			shotLab.setStats('Click the GREEN center…')
+		} else if (holeDefineStep === 2) {
+			currentHole = createHole(1, pendingTee, gridPos, gridPos, game.terrain)
+			currentHole.difficultyRating = calculateHoleDifficulty(currentHole, game.terrain)
+			holeDefineStep = 0
+			shotLab.setDefiningHole(false)
+			holeOverlay.clear()
+			holeOverlay.drawHole(currentHole)
+			shotLab.setStats(
+				`Hole ready: par ${currentHole.par}, ${currentHole.distanceYards}yd, ` +
+					`difficulty ${currentHole.difficultyRating.toFixed(1)}. ▶ Play hole!`,
+			)
+		}
+	}
+
 	let painting = false
 	// Elevation strokes apply once per tile per stroke
 	const strokeVisited = new Set<number>()
@@ -160,6 +232,10 @@ async function boot(): Promise<void> {
 			const worldPos = camera.screenToWorld(e.offsetX, e.offsetY)
 			const gridPos = worldToGrid(worldPos.x, worldPos.y)
 			if (!game.terrain.isValidPosition(gridPos.x, gridPos.y)) return
+			if (holeDefineStep > 0) {
+				defineHoleClick(gridPos)
+				return
+			}
 			if (e.shiftKey) {
 				labOrigin = gridPos
 				shotLabOverlay.clear()
