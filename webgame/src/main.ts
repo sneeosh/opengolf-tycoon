@@ -9,8 +9,13 @@ import { GameLoop } from './loop'
 import { loadGameData } from './data/loader'
 import { Camera } from '@render/camera'
 import { TerrainRenderer } from '@render/terrain/terrain-renderer'
+import { ShotLabOverlay } from '@render/shot-lab-overlay'
 import { worldToGrid, gridToWorldCenter, TILE_W, TILE_H } from '@render/grid-transform'
 import { Toolbar } from '@ui/toolbar'
+import { ShotLabPanel } from '@ui/shot-lab'
+import { calculateShot, type ShotResult } from '@sim/golf/shot'
+import { WindSystem } from '@sim/world/wind'
+import { vec } from '@sim/core/vec'
 
 async function boot(): Promise<void> {
 	const gameData = await loadGameData()
@@ -72,6 +77,56 @@ async function boot(): Promise<void> {
 	})
 	toolbar.refreshSwatches(game.theme)
 
+	// Shot Lab: fire volleys of engine shots at clicked targets
+	const shotLabOverlay = new ShotLabOverlay()
+	world.addChild(shotLabOverlay.container)
+	const labWind = new WindSystem()
+	const shotLab = new ShotLabPanel(ui)
+	let labOrigin = { x: 44, y: 64 }
+	let labTarget: { x: number; y: number } | null = null
+
+	shotLab.onClear = () => {
+		shotLabOverlay.clear()
+		shotLab.setStats('')
+		labTarget = null
+		if (shotLab.active) shotLabOverlay.setMarkers(labOrigin, null)
+	}
+	shotLab.onSettingsChanged = () => {
+		if (labTarget) fireVolley()
+	}
+
+	function fireVolley(): void {
+		if (!labTarget) return
+		labWind.windSpeed = shotLab.windSpeed
+		labWind.windDirection = (shotLab.windDirectionDeg * Math.PI) / 180
+		const ctx = { terrain: game.terrain, rng: game.rng, wind: labWind }
+		const results: ShotResult[] = []
+		for (let i = 0; i < shotLab.volleySize; i++) {
+			results.push(calculateShot(ctx, shotLab.skills, labOrigin, labTarget, shotLab.club))
+		}
+		shotLabOverlay.clear()
+		shotLabOverlay.setMarkers(labOrigin, labTarget)
+		shotLabOverlay.plotVolley(results, game.terrain)
+
+		const n = results.length
+		const meanCarry =
+			results.reduce((sum, r) => sum + vec.distance(labOrigin, r.carryPrecise), 0) / n
+		const meanFinal =
+			results.reduce((sum, r) => sum + vec.distance(labOrigin, r.landingPrecise), 0) / n
+		const shanks = results.filter((r) => r.isShank).length
+		const backspins = results.filter((r) => r.isBackspin).length
+		const wet = results.filter((r) => {
+			const t = vec.round(r.landingPrecise)
+			return game.terrain.getTile(t.x, t.y) === TerrainType.WATER
+		}).length
+		shotLab.setStats(
+			`${n} shots · carry ${(meanCarry * 22).toFixed(0)}yd · total ${(meanFinal * 22).toFixed(0)}yd\n` +
+				`accuracy ${results[0].totalAccuracy.toFixed(2)} · shanks ${shanks}` +
+				(backspins ? ` · backspin ${backspins}` : '') +
+				(wet ? ` · in water ${wet}` : ''),
+		)
+	}
+
 	let painting = false
 	// Elevation strokes apply once per tile per stroke
 	const strokeVisited = new Set<number>()
@@ -101,6 +156,20 @@ async function boot(): Promise<void> {
 
 	app.canvas.addEventListener('pointerdown', (e) => {
 		if (e.button !== 0) return
+		if (shotLab.active) {
+			const worldPos = camera.screenToWorld(e.offsetX, e.offsetY)
+			const gridPos = worldToGrid(worldPos.x, worldPos.y)
+			if (!game.terrain.isValidPosition(gridPos.x, gridPos.y)) return
+			if (e.shiftKey) {
+				labOrigin = gridPos
+				shotLabOverlay.clear()
+				shotLabOverlay.setMarkers(labOrigin, labTarget)
+			} else {
+				labTarget = gridPos
+				fireVolley()
+			}
+			return
+		}
 		painting = true
 		strokeVisited.clear()
 		applyTool(e.offsetX, e.offsetY)

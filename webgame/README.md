@@ -44,7 +44,13 @@ image assets are needed for terrain.
 - [x] **Phase 1 — terrain sandbox**: paint all 14 terrain types with autotile edge
       blending, elevation raise/lower (-5..+5) with shading, 3 brush sizes, all 10 theme
       palettes, pan/zoom camera, Godot-save-compatible terrain serialization, 23 sim tests
-- [ ] Phase 2 — shot engine (headless) from docs/algorithms specs
+- [x] **Phase 2 — shot engine (headless)**: full-swing angular dispersion (gaussian
+      miss angles, hook/slice tendency, shanks, lateral floor, topped/fat loss),
+      PGA-calibrated putting make/miss model, rollout (terrain multipliers, slope,
+      backspin, hazard walk), wind system, GolfRules port — 50 new tests with golden
+      values from the docs plus 10k-sample statistical checks. Interactive **Shot Lab**
+      panel: fire volleys at painted terrain, see carry/final scatter color-coded by
+      outcome, tweak club/skills/tendency/wind live.
 - [ ] Phase 3 — holes + ShotAI port
 - [ ] Phase 4 — golfers (sprites shared from ../assets/sprites)
 - [ ] Phase 5 — tycoon core loop (economy, spawning, day cycle, HUD)
