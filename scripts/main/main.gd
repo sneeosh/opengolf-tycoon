@@ -713,9 +713,9 @@ func _setup_bottom_bar() -> void:
 	var bg = Panel.new()
 	bg.name = "BottomBarBG"
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.08, 0.92)
+	style.bg_color = UIConstants.COLOR_BG_DARK
 	style.border_width_top = 1
-	style.border_color = Color(0.2, 0.2, 0.2, 1)
+	style.border_color = UIConstants.COLOR_BORDER
 	bg.add_theme_stylebox_override("panel", style)
 	# Position it exactly behind the BottomBar
 	bg.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)

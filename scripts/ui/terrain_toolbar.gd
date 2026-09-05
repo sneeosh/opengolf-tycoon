@@ -109,14 +109,14 @@ func _build_ui() -> void:
 
 	# Title
 	var title = Label.new()
-	title.text = "Build Tools"
+	title.text = "Course designer"
 	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_LG)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_vbox.add_child(title)
 
 	# Subtitle hint
 	var subtitle = Label.new()
-	subtitle.text = "Click headers to expand | F1 for help"
+	subtitle.text = "Shape your course   ·   F1 for help"
 	subtitle.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	subtitle.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -195,7 +195,7 @@ func _build_ui() -> void:
 
 	# Create each section (collapsed by default)
 	for section_name in TOOL_SECTIONS.keys():
-		_create_section(section_name, TOOL_SECTIONS[section_name], true)
+		_create_section(section_name, TOOL_SECTIONS[section_name], section_name not in ["Course Terrain", "Hazards"])
 
 func _create_section(section_name: String, section_data: Dictionary, start_collapsed: bool = false) -> void:
 	var section_vbox = VBoxContainer.new()

@@ -32,6 +32,8 @@ signal building_selected(building: Building)
 @onready var decorations_container = Node2D.new()
 
 func _ready() -> void:
+	# Relative shadow layers (-2/-1) must remain above the opaque terrain.
+	z_index = 2
 	buildings_container.name = "Buildings"
 	trees_container.name = "Trees"
 	rocks_container.name = "Rocks"

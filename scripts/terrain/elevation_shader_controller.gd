@@ -24,7 +24,7 @@ func _process(_delta: float) -> void:
 	# Shader LOD via zoom — disable contours when zoomed far out
 	var camera: Camera2D = get_viewport().get_camera_2d()
 	if camera:
-		if camera.zoom.x < 0.3:
+		if camera.zoom.x < 0.3 or not _terrain_grid._elevation_overlay or not _terrain_grid._elevation_overlay._elevation_active:
 			_shader_material.set_shader_parameter("contour_enabled", false)
 		else:
 			_shader_material.set_shader_parameter("contour_enabled", true)
@@ -39,8 +39,8 @@ func _update_light_from_time() -> void:
 		var angle: float = lerpf(-PI * 0.15, -PI * 0.85, t)  # East to west arc
 		var sun_dir: Vector2 = Vector2(cos(angle), sin(angle)).normalized()
 		_shader_material.set_shader_parameter("light_direction", sun_dir)
-		_shader_material.set_shader_parameter("light_intensity", 0.5)
-		_shader_material.set_shader_parameter("shadow_intensity", 0.4)
+		_shader_material.set_shader_parameter("light_intensity", 0.28)
+		_shader_material.set_shader_parameter("shadow_intensity", 0.28)
 	else:
 		# Night: dim moonlight from above-left
 		_shader_material.set_shader_parameter("light_direction", Vector2(-0.5, -0.8))

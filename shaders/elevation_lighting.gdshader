@@ -14,7 +14,7 @@ uniform float light_intensity : hint_range(0.0, 1.0) = 0.5;
 uniform float shadow_intensity : hint_range(0.0, 1.0) = 0.4;
 
 // --- Cel shading ---
-uniform int cel_steps : hint_range(2, 8) = 3;
+uniform int cel_steps : hint_range(2, 8) = 8;
 uniform float cel_smoothness : hint_range(0.0, 0.1) = 0.03;
 
 // --- Debug ---

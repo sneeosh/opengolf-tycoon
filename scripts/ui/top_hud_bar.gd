@@ -32,9 +32,9 @@ func _build_ui() -> void:
 
 	# Apply top bar style
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.08, 0.92)
+	style.bg_color = UIConstants.COLOR_BG_DARK
 	style.border_width_bottom = 1
-	style.border_color = Color(0.2, 0.2, 0.2, 1)
+	style.border_color = UIConstants.COLOR_BORDER
 	style.content_margin_left = 16
 	style.content_margin_top = 8
 	style.content_margin_right = 16

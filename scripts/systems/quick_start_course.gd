@@ -204,6 +204,7 @@ static func _clear_entities_on_course(terrain_grid: TerrainGrid, entity_layer: E
 		TerrainTypes.Type.GREEN,
 		TerrainTypes.Type.TEE_BOX,
 		TerrainTypes.Type.BUNKER,
+		TerrainTypes.Type.WATER,
 	]
 
 	# Remove trees on course surfaces
@@ -212,7 +213,9 @@ static func _clear_entities_on_course(terrain_grid: TerrainGrid, entity_layer: E
 		if terrain_grid.get_tile(pos) in course_terrain:
 			tree_positions_to_remove.append(pos)
 	for pos in tree_positions_to_remove:
+		var surface := terrain_grid.get_tile(pos)
 		entity_layer.remove_tree(pos)
+		terrain_grid.set_tile(pos, surface)
 
 	# Remove rocks on course surfaces
 	var rock_positions_to_remove: Array[Vector2i] = []
@@ -220,4 +223,6 @@ static func _clear_entities_on_course(terrain_grid: TerrainGrid, entity_layer: E
 		if terrain_grid.get_tile(pos) in course_terrain:
 			rock_positions_to_remove.append(pos)
 	for pos in rock_positions_to_remove:
+		var surface := terrain_grid.get_tile(pos)
 		entity_layer.remove_rock(pos)
+		terrain_grid.set_tile(pos, surface)

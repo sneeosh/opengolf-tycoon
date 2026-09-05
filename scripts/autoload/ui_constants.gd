@@ -6,27 +6,27 @@ extends Node
 # PRIMARY COLOR PALETTE (Golf green theme)
 # =============================================================================
 
-const COLOR_PRIMARY := Color(0.18, 0.35, 0.24)        # #2D5A3D - Main green
-const COLOR_PRIMARY_HOVER := Color(0.29, 0.56, 0.36)  # #4A8F5C - Hover state
-const COLOR_PRIMARY_PRESSED := Color(0.12, 0.24, 0.16) # #1E3D29 - Pressed state
+const COLOR_PRIMARY := Color("365c43")        # #2D5A3D - Main green
+const COLOR_PRIMARY_HOVER := Color("476f50")  # #4A8F5C - Hover state
+const COLOR_PRIMARY_PRESSED := Color("203e30") # #1E3D29 - Pressed state
 
 # =============================================================================
 # BACKGROUND COLORS
 # =============================================================================
 
-const COLOR_BG_PANEL := Color(0.1, 0.1, 0.1, 0.95)    # Panel background
-const COLOR_BG_BUTTON := Color(0.15, 0.15, 0.15)      # Button normal
-const COLOR_BG_HOVER := Color(0.2, 0.2, 0.2)          # Button hover (neutral)
-const COLOR_BG_DARK := Color(0.07, 0.07, 0.07)        # Darker background
-const COLOR_BORDER := Color(0.23, 0.23, 0.23)         # Border color
+const COLOR_BG_PANEL := Color("182f29f5")    # Panel background
+const COLOR_BG_BUTTON := Color("294238")      # Button normal
+const COLOR_BG_HOVER := Color("365346")          # Button hover (neutral)
+const COLOR_BG_DARK := Color("10241f")        # Darker background
+const COLOR_BORDER := Color("63715a")         # Border color
 
 # =============================================================================
 # TEXT COLORS
 # =============================================================================
 
-const COLOR_TEXT := Color(1.0, 1.0, 1.0)              # Primary text
-const COLOR_TEXT_DIM := Color(0.7, 0.7, 0.7)          # Secondary text
-const COLOR_TEXT_MUTED := Color(0.4, 0.4, 0.4)        # Disabled/muted text
+const COLOR_TEXT := Color("f4edd9")              # Primary text
+const COLOR_TEXT_DIM := Color("b9c7af")          # Secondary text
+const COLOR_TEXT_MUTED := Color("7e9184")        # Disabled/muted text
 
 # =============================================================================
 # SEMANTIC STATUS COLORS
@@ -42,7 +42,7 @@ const COLOR_DANGER_DIM := Color(0.8, 0.5, 0.5)        # Dim red
 const COLOR_DANGER_MUTED := Color(0.8, 0.6, 0.6)      # Muted negative feedback
 const COLOR_INFO := Color(0.4, 0.7, 1.0)              # Neutral info
 const COLOR_INFO_DIM := Color(0.7, 0.8, 1.0)          # Muted info/blue
-const COLOR_GOLD := Color(1.0, 0.85, 0.0)             # Premium, special
+const COLOR_GOLD := Color("e5c57c")             # Premium, special
 const COLOR_GOLD_DIM := Color(0.9, 0.75, 0.2)         # Muted gold (eagle)
 const COLOR_ORANGE := Color(0.9, 0.6, 0.3)            # Championship, high tier
 const COLOR_PURPLE := Color(0.9, 0.3, 0.9)            # Pro tier
@@ -52,7 +52,7 @@ const COLOR_BLUE_SOFT := Color(0.6, 0.6, 0.9)         # Casual tier
 # GOLF SCORE COLORS
 # =============================================================================
 
-const COLOR_SCORE_EAGLE := Color(1.0, 0.85, 0.0)      # Eagle or better (gold)
+const COLOR_SCORE_EAGLE := Color("e5c57c")      # Eagle or better (gold)
 const COLOR_SCORE_BIRDIE := Color(0.3, 0.9, 0.3)      # Birdie (green)
 const COLOR_SCORE_PAR := Color.WHITE                   # Par
 const COLOR_SCORE_BOGEY := Color(0.9, 0.6, 0.3)       # Bogey (orange)

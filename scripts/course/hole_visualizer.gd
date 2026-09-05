@@ -52,8 +52,8 @@ func _create_connection_line() -> void:
 
 	line = Line2D.new()
 	line.name = "ConnectionLine"
-	line.width = 2.0
-	line.default_color = Color(1, 1, 1, 0.4)  # Semi-transparent white
+	line.width = 1.0
+	line.default_color = Color(0.96, 0.91, 0.70, 0.24)  # Semi-transparent white
 	line.antialiased = true
 	line.z_index = -1  # Behind everything else
 	add_child(line)
@@ -156,30 +156,18 @@ func _update_info_label() -> void:
 	if not info_label or not terrain_grid or not hole_data:
 		return
 
-	# Position label at midpoint between tee and green
+	# Compact tee-side plaque keeps the landscape clear of multiline debug labels.
 	var tee_screen = terrain_grid.grid_to_screen_center(hole_data.tee_position)
-	var green_screen = terrain_grid.grid_to_screen_center(hole_data.green_position)
-	var midpoint = (tee_screen + green_screen) / 2.0
-
-	info_label.position = to_local(midpoint) + Vector2(-40, -20)
-
-	# Update text
-	var par_text = "Par %d" % hole_data.par
+	info_label.position = to_local(tee_screen) + Vector2(-32, 20)
+	var par_text = "PAR %d" % hole_data.par
 	if hole_data.par_override > 0:
 		par_text += "*"
-	var info_text = "Hole %d\n%s\n%d yards\nDiff: %.1f" % [
-		hole_data.hole_number,
-		par_text,
-		hole_data.distance_yards,
-		hole_data.difficulty_rating
-	]
-	info_label.text = info_text
-
-	# Styling
+	info_label.text = "%02d  ·  %s\n%d yd" % [hole_data.hole_number, par_text, hole_data.distance_yards]
+	info_label.tooltip_text = "Hole %d · Difficulty %.1f" % [hole_data.hole_number, hole_data.difficulty_rating]
 	info_label.add_theme_font_size_override("font_size", 12)
-	info_label.add_theme_color_override("font_color", Color.WHITE)
-	info_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	info_label.add_theme_constant_override("outline_size", 2)
+	info_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT)
+	info_label.add_theme_color_override("font_outline_color", UIConstants.COLOR_BG_DARK)
+	info_label.add_theme_constant_override("outline_size", 3)
 
 func set_visible_state(is_visible: bool) -> void:
 	visible = is_visible
@@ -197,8 +185,8 @@ func highlight(enabled: bool) -> void:
 				if inner:
 					inner.color = Color(1.0, 1.0, 0.3, 0.8)  # Yellow to match line
 	else:
-		line.default_color = Color(1, 1, 1, 0.4)  # Normal white
-		line.width = 2.0
+		line.default_color = Color(0.96, 0.91, 0.70, 0.24)  # Normal white
+		line.width = 1.0
 		for marker in waypoint_markers:
 			if is_instance_valid(marker):
 				var inner: Polygon2D = marker.get_child(1) if marker.get_child_count() > 1 else null
@@ -348,7 +336,7 @@ func _create_carry_annotation(seg: ForcedCarryCalculator.CarrySegment) -> Node2D
 	while pos < total_len:
 		var dash_end = minf(pos + dash_len, total_len)
 		var dash_line = Line2D.new()
-		dash_line.width = 2.0
+		dash_line.width = 1.0
 		dash_line.default_color = color
 		dash_line.add_point(from_local + norm_dir * pos)
 		dash_line.add_point(from_local + norm_dir * dash_end)

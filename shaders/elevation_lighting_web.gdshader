@@ -8,7 +8,7 @@ uniform vec2 tile_size = vec2(64.0, 32.0);
 uniform vec2 light_direction = vec2(-0.7, -0.7);
 uniform float light_intensity : hint_range(0.0, 1.0) = 0.5;
 uniform float shadow_intensity : hint_range(0.0, 1.0) = 0.4;
-uniform int cel_steps : hint_range(2, 8) = 3;
+uniform int cel_steps : hint_range(2, 8) = 8;
 
 uniform bool contour_enabled = true;
 uniform float contour_line_width = 1.5;

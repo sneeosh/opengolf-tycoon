@@ -152,7 +152,7 @@ func _ready() -> void:
 
 	var quick_start_btn = Button.new()
 	quick_start_btn.text = "Quick Start"
-	quick_start_btn.tooltip_text = "Start with a pre-built 3-hole course — jump straight in!"
+	quick_start_btn.tooltip_text = "Start with a pre-built 9-hole course — jump straight in!"
 	quick_start_btn.custom_minimum_size = Vector2(140, 45)
 	quick_start_btn.add_theme_font_size_override("font_size", 18)
 	quick_start_btn.pressed.connect(_on_quick_start_pressed)
@@ -294,12 +294,12 @@ func _update_card_selection() -> void:
 
 		if theme_type == _selected_theme:
 			var accent = CourseTheme.get_accent_color(theme_type)
-			style.bg_color = Color(0.15, 0.22, 0.15, 1.0)
+			style.bg_color = UIConstants.COLOR_PRIMARY_PRESSED
 			style.border_color = accent
 			style.set_border_width_all(2)
 		else:
-			style.bg_color = Color(0.12, 0.15, 0.12, 1.0)
-			style.border_color = Color(0.3, 0.3, 0.3)
+			style.bg_color = UIConstants.COLOR_BG_PANEL
+			style.border_color = UIConstants.COLOR_BORDER
 			style.set_border_width_all(1)
 
 		style.set_corner_radius_all(6)

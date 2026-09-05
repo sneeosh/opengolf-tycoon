@@ -18,6 +18,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Weather System](weather-system.md) — State machine transitions, spawn/accuracy modifiers, seasonal weights
 
 ### Course Design
+- [Continuous Course Surface](course-surface.md) — Connected terrain materials, theme palettes, foliage motion, and generated-course cleanup
 - [Difficulty Calculator](difficulty-calculator.md) — Per-hole difficulty from hazards, elevation, doglegs, green size, landing zones
 - [Forced Carry Distance](forced-carry.md) — Hazard carry detection, visualization, difficulty contribution
 - [Routing Overlay & Walk Penalty](routing-overlay.md) — Inter-hole walking routes, color-coded distance, pace rating penalty
