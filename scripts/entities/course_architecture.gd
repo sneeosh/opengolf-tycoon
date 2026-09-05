@@ -139,7 +139,7 @@ static func house(c: CanvasItem, x: float, base: float, w: float, tall: float, d
 static func draw_building(c: CanvasItem, kind_name: String, size: Vector2, tier := 1, time := 0.0, hour := 10.0) -> void:
 	if kind_name == "bench":
 		c.draw_set_transform(Vector2(size.x*.5,size.y*.7))
-		PathFurniture.draw_item(c,"bench",Vector2i.DOWN)
+		PathFurniture.draw_item(c,"park_bench",Vector2i.DOWN)
 		c.draw_set_transform(Vector2.ZERO)
 		return
 	var club := kind_name == "clubhouse"
@@ -277,3 +277,98 @@ static func draw_building(c: CanvasItem, kind_name: String, size: Vector2, tier 
 		var flutter := sin(time*2.8)*1.5
 		poly(c,[mast+Vector2(1,-18),mast+Vector2(13,-16+flutter),mast+Vector2(1,-11)],"d6b967")
 		c.draw_circle(mast+Vector2(0,-19),1.2,Color("efdb9f"))
+
+	facility_details(c,kind_name,x,base,w,roof_base,night)
+
+static func chalkboard(c: CanvasItem, p: Vector2, wide := 10.0) -> void:
+	line(c,p+Vector2(-1,1),p+Vector2(2,-13),"816443",2)
+	line(c,p+Vector2(wide+2,1),p+Vector2(wide-1,-13),"816443",2)
+	rect(c,p.x,p.y-12,wide,11,"b18a5b")
+	rect(c,p.x+1,p.y-11,wide-2,8,"365145")
+	for row in range(3):
+		line(c,p+Vector2(3,-9+row*2),p+Vector2(wide-2-row%2*2,-9+row*2),"d6d4ad")
+
+static func golf_bag(c: CanvasItem, p: Vector2) -> void:
+	poly(c,[p+Vector2(-3,-11),p+Vector2(3,-12),p+Vector2(4,0),p+Vector2(-2,1)],"915d47")
+	line(c,p+Vector2(-1,-10),p+Vector2(0,0),"c69667",2)
+	for i in range(3):
+		var q := p+Vector2(-2+i*2,-10)
+		line(c,q,q+Vector2(-1,-6-i%2*2),"a6b4ab")
+		line(c,q+Vector2(-1,-6-i%2*2),q+Vector2(2,-6-i%2*2),"d5d9c4",2)
+
+static func facility_details(c: CanvasItem, type: String, x: float, base: float, w: float, eaves: float, night: bool) -> void:
+	match type:
+		"pro_shop":
+			# Merchandise behind the glass and a bag stand beside the clear door.
+			for side in [-1,1]:
+				var wx: float = x+w*.5+24*side
+				poly(c,[Vector2(wx-3,eaves+17),Vector2(wx-1,eaves+15),Vector2(wx+1,eaves+15),Vector2(wx+3,eaves+17),Vector2(wx+2,eaves+19),Vector2(wx+1,eaves+18),Vector2(wx+1,eaves+23),Vector2(wx-1,eaves+23),Vector2(wx-1,eaves+18),Vector2(wx-2,eaves+19)],"d2ba76" if side == -1 else "b7cebd")
+			golf_bag(c,Vector2(x+13,base+4))
+			golf_bag(c,Vector2(x+21,base+5))
+			chalkboard(c,Vector2(x+w-20,base+8))
+			lantern(c,Vector2(x+w*.5+13,base-16),night)
+			climbing_rose(c,Vector2(x+3,base),29)
+			planter(c,Vector2(x+22,eaves+30),16)
+		"restaurant":
+			chalkboard(c,Vector2(x+w-18,base+11),11)
+			# Window boxes add dining-room warmth above the veranda roof.
+			for dx in [-50,50]:
+				planter(c,Vector2(x+w*.5+dx,eaves+31),16)
+		"snack_bar":
+			# Wall menu and a cup badge identify this as a refreshment hut.
+			rect(c,x+1,base-16,6,10,"b99160")
+			rect(c,x+2,base-15,4,8,"395b48")
+			for row in range(3):
+				line(c,Vector2(x+3,base-13+row*2),Vector2(x+5,base-13+row*2),"ebd6a0")
+			var cx := x+w*.5
+			rect(c,cx-6,eaves+4,12,6,"3f6147")
+			rect(c,cx-2,eaves+5,4,3,"f2e0b7")
+			c.draw_arc(Vector2(cx+2,eaves+6),1, -PI*.5,PI*.5,5,Color("f2e0b7"))
+			line(c,Vector2(cx-4,base-3),Vector2(cx-4,base+2),"aa9877")
+			line(c,Vector2(cx+4,base-3),Vector2(cx+4,base+2),"aa9877")
+			climbing_rose(c,Vector2(x+w-2,base),20)
+			lantern(c,Vector2(x+w-2,base-22),night)
+		"restroom":
+			# A modest sheltered threshold and garden trellis suit the small footprint.
+			var cx := x+w*.5
+			poly(c,[Vector2(cx-12,base-25),Vector2(cx,base-32),Vector2(cx+12,base-25)],"4c6c4d")
+			line(c,Vector2(cx-12,base-24),Vector2(cx+12,base-24),"f0dfb9",2)
+			rect(c,cx-9,base+1,18,3,"b8aa87")
+			rect(c,cx-11,base+4,22,2,"e3d2ab")
+			for yy in range(0,25,5):
+				line(c,Vector2(x+1,base-yy),Vector2(x+8,base-yy-3),"a3946e")
+			climbing_rose(c,Vector2(x+5,base),27)
+			lantern(c,Vector2(x+w-5,base-19),night)
+		"cart_shed":
+			# Louvered roof vent, cross-braced posts, equipment hooks and wheel stops.
+			var cx := x+w*.5
+			rect(c,cx-9,eaves-18,18,13,"ddceaa")
+			for row in range(4):
+				rect(c,cx-6,eaves-15+row*2,12,1,"718367")
+			poly(c,[Vector2(cx-12,eaves-18),Vector2(cx,eaves-25),Vector2(cx+12,eaves-18)],"526a49")
+			for bx in range(int(x)+12,int(x+w)-23,32):
+				line(c,Vector2(bx-5,eaves+7),Vector2(bx+2,eaves+14),"b9aa84",2)
+				rect(c,bx,base+5,19,2,"ad9e7c")
+				# Steering wheel, seat back and headlights on each parked cart.
+				c.draw_arc(Vector2(bx+12,base-10),2,0,TAU,8,Color("425743"))
+				rect(c,bx+2,base-12,6,3,"97815b")
+				for dx in [2,14]:
+					rect(c,bx+dx,base-7,2,2,"f3df9e")
+			lantern(c,Vector2(x+w-9,eaves+12),night)
+			golf_bag(c,Vector2(x+w-13,base+3))
+		"driving_range":
+			# Readable timber pavilion with ball baskets and padded dividers.
+			for bx in range(int(x)+12,int(x+w)-23,32):
+				line(c,Vector2(bx-5,eaves+8),Vector2(bx+3,eaves+16),"bcae85",2)
+				line(c,Vector2(bx+20,eaves+8),Vector2(bx+13,eaves+16),"bcae85",2)
+				line(c,Vector2(bx-2,base-1),Vector2(bx+2,base+9),"395f45",2)
+				poly(c,[Vector2(bx+18,base-4),Vector2(bx+24,base-4),Vector2(bx+23,base+1),Vector2(bx+19,base+1)],"ad9061")
+				for dx in [19,21,23]:
+					c.draw_circle(Vector2(bx+dx,base-4),.8,Color("f2e8c9"))
+				if (bx-int(x)-12)%96 == 0:
+					lantern(c,Vector2(bx+22,eaves+13),night)
+			var cx := x+w*.5
+			rect(c,cx-26,eaves-4,52,10,"31563e")
+			for side in [-1,1]:
+				line(c,Vector2(cx+side*6,eaves+1),Vector2(cx+side*21,eaves+1),"bdad70")
+			c.draw_circle(Vector2(cx,eaves+1),3,Color("eee4bf"))

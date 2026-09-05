@@ -19,6 +19,13 @@ floors, shaded posts, sheltered benches, entrance gables, climbing roses, and
 wall lanterns add depth at the front door. Upgraded clubhouses fly a small
 animated pennant; restaurants have a sheltered bistro table.
 
+Every facility has purpose-specific detail: pro-shop merchandise, golf bags and
+chalkboards; restaurant window boxes; snack-hut menus and cup signage; restroom
+trellises and a sheltered threshold; cart-shed ventilation, equipment and wheel
+stops; and range-pavilion bracing, mat dividers and ball baskets. All are cosmetic
+and share the built/ghost geometry. The buildable bench uses the same grounded
+`park_bench` renderer as decorative benches.
+
 Golfer preparation gains a small address waggle. Finishing under par produces a
 brief happy hop and glints; over par produces a slump; par gets a small nod. These
 poses accompany the existing score thoughts and walking/swing sprites.
