@@ -33,11 +33,16 @@ const BLOCKED_TILE_COLOR := Color(0.8, 0.2, 0.2, 0.4)
 const SMOOTH_SPEED := 20.0
 
 # Animation state
+var _building_ghost: CourseArchitecture
 var _pulse_time: float = 0.0
 var _current_alpha: float = 0.0
 var _target_alpha: float = 0.0
 
 func _ready() -> void:
+	_building_ghost = CourseArchitecture.new()
+	_building_ghost.name = "BuildingGhost"
+	_building_ghost.visible = false
+	add_child(_building_ghost)
 	set_process(true)
 	z_index = 100  # Render above terrain
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -143,6 +148,8 @@ func _get_building_footprint(grid_pos: Vector2i) -> Array:
 	return result
 
 func _draw() -> void:
+	if is_instance_valid(_building_ghost):
+		_building_ghost.visible = false
 	if not terrain_grid:
 		return
 
@@ -443,47 +450,16 @@ func _draw_building_ghost(pos: Vector2, color: Color) -> void:
 
 	var w = fw * 64.0
 	var h = fh * 32.0
-	var a = color.a
 	var building_type = placement_manager.selected_building_type
 
-	# Use pixel art sprite if available
-	var sprite_key = building_type
-	if building_type == "clubhouse":
-		sprite_key = "clubhouse_1"  # Preview shows base level
-	if sprite_key in Building.SPRITE_PATHS:
-		var sprite_path = Building.SPRITE_PATHS[sprite_key]
-		if ResourceLoader.exists(sprite_path):
-			var tex = load(sprite_path) as Texture2D
-			if tex:
-				var tex_size = tex.get_size()
-				var tex_pos = Vector2(
-					pos.x + (w - tex_size.x) / 2.0,
-					pos.y + h - tex_size.y
-				)
-				# Tint sprite green (valid) or red (invalid) to show placement state
-				var tint = Color(color.r * 1.5, color.g * 1.5, color.b * 1.5, a)
-				draw_texture(tex, tex_pos, tint)
-				return
-
-	match building_type:
-		"clubhouse":
-			_draw_ghost_clubhouse(pos, w, h, a)
-		"pro_shop":
-			_draw_ghost_pro_shop(pos, w, h, a)
-		"restaurant":
-			_draw_ghost_restaurant(pos, w, h, a)
-		"snack_bar":
-			_draw_ghost_snack_bar(pos, w, h, a)
-		"driving_range":
-			_draw_ghost_driving_range(pos, w, h, a)
-		"cart_shed":
-			_draw_ghost_cart_shed(pos, w, h, a)
-		"restroom":
-			_draw_ghost_restroom(pos, w, h, a)
-		"bench":
-			_draw_ghost_bench(pos, w, h, a)
-		_:
-			_draw_ghost_generic(pos, w, h, a)
+	if not is_instance_valid(_building_ghost):
+		return
+	_building_ghost.kind = building_type
+	_building_ghost.footprint = Vector2(w, h)
+	_building_ghost.position = pos
+	_building_ghost.modulate = Color(color.r * 1.5, color.g * 1.5, color.b * 1.5, color.a)
+	_building_ghost.visible = true
+	_building_ghost.queue_redraw()
 
 func _draw_decoration_ghost(pos: Vector2, color: Color) -> void:
 	"""Draw ghost preview for decoration placement using Decoration sprites/fallback"""

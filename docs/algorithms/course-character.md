@@ -10,10 +10,11 @@ reshaped on load. These are real elevation changes used by the simulation;
 the rendering still uses the existing world coordinates, without geometric
 terrain displacement or an isometric-grid migration.
 
-Clubhouses gain a paved forecourt, side tables, planters, golf bags, and a walking
-attendant. Level 2 adds parasols and a seated visitor; level 3 adds another visitor.
-All activity stays within the existing building footprint. These ambient staff
-and visitors do not add paid golfers, alter revenue, or occupy pathfinding tiles.
+Facilities share warm cream siding, green shutters, tiled gable roofs, and fixed
+window/door proportions. Clubhouses grow by adding facade bays at each upgrade.
+An attached veranda and compact stone apron replace the detached oversized patio.
+Flower boxes, a clock dormer, striped shop awnings, cart bays, and chimney smoke
+identify the different facilities. Windows turn warm at dusk.
 
 Golfer preparation gains a small address waggle. Finishing under par produces a
 brief happy hop and glints; over par produces a slump; par gets a small nod. These
@@ -36,12 +37,14 @@ visible only while sculpting. Four extra texture samples avoid the repeating
 sub-tile profile patches. Elevation edits update the same coalesced texture upload;
 physics elevations do not change through rendering.
 
-`ClubhouseTerrace` draws furniture inside side bays, leaving the central door
-approach open. Its 10 Hz cosmetic clock uses unscaled real time, respects pause,
-and culls offscreen detail. The attendant follows a short sinusoidal route.
-Outdoor people appear from 07:00 to 19:00 in dry weather. Terrace detail follows
-the existing building upgrade level and is rebuilt with the building. Rebuilding
-also removes the old click area so upgrades do not accumulate duplicate targets.
+`CourseArchitecture` draws buildings and placement ghosts from identical geometry.
+World footprints stay unchanged. Facades are horizontal; depth recedes by
+`(-0.55 * depth, -0.5 * depth)`. Clubhouse facade widths are 138, 166, and 194
+pixels, with fixed 14-pixel doors. Roof planes share one ridge and masonry return.
+Foundation, porch posts, stairs, and apron use the same base coordinate.
+The 10 Hz cosmetic clock respects pause; chimney smoke and window light are drawn
+from the actual architecture, replacing offsets tied to old sprite dimensions.
+Rebuilding removes the old visual and click area before adding replacements.
 
 `GolferExpression` is a parent of the existing Visual node. Its local position,
 rotation, and scale affect only the body, keeping the actor's world position,
@@ -58,11 +61,11 @@ remain authoritative. Pause freezes the cosmetic timer.
 | Sculpt brush | 7 or 9 tiles | Width of tapering slope |
 | Green / tee radius | 5 / 4 tiles | Quick Start landform size |
 | Landscape gradient step | 1.5 tiles | Broader, more readable lighting |
-| Terrace redraw | 10 Hz | Bounded ambient drawing |
+| Architecture redraw | 10 Hz | Bounded ambient drawing |
 | Reaction duration | 2.2 real seconds | Readable without slowing the game |
 | Happy hop height | 4 pixels | Small celebration with feet returning to ground |
 
 Integration tests check tapering, surface preservation, save/undo, buildings and
-height limits, unique upgraded terrace/click areas, pose isolation, pause, and
+height limits, monotonic upgrade growth and unique visual/click areas, pose isolation, pause, and
 cancellation when the next shot starts. Native QA includes the clubhouse,
 illustrated reaction poses, sculpted Quick Start holes, and a live simulation.

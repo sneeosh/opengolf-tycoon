@@ -66,13 +66,20 @@ func test_sculpting_respects_buildings_and_height_limits() -> void:
 	SculptedTerrain.stamp(grid, Vector2i(3, 3), 3, -20)
 	assert_eq(grid.get_elevation(Vector2i(3, 3)), -5)
 
-func test_clubhouse_visual_rebuild_keeps_one_terrace_and_click_area() -> void:
+func test_clubhouse_upgrades_grow_without_changing_footprint_or_duplicate_clicks() -> void:
 	var building := Building.new()
 	add_child_autofree(building)
+	var previous_width := 0.0
 	for level in range(1, 4):
 		building.upgrade_level = level
 		building._update_visuals()
-		assert_eq(building.get_node("Visual/ClubhouseTerrace").level, level)
+		assert_eq(building.get_node("Visual/Architecture").level, level)
+		var architecture = building.get_node("Visual/Architecture")
+		var body_width := CourseArchitecture.body_width("clubhouse", architecture.footprint, level)
+		assert_gt(body_width, previous_width)
+		assert_lt(body_width, architecture.footprint.x)
+		assert_eq(architecture.footprint, Vector2(256, 128))
+		previous_width = body_width
 		var clicks := 0
 		var visuals := 0
 		for child in building.get_children():
@@ -106,3 +113,21 @@ func test_golfer_expression_does_not_move_actor_or_delay_next_shot() -> void:
 	assert_eq(golfer.preparation_time, 0.0)
 	assert_eq(GolferExpression.reaction_for_score(2), -1)
 	assert_eq(GolferExpression.reaction_for_score(0), 0)
+
+func test_building_ghost_matches_facility_and_clears_when_preview_ends() -> void:
+	var manager := PlacementManager.new()
+	add_child_autofree(manager)
+	manager.selected_building_type = "restaurant"
+	manager.current_placement_data = {"size": {"width": 3, "height": 3}}
+	var preview := PlacementPreview.new()
+	add_child_autofree(preview)
+	preview.set_process(false)
+	preview.placement_manager = manager
+	preview._draw_building_ghost(Vector2(120, 80), Color(0.3, 0.9, 0.3, 0.4))
+	assert_eq(preview._building_ghost.kind, "restaurant")
+	assert_eq(preview._building_ghost.position, Vector2(120, 80))
+	assert_almost_eq(preview._building_ghost.modulate.a, 0.4, 0.001)
+	assert_true(preview._building_ghost.visible)
+	# With no terrain/active preview, drawing must hide the previous building.
+	preview._draw()
+	assert_false(preview._building_ghost.visible)
