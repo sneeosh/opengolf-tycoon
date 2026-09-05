@@ -487,6 +487,7 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.rock_placement_pressed.connect(_on_rock_placement_pressed)
 	terrain_toolbar.building_placement_pressed.connect(_on_building_placement_pressed)
 	terrain_toolbar.decoration_placement_pressed.connect(_on_decoration_placement_pressed)
+	terrain_toolbar.sculpt_terrain_pressed.connect(_on_sculpt_terrain_pressed)
 	terrain_toolbar.raise_elevation_pressed.connect(_on_raise_elevation_pressed)
 	terrain_toolbar.lower_elevation_pressed.connect(_on_lower_elevation_pressed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
@@ -820,10 +821,10 @@ func _update_selection_indicator() -> void:
 		color = Color(1.0, 0.5, 0.3)  # Orange
 	elif elevation_tool.is_active():
 		if elevation_tool.elevation_mode == ElevationTool.ElevationMode.RAISING:
-			text += "Raise Elevation"
+			text += "Rolling hill" if elevation_tool.sculpted else "Raise Elevation"
 			color = Color(0.6, 0.8, 1.0)  # Light blue
 		else:
-			text += "Lower Elevation"
+			text += "Hollow" if elevation_tool.sculpted else "Lower Elevation"
 			color = Color(1.0, 0.6, 0.6)  # Light red
 	else:
 		# Default to terrain tool
@@ -1186,6 +1187,9 @@ func _on_tool_selected(tool_type: int) -> void:
 	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
 
 func _on_brush_size_changed(new_size: int) -> void:
+	if elevation_tool.is_active() and elevation_tool.sculpted and new_size < 7:
+		terrain_toolbar.set_brush_size(7)
+		return
 	brush_size = new_size
 	if placement_preview:
 		placement_preview.set_brush_size(new_size)
@@ -1600,6 +1604,15 @@ func _get_unlock_requirement_text(unlock) -> String:
 		"holes_built":
 			return "%d holes" % unlock.get("value", 0)
 	return "Unknown"
+
+func _on_sculpt_terrain_pressed(raising: bool) -> void:
+	if raising:
+		_on_raise_elevation_pressed()
+	else:
+		_on_lower_elevation_pressed()
+	elevation_tool.sculpted = true
+	terrain_toolbar.set_brush_size(7)
+	EventBus.notify("Sculpt a rolling hill" if raising else "Sculpt a hollow", "info")
 
 func _on_raise_elevation_pressed() -> void:
 	_cancel_hole_move_mode()

@@ -854,6 +854,8 @@ func deserialize_elevation(data: Dictionary) -> void:
 			var pos = Vector2i(int(parts[0]), int(parts[1]))
 			if is_valid_position(pos):
 				_elevation_grid[pos] = int(data[key])
+	if _course_surface:
+		_course_surface.rebuild()
 	if _elevation_overlay:
 		_elevation_overlay._needs_redraw = true
 		_elevation_overlay.queue_redraw()

@@ -10,7 +10,8 @@ physics migration. Camera controls, saved courses, hazards, and shot logic keep
 their existing coordinates. Small visual edge blends do not redefine a ball's lie.
 
 Desktop and web use the same shader. A 128 × 128 RGBA8 data texture costs 64 KiB;
-each pixel stores a terrain ID in red and bunker depth in green. Theme colors
+each pixel stores a terrain ID in red, bunker depth in green, and normalized
+base elevation in blue. Theme colors
 live in a separate 14 × 1 palette. Trees and rocks use native grass underneath.
 The former per-tile turf, water, bunker, and path overlays are not instantiated,
 so their rectangular patterns cannot cover the continuous surface.

@@ -3,6 +3,8 @@ shader_type canvas_item;
 
 // Shared by desktop and WebGL 2. No screen reads or per-tile draw calls.
 uniform sampler2D terrain_data : filter_nearest, repeat_disable;
+uniform sampler2D elevation_data : filter_linear, repeat_disable;
+uniform vec2 relief_light = vec2(-0.6, -0.8);
 uniform sampler2D palette : source_color, filter_nearest, repeat_disable;
 uniform vec2 grid_size = vec2(128.0);
 uniform vec2 tile_size = vec2(64.0, 32.0);
@@ -101,5 +103,14 @@ void fragment() {
 		+ surface(b.x, covers.y, b.y, world, grain, patch) * blends.y
 		+ surface(c.x, covers.z, c.y, world, grain, patch) * blends.z
 		+ surface(d.x, covers.w, d.y, world, grain, patch) * blends.w;
-	COLOR = vec4(color, 1.0);
+	// Base elevations provide broad, continuous relief without per-tile profiles.
+	vec2 step_uv = 1.5 / grid_size;
+	float left_h = texture(elevation_data, UV - vec2(step_uv.x, 0.0)).b;
+	float right_h = texture(elevation_data, UV + vec2(step_uv.x, 0.0)).b;
+	float up_h = texture(elevation_data, UV - vec2(0.0, step_uv.y)).b;
+	float down_h = texture(elevation_data, UV + vec2(0.0, step_uv.y)).b;
+	vec3 normal = normalize(vec3(-(right_h-left_h)*5.0, -(down_h-up_h)*5.0, 1.0));
+	vec3 sunlight = normalize(vec3(relief_light, 1.5));
+	float relief = clamp(1.0 + (dot(normal, sunlight) - sunlight.z) * 0.45, 0.75, 1.12);
+	COLOR = vec4(color * relief, 1.0);
 }

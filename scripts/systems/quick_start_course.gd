@@ -139,6 +139,12 @@ static func _paint_hole(terrain_grid: TerrainGrid, tee: Vector2i, green: Vector2
 				if current != TerrainTypes.Type.GREEN and current != TerrainTypes.Type.TEE_BOX:
 					terrain_grid.set_tile(bp, TerrainTypes.Type.BUNKER)
 
+	# Three signature holes have real elevation, rather than decorative shading.
+	if tee in [Vector2i(65, 46), Vector2i(59, 80), Vector2i(74, 58)]:
+		SculptedTerrain.stamp(terrain_grid, green, 5, 2)
+		SculptedTerrain.stamp(terrain_grid, tee, 4, 3)
+		SculptedTerrain.stamp(terrain_grid, Vector2i((Vector2(tee) + Vector2(green)) * 0.5), 4, -1)
+
 
 ## Paint a water hazard at the given position
 static func _paint_water_hazard(terrain_grid: TerrainGrid, center: Vector2i, radius: int) -> void:

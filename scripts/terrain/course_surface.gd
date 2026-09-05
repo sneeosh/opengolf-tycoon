@@ -1,7 +1,7 @@
 extends ColorRect
 class_name CourseSurface
 ## Continuous, world-anchored terrain. One RGBA texel per simulation tile:
-## R = terrain ID / 255, G = bunker depth, BA reserved. No save format changes.
+## R = terrain ID / 255, G = bunker depth, B = (base elevation + 5) / 10, A reserved. No save format changes.
 
 const PALETTE_KEYS: Array[String] = [
 	"empty", "grass", "fairway_light", "rough", "heavy_rough", "green_light",
@@ -22,12 +22,14 @@ func initialize(grid: TerrainGrid) -> void:
 	var surface_material := ShaderMaterial.new()
 	surface_material.shader = preload("res://shaders/course_surface.gdshader")
 	surface_material.set_shader_parameter("terrain_data", _texture)
+	surface_material.set_shader_parameter("elevation_data", _texture)
 	surface_material.set_shader_parameter("grid_size", Vector2(grid.grid_width, grid.grid_height))
 	surface_material.set_shader_parameter("tile_size", Vector2(grid.tile_width, grid.tile_height))
 	material = surface_material
 	refresh_palette()
 	rebuild()
 	grid.tile_changed.connect(_on_tile_changed)
+	grid.elevation_changed.connect(_on_elevation_changed)
 	EventBus.theme_changed.connect(_on_theme_changed)
 	EventBus.load_completed.connect(_on_load_completed)
 
@@ -47,9 +49,12 @@ func rebuild() -> void:
 
 func _write_tile(pos: Vector2i) -> void:
 	_data.set_pixel(pos.x, pos.y, Color(float(_grid.get_tile(pos)) / 255.0,
-		float(_grid.get_bunker_depth(pos)), 0.0, 1.0))
+		float(_grid.get_bunker_depth(pos)), float(_grid.get_elevation(pos) + 5) / 10.0, 1.0))
 
 func _on_tile_changed(pos: Vector2i, _old: int, _new: int) -> void:
+	update_tile(pos)
+
+func _on_elevation_changed(pos: Vector2i, _old: int, _new: int) -> void:
 	update_tile(pos)
 
 func update_tile(pos: Vector2i) -> void:

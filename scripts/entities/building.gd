@@ -213,6 +213,12 @@ func destroy() -> void:
 
 func _update_visuals() -> void:
 	"""Create visual representation for the building with shadows"""
+	# Remove old visuals and click areas immediately before rebuilding upgrades.
+	for child in get_children():
+		if child.name in ["Visual", "ClickArea"]:
+			remove_child(child)
+			child.queue_free()
+	_shadow_refs.clear()
 	# Create a Node2D to hold the visual
 	var visual = Node2D.new()
 	visual.name = "Visual"
@@ -224,6 +230,19 @@ func _update_visuals() -> void:
 
 	var size_x = width * tile_w
 	var size_y = height * tile_h
+
+	if building_type == "clubhouse":
+		var patio := Polygon2D.new()
+		patio.name = "TerracePaving"
+		patio.polygon = PackedVector2Array([Vector2(4, size_y - 46), Vector2(size_x - 4, size_y - 46), Vector2(size_x - 4, size_y - 2), Vector2(4, size_y - 2)])
+		patio.color = Color("c9b88f")
+		visual.add_child(patio)
+		for x in range(8, size_x - 4, 16):
+			var joint := Line2D.new()
+			joint.points = PackedVector2Array([Vector2(x, size_y - 44), Vector2(x, size_y - 4)])
+			joint.default_color = Color(0.45, 0.39, 0.27, 0.15)
+			joint.width = 1
+			visual.add_child(joint)
 
 	# Configure shadow based on building size
 	var visual_height = size_y * 0.6  # Buildings are taller than their footprint
@@ -238,7 +257,12 @@ func _update_visuals() -> void:
 	# Add contact shadow (AO) at building base
 	if _shadow_config.cast_contact_shadow:
 		var contact = ShadowRenderer.create_contact_shadow_polygon(_shadow_config, shadow_system)
-		contact.z_index = -2
+		if building_type == "clubhouse":
+			# A compact contact shadow under the visible building, above the paving.
+			contact.polygon = ShadowRenderer.generate_ellipse(Vector2(size_x * 0.5, size_y - 12), 52, 6, 20)
+			contact.z_index = 0
+		else:
+			contact.z_index = -2
 		visual.add_child(contact)
 		_shadow_refs["contact"] = contact
 
@@ -284,6 +308,13 @@ func _update_visuals() -> void:
 		# Add isometric side wall strip for 3D depth (skip bench — it's open)
 		if building_type != "bench":
 			_add_isometric_depth(visual, size_x, size_y)
+
+	if building_type == "clubhouse":
+		var terrace := ClubhouseTerrace.new()
+		terrace.name = "ClubhouseTerrace"
+		terrace.footprint = Vector2(size_x, size_y)
+		terrace.level = upgrade_level
+		visual.add_child(terrace)
 
 	# Set up chimney smoke for restaurant and clubhouse L2+
 	_setup_smoke(visual)

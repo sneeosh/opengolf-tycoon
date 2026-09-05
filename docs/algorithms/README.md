@@ -18,6 +18,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Weather System](weather-system.md) — State machine transitions, spawn/accuracy modifiers, seasonal weights
 
 ### Course Design
+- [Landforms and Clubhouse Life](course-character.md) — Sculpted hills, animated terraces, and golfer reactions
 - [Path Furniture](path-furniture.md) — Path-edge alignment, grounded fixtures, and matching placement ghosts
 - [Living Course Details](course-wildlife.md) — Ducks, garden visitors, seasonal blooms, and decorative water animation
 - [Continuous Course Surface](course-surface.md) — Connected terrain materials, theme palettes, foliage motion, and generated-course cleanup

@@ -10,6 +10,7 @@ signal flower_bed_pressed
 signal building_placement_pressed
 signal decoration_placement_pressed
 signal raise_elevation_pressed
+signal sculpt_terrain_pressed(raising: bool)
 signal lower_elevation_pressed
 signal bulldozer_pressed
 signal staff_pressed
@@ -26,7 +27,7 @@ var _brush_label: Label = null
 var _green_preset_row: HBoxContainer = null
 var _green_preset_buttons: Dictionary = {}  # preset_name -> Button
 var _active_green_preset: String = ""
-const BRUSH_SIZES = [1, 3, 5]
+const BRUSH_SIZES = [1, 3, 5, 7, 9]
 
 const TOOL_SECTIONS = {
 	"Course Terrain": {
@@ -61,6 +62,8 @@ const TOOL_SECTIONS = {
 	"Elevation": {
 		"icon": "[E]",
 		"tools": [
+			{"type": "mound", "name": "Rolling hill", "icon": "∩", "hotkey": "", "desc": "Sculpt a rounded hill with gently tapering slopes"},
+			{"type": "hollow", "name": "Hollow", "icon": "∪", "hotkey": "", "desc": "Carve a soft valley; preserves water, paths, and buildings"},
 			{"type": "raise", "name": "Raise", "icon": "[+]", "hotkey": "+", "desc": "Raise terrain elevation"},
 			{"type": "lower", "name": "Lower", "icon": "[-]", "hotkey": "-", "desc": "Lower terrain elevation"},
 		]
@@ -334,6 +337,10 @@ func _on_tool_button_pressed(tool_type) -> void:
 				decoration_placement_pressed.emit()
 			"create_hole":
 				create_hole_pressed.emit()
+			"mound":
+				sculpt_terrain_pressed.emit(true)
+			"hollow":
+				sculpt_terrain_pressed.emit(false)
 			"raise":
 				raise_elevation_pressed.emit()
 			"lower":
@@ -498,3 +505,9 @@ func _update_green_preset_highlight() -> void:
 
 func get_active_green_preset() -> String:
 	return _active_green_preset
+
+func set_brush_size(value: int) -> void:
+	if value in BRUSH_SIZES:
+		_brush_size = value
+		_update_brush_label()
+		brush_size_changed.emit(value)
