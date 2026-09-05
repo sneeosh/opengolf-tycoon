@@ -13,10 +13,6 @@ uniform vec2 light_direction = vec2(-0.7, -0.7);  // NW, normalized
 uniform float light_intensity : hint_range(0.0, 1.0) = 0.5;
 uniform float shadow_intensity : hint_range(0.0, 1.0) = 0.4;
 
-// --- Cel shading ---
-uniform int cel_steps : hint_range(2, 8) = 3;
-uniform float cel_smoothness : hint_range(0.0, 0.1) = 0.03;
-
 // --- Debug ---
 uniform bool debug_heightmap = false;  // Set true to visualize raw heightmap data
 
@@ -82,15 +78,6 @@ float compute_ao(vec2 wp, float center_height) {
 	return laplacian * 40.0;  // Scale for visibility
 }
 
-// Quantize lighting into clean cel-shading bands
-float cel_shade(float ndotl) {
-	float steps_f = float(cel_steps);
-	float quantized = floor(ndotl * steps_f) / steps_f;
-	float frac_part = fract(ndotl * steps_f);
-	float smooth_edge = smoothstep(0.0, cel_smoothness * steps_f, frac_part);
-	return mix(quantized, quantized + 1.0 / steps_f, smooth_edge);
-}
-
 void fragment() {
 	vec2 uv = world_to_uv(world_pos);
 	float height = sample_height(world_pos);
@@ -112,12 +99,12 @@ void fragment() {
 			COLOR = vec4(0.0, 1.0, 0.0, grid_line * 0.15);
 		}
 	} else {
-		// --- Directional cel-shading ---
+		// --- Continuous directional lighting ---
 		float slope_mag = 0.0;
 		vec3 normal = compute_normal(world_pos, slope_mag);
 		vec3 light_dir_3d = normalize(vec3(light_direction, 0.6));
 		float ndotl = dot(normal, light_dir_3d);
-		float lighting = cel_shade(ndotl * 0.5 + 0.5);
+		float lighting = ndotl * 0.5 + 0.5;
 
 		// Shade range: shadow_intensity below neutral, light_intensity above
 		float shade = mix(1.0 - shadow_intensity, 1.0 + light_intensity, lighting);
@@ -141,12 +128,12 @@ void fragment() {
 		// Positive ao = valley (darken), negative ao = ridge (lighten slightly)
 		if (ao > 0.03) {
 			// Valley darkening — cool shadow
-			float ao_alpha = clamp(ao * 0.5, 0.0, 0.30);
+			float ao_alpha = clamp(ao * 0.25, 0.0, 0.16) * smoothstep(0.03, 0.12, ao);
 			out_color = mix(out_color, vec3(0.10, 0.08, 0.15), ao_alpha);
 			alpha = max(alpha, ao_alpha);
 		} else if (ao < -0.03) {
 			// Ridge brightening — warm highlight
-			float ao_alpha = clamp(-ao * 0.25, 0.0, 0.15);
+			float ao_alpha = clamp(-ao * 0.12, 0.0, 0.08) * smoothstep(0.03, 0.12, -ao);
 			out_color = mix(out_color, vec3(1.0, 0.97, 0.90), ao_alpha);
 			alpha = max(alpha, ao_alpha);
 		}
@@ -163,7 +150,7 @@ void fragment() {
 
 		// --- Height-based tint ---
 		float height_tint_alpha = abs(rel_height) * 2.0;
-		height_tint_alpha = clamp(height_tint_alpha, 0.0, 0.25);
+		height_tint_alpha = clamp(height_tint_alpha, 0.0, 0.12) * smoothstep(0.03, 0.08, abs(rel_height));
 
 		if (rel_height > 0.03) {
 			out_color = mix(out_color, vec3(1.0, 0.95, 0.88), 0.4);

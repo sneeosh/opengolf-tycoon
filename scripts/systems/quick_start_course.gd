@@ -139,6 +139,12 @@ static func _paint_hole(terrain_grid: TerrainGrid, tee: Vector2i, green: Vector2
 				if current != TerrainTypes.Type.GREEN and current != TerrainTypes.Type.TEE_BOX:
 					terrain_grid.set_tile(bp, TerrainTypes.Type.BUNKER)
 
+	# Three signature holes have real elevation, rather than decorative shading.
+	if tee in [Vector2i(65, 46), Vector2i(59, 80), Vector2i(74, 58)]:
+		SculptedTerrain.stamp(terrain_grid, green, 5, 2)
+		SculptedTerrain.stamp(terrain_grid, tee, 4, 3)
+		SculptedTerrain.stamp(terrain_grid, Vector2i((Vector2(tee) + Vector2(green)) * 0.5), 4, -1)
+
 
 ## Paint a water hazard at the given position
 static func _paint_water_hazard(terrain_grid: TerrainGrid, center: Vector2i, radius: int) -> void:
@@ -204,6 +210,7 @@ static func _clear_entities_on_course(terrain_grid: TerrainGrid, entity_layer: E
 		TerrainTypes.Type.GREEN,
 		TerrainTypes.Type.TEE_BOX,
 		TerrainTypes.Type.BUNKER,
+		TerrainTypes.Type.WATER,
 	]
 
 	# Remove trees on course surfaces
@@ -212,7 +219,9 @@ static func _clear_entities_on_course(terrain_grid: TerrainGrid, entity_layer: E
 		if terrain_grid.get_tile(pos) in course_terrain:
 			tree_positions_to_remove.append(pos)
 	for pos in tree_positions_to_remove:
+		var surface := terrain_grid.get_tile(pos)
 		entity_layer.remove_tree(pos)
+		terrain_grid.set_tile(pos, surface)
 
 	# Remove rocks on course surfaces
 	var rock_positions_to_remove: Array[Vector2i] = []
@@ -220,4 +229,6 @@ static func _clear_entities_on_course(terrain_grid: TerrainGrid, entity_layer: E
 		if terrain_grid.get_tile(pos) in course_terrain:
 			rock_positions_to_remove.append(pos)
 	for pos in rock_positions_to_remove:
+		var surface := terrain_grid.get_tile(pos)
 		entity_layer.remove_rock(pos)
+		terrain_grid.set_tile(pos, surface)

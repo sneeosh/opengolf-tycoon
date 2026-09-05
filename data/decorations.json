@@ -11,7 +11,7 @@
 			"placeable_terrain": ["grass", "rough", "fairway", "path"],
 			"unlock": null,
 			"theme_bonus": ["PARKLAND", "TROPICAL", "RESORT", "WOODLAND"],
-			"description": "A colorful bed of seasonal flowers"
+			"description": "Seasonal blooms that give butterflies a reason to stop."
 		},
 		"ornamental_grass": {
 			"id": "ornamental_grass",
@@ -50,7 +50,7 @@
 			"placeable_terrain": ["grass", "path"],
 			"unlock": {"type": "star_rating", "value": 3},
 			"theme_bonus": ["CITY", "TROPICAL", "RESORT"],
-			"description": "An elegant water fountain"
+			"description": "A sparkling water feature. Excellent cover for a missed putt."
 		},
 		"bird_bath": {
 			"id": "bird_bath",
@@ -63,7 +63,7 @@
 			"placeable_terrain": ["grass", "rough", "fairway", "path"],
 			"unlock": null,
 			"theme_bonus": ["WOODLAND", "PARKLAND", "MARSHLAND", "TROPICAL"],
-			"description": "A small stone bird bath"
+			"description": "A stone basin for the club’s smallest, splashiest members."
 		},
 		"gazebo": {
 			"id": "gazebo",
@@ -89,7 +89,7 @@
 			"placeable_terrain": ["grass", "rough", "fairway", "path"],
 			"unlock": null,
 			"theme_bonus": ["LINKS", "HEATHLAND"],
-			"description": "A wayfinding sign"
+			"description": "A little direction. The ducks still have right of way."
 		},
 		"ball_washer": {
 			"id": "ball_washer",
@@ -115,7 +115,7 @@
 			"placeable_terrain": ["grass", "rough", "path"],
 			"unlock": null,
 			"theme_bonus": ["PARKLAND", "CITY", "RESORT"],
-			"description": "A scenic resting bench"
+			"description": "A shady seat for contemplating that last three-putt."
 		},
 		"waste_bin": {
 			"id": "waste_bin",

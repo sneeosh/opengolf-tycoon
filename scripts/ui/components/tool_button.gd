@@ -94,7 +94,7 @@ func _create_styles() -> void:
 	_style_selected.border_width_top = 2
 	_style_selected.border_width_right = 2
 	_style_selected.border_width_bottom = 2
-	_style_selected.border_color = UIConstants.COLOR_SUCCESS
+	_style_selected.border_color = UIConstants.COLOR_GOLD
 
 	_apply_styles()
 
@@ -116,9 +116,23 @@ func _update_button() -> void:
 		text += "  [%s]" % hotkey
 
 	# Set size - expand to fill available width
-	custom_minimum_size = Vector2(0, 36)
+	custom_minimum_size = Vector2(0, 44)
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	alignment = HORIZONTAL_ALIGNMENT_LEFT
+
+	# Use the same native pixel art as the course for immediately recognizable tools.
+	var icon_path := ""
+	if tool_type is int:
+		var tile_icons := {1: "grass", 2: "fairway", 3: "rough", 4: "heavy_rough", 5: "green", 6: "tee_box", 7: "bunker", 8: "water", 9: "path", 10: "oob", 12: "flower_bed"}
+		if tile_icons.has(tool_type):
+			icon_path = "res://assets/sprites/tiles/%s.png" % tile_icons[tool_type]
+	else:
+		icon_path = {"tree": "res://assets/sprites/trees/oak.png", "rock": "res://assets/sprites/rocks/small.png", "building": "res://assets/sprites/buildings/clubhouse_1.png"}.get(str(tool_type), "")
+	if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
+		icon = load(icon_path)
+		expand_icon = true
+		add_theme_constant_override("icon_max_width", 32)
+		add_theme_constant_override("h_separation", 10)
 
 	# Font size
 	add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)

@@ -12,9 +12,12 @@ var _elevation_grid: Dictionary = {}  # Vector2i -> int (-5 to +5)
 var _bunker_depth_grid: Dictionary = {}  # Vector2i -> 0 (SHALLOW) or 1 (DEEP)
 var _player_placed_tiles: Dictionary = {}  # Vector2i -> true for tiles player placed (for maintenance)
 var _elevation_overlay: ElevationOverlay = null
+var _course_surface: CourseSurface = null
+var _wildlife: CourseWildlife = null
 
 @onready var tile_map: TileMapLayer = $TileMapLayer if has_node("TileMapLayer") else null
 
+signal surface_refreshed
 signal tile_changed(position: Vector2i, old_type: int, new_type: int)
 signal elevation_changed(position: Vector2i, old_elevation: int, new_elevation: int)
 
@@ -48,20 +51,22 @@ var _last_camera_pos: Vector2 = Vector2.ZERO
 var _last_camera_zoom: float = 1.0
 
 func _ready() -> void:
-	_generate_tileset()
+	_course_surface = CourseSurface.new()
 	# Variation shader disabled — it overwrites TilesetGenerator's mowing stripe
 	# patterns on fairways/greens. The FairwayOverlay handles stripes instead.
 	#_apply_variation_shader()
 	_initialize_grid()
+	_course_surface.name = "CourseSurface"
+	add_child(_course_surface)
+	_course_surface.initialize(self)
+	if tile_map:
+		tile_map.hide()
 	_setup_ob_markers_overlay()
-	_setup_water_overlay()
-	_setup_bunker_overlay()
-	_setup_grass_overlay()
-	_setup_fairway_overlay()
+	# The continuous surface supplies turf, sand, water, and paths on every platform.
+	# Keep the legacy overlay classes available for older tools, but don't double draw.
 	# TreeOverlay and RockOverlay disabled — entities render their own sprites.
 	# TREES/ROCKS terrain tiles use grass color to blend invisibly.
 	_setup_flower_overlay()
-	_setup_path_overlay()
 	_setup_elevation_overlay()
 	_setup_debug_overlay()
 	_setup_noise_overlay()
@@ -69,6 +74,10 @@ func _ready() -> void:
 	_setup_wind_flag_overlay()
 	_setup_elevation_shader()
 	_setup_fairway_width_overlay()
+	_wildlife = CourseWildlife.new()
+	_wildlife.name = "CourseWildlife"
+	add_child(_wildlife)
+	_wildlife.initialize(self)
 
 	# Force a complete redraw after one frame to ensure shader is fully applied
 	# This fixes the issue where initial tiles don't get shader variation
@@ -123,6 +132,11 @@ func _generate_tileset() -> void:
 
 ## Regenerate the tileset (e.g. after theme change)
 func regenerate_tileset() -> void:
+	if _course_surface:
+		_course_surface.refresh_palette()
+		_course_surface.rebuild()
+		_redraw_all_overlays()
+		return
 	_generate_tileset()
 	#_apply_variation_shader()  # Re-apply shader with new theme colors
 	# Re-render all existing tiles and overlays
@@ -132,6 +146,8 @@ func regenerate_tileset() -> void:
 	_redraw_all_overlays()
 
 func _redraw_all_overlays() -> void:
+	if _wildlife:
+		_wildlife.queue_redraw()
 	if _water_overlay:
 		_water_overlay.queue_redraw()
 	if _bunker_overlay:
@@ -255,6 +271,11 @@ func end_batch_quiet() -> void:
 ## Force all overlays to rescan terrain from scratch and redraw.
 ## Use after bulk terrain changes (generation, load) that bypassed per-tile signals.
 func refresh_all_overlays() -> void:
+	surface_refreshed.emit()
+	if _wildlife:
+		_wildlife.rebuild()
+	if _course_surface:
+		_course_surface.rebuild()
 	# Rebuild all tile visuals first (skipped during batch mode)
 	_refresh_all_tiles()
 	if _water_overlay and _water_overlay.has_method("_scan_water_tiles"):
@@ -398,11 +419,15 @@ func get_bunker_depth(pos: Vector2i) -> int:
 	return _bunker_depth_grid.get(pos, 0)
 
 func set_bunker_depth(pos: Vector2i, depth: int) -> void:
+	if not is_valid_position(pos):
+		return
 	if depth == 0:
 		_bunker_depth_grid.erase(pos)
 	else:
 		_bunker_depth_grid[pos] = depth
 	EventBus.terrain_tile_changed.emit(pos, TerrainTypes.Type.BUNKER, TerrainTypes.Type.BUNKER)
+	if _course_surface:
+		_course_surface.update_tile(pos)
 
 func calculate_distance_yards(from: Vector2i, to: Vector2i) -> int:
 	const YARDS_PER_TILE: float = 22.0
@@ -451,6 +476,8 @@ func get_total_maintenance_cost() -> int:
 	return int(sqrt(float(raw_total)) * 20.0)
 
 func _update_tile_visual(pos: Vector2i) -> void:
+	if _course_surface:
+		return
 	if tile_map:
 		var terrain_type = get_tile(pos)
 		var edge_mask = 0
@@ -806,6 +833,9 @@ func deserialize(data: Dictionary) -> void:
 		for y in range(grid_height):
 			_update_tile_visual(Vector2i(x, y))
 
+	if _course_surface:
+		_course_surface.rebuild()
+
 func deserialize_player_placed(data: Array) -> void:
 	## Restore player-placed tile tracking for maintenance
 	_player_placed_tiles.clear()
@@ -824,6 +854,8 @@ func deserialize_elevation(data: Dictionary) -> void:
 			var pos = Vector2i(int(parts[0]), int(parts[1]))
 			if is_valid_position(pos):
 				_elevation_grid[pos] = int(data[key])
+	if _course_surface:
+		_course_surface.rebuild()
 	if _elevation_overlay:
 		_elevation_overlay._needs_redraw = true
 		_elevation_overlay.queue_redraw()
@@ -838,3 +870,6 @@ func deserialize_bunker_depth(data: Dictionary) -> void:
 			var pos = Vector2i(int(parts[0]), int(parts[1]))
 			if is_valid_position(pos):
 				_bunker_depth_grid[pos] = int(data[key])
+
+	if _course_surface:
+		_course_surface.rebuild()

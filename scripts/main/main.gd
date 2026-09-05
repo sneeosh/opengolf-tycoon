@@ -487,6 +487,7 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.rock_placement_pressed.connect(_on_rock_placement_pressed)
 	terrain_toolbar.building_placement_pressed.connect(_on_building_placement_pressed)
 	terrain_toolbar.decoration_placement_pressed.connect(_on_decoration_placement_pressed)
+	terrain_toolbar.sculpt_terrain_pressed.connect(_on_sculpt_terrain_pressed)
 	terrain_toolbar.raise_elevation_pressed.connect(_on_raise_elevation_pressed)
 	terrain_toolbar.lower_elevation_pressed.connect(_on_lower_elevation_pressed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
@@ -713,9 +714,9 @@ func _setup_bottom_bar() -> void:
 	var bg = Panel.new()
 	bg.name = "BottomBarBG"
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.08, 0.92)
+	style.bg_color = UIConstants.COLOR_BG_DARK
 	style.border_width_top = 1
-	style.border_color = Color(0.2, 0.2, 0.2, 1)
+	style.border_color = UIConstants.COLOR_BORDER
 	bg.add_theme_stylebox_override("panel", style)
 	# Position it exactly behind the BottomBar
 	bg.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -820,10 +821,10 @@ func _update_selection_indicator() -> void:
 		color = Color(1.0, 0.5, 0.3)  # Orange
 	elif elevation_tool.is_active():
 		if elevation_tool.elevation_mode == ElevationTool.ElevationMode.RAISING:
-			text += "Raise Elevation"
+			text += "Rolling hill" if elevation_tool.sculpted else "Raise Elevation"
 			color = Color(0.6, 0.8, 1.0)  # Light blue
 		else:
-			text += "Lower Elevation"
+			text += "Hollow" if elevation_tool.sculpted else "Lower Elevation"
 			color = Color(1.0, 0.6, 0.6)  # Light red
 	else:
 		# Default to terrain tool
@@ -1186,6 +1187,9 @@ func _on_tool_selected(tool_type: int) -> void:
 	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
 
 func _on_brush_size_changed(new_size: int) -> void:
+	if elevation_tool.is_active() and elevation_tool.sculpted and new_size < 7:
+		terrain_toolbar.set_brush_size(7)
+		return
 	brush_size = new_size
 	if placement_preview:
 		placement_preview.set_brush_size(new_size)
@@ -1482,12 +1486,16 @@ func _on_decoration_placement_pressed() -> void:
 		return
 
 	var dialog = AcceptDialog.new()
-	dialog.title = "Place Decoration"
-	dialog.size = Vector2i(420, 400)
+	dialog.title = "The garden shed"
+	dialog.size = Vector2i(680, 560)
+	dialog.theme = preload("res://assets/themes/game_theme.tres")
 
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(400, 350)
+	scroll.custom_minimum_size = Vector2(640, 480)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", 12)
 
 	# Group by category
 	var categories = {"landscaping": "Landscaping", "water": "Water Features", "structures": "Structures", "furniture": "Furniture", "sculptures": "Sculptures"}
@@ -1503,11 +1511,16 @@ func _on_decoration_placement_pressed() -> void:
 
 		# Category header
 		var header = Label.new()
-		header.text = "— %s —" % cat_name
-		header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		header.add_theme_font_size_override("font_size", 13)
-		header.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
+		header.text = cat_name
+		header.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		header.add_theme_font_size_override("font_size", 16)
+		header.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
 		vbox.add_child(header)
+		var shelf := GridContainer.new()
+		shelf.columns = 2
+		shelf.add_theme_constant_override("h_separation", 10)
+		shelf.add_theme_constant_override("v_separation", 8)
+		vbox.add_child(shelf)
 
 		for dec_type in decoration_registry:
 			var dec_data = decoration_registry[dec_type]
@@ -1521,26 +1534,38 @@ func _on_decoration_placement_pressed() -> void:
 
 			var btn = Button.new()
 			if upkeep > 0:
-				btn.text = "%s ($%d, $%d/day)" % [dec_name, cost_val, upkeep]
+				btn.text = "%s\n$%d  ·  $%d/day" % [dec_name, cost_val, upkeep]
 			else:
-				btn.text = "%s ($%d)" % [dec_name, cost_val]
-			btn.custom_minimum_size = Vector2(380, 32)
+				btn.text = "%s\n$%d" % [dec_name, cost_val]
+			btn.custom_minimum_size = Vector2(305, 78)
+			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			btn.add_theme_font_size_override("font_size", 14)
+			btn.add_theme_constant_override("h_separation", 12)
+			btn.add_theme_constant_override("icon_max_width", 48)
+			btn.expand_icon = true
+			var sprite_path: String = Decoration.SPRITE_PATHS.get(dec_type, "")
+			if not sprite_path.is_empty() and ResourceLoader.exists(sprite_path):
+				btn.icon = load(sprite_path)
+			btn.tooltip_text = dec_data.get("description", "")
 
 			if not unlocked:
 				btn.disabled = true
 				var unlock = dec_data.get("unlock", {})
 				var req_text = _get_unlock_requirement_text(unlock)
-				btn.text = "%s [%s]" % [dec_name, req_text]
+				btn.text = "%s\n%s" % [dec_name, req_text]
 				btn.tooltip_text = "Requires: %s" % req_text
 			else:
 				btn.pressed.connect(_on_decoration_type_selected.bind(dec_type, dialog))
 
-			vbox.add_child(btn)
+			shelf.add_child(btn)
 
 	scroll.add_child(vbox)
 	dialog.add_child(scroll)
-	get_tree().root.add_child(dialog)
-	dialog.popup_centered_ratio(0.4)
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
 
 func _on_decoration_type_selected(dec_type: String, dialog: AcceptDialog) -> void:
 	"""Handle decoration type selection"""
@@ -1579,6 +1604,15 @@ func _get_unlock_requirement_text(unlock) -> String:
 		"holes_built":
 			return "%d holes" % unlock.get("value", 0)
 	return "Unknown"
+
+func _on_sculpt_terrain_pressed(raising: bool) -> void:
+	if raising:
+		_on_raise_elevation_pressed()
+	else:
+		_on_lower_elevation_pressed()
+	elevation_tool.sculpted = true
+	terrain_toolbar.set_brush_size(7)
+	EventBus.notify("Sculpt a rolling hill" if raising else "Sculpt a hollow", "info")
 
 func _on_raise_elevation_pressed() -> void:
 	_cancel_hole_move_mode()
@@ -1844,7 +1878,6 @@ func _place_decoration(grid_pos: Vector2i, cost: int) -> void:
 	if decoration:
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Decoration: %s" % dec_name, -cost)
-		EventBus.decoration_placed.emit(dec_type, grid_pos)
 		undo_manager.record_entity_placement("decoration", grid_pos, dec_type, cost)
 		print("Placed %s at %s" % [dec_type, grid_pos])
 		_play_placement_feedback(grid_pos, "decoration")

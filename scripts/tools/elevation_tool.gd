@@ -10,14 +10,17 @@ enum ElevationMode {
 
 var elevation_mode: ElevationMode = ElevationMode.NONE
 var is_painting: bool = false
+var sculpted := false
 
 signal elevation_mode_changed(mode: ElevationMode)
 
 func start_raising() -> void:
+	sculpted = false
 	elevation_mode = ElevationMode.RAISING
 	elevation_mode_changed.emit(elevation_mode)
 
 func start_lowering() -> void:
+	sculpted = false
 	elevation_mode = ElevationMode.LOWERING
 	elevation_mode_changed.emit(elevation_mode)
 
@@ -37,6 +40,9 @@ func paint_elevation(grid_pos: Vector2i, terrain_grid: TerrainGrid, brush_size: 
 		return []
 	if not terrain_grid or not terrain_grid.is_valid_position(grid_pos):
 		return []
+
+	if sculpted:
+		return SculptedTerrain.stamp(terrain_grid, grid_pos, maxi(3, brush_size / 2), 3 if elevation_mode == ElevationMode.RAISING else -3, entity_layer)
 
 	var change_amount = 1 if elevation_mode == ElevationMode.RAISING else -1
 	var tiles = [grid_pos] if brush_size <= 1 else terrain_grid.get_brush_tiles(grid_pos, brush_size)

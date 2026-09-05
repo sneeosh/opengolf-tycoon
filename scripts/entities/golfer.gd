@@ -130,6 +130,7 @@ const BUILDING_CHECK_INTERVAL: float = 0.5
 
 ## Z-ordering: visual offset to prevent stacking when golfers share a tile
 var visual_offset: Vector2 = Vector2.ZERO
+var _expression: GolferExpression
 
 ## Active golfer highlight (shows who is currently taking their shot)
 var is_active_golfer: bool = false
@@ -279,6 +280,13 @@ func _ready() -> void:
 
 	_update_visual()
 	_update_score_display()
+
+	if visual:
+		_expression = GolferExpression.new()
+		_expression.name = "Expression"
+		add_child(_expression)
+		_expression.initialize(self, visual)
+
 
 ## Set up AnimatedSprite2D with PixelLab-generated frames
 func _setup_sprite_animations() -> void:
@@ -1224,6 +1232,8 @@ func finish_hole(par: int) -> void:
 
 	_update_score_display()
 	_change_state(State.IDLE)
+	if _expression:
+		_expression.react_to_score(current_strokes - par)
 
 ## Finish the round
 func finish_round() -> void:

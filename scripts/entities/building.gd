@@ -213,6 +213,12 @@ func destroy() -> void:
 
 func _update_visuals() -> void:
 	"""Create visual representation for the building with shadows"""
+	# Remove old visuals and click areas immediately before rebuilding upgrades.
+	for child in get_children():
+		if child.name in ["Visual", "ClickArea"]:
+			remove_child(child)
+			child.queue_free()
+	_shadow_refs.clear()
 	# Create a Node2D to hold the visual
 	var visual = Node2D.new()
 	visual.name = "Visual"
@@ -225,71 +231,18 @@ func _update_visuals() -> void:
 	var size_x = width * tile_w
 	var size_y = height * tile_h
 
-	# Configure shadow based on building size
-	var visual_height = size_y * 0.6  # Buildings are taller than their footprint
-	_shadow_config = ShadowRenderer.ShadowConfig.new(visual_height, size_x * 0.8)
-	_shadow_config.base_offset = Vector2(size_x * 0.5, size_y + 2)
-
-	# Get shadow system for consistent colors
-	var shadow_system: Node = null
-	if has_node("/root/ShadowSystem"):
-		shadow_system = get_node("/root/ShadowSystem")
-
-	# Add contact shadow (AO) at building base
-	if _shadow_config.cast_contact_shadow:
-		var contact = ShadowRenderer.create_contact_shadow_polygon(_shadow_config, shadow_system)
-		contact.z_index = -2
-		visual.add_child(contact)
-		_shadow_refs["contact"] = contact
-
-	# Try sprite-based rendering first
-	var sprite_key = building_type
-	if building_type == "clubhouse":
-		sprite_key = "clubhouse_%d" % upgrade_level
-	if sprite_key in SPRITE_PATHS and ResourceLoader.exists(SPRITE_PATHS[sprite_key]):
-		var building_sprite = Sprite2D.new()
-		building_sprite.name = "BuildingSprite"
-		building_sprite.texture = load(SPRITE_PATHS[sprite_key])
-		building_sprite.centered = false
-		building_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		# Position sprite centered on the building footprint
-		var tex_size = building_sprite.texture.get_size()
-		building_sprite.position = Vector2(
-			(size_x - tex_size.x) / 2.0,
-			size_y - tex_size.y  # Align bottom of sprite with building base
-		)
-		visual.add_child(building_sprite)
-	else:
-		# Fall back to polygon drawing
-		match building_type:
-			"clubhouse":
-				_draw_clubhouse(visual, size_x, size_y)
-			"pro_shop":
-				_draw_pro_shop(visual, size_x, size_y)
-			"restaurant":
-				_draw_restaurant(visual, size_x, size_y)
-			"snack_bar":
-				_draw_snack_bar(visual, size_x, size_y)
-			"driving_range":
-				_draw_driving_range(visual, size_x, size_y)
-			"cart_shed":
-				_draw_cart_shed(visual, size_x, size_y)
-			"restroom":
-				_draw_restroom(visual, size_x, size_y)
-			"bench":
-				_draw_bench(visual, size_x, size_y)
-			_:
-				_draw_generic(visual, size_x, size_y)
-
-		# Add isometric side wall strip for 3D depth (skip bench — it's open)
-		if building_type != "bench":
-			_add_isometric_depth(visual, size_x, size_y)
-
-	# Set up chimney smoke for restaurant and clubhouse L2+
-	_setup_smoke(visual)
-
-	# Set up window glow overlays (initially hidden)
-	_setup_window_glow(visual)
+	# All facilities share the same architecture and placement-preview geometry.
+	_smoke_wisps.clear()
+	_has_smoke = false
+	_window_glow_overlays.clear()
+	_windows_glowing = false
+	_custom_shadow = null
+	var architecture := CourseArchitecture.new()
+	architecture.name = "Architecture"
+	architecture.kind = building_type
+	architecture.footprint = Vector2(size_x, size_y)
+	architecture.level = upgrade_level
+	visual.add_child(architecture)
 
 	# Add click detection area
 	var click_area = Area2D.new()
