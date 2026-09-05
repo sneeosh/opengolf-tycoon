@@ -38,7 +38,9 @@ Foliage uses one shared vertex shader, phased by each tree's world position.
 Movement falls off quadratically toward the base. Cacti and dead trees are still.
 EntityLayer sits at Z=2, keeping its existing relative shadow layers (-2/-1)
 above the ground and below the sprites. Elevation lighting remains independent;
-contour markings appear only while the elevation tool is active.
+contour markings appear only while the elevation tool is active. Continuous
+light and smoothly gated ambient occlusion avoid rectangular bands from the
+low-resolution heightmap.
 
 Quick Start cleanup preserves the freshly painted terrain before removing a
 tree/rock and reapplies it afterward. Removal previously restored native ground,
