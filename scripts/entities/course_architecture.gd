@@ -55,6 +55,36 @@ static func planter(c: CanvasItem, p: Vector2, wide := 15.0) -> void:
 		c.draw_circle(q, 3, Color("527442"))
 		c.draw_circle(q+Vector2(0,-2), 1.5, Color("e9ae88" if i%2 else "efe2a6"))
 
+static func lantern(c: CanvasItem, p: Vector2, night: bool) -> void:
+	# Bracket and glass stay attached to the wall, even during evening glow.
+	if night:
+		c.draw_circle(p + Vector2(0, 3), 8, Color(1, .78, .35, .08))
+		c.draw_circle(p + Vector2(0, 3), 5, Color(1, .82, .43, .12))
+	line(c, p + Vector2(-3, -3), p + Vector2(0, -3), "46513d", 2)
+	line(c, p + Vector2(0, -3), p, "46513d")
+	rect(c, p.x - 2, p.y, 4, 6, "eacb79" if night else "b9c2a2")
+	poly(c, [p+Vector2(-3,0),p+Vector2(0,-2),p+Vector2(3,0)], "43523d")
+	line(c,p+Vector2(-2,6),p+Vector2(2,6),"43523d")
+	line(c,p,p+Vector2(0,6),"6b7150")
+
+static func porch_seat(c: CanvasItem, p: Vector2) -> void:
+	# Short wooden seat tucked behind the veranda rail, at human scale.
+	for row in range(3):
+		rect(c,p.x,p.y-9+row*2,17,1,"8c6847")
+	poly(c,[p+Vector2(0,-3),p+Vector2(17,-3),p+Vector2(19,0),p+Vector2(2,0)],"ab8357")
+	for dx in [3,15]:
+		line(c,p+Vector2(dx,0),p+Vector2(dx,4),"5d6549",2)
+
+static func climbing_rose(c: CanvasItem, p: Vector2, height: float) -> void:
+	# Sparse climbing stems expose the siding and never cover the doorway.
+	for i in range(int(height/4)):
+		var q := p+Vector2(sin(i*1.8)*2,-i*4)
+		line(c,q+Vector2(0,4),q,"536642")
+		c.draw_circle(q+Vector2(-2 if i%2 else 2,-1),2,Color("73854f"))
+		if i%3 == 1:
+			c.draw_circle(q+Vector2(2,-2),2,Color("d69b82"))
+			c.draw_circle(q+Vector2(2,-2),.7,Color("efd5a1"))
+
 static func house(c: CanvasItem, x: float, base: float, w: float, tall: float, depth: float, night: bool, bays: bool = false) -> void:
 	var d := Vector2(-depth * .55, -depth * .5)
 	var e := base-tall
@@ -140,11 +170,32 @@ static func draw_building(c: CanvasItem, kind_name: String, size: Vector2, tier 
 			for j in range(3):
 				var t := fmod(time*.22+j/3.0,1.0)
 				c.draw_circle(chimney+Vector2(4+sin(t*3)*5,-20-t*22),2+t*3,Color(.91,.9,.81,(1-t)*.28))
+		# Recessed porch floor and shadow make the rail sit in front of the wall.
+		rect(c,x+7,base-16,w-13,17,"b8b08c")
+		rect(c,x+w*.5-10,base-16,20,16,"f0dfb9")
+		rect(c,x+w*.5-7,base-16,14,16,"345843")
+		c.draw_circle(Vector2(x+w*.5+4,base-12),1,Color("d5b369"))
+		poly(c,[Vector2(x+7,base),Vector2(x+w-6,base),Vector2(x+w+1,base+5),Vector2(x+12,base+5)],"a99571")
+		porch_seat(c,Vector2(x+22,base))
+		if club:
+			porch_seat(c,Vector2(x+w-40,base))
+		else:
+			# A tiny bistro table with a folded napkin, sheltered by the roof.
+			var tx := x+w-30
+			line(c,Vector2(tx,base-4),Vector2(tx,base+3),"566048",2)
+			poly(c,[Vector2(tx-8,base-5),Vector2(tx,base-8),Vector2(tx+8,base-5),Vector2(tx,base-2)],"e8dabc")
+			rect(c,tx-2,base-6,3,2,"f6ebcf")
 		# An attached veranda, with a clear central entrance and planted ends.
 		var py := base-18
 		poly(c,[Vector2(x+5,py-5),Vector2(x+w-5,py-5),Vector2(x+w+1,py+3),Vector2(x+11,py+3)],"496a4b")
 		line(c,Vector2(x+11,py+3),Vector2(x+w+1,py+3),"e8dbb7",3)
+		# A small entrance gable breaks the long canopy and marks the front door.
+		var entry := x+w*.5
+		poly(c,[Vector2(entry-21,py+3),Vector2(entry,py-10),Vector2(entry+21,py+3)],"ded0ac")
+		poly(c,[Vector2(entry-22,py+1),Vector2(entry,py-13),Vector2(entry+23,py+1),Vector2(entry+20,py+3),Vector2(entry,py-9),Vector2(entry-19,py+3)],"385c42")
+		line(c,Vector2(entry-18,py+4),Vector2(entry+19,py+4),"f0e1bf",2)
 		for px in [x+13,x+w*.5-17,x+w*.5+17,x+w-2]:
+			rect(c,px+3,py+5,2,18,"918b6b")
 			rect(c,px,py+4,3,20,"f0e3bf")
 			rect(c,px-1,base+3,5,3,"a99d7b")
 		for side in [0,1]:
@@ -155,6 +206,9 @@ static func draw_building(c: CanvasItem, kind_name: String, size: Vector2, tier 
 				line(c,Vector2(p,base-4),Vector2(p,base+3),"d4c6a0",2)
 		rect(c,x+w*.5-15,base+5,30,3,"b3a487")
 		rect(c,x+w*.5-18,base+8,36,3,"e4d4ae")
+		lantern(c,Vector2(x+w*.5-12,base-12),night)
+		lantern(c,Vector2(x+w*.5+12,base-12),night)
+		climbing_rose(c,Vector2(x+9,base+3),26)
 		planter(c,Vector2(x+6,base+10))
 		planter(c,Vector2(x+w-4,base+10))
 		if club:
@@ -209,3 +263,17 @@ static func draw_building(c: CanvasItem, kind_name: String, size: Vector2, tier 
 		rect(c,x+4,base-7,w-8,3,"916b48")
 		for dx in [11,18]:
 			rect(c,x+dx,base-11,3,4,"efdfb8")
+
+	if kind_name == "pro_shop":
+		var badge := Vector2(x+w*.5,base-33)
+		c.draw_circle(badge,6,Color("355840"))
+		line(c,badge+Vector2(-3,3),badge+Vector2(3,-3),"ddc58d")
+		line(c,badge+Vector2(3,3),badge+Vector2(-3,-3),"ddc58d")
+		c.draw_circle(badge,2,Color("f3e7c5"))
+	if club and tier >= 2:
+		# A pennant above the clock makes the growing clubhouse easy to find.
+		var mast := Vector2(x+w*.5,roof_base-28)
+		line(c,mast,mast+Vector2(0,-18),"c9b98f",1)
+		var flutter := sin(time*2.8)*1.5
+		poly(c,[mast+Vector2(1,-18),mast+Vector2(13,-16+flutter),mast+Vector2(1,-11)],"d6b967")
+		c.draw_circle(mast+Vector2(0,-19),1.2,Color("efdb9f"))

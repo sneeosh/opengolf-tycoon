@@ -14,7 +14,10 @@ Facilities share warm cream siding, green shutters, tiled gable roofs, and fixed
 window/door proportions. Clubhouses grow by adding facade bays at each upgrade.
 An attached veranda and compact stone apron replace the detached oversized patio.
 Flower boxes, a clock dormer, striped shop awnings, cart bays, and chimney smoke
-identify the different facilities. Windows turn warm at dusk.
+identify the different facilities. Windows turn warm at dusk. Recessed porch
+floors, shaded posts, sheltered benches, entrance gables, climbing roses, and
+wall lanterns add depth at the front door. Upgraded clubhouses fly a small
+animated pennant; restaurants have a sheltered bistro table.
 
 Golfer preparation gains a small address waggle. Finishing under par produces a
 brief happy hop and glints; over par produces a slump; par gets a small nod. These
