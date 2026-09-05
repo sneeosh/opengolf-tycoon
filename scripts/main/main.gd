@@ -1482,12 +1482,16 @@ func _on_decoration_placement_pressed() -> void:
 		return
 
 	var dialog = AcceptDialog.new()
-	dialog.title = "Place Decoration"
-	dialog.size = Vector2i(420, 400)
+	dialog.title = "The garden shed"
+	dialog.size = Vector2i(680, 560)
+	dialog.theme = preload("res://assets/themes/game_theme.tres")
 
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(400, 350)
+	scroll.custom_minimum_size = Vector2(640, 480)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", 12)
 
 	# Group by category
 	var categories = {"landscaping": "Landscaping", "water": "Water Features", "structures": "Structures", "furniture": "Furniture", "sculptures": "Sculptures"}
@@ -1503,11 +1507,16 @@ func _on_decoration_placement_pressed() -> void:
 
 		# Category header
 		var header = Label.new()
-		header.text = "— %s —" % cat_name
-		header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		header.add_theme_font_size_override("font_size", 13)
-		header.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
+		header.text = cat_name
+		header.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		header.add_theme_font_size_override("font_size", 16)
+		header.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
 		vbox.add_child(header)
+		var shelf := GridContainer.new()
+		shelf.columns = 2
+		shelf.add_theme_constant_override("h_separation", 10)
+		shelf.add_theme_constant_override("v_separation", 8)
+		vbox.add_child(shelf)
 
 		for dec_type in decoration_registry:
 			var dec_data = decoration_registry[dec_type]
@@ -1521,26 +1530,38 @@ func _on_decoration_placement_pressed() -> void:
 
 			var btn = Button.new()
 			if upkeep > 0:
-				btn.text = "%s ($%d, $%d/day)" % [dec_name, cost_val, upkeep]
+				btn.text = "%s\n$%d  ·  $%d/day" % [dec_name, cost_val, upkeep]
 			else:
-				btn.text = "%s ($%d)" % [dec_name, cost_val]
-			btn.custom_minimum_size = Vector2(380, 32)
+				btn.text = "%s\n$%d" % [dec_name, cost_val]
+			btn.custom_minimum_size = Vector2(305, 78)
+			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			btn.add_theme_font_size_override("font_size", 14)
+			btn.add_theme_constant_override("h_separation", 12)
+			btn.add_theme_constant_override("icon_max_width", 48)
+			btn.expand_icon = true
+			var sprite_path: String = Decoration.SPRITE_PATHS.get(dec_type, "")
+			if not sprite_path.is_empty() and ResourceLoader.exists(sprite_path):
+				btn.icon = load(sprite_path)
+			btn.tooltip_text = dec_data.get("description", "")
 
 			if not unlocked:
 				btn.disabled = true
 				var unlock = dec_data.get("unlock", {})
 				var req_text = _get_unlock_requirement_text(unlock)
-				btn.text = "%s [%s]" % [dec_name, req_text]
+				btn.text = "%s\n%s" % [dec_name, req_text]
 				btn.tooltip_text = "Requires: %s" % req_text
 			else:
 				btn.pressed.connect(_on_decoration_type_selected.bind(dec_type, dialog))
 
-			vbox.add_child(btn)
+			shelf.add_child(btn)
 
 	scroll.add_child(vbox)
 	dialog.add_child(scroll)
-	get_tree().root.add_child(dialog)
-	dialog.popup_centered_ratio(0.4)
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
 
 func _on_decoration_type_selected(dec_type: String, dialog: AcceptDialog) -> void:
 	"""Handle decoration type selection"""
@@ -1844,7 +1865,6 @@ func _place_decoration(grid_pos: Vector2i, cost: int) -> void:
 	if decoration:
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Decoration: %s" % dec_name, -cost)
-		EventBus.decoration_placed.emit(dec_type, grid_pos)
 		undo_manager.record_entity_placement("decoration", grid_pos, dec_type, cost)
 		print("Placed %s at %s" % [dec_type, grid_pos])
 		_play_placement_feedback(grid_pos, "decoration")

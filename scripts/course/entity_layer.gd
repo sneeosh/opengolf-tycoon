@@ -304,6 +304,7 @@ func place_decoration(dec_type: String, grid_pos: Vector2i, dec_registry: Dictio
 	decoration.decoration_destroyed.connect(_on_decoration_destroyed)
 
 	decoration_placed.emit(decoration, dec_data.get("cost", 0))
+	EventBus.decoration_placed.emit(dec_type, grid_pos)
 	return decoration
 
 func remove_decoration(grid_pos: Vector2i) -> void:
@@ -312,6 +313,7 @@ func remove_decoration(grid_pos: Vector2i) -> void:
 		decoration.destroy()
 		decorations.erase(grid_pos)
 		decoration_removed.emit(grid_pos)
+		EventBus.decoration_removed.emit(grid_pos)
 
 func get_decoration_at(grid_pos: Vector2i) -> Decoration:
 	"""Get decoration at position, checking both anchor tiles and footprints"""

@@ -13,6 +13,7 @@ var _bunker_depth_grid: Dictionary = {}  # Vector2i -> 0 (SHALLOW) or 1 (DEEP)
 var _player_placed_tiles: Dictionary = {}  # Vector2i -> true for tiles player placed (for maintenance)
 var _elevation_overlay: ElevationOverlay = null
 var _course_surface: CourseSurface = null
+var _wildlife: CourseWildlife = null
 
 @onready var tile_map: TileMapLayer = $TileMapLayer if has_node("TileMapLayer") else null
 
@@ -72,6 +73,10 @@ func _ready() -> void:
 	_setup_wind_flag_overlay()
 	_setup_elevation_shader()
 	_setup_fairway_width_overlay()
+	_wildlife = CourseWildlife.new()
+	_wildlife.name = "CourseWildlife"
+	add_child(_wildlife)
+	_wildlife.initialize(self)
 
 	# Force a complete redraw after one frame to ensure shader is fully applied
 	# This fixes the issue where initial tiles don't get shader variation
@@ -140,6 +145,8 @@ func regenerate_tileset() -> void:
 	_redraw_all_overlays()
 
 func _redraw_all_overlays() -> void:
+	if _wildlife:
+		_wildlife.queue_redraw()
 	if _water_overlay:
 		_water_overlay.queue_redraw()
 	if _bunker_overlay:
@@ -263,6 +270,8 @@ func end_batch_quiet() -> void:
 ## Force all overlays to rescan terrain from scratch and redraw.
 ## Use after bulk terrain changes (generation, load) that bypassed per-tile signals.
 func refresh_all_overlays() -> void:
+	if _wildlife:
+		_wildlife.rebuild()
 	if _course_surface:
 		_course_surface.rebuild()
 	# Rebuild all tile visuals first (skipped during batch mode)

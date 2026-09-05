@@ -1,5 +1,5 @@
 shader_type canvas_item;
-render_mode unshaded;
+// Receive the same day/night CanvasModulate as course objects.
 
 // Shared by desktop and WebGL 2. No screen reads or per-tile draw calls.
 uniform sampler2D terrain_data : filter_nearest, repeat_disable;

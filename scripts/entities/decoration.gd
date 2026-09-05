@@ -216,7 +216,9 @@ func get_decoration_info() -> Dictionary:
 func _update_visuals() -> void:
 	"""Create visual representation with shadows and variation"""
 	if has_node("Visual"):
-		get_node("Visual").queue_free()
+		var previous := get_node("Visual")
+		remove_child(previous)
+		previous.queue_free()
 
 	var visual = Node2D.new()
 	visual.name = "Visual"
@@ -231,9 +233,10 @@ func _update_visuals() -> void:
 	var vis_data = DECORATION_VISUALS.get(decoration_type, {"visual_height": 16.0, "base_width": 20.0})
 	var visual_height = vis_data["visual_height"]
 	var base_width = vis_data["base_width"]
-	var scale_mult = _variation.scale if _variation else 1.0
-	_shadow_config = ShadowRenderer.ShadowConfig.new(visual_height * scale_mult, base_width * scale_mult)
-	_shadow_config.base_offset = Vector2(0, 12 * scale_mult)
+	# The Visual parent applies variation to both sprite and shadow. Anchor at
+	# the sprite foot; a positive offset detached the contact shadow from it.
+	_shadow_config = ShadowRenderer.ShadowConfig.new(visual_height, base_width)
+	_shadow_config.base_offset = Vector2.ZERO
 
 	# Small decorations skip drop shadow
 	if visual_height <= 16.0:
@@ -261,6 +264,13 @@ func _update_visuals() -> void:
 		_draw_procedural(visual, color)
 
 	# Apply scale and rotation variation
+	if decoration_type in ["fountain", "bird_bath"]:
+		var atmosphere := DecorationAtmosphere.new()
+		atmosphere.name = "Atmosphere"
+		atmosphere.kind = decoration_type
+		atmosphere.terrain_grid = terrain_grid
+		visual.add_child(atmosphere)
+
 	if _variation:
 		visual.scale = Vector2(_variation.scale, _variation.scale)
 		visual.rotation = _variation.rotation
