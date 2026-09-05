@@ -13,6 +13,7 @@ var aesthetics_value: float = 0.0
 var decoration_data: Dictionary = {}
 
 var terrain_grid: TerrainGrid
+var _layout_refresh_pending := false
 
 ## Shadow references for updates when sun changes
 var _shadow_refs: Dictionary = {}
@@ -40,20 +41,12 @@ const SPRITE_PATHS: Dictionary = {
 	"sundial": "res://assets/sprites/decorations/sundial.png",
 }
 
-## Base offsets for sprite positioning (half sprite height to align base with tile center)
+## Sprite foot anchors, measured from the visible base (not the padded canvas).
 const SPRITE_BASE_OFFSETS: Dictionary = {
-	"flower_garden": 16.0,
-	"ornamental_grass": 12.0,
-	"topiary": 16.0,
-	"fountain": 20.0,
-	"bird_bath": 14.0,
-	"gazebo": 20.0,
-	"course_signage": 16.0,
-	"ball_washer": 12.0,
-	"park_bench": 10.0,
-	"waste_bin": 10.0,
-	"golfer_statue": 20.0,
-	"sundial": 16.0,
+	"flower_garden": 29.0, "ornamental_grass": 17.0, "topiary": 20.0,
+	"fountain": 25.0, "bird_bath": 17.0, "gazebo": 27.0,
+	"course_signage": 19.0, "ball_washer": 20.0, "park_bench": 21.0,
+	"waste_bin": 20.0, "golfer_statue": 22.0, "sundial": 20.0,
 }
 
 ## Visual dimensions for shadow configuration
@@ -107,6 +100,9 @@ const DECORATION_COLORS: Dictionary = {
 
 func _ready() -> void:
 	add_to_group("decorations")
+	if terrain_grid:
+		terrain_grid.tile_changed.connect(_on_ground_changed)
+		terrain_grid.surface_refreshed.connect(_queue_layout_refresh)
 
 	if not decoration_type.is_empty():
 		_generate_variation()
@@ -120,6 +116,11 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	if is_instance_valid(terrain_grid):
+		if terrain_grid.tile_changed.is_connected(_on_ground_changed):
+			terrain_grid.tile_changed.disconnect(_on_ground_changed)
+		if terrain_grid.surface_refreshed.is_connected(_queue_layout_refresh):
+			terrain_grid.surface_refreshed.disconnect(_queue_layout_refresh)
 	if has_node("/root/ShadowSystem"):
 		var shadow_system = get_node("/root/ShadowSystem")
 		if shadow_system.sun_direction_changed.is_connected(_on_sun_direction_changed):
@@ -144,21 +145,39 @@ func set_decoration_type(type: String, data: Dictionary) -> void:
 
 func _generate_variation() -> void:
 	"""Generate deterministic variation based on grid position"""
-	var var_params = DECORATION_VARIATION.get(decoration_type, {
+	_variation = visual_variation(decoration_type, grid_position)
+
+static func visual_variation(type: String, pos: Vector2i) -> PropVariation.VariationResult:
+	var var_params = DECORATION_VARIATION.get(type, {
 		"scale": Vector2(0.95, 1.05),
 		"rotation": Vector2(0.0, 0.0),
 		"hue": Vector2(-0.02, 0.02)
 	})
 
 	# Use salt offset 200 to differentiate from trees (0) and rocks (100)
-	_variation = PropVariation.generate_custom_variation(
-		grid_position,
+	return PropVariation.generate_custom_variation(
+		pos,
 		var_params["scale"],
-		var_params["rotation"],
+		var_params["rotation"] if type in ["flower_garden", "ornamental_grass", "topiary"] else Vector2.ZERO,
 		var_params["hue"],
 		Vector2(-0.03, 0.03),  # Saturation
 		Vector2(-0.05, 0.05)   # Value
 	)
+
+
+func _on_ground_changed(pos: Vector2i, _old: int, _new: int) -> void:
+	if absi(pos.x - grid_position.x) + absi(pos.y - grid_position.y) <= 1:
+		_queue_layout_refresh()
+
+func _queue_layout_refresh() -> void:
+	if not _layout_refresh_pending:
+		_layout_refresh_pending = true
+		call_deferred("_refresh_layout")
+
+func _refresh_layout() -> void:
+	_layout_refresh_pending = false
+	if is_inside_tree():
+		_update_visuals()
 
 
 func _input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
@@ -223,6 +242,17 @@ func _update_visuals() -> void:
 	var visual = Node2D.new()
 	visual.name = "Visual"
 	add_child(visual)
+	_shadow_refs.clear()
+	_shadow_config = null
+	var layout := PathFurniture.layout(terrain_grid, grid_position, decoration_type)
+	visual.position = layout.offset
+	if PathFurniture.has_art(decoration_type):
+		var furniture := PathFurniture.new()
+		furniture.name = "PathFurniture"
+		furniture.kind = decoration_type
+		furniture.facing = layout.facing
+		visual.add_child(furniture)
+		return
 
 	var base_color = DECORATION_COLORS.get(decoration_type, Color.WHITE)
 	var color = base_color
@@ -269,6 +299,8 @@ func _update_visuals() -> void:
 		atmosphere.name = "Atmosphere"
 		atmosphere.kind = decoration_type
 		atmosphere.terrain_grid = terrain_grid
+		# Keep moving details aligned with the newly grounded sprite.
+		atmosphere.position.y = -5.0 if decoration_type == "fountain" else -3.0
 		visual.add_child(atmosphere)
 
 	if _variation:

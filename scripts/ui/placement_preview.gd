@@ -499,19 +499,27 @@ func _draw_decoration_ghost(pos: Vector2, color: Color) -> void:
 	var a = color.a
 	var dec_type = placement_manager.selected_decoration_type
 
-	# Use pixel art sprite if available
+	var layout := PathFurniture.layout(terrain_grid, current_grid_pos, dec_type)
+	var anchor := terrain_grid.grid_to_screen_center(current_grid_pos) + Vector2(layout.offset)
+	if PathFurniture.has_art(dec_type):
+		draw_set_transform(anchor)
+		PathFurniture.draw_item(self, dec_type, layout.facing, a)
+		draw_set_transform(Vector2.ZERO)
+		return
+
+	# Use the same foot anchor and deterministic transform as the placed sprite.
 	if dec_type in Decoration.SPRITE_PATHS:
 		var sprite_path = Decoration.SPRITE_PATHS[dec_type]
 		if ResourceLoader.exists(sprite_path):
 			var tex = load(sprite_path) as Texture2D
 			if tex:
-				var tex_size = tex.get_size()
-				var tex_pos = Vector2(
-					pos.x + (w - tex_size.x) / 2.0,
-					pos.y + h - tex_size.y
-				)
-				var tint = Color(color.r * 1.5, color.g * 1.5, color.b * 1.5, a)
-				draw_texture(tex, tex_pos, tint)
+				var variation := Decoration.visual_variation(dec_type, current_grid_pos)
+				var offset_y: float = Decoration.SPRITE_BASE_OFFSETS.get(dec_type, 16.0)
+				var tint := variation.apply_color_shift(Color.WHITE)
+				tint.a = a
+				draw_set_transform(anchor, variation.rotation, Vector2.ONE * variation.scale)
+				draw_texture(tex, -tex.get_size() * 0.5 - Vector2(0, offset_y), tint)
+				draw_set_transform(Vector2.ZERO)
 				return
 
 	# Procedural fallback: simple colored shape

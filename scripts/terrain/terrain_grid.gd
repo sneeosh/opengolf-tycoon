@@ -17,6 +17,7 @@ var _wildlife: CourseWildlife = null
 
 @onready var tile_map: TileMapLayer = $TileMapLayer if has_node("TileMapLayer") else null
 
+signal surface_refreshed
 signal tile_changed(position: Vector2i, old_type: int, new_type: int)
 signal elevation_changed(position: Vector2i, old_elevation: int, new_elevation: int)
 
@@ -270,6 +271,7 @@ func end_batch_quiet() -> void:
 ## Force all overlays to rescan terrain from scratch and redraw.
 ## Use after bulk terrain changes (generation, load) that bypassed per-tile signals.
 func refresh_all_overlays() -> void:
+	surface_refreshed.emit()
 	if _wildlife:
 		_wildlife.rebuild()
 	if _course_surface:
