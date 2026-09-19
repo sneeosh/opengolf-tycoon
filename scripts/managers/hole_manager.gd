@@ -131,8 +131,10 @@ func _on_hole_updated(hole_number: int) -> void:
 	update_hole_visualization(hole_number)
 
 func _on_load_completed(_success: bool) -> void:
-	# Recalculate shot paths after load — terrain data is now fully available
-	call_deferred("update_all_visualizations")
+	if not _success: return
+	for number in hole_visualizers.keys():
+		remove_hole_visualization(number)
+	_initialize_existing_holes()
 
 func _on_hole_toggled(hole_number: int, is_open: bool) -> void:
 	var visualizer = get_hole_visualizer(hole_number)

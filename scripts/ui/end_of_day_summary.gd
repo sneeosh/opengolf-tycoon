@@ -116,6 +116,10 @@ func _build_ui() -> void:
 	var total_costs_row = _create_stat_row("Total Costs:", "-$%d" % total_costs, UIConstants.COLOR_DANGER_DIM)
 	vbox.add_child(total_costs_row)
 
+	if stats.hired_staff_payroll > 0:
+		vbox.add_child(_create_stat_row("  Hired staff:", "-$%d" % stats.hired_staff_payroll, dim_color))
+	if stats.marketing_cost > 0:
+		vbox.add_child(_create_stat_row("  Marketing:", "-$%d" % stats.marketing_cost, dim_color))
 	# Profit/Loss with trend
 	var profit = stats.get_profit()
 	var profit_color = UIConstants.COLOR_SUCCESS if profit >= 0 else UIConstants.COLOR_DANGER
@@ -125,6 +129,15 @@ func _build_ui() -> void:
 		profit_text += " %s" % _trend_arrow(profit, yest_profit)
 	var profit_row = _create_stat_row("Daily Profit:", profit_text, profit_color)
 	vbox.add_child(profit_row)
+	var steps := CourseAdvisor.review(GameManager.terrain_grid, GameManager.current_course, GameManager.entity_layer, GameManager.course_rating, stats)
+	if not steps.is_empty():
+		var next_step := Label.new()
+		next_step.text = "Tomorrow: " + steps[0].title + ". Open Course review for details."
+		next_step.custom_minimum_size.x = 330
+		next_step.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		next_step.add_theme_font_size_override("font_size", 13)
+		next_step.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+		vbox.add_child(next_step)
 
 	vbox.add_child(HSeparator.new())
 
@@ -195,10 +208,11 @@ func _build_ui() -> void:
 	vbox.add_child(HSeparator.new())
 
 	# Golfers served with trend
+	vbox.add_child(_create_stat_row("Arrivals:", str(stats.golfers_arrived), dim_color))
 	var golfers_text = "%d" % stats.golfers_served
 	if yesterday:
 		golfers_text += " %s" % _trend_arrow(stats.golfers_served, yesterday.golfers_served)
-	var golfers_row = _create_stat_row("Golfers Served:", golfers_text)
+	var golfers_row = _create_stat_row("Completed rounds:", golfers_text)
 	vbox.add_child(golfers_row)
 
 	# Golfer tier breakdown
@@ -291,9 +305,15 @@ func _build_ui() -> void:
 	else:
 		sat_color = UIConstants.COLOR_DANGER
 
-	var sat_row = _create_stat_row("Satisfaction:", "%d%%" % satisfaction_pct, sat_color)
+	var sat_row = _create_stat_row("Positive thoughts:", "%d%%" % satisfaction_pct, sat_color)
 	vbox.add_child(sat_row)
 
+	var experience := FeedbackManager.visit_summary()
+	if experience.reviews > 0:
+		vbox.add_child(_create_stat_row("Visit satisfaction (%d reviews):" % experience.reviews, "%d%%" % int(experience.satisfaction*100), UIConstants.COLOR_TEXT))
+		vbox.add_child(_create_stat_row("Return intent:", "%d%%" % int(experience.return_intent*100), UIConstants.COLOR_TEXT))
+	vbox.add_child(_create_stat_row("Returning guests:",str(experience.returning), UIConstants.COLOR_TEXT))
+	vbox.add_child(_create_stat_row("Amenity visits:",str(experience.service_visits), UIConstants.COLOR_TEXT))
 	# Show top feedback if available
 	var top_compliment = feedback_summary["top_compliment"]
 	var top_complaint = feedback_summary["top_complaint"]

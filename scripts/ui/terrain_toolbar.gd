@@ -2,6 +2,7 @@ extends PanelContainer
 class_name TerrainToolbar
 ## TerrainToolbar - Redesigned build tools panel with icon+label buttons and rich tooltips
 
+signal course_review_pressed
 signal tool_selected(tool_type: int)
 signal create_hole_pressed
 signal tree_placement_pressed
@@ -15,6 +16,7 @@ signal lower_elevation_pressed
 signal bulldozer_pressed
 signal staff_pressed
 signal brush_size_changed(new_size: int)
+signal brush_shape_changed(round_shape: bool)
 signal green_preset_selected(preset_name: String)
 
 var _current_tool: int = TerrainTypes.Type.FAIRWAY
@@ -53,7 +55,7 @@ const TOOL_SECTIONS = {
 			{"type": TerrainTypes.Type.PATH, "name": "Path", "icon": "[.]", "hotkey": "8", "desc": "Walking path for golfers"},
 			{"type": "tree", "name": "Trees", "icon": "[^]", "hotkey": "T", "desc": "Adds beauty and obstacles"},
 			{"type": "rock", "name": "Rocks", "icon": "[*]", "hotkey": "R", "desc": "Decorative rock formations"},
-			{"type": TerrainTypes.Type.FLOWER_BED, "name": "Flower Bed", "icon": "[f]", "hotkey": "F", "desc": "Colorful landscaping"},
+			{"type": TerrainTypes.Type.FLOWER_BED, "name": "Flower Bed", "icon": "[f]", "hotkey": "Shift+F", "desc": "Colorful landscaping"},
 			{"type": "building", "name": "Buildings", "icon": "[B]", "hotkey": "B", "desc": "Place amenity buildings"},
 			{"type": "decoration", "name": "Decorations", "icon": "[✦]", "hotkey": "O", "desc": "Aesthetic decorations for course rating"},
 			{"type": "bulldozer", "name": "Bulldozer", "icon": "[D]", "hotkey": "X", "desc": "Removes trees, rocks, flowers, decorations"},
@@ -124,6 +126,10 @@ func _build_ui() -> void:
 	subtitle.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_vbox.add_child(subtitle)
+	var review := Button.new()
+	review.text = "Review course · next steps"
+	review.pressed.connect(func(): course_review_pressed.emit())
+	main_vbox.add_child(review)
 
 	# Brush size control
 	var brush_row = HBoxContainer.new()
@@ -157,6 +163,18 @@ func _build_ui() -> void:
 	brush_row.add_child(brush_increase)
 
 	main_vbox.add_child(brush_row)
+	var shape := OptionButton.new()
+	shape.add_item("Round brush · natural contours")
+	shape.add_item("Square brush · precise edges")
+	shape.tooltip_text = "Drag to paint a continuous stroke. Undo restores terrain and cleared trees."
+	shape.item_selected.connect(func(index: int): brush_shape_changed.emit(index == 0))
+	main_vbox.add_child(shape)
+	var hint := Label.new()
+	hint.text = "Drag to paint · Ctrl/Cmd Z to undo"
+	hint.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	hint.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
+	main_vbox.add_child(hint)
+
 
 	# Green preset row (hidden until GREEN tool selected)
 	_green_preset_row = HBoxContainer.new()
@@ -430,7 +448,7 @@ func _input(event: InputEvent) -> void:
 			KEY_R:
 				_on_tool_button_pressed("rock")
 			KEY_F:
-				_on_tool_button_pressed(TerrainTypes.Type.FLOWER_BED)
+				if event.shift_pressed: _on_tool_button_pressed(TerrainTypes.Type.FLOWER_BED)
 			KEY_B:
 				_on_tool_button_pressed("building")
 			KEY_O:

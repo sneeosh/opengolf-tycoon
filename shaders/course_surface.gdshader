@@ -42,28 +42,32 @@ float coverage(float id, vec4 ids, vec4 weights) {
 vec3 surface(float id, float cover, float depth, vec2 world, float grain, float patch) {
 	vec3 base = texture(palette, vec2((id + 0.5) / 14.0, 0.5)).rgb;
 	float variation = (patch - 0.5) * 0.13 + (grain - 0.5) * 0.075;
-	float edge = 1.0 - smoothstep(0.48, 0.83, cover);
+	float edge = 1.0 - smoothstep(0.50, 0.68, cover);
 	if (id == 2.0 || id == 6.0) {
 		// Broad diagonal mower passes continue across every tile boundary.
-		float pass = sin((world.x + world.y * 1.7) * 0.048);
+		float pass = sin((world.x + world.y * 1.7) * 0.078);
 		float stripe = smoothstep(-0.15, 0.15, pass);
-		base *= 0.94 + stripe * 0.09;
-		variation *= 0.35;
-		base *= 1.0 - edge * 0.08;
+		base *= 0.97 + stripe * 0.035;
+		variation *= 0.55;
+		// A narrow cut line and lighter collar keep turf readable without a dark trench.
+		float cut_line = 1.0 - smoothstep(0.50, 0.53, cover);
+		base *= 1.0 - edge * 0.14 - cut_line * 0.08;
 	} else if (id == 5.0) {
 		float stripe = smoothstep(-0.2, 0.2, sin((world.x - world.y * 1.5) * 0.10));
 		base *= 0.98 + stripe * 0.035;
-		base = mix(base, fringe_color.rgb, edge * 0.8);
+		base = mix(base, fringe_color.rgb, edge * 0.92);
 		variation *= 0.18;
 	} else if (id == 7.0) {
 		// Recessed sand with a grass lip, warm bowl, and fine rake marks.
-		base *= 1.0 - edge * (0.23 + depth * 0.19);
+		base = mix(base * 1.12, vec3(0.35, 0.40, 0.24), edge * 0.78);
+		base *= 1.0 - depth * 0.12;
 		float rake = sin(world.y * 1.15 + sin(world.x * 0.022) * 3.0);
 		variation = (grain - 0.5) * 0.06 + rake * 0.012;
 	} else if (id == 8.0) {
 		// Calm deep water, pale shallows, and sparse moving reflected light.
 		base *= 0.76 + patch * 0.10;
-		base = mix(base, vec3(0.40, 0.66, 0.56), edge * 0.55);
+		base = mix(base, vec3(0.32, 0.66, 0.63), 0.48);
+		base = mix(base, vec3(0.83, 0.81, 0.59), edge * 0.92);
 		float wave = sin(world.y * 0.16 + sin(world.x * 0.024 + TIME * 0.3) * 2.3 + TIME * 0.8);
 		float glint = smoothstep(0.95, 1.0, wave) * smoothstep(0.55, 0.78, noise(world * 0.04 + vec2(TIME * 0.07, 0.0)));
 		base += vec3(0.30, 0.39, 0.33) * glint * 0.25;
@@ -95,7 +99,9 @@ void fragment() {
 	vec4 covers = vec4(coverage(a.x, ids, weights), coverage(b.x, ids, weights),
 		coverage(c.x, ids, weights), coverage(d.x, ids, weights));
 	// Sharpen material boundaries while rounding the outside of connected corners.
-	vec4 blends = weights * pow(covers, vec4(5.0));
+	float dominant = max(max(covers.x, covers.y), max(covers.z, covers.w));
+	// Narrow anti-aliased material boundary: no broad airbrushed transition.
+	vec4 blends = weights * smoothstep(vec4(dominant - 0.028), vec4(dominant), covers);
 	blends /= max(dot(blends, vec4(1.0)), 0.0001);
 	float grain = hash(floor(world));
 	float patch = noise(world * 0.009) * 0.65 + noise(world * 0.035) * 0.35;
@@ -111,6 +117,6 @@ void fragment() {
 	float down_h = texture(elevation_data, UV + vec2(0.0, step_uv.y)).b;
 	vec3 normal = normalize(vec3(-(right_h-left_h)*5.0, -(down_h-up_h)*5.0, 1.0));
 	vec3 sunlight = normalize(vec3(relief_light, 1.5));
-	float relief = clamp(1.0 + (dot(normal, sunlight) - sunlight.z) * 0.45, 0.75, 1.12);
+	float relief = clamp(1.0 + (dot(normal, sunlight) - sunlight.z) * 0.28, 0.84, 1.08);
 	COLOR = vec4(color * relief, 1.0);
 }

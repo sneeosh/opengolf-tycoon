@@ -164,8 +164,24 @@ summary = {
 | Trigger probabilities | `feedback_triggers.gd:27-97` | 0.4–1.0 | Higher = more frequent feedback |
 | Expected over par formula | `feedback_triggers.gd:128` | `(1-skill)*3.0` | Higher multiplier = higher personal expectation |
 | Bogey trigger threshold | `feedback_triggers.gd:141` | +2 strokes over expected | Lower = more complaints |
-| Fair price formula | `feedback_triggers.gd:151` | `rep * 2.0 * hole_factor` | Higher = more pricing room |
+| Fair price formula | `feedback_triggers.gd:151` | `max(rep * 2, 20) * clamp(holes/18, .15, 1) * seasonal_tolerance` | Higher = more pricing room |
 | Overpriced threshold | `feedback_triggers.gd:152` | 1.5x fair | Lower = more price complaints |
 | Good value threshold | `feedback_triggers.gd:154` | 0.6x fair | Higher = easier to earn value praise |
 | Course satisfaction range | `feedback_triggers.gd:163` | +3 strokes | Higher = easier to trigger NICE_COURSE |
 | Neutral default | `feedback_manager.gd:48` | 0.5 | Starting assumption when no data |
+
+## Visitor experience and retention (September 2026)
+
+Diagnostic incidents are captured before thought-bubble cooldown and probability checks. Each records golfer identity, hole, grid location, hour and need levels, deduplicated by golfer/hole/trigger; the current day keeps at most 500 incidents. Course Review prioritizes operational complaints and locates the relevant place. The individual golfer panel summarizes their most frequently reported complaint and distinguishes traffic from waiting for playing partners.
+
+Completed-visit satisfaction is a separate measure from the fraction of positive thought bubbles:
+
+```
+value = clamp(fair_round_price / max(paid_fee, 1), 0, 1)
+visit_score = .50 * needs_satisfaction + .25 * mood + .25 * value
+return_intent = clamp(.90 * visit_score + .10 * value, .05, .95)
+```
+
+The UI labels the completed-visit sample and separately warns about unfinished rounds. Return intent is a forecast, not a guaranteed booking. On a new arrival opportunity, an eligible prior customer is sampled; they return with probability `intent * .5`. They must have last visited before yesterday, and cannot return twice on the same day. Otherwise a new guest is generated. Returning golfers retain identity, name, tier, skills and personality and pay the normal current fee. The pool holds 200 recently reviewed customers. Identities use a persisted increasing sequence to avoid collisions after loading.
+
+Daily reviews, service visits/income, incidents, return counts and customer profiles persist in saves. A new day clears daily counters while preserving customer profiles; a new course clears both. Daily history stores experience summaries alongside operating profit, and Course Review compares against the previous three days using review-weighted satisfaction. Autosaving is deferred until day-change handlers have reset feedback, generated weather and rotated pins.

@@ -26,6 +26,9 @@ func _ready() -> void:
 	_build_ui()
 	_connect_signals()
 	_update_all()
+	EventBus.load_completed.connect(func(success: bool):
+		if success: _update_all()
+	)
 
 func _build_ui() -> void:
 	custom_minimum_size = Vector2(0, UIConstants.TOP_HUD_HEIGHT)

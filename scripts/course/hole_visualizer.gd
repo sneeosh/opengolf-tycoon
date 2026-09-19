@@ -162,12 +162,18 @@ func _update_info_label() -> void:
 	var par_text = "PAR %d" % hole_data.par
 	if hole_data.par_override > 0:
 		par_text += "*"
-	info_label.text = "%02d  ·  %s\n%d yd" % [hole_data.hole_number, par_text, hole_data.distance_yards]
+	info_label.text = "%02d  ·  %s" % [hole_data.hole_number, par_text]
 	info_label.tooltip_text = "Hole %d · Difficulty %.1f" % [hole_data.hole_number, hole_data.difficulty_rating]
-	info_label.add_theme_font_size_override("font_size", 12)
+	info_label.add_theme_font_size_override("font_size", 18)
 	info_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT)
 	info_label.add_theme_color_override("font_outline_color", UIConstants.COLOR_BG_DARK)
-	info_label.add_theme_constant_override("outline_size", 3)
+	info_label.add_theme_constant_override("outline_size", 4)
+	var plaque := StyleBoxFlat.new()
+	plaque.bg_color = Color("203f32dd")
+	plaque.set_content_margin_all(5)
+	plaque.set_corner_radius_all(4)
+	info_label.add_theme_stylebox_override("normal", plaque)
+	info_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func set_visible_state(is_visible: bool) -> void:
 	visible = is_visible

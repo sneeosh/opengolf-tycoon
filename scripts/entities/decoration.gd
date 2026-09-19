@@ -246,6 +246,11 @@ func _update_visuals() -> void:
 	_shadow_config = null
 	var layout := PathFurniture.layout(terrain_grid, grid_position, decoration_type)
 	visual.position = layout.offset
+	if GardenArt.has_art(decoration_type):
+		var garden := GardenArt.new()
+		garden.kind = decoration_type
+		visual.add_child(garden)
+		return
 	if PathFurniture.has_art(decoration_type):
 		var furniture := PathFurniture.new()
 		furniture.name = "PathFurniture"

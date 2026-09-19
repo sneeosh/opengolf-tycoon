@@ -203,3 +203,51 @@
 3. **HIGH: Regenerate Restaurant** — Fix perspective to high top-down + brighten colors
 4. **MEDIUM: Regenerate Driving Range** — Keep top-down perspective but improve content (covered hitting bays, not a flat field)
 5. **LOW: Brighten Cart Shed and Restroom** — Use lighter color palettes
+
+## Lions Muni follow-up — September 6, 2026
+
+This section supersedes the findings from the Lions Muni PR #103 playtest, not every historical issue above.
+
+- Load reward replay: fixed by restoring milestone state first, suppressing grants during restoration and rebuilding hole visuals from `load_completed`. Two consecutive loads preserved the exact $32,542 balance.
+- Full-round pace: fixed waypoint overshoot at accelerated simulation speeds. In the 18-hole Lions Muni regression, two golfers completed all 18 holes by 17:26, before the 20:00 close. Previously no full round was observed. Different skills, layouts and congestion will still affect pace.
+- Morning/load lighting and stale day HUD: explicit hour refresh and load refresh added. Browser load visibly shows Day 1, 6 AM, daylight and $32,542.
+- Camera movement while typing: keyboard pan ignores focused text inputs. Bracket zoom now follows the documented `]` in / `[` out convention. Event-based pointer coordinates also allow native automated world placement; a pergola was successfully placed through the native UI.
+- Rain over controls: weather moved below the UI canvas. Verified in native and browser catalog views during rain.
+- Construction rewards and perfect design scores: hole grants reduced to $300/$600/$2,000/$4,000 with no reputation; reputation/star milestones require a finished round. Design now evaluates completed turf and green separation, rather than count/pars alone. This is a balance pass, not a multi-season economy validation.
+- Hole 1 missing from averages: removed the extra increment on the already one-based event number. Cumulative hole statistics now survive saving; older saves clear stale statistics.
+- Visual readability: stronger terrain boundaries/fringes, closer subtle mowing stripes, sand lips, turquoise water banks, less relief darkening, larger white flagpoles and outlined tee labels.
+- Placement: unified preview/click footprint checks for terrain, ownership and occupied tiles; buildings can use paths; errors explain the obstruction. Tutorial side reference corrected.
+- Catalog expansion: 16 new decorations and eight buildings, bringing totals to 28 and 16. Shared catalog/ghost/placed artwork; new buildings use existing needs, operating-cost and revenue systems. Fixed thumbnail texture lifetime and small-building bounds discovered during review.
+- Tooling: test runner explicitly loads `gutconfig.json`; absent optional MCP autoload removed. Existing test incorrectly adding a RefCounted manager as a child was corrected.
+
+Validation: 442 GUT tests, native placement and catalog inspection, Web export and browser load/catalog inspection, and `tests/integration/lions_muni_regression.gd` against the saved 18-hole course. No deployment or PR publication. Existing Lions Muni routing remains a compact approximation; the art is a stronger foundation, not SimGolf parity.
+
+## Overall game pass — September 6, 2026
+
+- Fixed fast terrain strokes leaving gaps; added round/square brush choice.
+- Fixed paint undo losing cleared trees/rocks or refunding the wrong amount. Cancelling and releasing over UI finish the stroke; unaffordable redo preserves its action.
+- Terrain brushes now protect placed decorations and respect ownership.
+- Added Course Review with actionable location, pricing, service and operating-profit guidance.
+- Added starter clubhouse garden, four functional buildings, seating and variable-width fairways; protected rotating pin surfaces from decorative placement.
+- Fixed daily profit omitting staff payroll and marketing; saved daily accounts and feedback survive reload.
+- Added shared fair-price calculation for finance, ratings, demand and price feedback; per-hole fee minimum is $1.
+- Corrected group-size pricing to use the whole round fee. Slowed arrivals and reputation progression so pricing and management matter.
+- Added visible amenity stops and functional decorative seating.
+- Earlier last tee times allow more time for group play; partial rounds no longer count as completed rounds or trigger completion rewards.
+
+Validation: GUT 447 tests passed, plus main-scene builder integration (actual tree restoration, cash, unaffordable redo and save accounting). Three-day management results and screenshots are recorded in the September task output folder. Long-term economy tuning and richer golfer personalities remain future work; the game is not yet at SimGolf's art or simulation depth.
+
+Final clock validation: 120 seconds per game hour yielded 41/41, 4/4 and 29/29 full rounds over three days. Operating profits were +$555, -$764 and -$89 at $5/$20/$5 per hole. Weather varied, so this is not a controlled pricing experiment. Save/reload retained $41,602 and all three daily history entries.
+
+## Guest experience and retention pass — September 6, 2026
+
+- Actual negative incidents now retain golfer, hole, time, location and needs independently of randomized thought bubbles. Course Review prioritizes actionable complaints and warns separately about unfinished rounds. Individual panels distinguish traffic from partner turns.
+- Physical amenity visits approach an accessible perimeter tile, stop, deliver service and return to the route. Payment occurs on arrival. Decorative seating restores energy; visitors can reconsider previously declined facilities on later holes.
+- Completed-visit reviews combine needs, mood and value. Returning guests preserve identity and skills, pay current fees, and replace an ordinary arrival opportunity. Persistent identity sequences prevent collisions after reload.
+- Added booking frequency and relaxed occupancy limits, plus a trailing three-day satisfaction/profit comparison. Staffing and service changes are reflected in operating results.
+- Fixed Pause reverting to normal simulation speed and the F finance/flower shortcut collision. Building mode remains responsive. Deferred autosaves capture final day-change state; settled closing-time saves cannot bill the day twice.
+- Added small starter planting groups and softened the fairway collar.
+
+Validation: 456 unit tests / 2,660 assertions, main-scene amenity and builder integration checks, and the real 12-day campaign plus three-day continuation. Results are in the September task output report and JSON files. The playtest uses 16× simulation, stable weather type, evolving wind/reputation/seasons, real purchases and no extra test cash. It is a sequential management test, not a controlled causal experiment. Reputation still reaches its ceiling quickly on this successful starter course; multi-season progression remains further work.
+
+Final results: days 13–15 at $10/hole with relaxed capacity and added seating completed 82/82 rounds, recorded 90.1% review-weighted satisfaction and averaged $918/day operating profit. The earlier balanced phase completed 259/285 at 86.3% satisfaction and $1,841/day profit. Across all 15 days there were 1,328 physical service visits and $2,451 service revenue. These figures exclude milestone grants from profit.

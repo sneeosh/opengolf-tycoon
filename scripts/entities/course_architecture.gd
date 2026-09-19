@@ -142,6 +142,9 @@ static func draw_building(c: CanvasItem, kind_name: String, size: Vector2, tier 
 		PathFurniture.draw_item(c,"park_bench",Vector2i.DOWN)
 		c.draw_set_transform(Vector2.ZERO)
 		return
+	if kind_name in ["coffee_house", "halfway_house", "tea_pavilion", "ice_cream_kiosk", "locker_room", "garden_spa", "conservatory", "golf_academy"]:
+		draw_garden_facility(c, kind_name, size, hour)
+		return
 	var club := kind_name == "clubhouse"
 	var night := hour >= 17 or hour < 6
 	var w := body_width(kind_name,size,tier)
@@ -372,3 +375,64 @@ static func facility_details(c: CanvasItem, type: String, x: float, base: float,
 			for side in [-1,1]:
 				line(c,Vector2(cx+side*6,eaves+1),Vector2(cx+side*21,eaves+1),"bdad70")
 			c.draw_circle(Vector2(cx,eaves+1),3,Color("eee4bf"))
+
+static func draw_garden_facility(c: CanvasItem, type: String, size: Vector2, hour: float) -> void:
+	var x := 16.0
+	var w := size.x - 32
+	var base := size.y - 12
+	var night := hour >= 17 or hour < 6
+	poly(c,[Vector2(4,base-28),Vector2(size.x-12,base-28),Vector2(size.x,base+10),Vector2(16,base+10)],"d9c7a2")
+	for i in range(16,int(size.x)-6,14):
+		line(c,Vector2(i,base-24),Vector2(i+9,base+8),"baa989")
+	if type == "conservatory":
+		rect(c,x,base-42,w,42,"729d91")
+		poly(c,[Vector2(x-8,base-42),Vector2(x+14,base-67),Vector2(x+w-12,base-67),Vector2(x+w+5,base-42)],"a4c4b1")
+		for i in range(int(x)+2,int(x+w),12):
+			line(c,Vector2(i,base-41),Vector2(i,base-2),"e7dfbb",2)
+			line(c,Vector2(i,base-43),Vector2(i+8,base-65),"f2e8c8",2)
+			planter(c,Vector2(i+4,base-2),10)
+		line(c,Vector2(x,base-22),Vector2(x+w,base-22),"e7dfbb",2)
+		rect(c,x+w/2-8,base-28,16,28,"3e6957")
+		window(c,x+w/2-5,base-25,10,night)
+	elif type == "tea_pavilion":
+		for px in [x+3,x+w-7]:
+			rect(c,px,base-41,4,41,"ece0bd")
+			porch_seat(c,Vector2(px+4,base-1))
+		poly(c,[Vector2(x-9,base-41),Vector2(x+w/2-7,base-70),Vector2(x+w+8,base-41)],"587966")
+		poly(c,[Vector2(x-9,base-41),Vector2(x+w/2-7,base-70),Vector2(x+w/2,base-41)],"72917a")
+		line(c,Vector2(x-9,base-40),Vector2(x+w+8,base-40),"f3dfb7",3)
+		climbing_rose(c,Vector2(x+3,base),37)
+	elif type == "garden_spa":
+		house(c,x,base-29,w,39,27,night)
+		GardenArt.oval(c,Vector2(size.x/2,base-3),Vector2(w*.34,17),"f4dfb2")
+		GardenArt.oval(c,Vector2(size.x/2,base-3),Vector2(w*.30,13),"469c99")
+		GardenArt.oval(c,Vector2(size.x/2,base-5),Vector2(w*.27,9),"78ccc1")
+		for dx in [-1,1]:
+			porch_seat(c,Vector2(size.x/2+dx*w*.39-8,base))
+	elif type == "golf_academy":
+		house(c,x,base,w,40,30,night,true)
+		for i in range(int(x)+12,int(x+w)-20,32):
+			poly(c,[Vector2(i,base-2),Vector2(i+21,base-2),Vector2(i+25,base+8),Vector2(i+4,base+8)],"527b49")
+			c.draw_circle(Vector2(i+15,base+3),1.5,Color("faf0d0"))
+			line(c,Vector2(i+25,base-29),Vector2(i+25,base+5),"a0b39a")
+	else:
+		house(c,x,base,w,34 if size.x <= 64 else 44,24,night)
+		if type in ["coffee_house", "ice_cream_kiosk", "halfway_house"]:
+			var awning_y := base-24
+			for i in range(int(x)-3,int(x+w)+3,7):
+				var color := "b86469" if type == "ice_cream_kiosk" else "3e7866"
+				poly(c,[Vector2(i,awning_y-5),Vector2(i+7,awning_y-5),Vector2(i+10,awning_y+5),Vector2(i+3,awning_y+5)],color if (i-int(x)+3)/7%2==0 else "f3e3bd")
+			if type == "ice_cream_kiosk":
+				poly(c,[Vector2(x+w/2-4,base-53),Vector2(x+w/2+4,base-53),Vector2(x+w/2,base-43)],"d8a660")
+				c.draw_circle(Vector2(x+w/2,base-55),6,Color("eab3bd"))
+			elif type == "halfway_house":
+				rect(c,x+w-20,base-76,10,27,"a87959")
+				rect(c,x+w-23,base-77,16,4,"d6ba8c")
+				porch_seat(c,Vector2(x+8,base+4))
+		else:
+			for px in [x+12,x+w-26]:
+				rect(c,px,base-20,10,18,"59796e")
+				line(c,Vector2(px+2,base-17),Vector2(px+8,base-17),"d4d6ba")
+	for p in [Vector2(x-2,base+5),Vector2(x+w+1,base+5)]:
+		planter(c,p,14)
+	lantern(c,Vector2(x+w-4,base-25),night)

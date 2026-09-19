@@ -30,10 +30,10 @@ class Milestone:
 static func get_all_milestones() -> Array:
 	return [
 		# Course milestones
-		Milestone.new("first_hole", "First Tee", "Build your first hole", Category.COURSE, 500, 2.0),
-		Milestone.new("three_holes", "Front Three", "Build 3 holes", Category.COURSE, 1000, 3.0),
-		Milestone.new("nine_holes", "The Front Nine", "Build 9 holes", Category.COURSE, 5000, 10.0),
-		Milestone.new("eighteen_holes", "Full Course", "Build 18 holes", Category.COURSE, 15000, 20.0),
+		Milestone.new("first_hole", "First Tee", "Build your first hole", Category.COURSE, 300, 0.0),
+		Milestone.new("three_holes", "Front Three", "Build 3 holes", Category.COURSE, 600, 0.0),
+		Milestone.new("nine_holes", "The Front Nine", "Build 9 holes", Category.COURSE, 2000, 0.0),
+		Milestone.new("eighteen_holes", "Full Course", "Build 18 holes", Category.COURSE, 4000, 0.0),
 		Milestone.new("par_3_course", "Short Game Special", "Build a course with all par 3s", Category.COURSE, 2000, 5.0),
 		Milestone.new("first_building", "Amenities", "Place your first building", Category.COURSE, 500, 1.0),
 		Milestone.new("five_buildings", "Full Service", "Place 5 buildings", Category.COURSE, 2000, 5.0),

@@ -11,6 +11,8 @@ var undo_stack: Array = []  # Array of UndoAction
 var redo_stack: Array = []  # Array of UndoAction
 
 var _current_stroke: Array = []  # Collects tile changes during a paint stroke
+var _stroke_cost := 0
+var _stroke_removals: Array = []
 var _is_recording_stroke: bool = false
 
 signal undo_performed()
@@ -19,19 +21,23 @@ signal redo_performed()
 ## Begin recording a terrain paint stroke (call on mouse down)
 func begin_stroke() -> void:
 	_current_stroke = []
+	_stroke_cost = 0
+	_stroke_removals = []
 	_is_recording_stroke = true
 
 ## Record a single tile change within the current stroke
-func record_tile_change(position: Vector2i, old_type: int, new_type: int) -> void:
+func record_tile_change(position: Vector2i, old_type: int, new_type: int, metadata: Dictionary = {}) -> void:
+	var change := {"position": position, "old_type": old_type, "new_type": new_type}
+	change.merge(metadata)
 	if not _is_recording_stroke:
 		# Standalone tile change (e.g. from hole creation) - wrap as single action
 		var action = {
 			"type": "terrain",
-			"changes": [{"position": position, "old_type": old_type, "new_type": new_type}]
+			"changes": [change]
 		}
 		_push_action(action)
 		return
-	_current_stroke.append({"position": position, "old_type": old_type, "new_type": new_type})
+	_current_stroke.append(change)
 
 ## End the current paint stroke and push it as a single undo action
 func end_stroke() -> void:
@@ -40,7 +46,9 @@ func end_stroke() -> void:
 		return
 	var action = {
 		"type": "terrain",
-		"changes": _current_stroke.duplicate()
+		"changes": _current_stroke.duplicate(),
+		"paid_cost": _stroke_cost,
+		"removed_entities": _stroke_removals.duplicate(true)
 	}
 	_push_action(action)
 	_current_stroke = []
@@ -108,3 +116,9 @@ func clear() -> void:
 	redo_stack.clear()
 	_current_stroke.clear()
 	_is_recording_stroke = false
+
+func record_stroke_cost(cost: int) -> void:
+	_stroke_cost += cost
+
+func record_stroke_removal(type: String, position: Vector2i, subtype: String) -> void:
+	_stroke_removals.append({"type": type, "position": position, "subtype": subtype})

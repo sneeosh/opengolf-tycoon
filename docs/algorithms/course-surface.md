@@ -62,3 +62,9 @@ Validation covers normal painting, deep bunkers, quiet batches, deserialization,
 all ten theme palettes, unchanged serialization, and tree/rock cleanup. Native
 Compatibility rendering also exercises shader compilation; a browser-specific
 performance/device test remains separate.
+
+## September 2026 readability pass
+
+Material mixing is restricted to a narrow 0.028 coverage interval around the dominant terrain type. This retains rounded tile connections without a wide translucent transition. Fairways have closer, lower-contrast mowing stripes and darker edges; greens have stronger fringe separation. Sand uses a warm bowl with a darker lip, water has turquoise shallows and pale banks, and relief shading is reduced to preserve terrain colors. Flags use taller white poles and larger cloth; tee labels use larger outlined text on a dark backing.
+
+September visitor-experience pass: fairway/tee boundaries now combine a lighter 14% collar with a narrow additional 8% cut line (coverage 0.50–0.53), replacing the broad 28% dark edge. This keeps the boundary legible without making level fairways look recessed.

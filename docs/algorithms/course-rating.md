@@ -8,7 +8,7 @@ The course rating system evaluates the course on a **1-5 star scale** across fiv
 
 - **Condition (25% weight):** How well-maintained is the course? Measures the ratio of premium terrain (fairway, green, tee box) in play corridors. A course that's mostly rough with thin fairways scores poorly; wide, well-manicured fairways score well. Staff quality (groundskeepers) applies a condition modifier.
 
-- **Design (15% weight):** Does the course have variety? Rewards having a mix of par 3s, 4s, and 5s. The biggest factor is hole count — an 18-hole course gets a large bonus; a 1-hole course barely registers. A single hole with no variety starts at a low base score.
+- **Design (15% weight):** Does the course have variety? Rewards having a mix of par 3s, 4s, and 5s. Hole count and par variety supply at most three stars. Finished tees and greens, plus separation between greens, earn the remaining two stars.
 
 - **Value (30% weight):** Is the course fairly priced? Compares what the golfer pays (green fee x holes) to what the course "should" charge based on reputation and hole count. Charging half the fair price earns 5 stars; charging double earns 1 star. This creates natural pricing pressure — raising fees without improving reputation tanks the rating.
 
@@ -68,30 +68,12 @@ final_condition = clamp(base_rating * condition_mod, 1.0, 5.0)
 
 ### 3. Design Rating
 
-```
-base = 1.5    # Low base — a single hole is not good design
+The existing hole-count and par-variety subtotal is compressed to `1 + (subtotal - 1) * 0.5`, capped at three stars. For each open hole:
 
-# Par variety bonuses
-if has_par_3_holes: base += 0.75
-if has_par_5_holes: base += 0.75
+- A tee on tee-box terrain and cup on green terrain earn up to 1.25 additional stars, scaled by green tiles in the surrounding 5×5 area (seven tiles earns full credit).
+- A green at least five tiles from every other open green earns 0.75 additional stars.
 
-# Hole count bonuses (biggest factor)
-if open_holes >= 18:  base += 2.0    # Full 18-hole course
-elif open_holes >= 9: base += 1.5    # Full front nine
-elif open_holes >= 6: base += 0.75   # Decent number
-elif open_holes >= 4: base += 0.25   # Barely enough variety
-
-design_rating = clamp(base, 1.0, 5.0)
-```
-
-**Maximum design score examples:**
-
-| Course Layout | Max Score |
-| --- | --- |
-| 1 par-4 hole | 1.5 |
-| 4 holes, mixed pars | 3.0 |
-| 9 holes, par 3+4+5 mix | 4.5 |
-| 18 holes, full variety | 5.0 |
+Average those two contributions across open holes, add them to the variety score, then clamp to 1–5. Without terrain data, only variety counts. This prevents creating 18 markers on unfinished ground from immediately earning five design stars.
 
 ### 4. Value Rating
 

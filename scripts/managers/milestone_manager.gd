@@ -18,7 +18,7 @@ func _connect_signals() -> void:
 	EventBus.end_of_day.connect(_on_end_of_day)
 	EventBus.hole_created.connect(_on_hole_created)
 	EventBus.building_placed.connect(_on_building_placed)
-	EventBus.golfer_finished_round.connect(_on_golfer_finished_round)
+	EventBus.golfer_completed_round.connect(_on_golfer_finished_round)
 	EventBus.golfer_spawned.connect(_on_golfer_spawned)
 	EventBus.record_broken.connect(_on_record_broken)
 	EventBus.reputation_changed.connect(_on_reputation_changed)
@@ -32,8 +32,8 @@ func _exit_tree() -> void:
 		EventBus.hole_created.disconnect(_on_hole_created)
 	if EventBus.building_placed.is_connected(_on_building_placed):
 		EventBus.building_placed.disconnect(_on_building_placed)
-	if EventBus.golfer_finished_round.is_connected(_on_golfer_finished_round):
-		EventBus.golfer_finished_round.disconnect(_on_golfer_finished_round)
+	if EventBus.golfer_completed_round.is_connected(_on_golfer_finished_round):
+		EventBus.golfer_completed_round.disconnect(_on_golfer_finished_round)
 	if EventBus.golfer_spawned.is_connected(_on_golfer_spawned):
 		EventBus.golfer_spawned.disconnect(_on_golfer_spawned)
 	if EventBus.record_broken.is_connected(_on_record_broken):
@@ -46,7 +46,7 @@ func _exit_tree() -> void:
 		EventBus.money_changed.disconnect(_on_money_changed)
 
 func _complete_milestone(m: MilestoneSystem.Milestone) -> void:
-	if m.is_completed:
+	if m.is_completed or SaveManager._is_loading:
 		return
 	m.is_completed = true
 	m.completion_day = GameManager.current_day
@@ -78,7 +78,7 @@ func _is_done(id: String) -> bool:
 	return _completed_ids.has(id)
 
 func _check(id: String, condition: bool) -> void:
-	if condition and not _is_done(id):
+	if not SaveManager._is_loading and condition and not _is_done(id):
 		for m in milestones:
 			if m.id == id:
 				_complete_milestone(m)
@@ -106,6 +106,9 @@ func serialize() -> Dictionary:
 func deserialize(data: Dictionary) -> void:
 	var completed = data.get("completed", [])
 	_completed_ids.clear()
+	for m in milestones:
+		m.is_completed = false
+		m.completion_day = 0
 	for entry in completed:
 		var id = entry.get("id", "")
 		var day = entry.get("day", 0)
@@ -171,7 +174,10 @@ func _on_building_placed(_type: String, _pos: Vector2i) -> void:
 	_check("five_buildings", building_count >= 5)
 
 func _on_golfer_finished_round(_golfer_id: int, _total_strokes: int, _total_par: int) -> void:
-	_check("first_golfer", true)
+	if _has_completed_round():
+		_check("first_golfer", true)
+		_on_reputation_changed(GameManager.reputation, GameManager.reputation)
+		_on_course_rating_changed(GameManager.course_rating)
 
 func _on_golfer_spawned(_golfer_id: int, _golfer_name: String) -> void:
 	# Check for pro visit - GolferTier.get_name_prefix(PRO) returns "Pro"
@@ -184,12 +190,17 @@ func _on_record_broken(record_type: String, _golfer_name: String, _value: int, _
 		_check("five_hio", GameManager.course_records.get("total_hole_in_ones", 0) >= 5)
 
 func _on_reputation_changed(_old_rep: float, new_rep: float) -> void:
+	# Starting reputation and construction are not an operating track record.
+	if not _has_completed_round():
+		return
 	_check("rep_25", new_rep >= 25.0)
 	_check("rep_50", new_rep >= 50.0)
 	_check("rep_75", new_rep >= 75.0)
 	_check("rep_100", new_rep >= 100.0)
 
 func _on_course_rating_changed(rating: Dictionary) -> void:
+	if not _has_completed_round():
+		return
 	var stars = rating.get("stars", 0)
 	_check("four_star", stars >= 4)
 	_check("five_star", stars >= 5)
@@ -206,3 +217,6 @@ func check_pro_visit(tier: int) -> void:
 func check_full_house(current_count: int, max_count: int) -> void:
 	if max_count > 0 and current_count >= max_count:
 		_check("full_house", true)
+
+func _has_completed_round() -> bool:
+	return GameManager.course_records.get("lowest_round") != null

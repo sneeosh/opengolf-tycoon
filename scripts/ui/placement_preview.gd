@@ -13,6 +13,7 @@ var terrain_painting_enabled: bool = false  # Whether to show terrain preview
 var elevation_mode_active: bool = false  # Whether elevation tool is active
 var elevation_raising: bool = true  # True = raising, false = lowering
 var bulldozer_mode_active: bool = false  # Whether bulldozer mode is active
+var round_brush := true
 var brush_size: int = 1  # Current brush size (1, 3, or 5)
 var green_preset: String = ""  # Active green preset ("small"/"medium"/"large" or "")
 var _hole_move_mode: int = 0  # 0=NONE, matches main.gd HoleMoveMode enum
@@ -33,12 +34,16 @@ const BLOCKED_TILE_COLOR := Color(0.8, 0.2, 0.2, 0.4)
 const SMOOTH_SPEED := 20.0
 
 # Animation state
+var _garden_ghost: GardenArt
 var _building_ghost: CourseArchitecture
 var _pulse_time: float = 0.0
 var _current_alpha: float = 0.0
 var _target_alpha: float = 0.0
 
 func _ready() -> void:
+	_garden_ghost = GardenArt.new()
+	_garden_ghost.visible = false
+	add_child(_garden_ghost)
 	_building_ghost = CourseArchitecture.new()
 	_building_ghost.name = "BuildingGhost"
 	_building_ghost.visible = false
@@ -135,7 +140,7 @@ func _update_preview(delta: float) -> void:
 		elif brush_size <= 1:
 			current_preview_positions = [grid_pos]
 		else:
-			current_preview_positions = terrain_grid.get_brush_tiles(grid_pos, brush_size)
+			current_preview_positions = terrain_grid.get_brush_tiles(grid_pos, brush_size, round_brush)
 		current_preview_valid = terrain_grid.is_valid_position(grid_pos)
 
 	queue_redraw()
@@ -148,6 +153,8 @@ func _get_building_footprint(grid_pos: Vector2i) -> Array:
 	return result
 
 func _draw() -> void:
+	if is_instance_valid(_garden_ghost):
+		_garden_ghost.visible = false
 	if is_instance_valid(_building_ghost):
 		_building_ghost.visible = false
 	if not terrain_grid:
@@ -194,44 +201,9 @@ func _draw() -> void:
 	if is_entity_mode:
 		_draw_entity_ghost(alpha_mod)
 
-func _is_tile_valid_for_placement(grid_pos: Vector2i) -> bool:
-	if not terrain_grid.is_valid_position(grid_pos):
-		return false
-
-	var terrain_type = terrain_grid.get_tile(grid_pos)
-
-	match placement_manager.placement_mode:
-		PlacementManager.PlacementMode.TREE:
-			return terrain_type in [
-				TerrainTypes.Type.GRASS,
-				TerrainTypes.Type.FAIRWAY,
-				TerrainTypes.Type.ROUGH,
-				TerrainTypes.Type.HEAVY_ROUGH,
-				TerrainTypes.Type.PATH
-			]
-		PlacementManager.PlacementMode.ROCK:
-			return terrain_type in [
-				TerrainTypes.Type.GRASS,
-				TerrainTypes.Type.FAIRWAY,
-				TerrainTypes.Type.ROUGH,
-				TerrainTypes.Type.HEAVY_ROUGH
-			]
-		PlacementManager.PlacementMode.BUILDING:
-			var building_data = placement_manager.current_placement_data
-			var valid_tiles = [
-				TerrainTypes.Type.GRASS,
-				TerrainTypes.Type.ROUGH,
-				TerrainTypes.Type.HEAVY_ROUGH,
-				TerrainTypes.Type.FAIRWAY
-			]
-			if building_data and building_data.get("placeable_on_course", false):
-				valid_tiles += [TerrainTypes.Type.PATH]
-			return terrain_type in valid_tiles
-		PlacementManager.PlacementMode.DECORATION:
-			# Decoration uses can_place_at from placement_manager which handles terrain validation
-			return placement_manager.can_place_at(grid_pos, terrain_grid)
-
-	return false
+func _is_tile_valid_for_placement(_grid_pos: Vector2i) -> bool:
+	# The preview and click use one footprint-level validation result.
+	return current_preview_valid
 
 func _draw_isometric_tile(grid_pos: Vector2i, is_valid: bool, alpha_mod: float, is_primary: bool, is_terrain_mode: bool = false) -> void:
 	var screen_pos = terrain_grid.grid_to_screen(grid_pos)
@@ -477,6 +449,13 @@ func _draw_decoration_ghost(pos: Vector2, color: Color) -> void:
 
 	var layout := PathFurniture.layout(terrain_grid, current_grid_pos, dec_type)
 	var anchor := terrain_grid.grid_to_screen_center(current_grid_pos) + Vector2(layout.offset)
+	if GardenArt.has_art(dec_type):
+		_garden_ghost.kind = dec_type
+		_garden_ghost.position = anchor
+		_garden_ghost.modulate = Color(1, 1, 1, a) if current_preview_valid else Color(1, .45, .4, a)
+		_garden_ghost.visible = true
+		_garden_ghost.queue_redraw()
+		return
 	if PathFurniture.has_art(dec_type):
 		draw_set_transform(anchor)
 		PathFurniture.draw_item(self, dec_type, layout.facing, a)

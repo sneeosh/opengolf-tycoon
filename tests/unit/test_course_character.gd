@@ -116,7 +116,6 @@ func test_golfer_expression_does_not_move_actor_or_delay_next_shot() -> void:
 
 func test_building_ghost_matches_facility_and_clears_when_preview_ends() -> void:
 	var manager := PlacementManager.new()
-	add_child_autofree(manager)
 	manager.selected_building_type = "restaurant"
 	manager.current_placement_data = {"size": {"width": 3, "height": 3}}
 	var preview := PlacementPreview.new()

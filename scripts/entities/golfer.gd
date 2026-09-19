@@ -90,6 +90,22 @@ var current_mood: float = 0.5  # 0.0 = angry, 1.0 = happy
 
 ## Needs system — tracks energy, comfort, hunger, pace satisfaction
 var needs: GolferNeeds = GolferNeeds.new()
+var _amenity_pause_remaining := 0.0
+var traffic_blocked := false
+var traffic_wait_seconds := 0.0
+var amenities_used := 0
+var guest_key := ""
+var is_returning_guest := false
+var paid_round_fee := 0
+var activity_text := "Playing golf"
+var _amenity_phase := 0
+var _amenity_destination := Vector2.ZERO
+var _amenity_origin := Vector2.ZERO
+var _amenity_elapsed := 0.0
+var _amenity_node: Node2D
+var _amenity_service := ""
+var _amenity_caption: Label
+var _declined_at_hole: Dictionary = {}
 
 ## Waiting time accumulator (seconds spent in IDLE waiting for turn)
 var _wait_time_accumulated: float = 0.0
@@ -676,20 +692,30 @@ func _apply_tier_name_color() -> void:
 	name_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 
 func _process(delta: float) -> void:
+	if GameManager.is_paused or GameManager.current_speed == GameManager.GameSpeed.PAUSED: return
+	if _amenity_phase > 0:
+		_process_amenity_visit(delta)
+		return
 	_update_highlight_ring()
 	_update_tier_ring()
 	_update_group_badge()
 	_update_mood_visuals()
 
 	# Track waiting time for pace satisfaction decay
-	if current_state == State.IDLE and current_hole > 0:
+	if current_state == State.IDLE and traffic_blocked:
+		traffic_wait_seconds += delta
+		activity_text = "Waiting for the group ahead"
 		_wait_time_accumulated += delta
 		# Apply waiting decay in 5-second chunks to avoid per-frame overhead
 		if _wait_time_accumulated >= 5.0:
-			needs.on_waiting(_wait_time_accumulated)
+			var marshal_modifier := .6 / GameManager.staff_manager.get_pace_modifier() if GameManager.staff_manager else 1.0
+			needs.on_waiting(_wait_time_accumulated * marshal_modifier)
 			_wait_time_accumulated = 0.0
 			_check_need_triggers()
 
+	if not traffic_blocked:
+		activity_text = "Walking to play" if current_state == State.WALKING else ("Waiting for playing partners" if current_state == State.IDLE else "Playing golf")
+		needs.on_playing(delta)
 	match current_state:
 		State.WALKING:
 			_process_walking(delta)
@@ -723,7 +749,14 @@ func _process_walking(delta: float) -> void:
 		effective_speed *= TerrainTypes.get_speed_modifier(terrain_type)
 
 	velocity = direction * effective_speed
-	move_and_slide()
+	var step := minf(effective_speed * delta, distance)
+	move_and_collide(direction * step)
+	if global_position.distance_to(target) < 5.0:
+		global_position = target
+		path_index += 1
+		if path_index >= path.size():
+			_on_reached_destination()
+			return
 
 	# Check for building proximity (throttled — buildings don't move)
 	_building_check_timer += delta
@@ -731,6 +764,9 @@ func _process_walking(delta: float) -> void:
 		_building_check_timer = 0.0
 		_check_building_proximity()
 
+	_animate_walking(delta)
+
+func _animate_walking(delta: float) -> void:
 	# Fatigue modifiers — tired golfers shuffle slower
 	var is_fatigued = needs.energy < 0.3
 	var bob_max = 0.8 if is_fatigued else 1.5
@@ -743,7 +779,7 @@ func _process_walking(delta: float) -> void:
 		var new_dir = _get_direction_from_velocity(velocity)
 		var anim_name = "walk_%s" % new_dir
 		if _animated_sprite.sprite_frames.has_animation(anim_name):
-			if _current_direction != new_dir or _animated_sprite.animation != anim_name:
+			if _current_direction != new_dir or _animated_sprite.animation != anim_name or not _animated_sprite.is_playing():
 				_current_direction = new_dir
 				_animated_sprite.play(anim_name)
 		# Subtle bob for sprite mode too
@@ -1288,6 +1324,9 @@ func finish_round() -> void:
 		_needs.energy, _needs.comfort, _needs.hunger, _needs.pace,
 	])
 
+	if total_holes > 0 and hole_scores.size() >= total_holes and not is_tournament_golfer:
+		FeedbackManager.record_visit(self)
+		EventBus.golfer_completed_round.emit(golfer_id, total_strokes, total_par)
 	EventBus.golfer_finished_round.emit(golfer_id, total_strokes, total_par)
 
 ## Select appropriate club based on distance and terrain (legacy compatibility).
@@ -2626,6 +2665,7 @@ func _update_score_display() -> void:
 func _on_green_fee_paid(paid_golfer_id: int, _paid_golfer_name: String, amount: int) -> void:
 	# Only show notification for this specific golfer
 	if paid_golfer_id == golfer_id:
+		paid_round_fee = amount
 		show_payment_notification(amount)
 
 		# Check price sensitivity and show thought
@@ -2663,57 +2703,114 @@ func show_payment_notification(amount: int) -> void:
 
 ## Check proximity to buildings and generate revenue/satisfaction effects
 func _check_building_proximity() -> void:
-	var entity_layer = GameManager.entity_layer
-	if not entity_layer:
+	var entities = GameManager.entity_layer
+	var grid = GameManager.terrain_grid
+	if not entities or not grid or _amenity_phase > 0: return
+	var current: Vector2i = grid.screen_to_grid(global_position)
+	var candidates: Array = entities.get_all_buildings()
+	candidates.append_array(entities.get_all_decorations())
+	for candidate in candidates:
+		var id: int = candidate.get_instance_id()
+		if _visited_buildings.has(id) or _declined_at_hole.get(id,-1) == current_hole: continue
+		var service: String
+		var reach := 2.0
+		if candidate is Building:
+			service = candidate.building_data.get("needs_service", candidate.building_type)
+			reach = float(candidate.building_data.get("effect_radius",5))
+			if candidate.building_data.get("effect_type", "").is_empty(): continue
+		else:
+			if candidate.decoration_type not in ["park_bench","picnic_table","patio_table"] or needs.energy >= .7: continue
+			service = "bench"
+		if Vector2(current).distance_to(Vector2(candidate.grid_position)) > reach: continue
+		_declined_at_hole[id] = current_hole
+		if randf() > needs.get_interaction_chance(service): continue
+		var destination := _find_amenity_approach(candidate)
+		if destination == Vector2.INF: continue
+		_visited_buildings[id] = true
+		_amenity_node = candidate
+		_amenity_service = service
+		_amenity_origin = global_position
+		_amenity_destination = destination
+		_amenity_phase = 1
+		_amenity_elapsed = 0.0
+		activity_text = "Walking to " + service.replace("_"," ")
 		return
 
-	var terrain_grid = GameManager.terrain_grid
-	if not terrain_grid:
+func _find_amenity_approach(amenity: Node2D) -> Vector2:
+	var grid = GameManager.terrain_grid
+	var entities = GameManager.entity_layer
+	var origin: Vector2i = grid.screen_to_grid(global_position)
+	var size := Vector2i.ONE
+	if amenity is Building:
+		var footprint: Array = amenity.building_data.get("size",[1,1])
+		size = Vector2i(footprint[0],footprint[1])
+	var best := Vector2.INF
+	var best_distance := INF
+	for x in range(-1,size.x+1):
+		for y in range(-1,size.y+1):
+			if x >= 0 and x < size.x and y >= 0 and y < size.y: continue
+			var tile: Vector2i = amenity.grid_position + Vector2i(x,y)
+			var clear := true
+			for p in TerrainBrush.centers(origin,tile):
+				if not grid.is_valid_position(p) or grid.get_tile(p) == TerrainTypes.Type.WATER or entities.is_tile_occupied_by_building(p) or entities.get_tree_at(p) or entities.get_rock_at(p):
+					clear = false
+					break
+			if not clear: continue
+			var point: Vector2 = grid.grid_to_screen_center(tile)
+			var distance: float = global_position.distance_squared_to(point)
+			if distance < best_distance:
+				best_distance = distance
+				best = point
+	return best
+
+func _process_amenity_visit(delta: float) -> void:
+	_amenity_elapsed += delta
+	if _amenity_phase == 2:
+		_amenity_pause_remaining -= delta
+		if _amenity_pause_remaining <= 0:
+			_amenity_phase = 3
+			_amenity_elapsed = 0.0
+			activity_text = "Returning to play"
+			if is_instance_valid(_amenity_caption): _amenity_caption.queue_free()
 		return
+	var target := _amenity_destination if _amenity_phase == 1 else _amenity_origin
+	var distance := global_position.distance_to(target)
+	velocity = global_position.direction_to(target) * walk_speed
+	move_and_collide(velocity.normalized() * minf(walk_speed * delta,distance))
+	_animate_walking(delta)
+	if global_position.distance_to(target) < 5.0 or _amenity_elapsed > 12.0:
+		if _amenity_phase == 1 and global_position.distance_to(target) < 5.0 and is_instance_valid(_amenity_node):
+			_serve_amenity()
+			_amenity_phase = 2
+			_amenity_pause_remaining = 4.0
+			if _use_sprites and _animated_sprite: _animated_sprite.pause()
+		else:
+			_amenity_phase = 0
+			activity_text = "Playing golf"
 
-	var current_grid_pos = terrain_grid.screen_to_grid(global_position)
-	var buildings = entity_layer.get_all_buildings()
-
-	for building in buildings:
-		# Skip if already visited this building
-		var building_id = building.get_instance_id()
-		if _visited_buildings.has(building_id):
-			continue
-
-		# Check if building has effect properties
-		var building_data = building.building_data
-		var effect_type = building_data.get("effect_type", "")
-		if effect_type.is_empty():
-			continue
-
-		# Check proximity
-		var effect_radius = building_data.get("effect_radius", 5)
-		var distance = Vector2(current_grid_pos).distance_to(Vector2(building.grid_position))
-
-		if distance <= effect_radius:
-			_visited_buildings[building_id] = true
-
-			# Check if golfer decides to stop at this building
-			# Lower needs = higher chance of interacting; prevents revenue spam
-			var interact_chance = needs.get_interaction_chance(building.building_type)
-			if randf() > interact_chance:
-				continue  # Golfer walks past without stopping
-
-			# Apply effect based on type
-			# Use building methods to get upgrade-aware values
-			if effect_type == "revenue":
-				var income = building.get_income_per_golfer()
-				if income > 0:
-					GameManager.modify_money(income)
-					GameManager.daily_stats.building_revenue += income
-					building.total_revenue += income
-					EventBus.log_transaction("%s at %s" % [golfer_name, building.building_type], income)
-					_show_building_revenue_notification(income, building.building_type)
-
-			# Apply needs-based satisfaction from buildings
-			var mood_boost = needs.apply_building_effect(building.building_type)
-			if mood_boost > 0.0:
-				_adjust_mood(mood_boost)
+func _serve_amenity() -> void:
+	var boost := needs.apply_building_effect(_amenity_service)
+	_adjust_mood(boost)
+	amenities_used += 1
+	FeedbackManager.service_visits += 1
+	var income := 0
+	if _amenity_node is Building and _amenity_node.building_data.get("effect_type", "") == "revenue":
+		income = _amenity_node.get_income_per_golfer()
+		if income > 0:
+			GameManager.modify_money(income)
+			GameManager.daily_stats.building_revenue += income
+			_amenity_node.total_revenue += income
+			FeedbackManager.service_revenue += income
+			_show_building_revenue_notification(income, _amenity_service)
+	activity_text = "Resting" if _amenity_service == "bench" else "Visiting " + _amenity_service.replace("_"," ")
+	_amenity_caption = Label.new()
+	_amenity_caption.text = activity_text
+	_amenity_caption.position = Vector2(-32,-53)
+	_amenity_caption.add_theme_font_size_override("font_size",11)
+	_amenity_caption.add_theme_color_override("font_color",Color(.95,1,.8))
+	_amenity_caption.add_theme_color_override("font_outline_color",Color(.1,.2,.1))
+	_amenity_caption.add_theme_constant_override("outline_size",3)
+	add_child(_amenity_caption)
 
 ## Show floating notification for building revenue
 func _show_building_revenue_notification(amount: int, _building_type: String) -> void:
@@ -2776,6 +2873,7 @@ func _apply_clubhouse_effects() -> void:
 ## Show a thought bubble with golfer feedback
 ## Respects cooldown to prevent spam
 func show_thought(trigger_type: int) -> void:
+	FeedbackManager.record_incident(self, trigger_type)
 	# Enforce cooldown
 	var current_time = Time.get_ticks_msec() / 1000.0
 	if current_time - _last_thought_time < THOUGHT_COOLDOWN:

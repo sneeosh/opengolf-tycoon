@@ -159,11 +159,11 @@ static func get_terrain_colors(theme_type: int) -> Dictionary:
 		Type.PARKLAND:
 			return {
 				"grass": Color("719447"),
-				"fairway_light": Color("8bb954"),
+				"fairway_light": Color("78ae49"),
 				"fairway_dark": Color("7ba74b"),
-				"green_light": Color("a4ca67"),
+				"green_light": Color("a6d957"),
 				"green_dark": Color("97bc5b"),
-				"fringe": Color("749b45"),
+				"fringe": Color("477638"),
 				"rough": Color("5f803b"),
 				"heavy_rough": Color("4a6935"),
 				"bunker": Color("eddeb0"),

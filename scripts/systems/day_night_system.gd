@@ -14,7 +14,8 @@ func _ready() -> void:
 	_is_web = OS.get_name() == "Web"
 	_canvas_modulate = CanvasModulate.new()
 	_canvas_modulate.name = "DayNightModulate"
-	_canvas_modulate.color = Color.WHITE
+	_current_hour = GameManager.current_hour
+	_canvas_modulate.color = _get_tint_for_hour(_current_hour)
 	add_child(_canvas_modulate)
 	EventBus.hour_changed.connect(_on_hour_changed)
 	EventBus.weather_changed.connect(_on_weather_changed)
@@ -74,7 +75,7 @@ func _get_tint_for_hour(hour: float) -> Color:
 		# Sunrise transition
 		var t = (hour - 5.0) / 2.0  # 0.0 at 5 AM, 1.0 at 7 AM
 		var night_color = Color(0.15, 0.15, 0.3)
-		var dawn_color = Color(1.0, 0.85, 0.7)  # Warm sunrise
+		var dawn_color = Color(1.0, 0.94, 0.86)  # Soft dawn preserves terrain color while building
 		var day_color = Color.WHITE
 		if t < 0.5:
 			return night_color.lerp(dawn_color, t * 2.0)

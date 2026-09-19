@@ -1,47 +1,220 @@
 {
-  "buildings": {
-    "clubhouse": {
-      "id": "clubhouse",
-      "name": "Clubhouse",
-      "size": [4, 4],
-      "cost": 10000,
-      "operating_cost": 100,
-      "required": true,
-      "upgradeable": true,
-      "upgrades": [
-        {
-          "level": 1,
-          "name": "Basic Clubhouse",
-          "unlocks": [],
-          "satisfaction_bonus": 0.0,
-          "visual": "basic"
-        },
-        {
-          "level": 2,
-          "name": "Clubhouse with Pro Shop",
-          "upgrade_cost": 8000,
-          "unlocks": ["pro_shop"],
-          "income_per_golfer": 15,
-          "satisfaction_bonus": 0.05,
-          "visual": "with_shop"
-        },
-        {
-          "level": 3,
-          "name": "Full Service Clubhouse",
-          "upgrade_cost": 15000,
-          "unlocks": ["pro_shop", "restaurant"],
-          "income_per_golfer": 40,
-          "satisfaction_bonus": 0.10,
-          "visual": "full_service"
-        }
-      ]
-    },
-    "pro_shop": {"id": "pro_shop", "name": "Pro Shop", "size": [2, 2], "cost": 5000, "operating_cost": 40, "income_per_golfer": 15, "effect_type": "revenue", "effect_radius": 8},
-    "restaurant": {"id": "restaurant", "name": "Restaurant", "size": [3, 3], "cost": 15000, "operating_cost": 60, "income_per_golfer": 25, "effect_type": "revenue", "effect_radius": 8},
-    "snack_bar": {"id": "snack_bar", "name": "Snack Bar", "size": [1, 1], "cost": 2000, "operating_cost": 15, "placeable_on_course": true, "income_per_golfer": 5, "effect_type": "revenue", "effect_radius": 5},
-    "driving_range": {"id": "driving_range", "name": "Driving Range", "size": [6, 3], "cost": 8000, "operating_cost": 35},
-    "cart_shed": {"id": "cart_shed", "name": "Cart Shed", "size": [2, 3], "cost": 4000, "operating_cost": 20, "enables_cart_rental": true},
-    "restroom": {"id": "restroom", "name": "Restroom", "size": [1, 1], "cost": 1500, "operating_cost": 10, "placeable_on_course": true, "effect_type": "satisfaction", "satisfaction_bonus": 0.05, "effect_radius": 8},
-    "bench": {"id": "bench", "name": "Bench", "size": [1, 1], "cost": 200, "operating_cost": 0, "placeable_on_course": true, "effect_type": "satisfaction", "satisfaction_bonus": 0.02, "effect_radius": 3}
-  }
+	"buildings": {
+		"clubhouse": {
+			"id": "clubhouse",
+			"name": "Clubhouse",
+			"size": [4, 4],
+			"cost": 10000,
+			"operating_cost": 100,
+			"required": true,
+			"upgradeable": true,
+			"upgrades": [
+				{
+					"level": 1,
+					"name": "Basic Clubhouse",
+					"unlocks": [],
+					"satisfaction_bonus": 0.0,
+					"visual": "basic"
+				},
+				{
+					"level": 2,
+					"name": "Clubhouse with Pro Shop",
+					"upgrade_cost": 8000,
+					"unlocks": ["pro_shop"],
+					"income_per_golfer": 15,
+					"satisfaction_bonus": 0.05,
+					"visual": "with_shop"
+				},
+				{
+					"level": 3,
+					"name": "Full Service Clubhouse",
+					"upgrade_cost": 15000,
+					"unlocks": ["pro_shop", "restaurant"],
+					"income_per_golfer": 40,
+					"satisfaction_bonus": 0.1,
+					"visual": "full_service"
+				}
+			]
+		},
+		"pro_shop": {
+			"id": "pro_shop",
+			"name": "Pro Shop",
+			"size": [2, 2],
+			"cost": 5000,
+			"operating_cost": 40,
+			"income_per_golfer": 15,
+			"effect_type": "revenue",
+			"effect_radius": 8
+		},
+		"restaurant": {
+			"id": "restaurant",
+			"name": "Restaurant",
+			"size": [3, 3],
+			"cost": 15000,
+			"operating_cost": 60,
+			"income_per_golfer": 25,
+			"effect_type": "revenue",
+			"effect_radius": 8
+		},
+		"snack_bar": {
+			"id": "snack_bar",
+			"name": "Snack Bar",
+			"size": [1, 1],
+			"cost": 2000,
+			"operating_cost": 15,
+			"placeable_on_course": true,
+			"income_per_golfer": 5,
+			"effect_type": "revenue",
+			"effect_radius": 5
+		},
+		"driving_range": {
+			"id": "driving_range",
+			"name": "Driving Range",
+			"size": [6, 3],
+			"cost": 8000,
+			"operating_cost": 35
+		},
+		"cart_shed": {
+			"id": "cart_shed",
+			"name": "Cart Shed",
+			"size": [2, 3],
+			"cost": 4000,
+			"operating_cost": 20,
+			"enables_cart_rental": true
+		},
+		"restroom": {
+			"id": "restroom",
+			"name": "Restroom",
+			"size": [1, 1],
+			"cost": 1500,
+			"operating_cost": 10,
+			"placeable_on_course": true,
+			"effect_type": "satisfaction",
+			"satisfaction_bonus": 0.05,
+			"effect_radius": 8
+		},
+		"bench": {
+			"id": "bench",
+			"name": "Bench",
+			"size": [1, 1],
+			"cost": 200,
+			"operating_cost": 0,
+			"placeable_on_course": true,
+			"effect_type": "satisfaction",
+			"satisfaction_bonus": 0.02,
+			"effect_radius": 3
+		},
+		"coffee_house": {
+			"id": "coffee_house",
+			"name": "Coffee House",
+			"size": [2, 2],
+			"cost": 3500,
+			"operating_cost": 25,
+			"income_per_golfer": 7,
+			"effect_type": "revenue",
+			"satisfaction_bonus": 0.03,
+			"effect_radius": 6,
+			"placeable_on_course": true,
+			"needs_service": "snack_bar",
+			"description": "Fresh coffee and a shaded stop along the walk."
+		},
+		"halfway_house": {
+			"id": "halfway_house",
+			"name": "Halfway House",
+			"size": [3, 2],
+			"cost": 6500,
+			"operating_cost": 35,
+			"income_per_golfer": 12,
+			"effect_type": "revenue",
+			"satisfaction_bonus": 0.03,
+			"effect_radius": 6,
+			"placeable_on_course": true,
+			"needs_service": "restaurant",
+			"description": "Lunch and refreshments between the nines."
+		},
+		"tea_pavilion": {
+			"id": "tea_pavilion",
+			"name": "Tea Pavilion",
+			"size": [2, 2],
+			"cost": 2800,
+			"operating_cost": 18,
+			"income_per_golfer": 4,
+			"effect_type": "revenue",
+			"satisfaction_bonus": 0.03,
+			"effect_radius": 6,
+			"placeable_on_course": true,
+			"needs_service": "bench",
+			"description": "An open garden pavilion for a restful break."
+		},
+		"ice_cream_kiosk": {
+			"id": "ice_cream_kiosk",
+			"name": "Ice Cream Kiosk",
+			"size": [1, 1],
+			"cost": 1800,
+			"operating_cost": 12,
+			"income_per_golfer": 4,
+			"effect_type": "revenue",
+			"satisfaction_bonus": 0.03,
+			"effect_radius": 6,
+			"placeable_on_course": true,
+			"needs_service": "snack_bar",
+			"description": "A cheerful striped kiosk beside the course."
+		},
+		"locker_room": {
+			"id": "locker_room",
+			"name": "Locker Room",
+			"size": [3, 2],
+			"cost": 5500,
+			"operating_cost": 30,
+			"income_per_golfer": 0,
+			"effect_type": "satisfaction",
+			"satisfaction_bonus": 0.03,
+			"effect_radius": 6,
+			"placeable_on_course": true,
+			"needs_service": "restroom",
+			"description": "Changing rooms and showers restore comfort."
+		},
+		"garden_spa": {
+			"id": "garden_spa",
+			"name": "Garden Spa",
+			"size": [3, 3],
+			"cost": 12000,
+			"operating_cost": 65,
+			"income_per_golfer": 18,
+			"effect_type": "revenue",
+			"satisfaction_bonus": 0.03,
+			"effect_radius": 6,
+			"placeable_on_course": true,
+			"needs_service": "clubhouse",
+			"description": "A pool terrace and lounge restore several needs."
+		},
+		"conservatory": {
+			"id": "conservatory",
+			"name": "Conservatory",
+			"size": [3, 2],
+			"cost": 7500,
+			"operating_cost": 35,
+			"income_per_golfer": 0,
+			"effect_type": "satisfaction",
+			"satisfaction_bonus": 0.03,
+			"effect_radius": 6,
+			"placeable_on_course": true,
+			"needs_service": "bench",
+			"description": "A glasshouse garden with sheltered seating."
+		},
+		"golf_academy": {
+			"id": "golf_academy",
+			"name": "Golf Academy",
+			"size": [4, 2],
+			"cost": 9000,
+			"operating_cost": 45,
+			"income_per_golfer": 10,
+			"effect_type": "revenue",
+			"satisfaction_bonus": 0.03,
+			"effect_radius": 6,
+			"placeable_on_course": true,
+			"needs_service": "pro_shop",
+			"description": "Practice bays and an equipment counter."
+		}
+	}
 }

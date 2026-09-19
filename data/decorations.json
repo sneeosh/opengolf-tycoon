@@ -48,7 +48,10 @@
 			"daily_upkeep": 15,
 			"aesthetics_value": 1.0,
 			"placeable_terrain": ["grass", "path"],
-			"unlock": {"type": "star_rating", "value": 3},
+			"unlock": {
+				"type": "star_rating",
+				"value": 3
+			},
 			"theme_bonus": ["CITY", "TROPICAL", "RESORT"],
 			"description": "A sparkling water feature. Excellent cover for a missed putt."
 		},
@@ -63,7 +66,7 @@
 			"placeable_terrain": ["grass", "rough", "fairway", "path"],
 			"unlock": null,
 			"theme_bonus": ["WOODLAND", "PARKLAND", "MARSHLAND", "TROPICAL"],
-			"description": "A stone basin for the club’s smallest, splashiest members."
+			"description": "A stone basin for the club\u2019s smallest, splashiest members."
 		},
 		"gazebo": {
 			"id": "gazebo",
@@ -139,7 +142,10 @@
 			"daily_upkeep": 10,
 			"aesthetics_value": 1.0,
 			"placeable_terrain": ["grass", "path"],
-			"unlock": {"type": "star_rating", "value": 4},
+			"unlock": {
+				"type": "star_rating",
+				"value": 4
+			},
 			"theme_bonus": ["CITY", "RESORT"],
 			"description": "A bronze statue of a golfer mid-swing"
 		},
@@ -152,9 +158,220 @@
 			"daily_upkeep": 5,
 			"aesthetics_value": 0.6,
 			"placeable_terrain": ["grass", "path"],
-			"unlock": {"type": "reputation", "value": 50},
+			"unlock": {
+				"type": "reputation",
+				"value": 50
+			},
 			"theme_bonus": ["DESERT", "LINKS", "HEATHLAND"],
 			"description": "An ornate sundial on a stone pedestal"
+		},
+		"rose_border": {
+			"id": "rose_border",
+			"name": "Rose Border",
+			"category": "landscaping",
+			"size": [1, 1],
+			"cost": 120,
+			"daily_upkeep": 3,
+			"aesthetics_value": 0.25,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Rose Border for the walks, gardens, and gathering places around your course."
+		},
+		"lavender_bed": {
+			"id": "lavender_bed",
+			"name": "Lavender Border",
+			"category": "landscaping",
+			"size": [1, 1],
+			"cost": 90,
+			"daily_upkeep": 2,
+			"aesthetics_value": 0.25,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Lavender Border for the walks, gardens, and gathering places around your course."
+		},
+		"hydrangea": {
+			"id": "hydrangea",
+			"name": "Hydrangea Bed",
+			"category": "landscaping",
+			"size": [1, 1],
+			"cost": 140,
+			"daily_upkeep": 3,
+			"aesthetics_value": 0.25,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Hydrangea Bed for the walks, gardens, and gathering places around your course."
+		},
+		"clipped_hedge": {
+			"id": "clipped_hedge",
+			"name": "Clipped Hedge",
+			"category": "landscaping",
+			"size": [1, 1],
+			"cost": 75,
+			"daily_upkeep": 2,
+			"aesthetics_value": 0.25,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Clipped Hedge for the walks, gardens, and gathering places around your course."
+		},
+		"rose_arch": {
+			"id": "rose_arch",
+			"name": "Climbing Rose Arch",
+			"category": "structures",
+			"size": [1, 1],
+			"cost": 280,
+			"daily_upkeep": 4,
+			"aesthetics_value": 0.45,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Climbing Rose Arch for the walks, gardens, and gathering places around your course."
+		},
+		"pergola": {
+			"id": "pergola",
+			"name": "Wisteria Pergola",
+			"category": "structures",
+			"size": [1, 1],
+			"cost": 450,
+			"daily_upkeep": 6,
+			"aesthetics_value": 0.45,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Wisteria Pergola for the walks, gardens, and gathering places around your course."
+		},
+		"picnic_table": {
+			"id": "picnic_table",
+			"name": "Picnic Table",
+			"category": "furniture",
+			"size": [1, 1],
+			"cost": 160,
+			"daily_upkeep": 1,
+			"aesthetics_value": 0.25,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Picnic Table for the walks, gardens, and gathering places around your course."
+		},
+		"patio_table": {
+			"id": "patio_table",
+			"name": "Parasol Table",
+			"category": "furniture",
+			"size": [1, 1],
+			"cost": 240,
+			"daily_upkeep": 2,
+			"aesthetics_value": 0.45,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Parasol Table for the walks, gardens, and gathering places around your course."
+		},
+		"garden_lamp": {
+			"id": "garden_lamp",
+			"name": "Garden Lantern",
+			"category": "furniture",
+			"size": [1, 1],
+			"cost": 130,
+			"daily_upkeep": 2,
+			"aesthetics_value": 0.25,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Garden Lantern for the walks, gardens, and gathering places around your course."
+		},
+		"stone_wall": {
+			"id": "stone_wall",
+			"name": "Limestone Wall",
+			"category": "structures",
+			"size": [1, 1],
+			"cost": 100,
+			"daily_upkeep": 0,
+			"aesthetics_value": 0.25,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Limestone Wall for the walks, gardens, and gathering places around your course."
+		},
+		"picket_fence": {
+			"id": "picket_fence",
+			"name": "Picket Fence",
+			"category": "structures",
+			"size": [1, 1],
+			"cost": 55,
+			"daily_upkeep": 0,
+			"aesthetics_value": 0.25,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Picket Fence for the walks, gardens, and gathering places around your course."
+		},
+		"terracotta_planters": {
+			"id": "terracotta_planters",
+			"name": "Terracotta Planters",
+			"category": "landscaping",
+			"size": [1, 1],
+			"cost": 110,
+			"daily_upkeep": 3,
+			"aesthetics_value": 0.25,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Terracotta Planters for the walks, gardens, and gathering places around your course."
+		},
+		"lily_pool": {
+			"id": "lily_pool",
+			"name": "Lily Pool",
+			"category": "water",
+			"size": [1, 1],
+			"cost": 350,
+			"daily_upkeep": 5,
+			"aesthetics_value": 0.45,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "A shallow ornamental basin with lilies. A garden ornament, not a golf hazard."
+		},
+		"rock_garden": {
+			"id": "rock_garden",
+			"name": "Alpine Rock Garden",
+			"category": "landscaping",
+			"size": [1, 1],
+			"cost": 200,
+			"daily_upkeep": 2,
+			"aesthetics_value": 0.45,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Alpine Rock Garden for the walks, gardens, and gathering places around your course."
+		},
+		"course_clock": {
+			"id": "course_clock",
+			"name": "Club Clock",
+			"category": "sculptures",
+			"size": [1, 1],
+			"cost": 400,
+			"daily_upkeep": 2,
+			"aesthetics_value": 0.45,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "Club Clock for the walks, gardens, and gathering places around your course."
+		},
+		"viewing_deck": {
+			"id": "viewing_deck",
+			"name": "Timber Viewing Deck",
+			"category": "structures",
+			"size": [1, 1],
+			"cost": 320,
+			"daily_upkeep": 3,
+			"aesthetics_value": 0.45,
+			"placeable_terrain": ["grass", "rough", "fairway", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "RESORT"],
+			"description": "A low timber terrace with a sheltered rail. Place beside a path or pond."
 		}
 	}
 }

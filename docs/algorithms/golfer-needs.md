@@ -160,3 +160,19 @@ overall = energy * 0.30 + comfort * 0.20 + hunger * 0.20 + pace * 0.30
 | INTERACT_CHANCE_BASE | `golfer_needs.gd` | 0.30 | Fallback chance for buildings with no need mapping (pro_shop) |
 | Tier decay modifiers | `golfer_needs.gd:_get_tier_decay_modifier()` | 0.8–1.3 | Higher = tier is more demanding |
 | Overall satisfaction weights | `golfer_needs.gd:get_overall_satisfaction()` | E:0.30 C:0.20 H:0.20 P:0.30 | Adjust relative importance of each need |
+
+## Walking at accelerated simulation speeds
+
+Walking uses `move_and_collide(direction * min(speed * delta, distance_to_waypoint))`. Clamping the step prevents an accelerated frame from overshooting and oscillating across a waypoint. Reaching the final waypoint returns immediately after the state transition so walking animation cannot overwrite the arrival state.
+
+## September 2026 amenities
+
+Nearby park benches, picnic tables and patio tables restore energy once per visit when energy is below 0.7. Functional amenity use pauses the golfer for four simulation seconds so the visit is visible. Pausing the game also pauses golfer processing.
+
+## Physical amenity visits and traffic (September 2026)
+
+Normal turns within a golfer's own group no longer drain pace. The golfer manager marks a group as traffic-blocked only when its next player is ready but an earlier group prevents a safe shot. Those waiting seconds reduce pace; normal play restores pace at 0.0008 per simulation second. A marshal reduces the effective waiting penalty by the ratio `0.6 / staff_pace_modifier` (20% reduction with one marshal).
+
+A golfer considers nearby services once per hole until they choose a visit, and uses each chosen facility at most once per round. They find the nearest accessible perimeter tile with a clear approach, walk to it, receive the need benefit and pay on arrival, pause for four seconds with a visible activity caption, and walk back to resume their route. No accessible approach means no visit or charge. Each walking leg has a timeout so an obstructed approach cannot stall a group forever. Benches, picnic tables and patio tables use the same visit path for rest. Service counts and income are recorded separately from green fees.
+
+The golfer panel converts accumulated waiting seconds to game-clock minutes using `seconds * 60 / SECONDS_PER_GAME_HOUR`. Raw playtest `traffic_minutes` telemetry remains simulation seconds divided by 60; it is not wall time at accelerated speed.

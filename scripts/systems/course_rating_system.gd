@@ -27,7 +27,7 @@ static func calculate_rating(
 ) -> Dictionary:
 	var ratings = {
 		"condition": _calculate_condition_rating(terrain_grid, course_data),
-		"design": _calculate_design_rating(course_data),
+		"design": _calculate_design_rating(course_data, terrain_grid),
 		"value": _calculate_value_rating(green_fee, reputation),
 		"pace": _calculate_pace_rating(daily_stats),
 		"aesthetics": _calculate_aesthetics_rating(entity_layer, course_data),
@@ -191,7 +191,7 @@ static func _calculate_condition_rating(terrain_grid, course_data) -> float:
 	return clampf(base_rating * condition_mod, 1.0, 5.0)
 
 ## Design rating: variety of hole pars
-static func _calculate_design_rating(course_data) -> float:
+static func _calculate_design_rating(course_data, terrain_grid = null) -> float:
 	if not course_data:
 		return 2.5
 
@@ -234,7 +234,28 @@ static func _calculate_design_rating(course_data) -> float:
 	elif open_holes >= 4:
 		variety_score += 0.25  # Barely enough variety
 
-	return clampf(variety_score, 1.0, 5.0)
+	# Variety supplies at most three stars. Finish and separation earn the rest.
+	var score: float = 1.0 + (variety_score - 1.0) * 0.5
+	if terrain_grid:
+		var finished := 0.0
+		var well_spaced := 0.0
+		for hole in holes:
+			if not hole.is_open: continue
+			var green_tiles := 0
+			for dx in range(-2, 3):
+				for dy in range(-2, 3):
+					if terrain_grid.get_tile(hole.green_position + Vector2i(dx, dy)) == TerrainTypes.Type.GREEN:
+						green_tiles += 1
+			var tee_ok: bool = terrain_grid.get_tile(hole.tee_position) == TerrainTypes.Type.TEE_BOX
+			var cup_ok: bool = terrain_grid.get_tile(hole.hole_position) == TerrainTypes.Type.GREEN
+			if tee_ok and cup_ok: finished += minf(green_tiles / 7.0, 1.0)
+			var clear := true
+			for other in holes:
+				if other != hole and other.is_open and Vector2(hole.green_position).distance_to(Vector2(other.green_position)) < 5.0:
+					clear = false
+			if clear: well_spaced += 1.0
+		score += finished / open_holes * 1.25 + well_spaced / open_holes * 0.75
+	return clampf(score, 1.0, 5.0)
 
 ## Value rating: total round cost vs reputation and hole count
 ## A $30/hole fee on an 18-hole course ($540 total) is fair at high reputation,
@@ -249,12 +270,7 @@ static func _calculate_value_rating(green_fee: int, reputation: float) -> float:
 	# At 50 rep with 18 holes: fair = $100 * (18/18) = $100
 	# At 50 rep with 1 hole: fair = $100 * max(1/18, 0.15) = $15
 	# At 100 rep with 18 holes: fair = $200
-	var hole_factor = clampf(float(hole_count) / 18.0, 0.15, 1.0)
-	var fair_price = max(reputation * 2.0, 20.0) * hole_factor
-
-	# Seasonal fee tolerance: peak-season golfers accept higher fees, off-season expects lower
-	var fee_tolerance = SeasonSystem.get_fee_tolerance(GameManager.current_day, GameManager.current_theme)
-	fair_price *= fee_tolerance
+	var fair_price := CourseEconomy.fair_round_price(reputation, hole_count, GameManager.current_day, GameManager.current_theme)
 
 	var price_ratio = float(total_round_cost) / max(fair_price, 1.0)
 

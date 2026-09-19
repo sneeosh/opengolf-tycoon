@@ -49,6 +49,8 @@ signal golfer_spawned(golfer_id: int, golfer_name: String)
 signal golfer_started_hole(golfer_id: int, hole_number: int)
 signal golfer_finished_hole(golfer_id: int, hole_number: int, strokes: int, par: int)
 signal golfer_finished_round(golfer_id: int, total_score: int, total_par: int)
+## Full rounds only; departing golfers may have played a partial round.
+signal golfer_completed_round(golfer_id: int, total_score: int, total_par: int)
 signal golfer_mood_changed(golfer_id: int, new_mood: float)
 signal golfer_left_course(golfer_id: int)
 signal golfer_thought(golfer_id: int, trigger_type: int, sentiment: String)

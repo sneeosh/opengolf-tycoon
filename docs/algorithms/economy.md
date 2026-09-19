@@ -8,7 +8,7 @@ The economy system governs how money flows in and out of the golf course busines
 
 ### Revenue Sources
 
-1. **Green fees** — The primary income. Each golfer pays a per-hole fee multiplied by the number of open holes. The fee is player-configurable ($10–$200), but the maximum allowed fee scales with hole count ($10 per hole cap) to prevent small courses from charging excessive fees.
+1. **Green fees** — The primary income. Each golfer pays a per-hole fee multiplied by the number of open holes. The fee is player-configurable ($1–$200), but the maximum allowed fee scales with hole count ($10 per hole cap) to prevent small courses from charging excessive fees.
 
 2. **Pro shop bonus** — If a pro shop staff member is hired, each golfer generates $5 bonus on top of their green fee.
 
@@ -222,3 +222,13 @@ All potential exploits have been mathematically analyzed and tested:
 | Green fee sensitivity | `difficulty_presets.gd` | 0.7/1.0/1.5 | Higher = overpricing penalized more |
 | Stagnation threshold | `game_manager.gd` | 28 days | Lower = faster penalty for not expanding |
 | Stagnation decay | `game_manager.gd` | -0.3 rep/day | Higher = more pressure to expand |
+
+## Construction milestone pacing
+
+Course-construction rewards are $300 / $600 / $2,000 / $4,000 for 1 / 3 / 9 / 18 holes, with no reputation grant. Reputation and star milestones require a recorded completed round before they can trigger. Save restoration suppresses milestone rewards and restores completion flags before emitting state updates; loading is never construction progress.
+
+## Management loop update (September 2026)
+
+Green fees can now start at $1 per hole, and the finance panel changes them by $1. `CourseEconomy.fair_round_price` supplies one reference price to value ratings, demand and financial guidance: `max(reputation * 2, 20) * clamp(holes / 18, .15, 1) * seasonal_tolerance`. The additional demand factor is `min(1.25, 1 / max(round_price / fair_price, .1)^2)`. There is no demand floor that would make extreme prices profitable. Traffic, weather, group sizes and reputation also affect observed arrivals; this is not a guaranteed revenue curve.
+
+Daily operating costs now include hired staff payroll and marketing, matching cash deductions. Arrivals and completed rounds are separate statistics. Per-hole revenue is allocated when the green fee is paid, rather than divided again when a round finishes. Daily accounts and aggregate feedback survive save/load; older saves start with empty daily counters. Active golfer actions are still cleared on load.
