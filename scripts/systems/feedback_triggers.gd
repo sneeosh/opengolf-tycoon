@@ -165,8 +165,7 @@ static func get_price_trigger(total_round_cost: int, reputation: float) -> Trigg
 	# Price tolerance: at 50 reputation with 18 holes, $100 is fair.
 	# Scale by hole count so short courses feel overpriced at lower thresholds.
 	var hole_count = GameManager.get_open_hole_count()
-	var hole_factor = clampf(float(hole_count) / 18.0, 0.15, 1.0)
-	var fair_price = reputation * 2.0 * hole_factor
+	var fair_price = CourseEconomy.fair_round_price(reputation, hole_count, GameManager.current_day, GameManager.current_theme)
 	if total_round_cost > fair_price * 1.5:
 		return TriggerType.OVERPRICED
 	elif total_round_cost < fair_price * 0.6:

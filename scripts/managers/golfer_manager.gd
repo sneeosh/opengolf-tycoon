@@ -5,7 +5,7 @@ class_name GolferManager
 const GOLFER_SCENE = preload("res://scenes/entities/golfer.tscn")
 const TerrainTypes = preload("res://scripts/terrain/terrain_types.gd")
 
-@export var min_spawn_cooldown_seconds: float = 15.0  # Minimum cooldown between group spawns
+@export var min_spawn_cooldown_seconds: float = 90.0  # Minimum cooldown between group spawns
 
 var active_golfers: Array[Golfer] = []
 var next_golfer_id: int = 0
@@ -42,7 +42,7 @@ func _exit_tree() -> void:
 
 func get_group_size_weights() -> Array:
 	"""Get weighted probabilities for group sizes based on green fee"""
-	var fee = GameManager.green_fee
+	var fee = GameManager.green_fee * maxi(GameManager.get_open_hole_count(), 1)
 
 	# Lower fees attract more casual/single golfers
 	# Higher fees attract more serious golfers (foursomes)
@@ -89,16 +89,19 @@ func get_spawn_rate_modifier() -> float:
 	# Apply difficulty preset spawn rate modifier (Easy 1.2x, Normal 1.0x, Hard 0.8x)
 	base_modifier *= GameManager.get_spawn_rate_multiplier()
 
+	var holes := GameManager.get_open_hole_count()
+	var fair := CourseEconomy.fair_round_price(GameManager.reputation, holes, GameManager.current_day, GameManager.current_theme)
+	base_modifier *= CourseEconomy.price_demand(GameManager.green_fee, holes, fair)
 	return base_modifier
 
 func get_effective_spawn_cooldown() -> float:
 	"""Get spawn cooldown adjusted by course rating.
 	Higher rating = shorter cooldown = more golfers."""
 	# Use cached modifier to avoid expensive recalculation every frame
-	return min_spawn_cooldown_seconds / _cached_spawn_modifier
+	return GameManager.tee_booking_interval / maxf(_cached_spawn_modifier,.001)
 
 ## Estimated game-hours per hole for last tee time calculation
-const HOURS_PER_HOLE: float = 0.33  # ~20 minutes per hole
+const HOURS_PER_HOLE: float = 0.6  # Allow for group play, walking and queueing
 
 func _is_before_last_tee_time() -> bool:
 	"""Check if it's early enough in the day to start a new group.
@@ -124,7 +127,8 @@ func get_max_concurrent_golfers() -> int:
 	"""Maximum golfers allowed on the course at once. Scales with hole count.
 	1 group (4 golfers) per hole — more holes = more capacity = more revenue."""
 	var holes = GameManager.get_open_hole_count()
-	return max(4, holes * 4)  # Minimum of 4 (one group even with 1 hole)
+	var guests_per_hole := 2 if GameManager.tee_booking_interval >= 180 else 4
+	return max(4, holes * guests_per_hole)
 
 func _is_at_golfer_cap() -> bool:
 	"""Check if the course has reached its maximum golfer capacity."""
@@ -259,6 +263,7 @@ func _is_area_clear_of_golfers(target: Vector2, radius: float, exclude_group_id:
 	return true
 
 func _process(delta: float) -> void:
+	if GameManager.is_paused or GameManager.current_speed == GameManager.GameSpeed.PAUSED: return
 	if GameManager.game_mode != GameManager.GameMode.SIMULATING:
 		return
 
@@ -331,6 +336,8 @@ func _update_golfers(delta: float) -> void:
 
 func _update_group(group: Array) -> void:
 	"""Update a single group - determine and advance the next golfer to play."""
+	for golfer in group:
+		golfer.traffic_blocked = false
 	# Block if anyone is mid-shot (preparing, swinging, or watching ball)
 	for golfer in group:
 		if golfer.current_state in [Golfer.State.PREPARING_SHOT, Golfer.State.SWINGING, Golfer.State.WATCHING]:
@@ -371,6 +378,9 @@ func _update_group(group: Array) -> void:
 	if is_tee_shot or not someone_walking_on_hole:
 		if _is_landing_area_clear(next_golfer, group):
 			_advance_golfer(next_golfer)
+		else:
+			for golfer in group:
+				golfer.traffic_blocked = true
 
 ## ============================================================================
 ## GOLF TURN ORDER RULES (based on USGA etiquette)
@@ -683,6 +693,7 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	golfer.golfer_id = next_golfer_id
 	next_golfer_id += 1
 	golfer.golfer_name = golfer_name
+	golfer.guest_key = FeedbackManager.next_guest_key()
 	golfer.group_id = group_id
 
 	# Set skill levels with some randomness
@@ -714,6 +725,17 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 
 ## Spawn a random golfer with tier-based skills
 func spawn_random_golfer(group_id: int = -1) -> Golfer:
+	var returning := FeedbackManager.take_returning_guest()
+	if not returning.is_empty():
+		var regular := spawn_golfer(returning.name, .5, group_id)
+		if regular:
+			regular.initialize_from_tier(int(returning.tier))
+			regular.guest_key = returning.key
+			regular.is_returning_guest = true
+			for field in ["driving_skill","accuracy_skill","putting_skill","recovery_skill","patience","aggression","miss_tendency"]:
+				regular.set(field, returning[field])
+			regular.needs.setup(regular.golfer_tier, regular.patience)
+		return regular
 	var names = [
 		"Tiger", "Jack", "Arnold", "Phil", "Rory", "Jordan", "Brooks",
 		"Dustin", "Justin", "Bryson", "Jon", "Collin", "Scottie", "Xander"
@@ -863,7 +885,7 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: i
 
 	# Tier-based reputation gain, scaled by golfer mood
 	# Happy golfers spread the word; unhappy golfers hurt reputation
-	var base_rep = GolferTier.get_reputation_gain(finished_golfer.golfer_tier)
+	var base_rep: float = GolferTier.get_reputation_gain(finished_golfer.golfer_tier) * 0.1
 
 	# Pro golfers give bonus reputation if they had a good round
 	if finished_golfer.golfer_tier == GolferTier.Tier.PRO:
@@ -873,10 +895,11 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: i
 
 	# Apply prestige multiplier (harder courses with good ratings = more reputation)
 	var prestige_mult = CourseRatingSystem.get_prestige_multiplier(GameManager.course_rating)
-	base_rep = int(float(base_rep) * prestige_mult)
+	base_rep *= prestige_mult
 
 	# Scale by mood: happy (>0.6) = positive, neutral (0.4-0.6) = small gain, unhappy (<0.4) = negative
-	var mood = finished_golfer.current_mood
+	var value: float = GameManager.course_rating.get("value", 3.0) / 5.0
+	var mood: float = minf(finished_golfer.current_mood, value + 0.15)
 	var reputation_gain: float
 	if mood >= 0.6:
 		reputation_gain = base_rep * lerpf(0.5, 1.0, (mood - 0.6) / 0.4)
@@ -885,7 +908,8 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: i
 	else:
 		reputation_gain = -base_rep * lerpf(0.0, 1.0, (0.4 - mood) / 0.4)  # Unhappy: reputation loss
 
-	GameManager.modify_reputation(reputation_gain)
+	if finished_golfer.hole_scores.size() >= finished_golfer._round_total_holes:
+		GameManager.modify_reputation(reputation_gain)
 
 	var group_id = finished_golfer.group_id
 

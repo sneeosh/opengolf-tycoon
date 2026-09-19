@@ -90,7 +90,7 @@ func _update_display() -> void:
 	if not _golfer:
 		return
 
-	_title_label.text = _golfer.golfer_name
+	_title_label.text = _golfer.golfer_name + (" (returning)" if _golfer.is_returning_guest else "")
 	var tier_name = GolferTier.get_tier_name(_golfer.golfer_tier)
 	_tier_label.text = tier_name
 	var tier_color = TIER_COLORS.get(_golfer.golfer_tier, Color.WHITE)
@@ -100,6 +100,12 @@ func _update_display() -> void:
 	for child in _content_vbox.get_children():
 		child.queue_free()
 
+	var experience := Label.new()
+	experience.text = "%s\nTraffic wait: %.1f game minutes | Amenities used: %d\n%s" % [_golfer.activity_text,_golfer.traffic_wait_seconds * 60.0 / GameManager.SECONDS_PER_GAME_HOUR,_golfer.amenities_used,FeedbackManager.guest_incident_text(_golfer.golfer_id)]
+	experience.custom_minimum_size.x = 280
+	experience.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	experience.add_theme_font_size_override("font_size",12)
+	_content_vbox.add_child(experience)
 	# Skills section
 	var skills_label := Label.new()
 	skills_label.text = "Skills"

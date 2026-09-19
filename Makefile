@@ -28,7 +28,7 @@ test:
 		exit 1; \
 	fi
 	@echo "Running tests with: $(GODOT)"
-	@$(GODOT) --headless --path . -s addons/gut/gut_cmdln.gd
+	@$(GODOT) --headless --path . -s addons/gut/gut_cmdln.gd -gconfig=res://gutconfig.json -gexit
 
 run:
 	@if [ -z "$(GODOT)" ]; then \

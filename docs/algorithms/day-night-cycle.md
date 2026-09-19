@@ -8,7 +8,7 @@ The day/night system creates visual time-of-day effects by tinting the entire sc
 
 ### Time Progression
 
-Game time advances in real time: **1 real minute = 1 game hour** at normal speed. Fast and ultra speed multiply this accordingly. The game clock ticks every frame, and each integer hour boundary triggers wind drift and weather updates.
+Game time advances in real time: **2 real minutes = 1 game hour** at normal speed. Fast and ultra speed multiply this accordingly. The game clock ticks every frame, and each integer hour boundary triggers wind drift and weather updates.
 
 ### Visual Tinting
 
@@ -35,11 +35,11 @@ COURSE_CLOSE   = 20.0   # 8 PM
 
 # Per frame:
 time_multiplier = float(game_speed)    # NORMAL=1, FAST=2, ULTRA=4
-current_hour += (delta * time_multiplier) / 60.0
+current_hour += delta / GameManager.SECONDS_PER_GAME_HOUR  # 120; delta already scales with speed
 
-# 1 real minute = 1 game hour at NORMAL
-# 1 real minute = 2 game hours at FAST
-# 1 real minute = 4 game hours at ULTRA
+# 2 real minutes = 1 game hour at NORMAL
+# 1 real minute = 1 game hour at 2x
+# 1 real minute = 2 game hours at 4x
 ```
 
 ### 2. Time-of-Day Tint Colors
@@ -158,3 +158,11 @@ Time  |  Brightness  |  Color
 | Weather tint speed | `day_night_system.gd:37` | delta * 2.0 | Higher = faster weather tint changes |
 | Sunrise duration | `day_night_system.gd:63` | 2 hours (5-7 AM) | Longer = more gradual sunrise |
 | Sunset duration | `day_night_system.gd:76` | 3 hours (5-8 PM) | Longer = more gradual sunset |
+
+On load and every morning transition, the current hour is emitted again. The day/night system initializes its tint from that hour, and the HUD refreshes after load. Rain draws below the UI canvas so menus, labels and controls remain legible.
+
+The clock was slowed to 120 seconds/hour after multi-day playtests showed the 60-second clock outpacing foursomes walking and playing. Speed controls still accelerate both the clock and golfers together.
+
+Pause-button regression: selecting speed zero previously clamped the engine back to normal speed. The clock and golfer managers now explicitly stop at paused speed, while a near-zero engine scale also suspends ball/tween progress without freezing input. Selecting a play speed restores the normal scale. Modal pause remains separate.
+
+Loading a settled closing-time save and starting simulation advances to the next day before play; the already-posted operating costs cannot be charged twice. Paused simulation freezes the clock, golfer updates and physics/tweens; building mode retains normal UI animation time.

@@ -4,7 +4,7 @@ class_name QuickStartCourse
 ##
 ## Programmatically lays out fairways, greens, and tee boxes
 ## so first-time players can immediately press Play and see golfers.
-## Buildings are NOT placed — players must build their own amenities.
+## A modest clubhouse garden and a few essential services demonstrate the management loop.
 
 ## Build a 9-hole course on the given terrain grid.
 ## Par distribution: 2x par 3, 5x par 4, 2x par 5 = Par 36
@@ -76,7 +76,10 @@ static func build(terrain_grid: TerrainGrid, entity_layer: EntityLayer, hole_too
 	# Remove trees and rocks that ended up on fairways, greens, tee boxes, or bunkers
 	_clear_entities_on_course(terrain_grid, entity_layer)
 
-	EventBus.notify("9-hole Whispering Pines course created! Par 36. Press Start Day to play.", "success")
+	_build_arrival_garden(terrain_grid, entity_layer)
+	_plant_arrival_groups(terrain_grid, entity_layer)
+	GameManager.set_green_fee(5)
+	EventBus.notify("Nine holes, a clubhouse garden and starter amenities are ready. Review the course or Start Day.", "success")
 
 
 ## Check if a tile is within owned land (safety net for corridor painting).
@@ -98,35 +101,24 @@ static func _paint_hole(terrain_grid: TerrainGrid, tee: Vector2i, green: Vector2
 			if terrain_grid.is_valid_position(pos) and _is_owned(pos):
 				terrain_grid.set_tile(pos, TerrainTypes.Type.GREEN)
 
-	# Paint fairway corridor using Bresenham-like line with width
+	# Gently bending, variable-width landing areas replace ruler-straight strips.
 	var direction := Vector2(green - tee).normalized()
 	var distance := Vector2(tee).distance_to(Vector2(green))
-	var steps := int(distance)
-
-	# Perpendicular direction for corridor width
 	var perp := Vector2(-direction.y, direction.x)
-
+	var steps := int(distance * 2)
 	for i in range(steps + 1):
-		var center := Vector2(tee) + direction * float(i)
-		var half_w := corridor_width / 2
-		for w in range(-half_w, half_w + 1):
-			var tile_pos := Vector2i(int(round(center.x + perp.x * w)), int(round(center.y + perp.y * w)))
-			if terrain_grid.is_valid_position(tile_pos) and _is_owned(tile_pos):
-				var current := terrain_grid.get_tile(tile_pos)
-				# Don't overwrite tee or green tiles
-				if current != TerrainTypes.Type.TEE_BOX and current != TerrainTypes.Type.GREEN:
-					terrain_grid.set_tile(tile_pos, TerrainTypes.Type.FAIRWAY)
-
-	# Paint rough border around fairway (1 tile wider on each side)
-	for i in range(steps + 1):
-		var center := Vector2(tee) + direction * float(i)
-		var outer_w := corridor_width / 2 + 1
-		for w in [-outer_w, outer_w]:
-			var tile_pos := Vector2i(int(round(center.x + perp.x * w)), int(round(center.y + perp.y * w)))
-			if terrain_grid.is_valid_position(tile_pos) and _is_owned(tile_pos):
-				var current := terrain_grid.get_tile(tile_pos)
-				if current == TerrainTypes.Type.GRASS or current == TerrainTypes.Type.EMPTY:
-					terrain_grid.set_tile(tile_pos, TerrainTypes.Type.ROUGH)
+		var t := float(i) / maxi(steps, 1)
+		var bend := sin(t * PI) * sin(t * PI * 1.6) * 1.7
+		var center := Vector2(tee).lerp(Vector2(green), t) + perp * bend
+		var radius := lerpf(1.0, corridor_width * .5, sin(t * PI) * .65 + .35)
+		for dx in range(-4,5):
+			for dy in range(-4,5):
+				var delta := Vector2(dx,dy)
+				var point := Vector2i(center.round()) + Vector2i(dx,dy)
+				if delta.length() > radius or not terrain_grid.is_valid_position(point) or not _is_owned(point): continue
+				var current := terrain_grid.get_tile(point)
+				if current not in [TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.GREEN, TerrainTypes.Type.WATER, TerrainTypes.Type.BUNKER]:
+					terrain_grid.set_tile(point, TerrainTypes.Type.FAIRWAY)
 
 	# Place a small bunker near the green
 	var bunker_offset := Vector2i(int(-direction.x * 3 + perp.x * 2), int(-direction.y * 3 + perp.y * 2))
@@ -138,6 +130,12 @@ static func _paint_hole(terrain_grid: TerrainGrid, tee: Vector2i, green: Vector2
 				var current := terrain_grid.get_tile(bp)
 				if current != TerrainTypes.Type.GREEN and current != TerrainTypes.Type.TEE_BOX:
 					terrain_grid.set_tile(bp, TerrainTypes.Type.BUNKER)
+
+	# Three signature holes have real elevation, rather than decorative shading.
+	if tee in [Vector2i(65, 46), Vector2i(59, 80), Vector2i(74, 58)]:
+		SculptedTerrain.stamp(terrain_grid, green, 5, 2)
+		SculptedTerrain.stamp(terrain_grid, tee, 4, 3)
+		SculptedTerrain.stamp(terrain_grid, Vector2i((Vector2(tee) + Vector2(green)) * 0.5), 4, -1)
 
 
 ## Paint a water hazard at the given position
@@ -204,6 +202,7 @@ static func _clear_entities_on_course(terrain_grid: TerrainGrid, entity_layer: E
 		TerrainTypes.Type.GREEN,
 		TerrainTypes.Type.TEE_BOX,
 		TerrainTypes.Type.BUNKER,
+		TerrainTypes.Type.WATER,
 	]
 
 	# Remove trees on course surfaces
@@ -212,7 +211,9 @@ static func _clear_entities_on_course(terrain_grid: TerrainGrid, entity_layer: E
 		if terrain_grid.get_tile(pos) in course_terrain:
 			tree_positions_to_remove.append(pos)
 	for pos in tree_positions_to_remove:
+		var surface := terrain_grid.get_tile(pos)
 		entity_layer.remove_tree(pos)
+		terrain_grid.set_tile(pos, surface)
 
 	# Remove rocks on course surfaces
 	var rock_positions_to_remove: Array[Vector2i] = []
@@ -220,4 +221,59 @@ static func _clear_entities_on_course(terrain_grid: TerrainGrid, entity_layer: E
 		if terrain_grid.get_tile(pos) in course_terrain:
 			rock_positions_to_remove.append(pos)
 	for pos in rock_positions_to_remove:
+		var surface := terrain_grid.get_tile(pos)
 		entity_layer.remove_rock(pos)
+		terrain_grid.set_tile(pos, surface)
+
+## Compact central arrival garden, outside the nine playing corridors.
+static func _build_arrival_garden(grid: TerrainGrid, entities: EntityLayer) -> void:
+	if not entities: return
+	var buildings: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/buildings.json")).buildings
+	var decor: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/decorations.json")).decorations
+	for x in range(53,61):
+		for y in range(60,70):
+			var p := Vector2i(x,y)
+			if not _is_owned(p): continue
+			if grid.get_tile(p) in [TerrainTypes.Type.GREEN,TerrainTypes.Type.TEE_BOX,TerrainTypes.Type.FAIRWAY]: continue
+			entities.remove_tree(p)
+			entities.remove_rock(p)
+			grid.set_tile(p, TerrainTypes.Type.PATH if y >= 65 and y <= 67 else TerrainTypes.Type.GRASS)
+	for item in [["clubhouse",Vector2i(54,61)],["coffee_house",Vector2i(59,61)],["restroom",Vector2i(56,68)],["snack_bar",Vector2i(66,74)]]:
+		var kind: String = item[0]
+		var position: Vector2i = item[1]
+		for dx in range(buildings[kind].size[0]):
+			for dy in range(buildings[kind].size[1]):
+				var p := position + Vector2i(dx,dy)
+				entities.remove_tree(p)
+				entities.remove_rock(p)
+				grid.set_tile(p,TerrainTypes.Type.GRASS)
+		entities.place_building(kind, position, buildings)
+	# The same player-placeable items compose a legible entrance, terrace and garden.
+	var dry := GameManager.current_theme in [CourseTheme.Type.DESERT,CourseTheme.Type.LINKS,CourseTheme.Type.HEATHLAND]
+	for item in [["rose_arch",Vector2i(57,67)],["patio_table",Vector2i(59,65)],["patio_table",Vector2i(60,66)],["park_bench",Vector2i(54,66)],["lily_pool",Vector2i(54,68)],["garden_lamp",Vector2i(53,65)],["garden_lamp",Vector2i(60,67)],["course_clock",Vector2i(58,67)],["terracotta_planters",Vector2i(58,65)],["pergola",Vector2i(53,67)]]:
+		entities.place_decoration(item[0],item[1],decor)
+	for x in range(53,61):
+		for y in [59,69]:
+			var p := Vector2i(x,y)
+			if grid.get_tile(p) in [TerrainTypes.Type.FAIRWAY,TerrainTypes.Type.GREEN,TerrainTypes.Type.TEE_BOX]: continue
+			entities.remove_tree(p)
+			entities.remove_rock(p)
+			grid.set_tile(p,TerrainTypes.Type.GRASS)
+			entities.place_decoration("ornamental_grass" if dry else ("lavender_bed" if x%2 else "rose_border"),p,decor)
+	for item in [[Vector2i(50,69),"park_bench"],[Vector2i(70,58),"park_bench"],[Vector2i(65,74),"park_bench"]]:
+		var p: Vector2i = item[0]
+		if grid.get_tile(p) in [TerrainTypes.Type.GREEN, TerrainTypes.Type.TEE_BOX]: continue
+		if entities.get_decoration_at(p) or entities.is_tile_occupied_by_building(p): continue
+		entities.remove_tree(p)
+		entities.remove_rock(p)
+		grid.set_tile(p,TerrainTypes.Type.PATH)
+		entities.place_decoration(item[1],p,decor)
+
+## Small layered planting groups keep the entrance from reading as isolated props.
+static func _plant_arrival_groups(grid: TerrainGrid, entities: EntityLayer) -> void:
+	var dry := GameManager.current_theme in [CourseTheme.Type.DESERT,CourseTheme.Type.LINKS,CourseTheme.Type.HEATHLAND]
+	for item in [[Vector2i(51,60),"birch"],[Vector2i(52,59),"bush"],[Vector2i(51,62),"heather"],[Vector2i(61,59),"maple"],[Vector2i(62,60),"bush"],[Vector2i(52,70),"birch"],[Vector2i(53,71),"heather"],[Vector2i(60,70),"bush"]]:
+		var pos: Vector2i = item[0]
+		if not _is_owned(pos) or grid.get_tile(pos) not in [TerrainTypes.Type.GRASS,TerrainTypes.Type.ROUGH]: continue
+		if entities.get_tree_at(pos) or entities.get_rock_at(pos) or entities.is_tile_occupied_by_building(pos) or entities.get_decoration_at(pos): continue
+		entities.place_tree(pos,"fescue" if dry else item[1])

@@ -224,3 +224,13 @@ for each active golfer (from earlier groups):
 | Landing zone base radius | `golfer_manager.gd:85` | 2.0 tiles | Wider = more cautious spawning |
 | Landing zone variance | `golfer_manager.gd:86` | 0.3 (30%) | Higher = more cautious on long shots |
 | Cone half-angle | `golfer_manager.gd:147` | 45 degrees | Wider = more conservative safety check |
+
+## September 2026 tuning
+
+The base group cooldown is 90 simulation seconds (formerly 15), divided by the combined rating/weather/season/marketing/price modifier. First-tee safety and course capacity remain additional constraints. Price demand uses `CourseEconomy` and the whole round price; group-size price bands also use the whole round price. This gives demand room to vary instead of being dominated by first-tee congestion.
+
+Last tee time now reserves 0.6 game hours per open hole for play, walking and queues. Full-round statistics and completion milestones use a separate `golfer_completed_round` event; the existing departure event also handles partial rounds. Partial rounds do not earn reputation.
+
+Tee bookings are now player-controlled in Finance: Busy (60), Balanced (90), and Relaxed (180) base simulation seconds. Demand/weather/rating still modify this spacing. Fewer bookings can ease traffic but also reduce revenue. Returning visitors replace a new visitor within an existing arrival opportunity; the system does not grant extra money or guaranteed additional demand merely for having a customer profile.
+
+Relaxed bookings additionally cap simultaneous guests at two per open hole (minimum four); other modes allow four per hole. This limits congestion when a popular course reaches its arrival cap.

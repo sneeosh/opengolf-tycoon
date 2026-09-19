@@ -62,6 +62,33 @@ func cancel_placement() -> void:
 	placement_mode_changed.emit(placement_mode)
 
 func can_place_at(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
+	return get_placement_error(grid_pos, terrain_grid).is_empty()
+
+func get_placement_error(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> String:
+	if placement_mode == PlacementMode.NONE:
+		return "Select an item first."
+	var footprint := get_placement_footprint()
+	if footprint.is_empty():
+		footprint = [Vector2i.ZERO]
+	for offset in footprint:
+		var tile: Vector2i = grid_pos + offset
+		if not terrain_grid.is_valid_position(tile):
+			return "The entire footprint must fit inside the course."
+		if GameManager.land_manager and not GameManager.land_manager.is_tile_owned(tile):
+			return "Buy this land first (L). The entire footprint must be owned."
+		if GameManager.entity_layer and placement_mode in [PlacementMode.BUILDING, PlacementMode.DECORATION]:
+			var entities = GameManager.entity_layer
+			if entities.is_tile_occupied_by_building(tile):
+				return "Move the footprint clear of the existing building."
+			if entities.is_tile_occupied_by_decoration(tile):
+				return "Remove the decoration in this footprint first."
+			if entities.get_tree_at(tile) or entities.get_rock_at(tile):
+				return "Clear the tree or rock with the bulldozer (X) first."
+	if not _terrain_allows_at(grid_pos, terrain_grid):
+		return "Use grass, rough, fairway or path; keep greens, tees, sand and water clear." if placement_mode == PlacementMode.BUILDING else "This item needs compatible ground across its entire footprint."
+	return ""
+
+func _terrain_allows_at(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 	if placement_mode == PlacementMode.NONE:
 		return false
 
@@ -110,7 +137,6 @@ func _can_place_building(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 	var size = current_placement_data.get("size", [1, 1])
 	var width = size[0] as int
 	var height = size[1] as int
-	var placeable_on_course = current_placement_data.get("placeable_on_course", false)
 	
 	# Check all tiles that the building would occupy
 	for x in range(width):
@@ -127,10 +153,9 @@ func _can_place_building(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 				TerrainTypes.Type.GRASS,
 				TerrainTypes.Type.ROUGH,
 				TerrainTypes.Type.HEAVY_ROUGH,
-				TerrainTypes.Type.FAIRWAY
+				TerrainTypes.Type.FAIRWAY,
+				TerrainTypes.Type.PATH
 			]
-			if placeable_on_course:
-				valid_tiles += [TerrainTypes.Type.PATH]
 			
 			if not (tile_type in valid_tiles):
 				return false

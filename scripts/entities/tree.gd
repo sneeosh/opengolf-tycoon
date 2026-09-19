@@ -1,5 +1,6 @@
 extends Node2D
 class_name TreeEntity
+static var _breeze_material: ShaderMaterial
 ## TreeEntity - Represents a tree or vegetation entity on the course
 
 var grid_position: Vector2i = Vector2i(0, 0)
@@ -349,6 +350,11 @@ func _draw_sprite(visual: Node2D) -> void:
 	sprite.texture = load(sprite_path)
 	sprite.centered = true
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	if tree_type not in ["cactus", "dead_tree"]:
+		if not _breeze_material:
+			_breeze_material = ShaderMaterial.new()
+			_breeze_material.shader = preload("res://shaders/foliage_breeze.gdshader")
+		sprite.material = _breeze_material
 	# Apply color variation as a modulate tint
 	if _variation:
 		sprite.modulate = _variation.apply_color_shift(Color.WHITE)

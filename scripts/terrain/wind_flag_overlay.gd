@@ -54,7 +54,8 @@ func _rebuild_all_flags() -> void:
 		var green_flag := WindFlag.new()
 		green_flag.name = "GreenFlag_H%d" % hole_data.hole_number
 		green_flag._flag_color = Color(0.9, 0.15, 0.15)  # Red for pin
-		green_flag._pole_height = 28.0
+		green_flag._pole_height = 38.0
+		green_flag._flag_length = 18.0
 		green_flag.position = _terrain_grid.grid_to_screen_center(hole_data.hole_position)
 		add_child(green_flag)
 		_flags.append(green_flag)

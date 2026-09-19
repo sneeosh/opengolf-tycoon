@@ -8,7 +8,6 @@ uniform vec2 tile_size = vec2(64.0, 32.0);
 uniform vec2 light_direction = vec2(-0.7, -0.7);
 uniform float light_intensity : hint_range(0.0, 1.0) = 0.5;
 uniform float shadow_intensity : hint_range(0.0, 1.0) = 0.4;
-uniform int cel_steps : hint_range(2, 8) = 3;
 
 uniform bool contour_enabled = true;
 uniform float contour_line_width = 1.5;
@@ -58,8 +57,7 @@ void fragment() {
 		vec3 light_dir_3d = normalize(vec3(light_direction, 0.6));
 		float ndotl = dot(normal, light_dir_3d) * 0.5 + 0.5;
 
-		float steps_f = float(cel_steps);
-		float lighting = floor(ndotl * steps_f) / steps_f;
+		float lighting = ndotl;
 		float shade = mix(1.0 - shadow_intensity, 1.0 + light_intensity, lighting);
 
 		float alpha = 0.0;
@@ -76,11 +74,11 @@ void fragment() {
 		// Ambient occlusion from Laplacian curvature
 		float ao = ((h_l + h_r + h_u + h_d) - 4.0 * height) * 40.0;
 		if (ao > 0.03) {
-			float ao_alpha = clamp(ao * 0.5, 0.0, 0.30);
+			float ao_alpha = clamp(ao * 0.25, 0.0, 0.16) * smoothstep(0.03, 0.12, ao);
 			out_color = mix(out_color, vec3(0.10, 0.08, 0.15), ao_alpha);
 			alpha = max(alpha, ao_alpha);
 		} else if (ao < -0.03) {
-			float ao_alpha = clamp(-ao * 0.25, 0.0, 0.15);
+			float ao_alpha = clamp(-ao * 0.12, 0.0, 0.08) * smoothstep(0.03, 0.12, -ao);
 			out_color = mix(out_color, vec3(1.0, 0.97, 0.90), ao_alpha);
 			alpha = max(alpha, ao_alpha);
 		}
@@ -95,7 +93,7 @@ void fragment() {
 
 		// Height tint
 		float height_tint_alpha = abs(rel_height) * 2.0;
-		height_tint_alpha = clamp(height_tint_alpha, 0.0, 0.25);
+		height_tint_alpha = clamp(height_tint_alpha, 0.0, 0.12) * smoothstep(0.03, 0.08, abs(rel_height));
 		if (rel_height > 0.03) {
 			out_color = mix(out_color, vec3(1.0, 0.95, 0.88), 0.4);
 			alpha = max(alpha, height_tint_alpha);

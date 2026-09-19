@@ -26,6 +26,9 @@ var _drag_start_mouse: Vector2
 var _drag_start_camera: Vector2
 
 # Zoom easing state
+var _pointer_position := Vector2.ZERO
+var _has_pointer := false
+
 var _zoom_velocity: float = 0.0
 var _zoom_tween: Tween = null
 
@@ -47,6 +50,11 @@ func _process(delta: float) -> void:
 	_handle_keyboard_input(real_delta)
 	_handle_subtle_follow(real_delta)
 	_apply_movement(real_delta)
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion or event is InputEventMouseButton:
+		_pointer_position = event.position
+		_has_pointer = true
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -86,11 +94,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		if focused is LineEdit or focused is TextEdit:
 			return
 		if event.keycode == KEY_BRACKETRIGHT:
-			_zoom_camera_smooth(-zoom_speed * 2)
-		elif event.keycode == KEY_BRACKETLEFT:
 			_zoom_camera_smooth(zoom_speed * 2)
+		elif event.keycode == KEY_BRACKETLEFT:
+			_zoom_camera_smooth(-zoom_speed * 2)
 
 func _handle_keyboard_input(delta: float) -> void:
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit or GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+		return
 	var direction := Vector2.ZERO
 	if Input.is_action_pressed("camera_pan_up"): direction.y -= 1
 	if Input.is_action_pressed("camera_pan_down"): direction.y += 1
@@ -169,6 +180,8 @@ func focus_on_smooth(world_position: Vector2, duration: float = 0.5) -> void:
 	tween.tween_property(self, "_target_position", world_position, duration)
 
 func get_mouse_world_position() -> Vector2:
+	if _has_pointer:
+		return get_canvas_transform().affine_inverse() * _pointer_position
 	return get_global_mouse_position()
 
 func set_zoom_level(level: float, instant: bool = false) -> void:

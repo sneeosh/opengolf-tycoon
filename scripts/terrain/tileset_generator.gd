@@ -41,20 +41,20 @@ static var _active_colors: Dictionary = {}
 
 # Default base colors for each terrain type (Parkland theme)
 const TERRAIN_COLORS = {
-	"grass": Color(0.42, 0.58, 0.32),
-	"fairway_light": Color(0.42, 0.78, 0.42),
-	"fairway_dark": Color(0.36, 0.72, 0.36),
-	"green_light": Color(0.38, 0.88, 0.48),
-	"green_dark": Color(0.34, 0.82, 0.44),
-	"fringe": Color(0.40, 0.80, 0.44),  # Between green and fairway for edge collar
-	"rough": Color(0.36, 0.52, 0.30),
-	"heavy_rough": Color(0.30, 0.45, 0.26),
-	"bunker": Color(0.92, 0.85, 0.62),
-	"water": Color(0.25, 0.55, 0.85),
+	"grass": Color("719447"),
+	"fairway_light": Color("8bb954"),
+	"fairway_dark": Color("7ba74b"),
+	"green_light": Color("a4ca67"),
+	"green_dark": Color("97bc5b"),
+	"fringe": Color("749b45"),  # Between green and fairway for edge collar
+	"rough": Color("5f803b"),
+	"heavy_rough": Color("4a6935"),
+	"bunker": Color("eddeb0"),
+	"water": Color("47877e"),
 	"empty": Color(0.18, 0.22, 0.18),
-	"tee_box_light": Color(0.48, 0.76, 0.45),
-	"tee_box_dark": Color(0.42, 0.70, 0.40),
-	"path": Color(0.75, 0.72, 0.65),
+	"tee_box_light": Color("96ba5e"),
+	"tee_box_dark": Color("85a650"),
+	"path": Color("c9bc98"),
 	"oob": Color(0.40, 0.33, 0.30),
 	"trees": Color(0.20, 0.42, 0.20),
 	"flower_bed": Color(0.45, 0.32, 0.22),

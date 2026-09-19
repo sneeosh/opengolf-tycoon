@@ -54,7 +54,7 @@ func test_negative_hour_clamped() -> void:
 # --- Green Fee Validation ---
 
 func test_green_fee_clamped_to_min() -> void:
-	var loaded_fee = 2
+	var loaded_fee = GameManager.MIN_GREEN_FEE - 1
 	var clamped = clamp(int(loaded_fee), GameManager.MIN_GREEN_FEE, GameManager.MAX_GREEN_FEE)
 	assert_eq(clamped, GameManager.MIN_GREEN_FEE, "Fee below min should clamp up")
 

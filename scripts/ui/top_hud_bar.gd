@@ -26,15 +26,18 @@ func _ready() -> void:
 	_build_ui()
 	_connect_signals()
 	_update_all()
+	EventBus.load_completed.connect(func(success: bool):
+		if success: _update_all()
+	)
 
 func _build_ui() -> void:
 	custom_minimum_size = Vector2(0, UIConstants.TOP_HUD_HEIGHT)
 
 	# Apply top bar style
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.08, 0.92)
+	style.bg_color = UIConstants.COLOR_BG_DARK
 	style.border_width_bottom = 1
-	style.border_color = Color(0.2, 0.2, 0.2, 1)
+	style.border_color = UIConstants.COLOR_BORDER
 	style.content_margin_left = 16
 	style.content_margin_top = 8
 	style.content_margin_right = 16

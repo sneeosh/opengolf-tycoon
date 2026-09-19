@@ -43,7 +43,7 @@ func _draw() -> void:
 	# Pole: vertical line from base to top
 	var pole_base := Vector2(0, 0)
 	var pole_top := Vector2(0, -_pole_height)
-	draw_line(pole_base, pole_top, Color(0.5, 0.5, 0.5), 1.5)
+	draw_line(pole_base, pole_top, Color("fbf4d8"), 2.5)
 
 	# Flag extends from pole top in wind direction
 	# Project wind direction into isometric space
@@ -52,6 +52,7 @@ func _draw() -> void:
 
 	# Flag length scales slightly with wind speed
 	var flag_len := _flag_length + wind_strength * 4.0
+	wind_dir_2d = (wind_dir_2d + Vector2(0.8, 0)).normalized()
 
 	# Flutter parameters
 	var flutter_speed := 3.0 + wind_strength * 5.0

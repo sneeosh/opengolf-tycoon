@@ -67,6 +67,23 @@ func update_display() -> void:
 	var balance_row = _create_stat_row("Cash:", "$%d" % GameManager.money, UIConstants.COLOR_TEXT)
 	_content_vbox.add_child(balance_row)
 
+	var booking_label := Label.new()
+	booking_label.text = "Tee bookings"
+	_content_vbox.add_child(booking_label)
+	var bookings := OptionButton.new()
+	bookings.add_item("Busy - more groups",60)
+	bookings.add_item("Balanced",90)
+	bookings.add_item("Relaxed - fewer queues",180)
+	bookings.select([60,90,180].find(GameManager.tee_booking_interval))
+	bookings.item_selected.connect(func(index): GameManager.tee_booking_interval = bookings.get_item_id(index))
+	_content_vbox.add_child(bookings)
+	var booking_hint := Label.new()
+	booking_hint.text = "Relaxed bookings limit crowding on the course, but can reduce revenue."
+	booking_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	booking_hint.custom_minimum_size.x = 300
+	booking_hint.add_theme_font_size_override("font_size",12)
+	_content_vbox.add_child(booking_hint)
+
 	# Green Fee control
 	var fee_row = HBoxContainer.new()
 	var fee_label = Label.new()
@@ -78,7 +95,7 @@ func update_display() -> void:
 	fee_decrease.text = "-"
 	fee_decrease.custom_minimum_size = Vector2(28, 28)
 	fee_decrease.pressed.connect(func():
-		GameManager.set_green_fee(GameManager.green_fee - 5)
+		GameManager.set_green_fee(GameManager.green_fee - 1)
 		update_display()
 	)
 	fee_row.add_child(fee_decrease)
@@ -95,7 +112,7 @@ func update_display() -> void:
 	fee_increase.text = "+"
 	fee_increase.custom_minimum_size = Vector2(28, 28)
 	fee_increase.pressed.connect(func():
-		GameManager.set_green_fee(GameManager.green_fee + 5)
+		GameManager.set_green_fee(GameManager.green_fee + 1)
 		update_display()
 	)
 	fee_row.add_child(fee_increase)
@@ -363,8 +380,7 @@ func _get_green_fee_warning() -> String:
 	if hole_count <= 0:
 		return ""
 	var total_round_cost = GameManager.green_fee * max(hole_count, 1)
-	var hole_factor = clampf(float(hole_count) / 18.0, 0.15, 1.0)
-	var fair_price = max(GameManager.reputation * 2.0, 20.0) * hole_factor
+	var fair_price := CourseEconomy.fair_round_price(GameManager.reputation, hole_count, GameManager.current_day, GameManager.current_theme)
 	var price_ratio = float(total_round_cost) / max(fair_price, 1.0)
 	if price_ratio > 2.0:
 		return "Green fee is very overpriced for course quality. Golfers will avoid your course."

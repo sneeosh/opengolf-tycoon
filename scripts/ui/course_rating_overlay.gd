@@ -7,8 +7,11 @@ class_name CourseRatingOverlay
 
 signal close_requested
 signal rating_updated(stars: float)
+signal advice_selected(advice: Dictionary)
+var _experience_label: Label
+var _advice_box: VBoxContainer
 
-const PANEL_WIDTH := 240.0
+const PANEL_WIDTH := 460.0
 
 var _overall_label: Label = null
 var _condition_label: Label = null
@@ -42,7 +45,7 @@ func _build_ui() -> void:
 	vbox.add_child(title_row)
 
 	var title := Label.new()
-	title.text = "Course Rating"
+	title.text = "Course review"
 	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
 	title.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -63,6 +66,22 @@ func _build_ui() -> void:
 	_pace_label = _add_row(vbox, "Pace (20%):", "---")
 	_aesthetics_label = _add_row(vbox, "Aesthetics (10%):", "---")
 	_difficulty_label = _add_row(vbox, "Difficulty:", "---")
+	vbox.add_child(HSeparator.new())
+	var heading := Label.new()
+	heading.text = "What to improve next"
+	heading.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	vbox.add_child(heading)
+	_experience_label = Label.new()
+	_experience_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_experience_label.custom_minimum_size.x = 410
+	_experience_label.add_theme_font_size_override("font_size",13)
+	vbox.add_child(_experience_label)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0,280)
+	vbox.add_child(scroll)
+	_advice_box = VBoxContainer.new()
+	_advice_box.add_theme_constant_override("separation", 10)
+	scroll.add_child(_advice_box)
 
 func _add_row(parent: VBoxContainer, label_text: String, initial_value: String) -> Label:
 	var row := HBoxContainer.new()
@@ -109,6 +128,31 @@ func _update_rating() -> void:
 	var diff: float = rating.get("difficulty", 5.0)
 	_difficulty_label.text = "%s (%.1f)" % [CourseRatingSystem.get_difficulty_text(diff), diff]
 
+	var experience := FeedbackManager.visit_summary()
+	_experience_label.text = "%d completed-visit reviews | %d returning guests\nVisit satisfaction: %s | Return intent: %s\n%d amenity visits | $%d service income" % [experience.reviews,experience.returning, ("%d%%" % int(experience.satisfaction*100)) if experience.reviews else "awaiting rounds", ("%d%%" % int(experience.return_intent*100)) if experience.reviews else "awaiting rounds",experience.service_visits,experience.service_revenue]
+	_experience_label.tooltip_text = "Visit satisfaction combines needs, mood and value at the end of the round. Return intent is a forecast, not a guaranteed booking."
+	var recent := FeedbackManager.recent_experience()
+	if recent.days > 0:
+		_experience_label.text += "\nPrevious %d days: %s satisfaction | $%d/day operating profit" % [recent.days,("%d%%" % int(recent.satisfaction*100)) if recent.reviews > 0 else "unrated",int(recent.profit)]
+	for child in _advice_box.get_children():
+		_advice_box.remove_child(child)
+		child.queue_free()
+	for advice in CourseAdvisor.review(GameManager.terrain_grid, GameManager.current_course, GameManager.entity_layer, rating, GameManager.daily_stats):
+		var button := Button.new()
+		button.text = advice.title + ("  - Locate" if advice.action == "locate" else "  - Open")
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.pressed.connect(func():
+			hide()
+			advice_selected.emit(advice)
+		)
+		_advice_box.add_child(button)
+		var detail := Label.new()
+		detail.text = advice.detail
+		detail.custom_minimum_size.x = 410
+		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		detail.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+		detail.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+		_advice_box.add_child(detail)
 	rating_updated.emit(stars)
 
 func _star_color(stars: float) -> Color:

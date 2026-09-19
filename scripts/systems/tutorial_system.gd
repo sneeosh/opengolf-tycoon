@@ -28,7 +28,7 @@ const STEP_DATA = {
 	},
 	Step.PAINT_TERRAIN: {
 		"title": "Step 1: Paint Your Course",
-		"message": "Use the terrain tools on the left to paint fairways, greens, and hazards.\n\nClick on a terrain type in the toolbar, then click and drag on the map to paint.",
+		"message": "Use the terrain tools on the right to paint fairways, greens, and hazards.\n\nClick on a terrain type in the toolbar, then click and drag on the map to paint.",
 		"action": "Paint some terrain to continue",
 		"requires_action": true,
 		"signal": "terrain_tile_changed",

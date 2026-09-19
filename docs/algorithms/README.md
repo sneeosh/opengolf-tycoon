@@ -18,6 +18,11 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Weather System](weather-system.md) — State machine transitions, spawn/accuracy modifiers, seasonal weights
 
 ### Course Design
+- [Builder and Course Review](builder-and-review.md) — Continuous brushes, stroke undo, actionable feedback and starter club
+- [Landforms and Clubhouse Life](course-character.md) — Sculpted hills, coherent building architecture, and golfer reactions
+- [Path Furniture](path-furniture.md) — Path-edge alignment, grounded fixtures, and matching placement ghosts
+- [Living Course Details](course-wildlife.md) — Ducks, garden visitors, seasonal blooms, and decorative water animation
+- [Continuous Course Surface](course-surface.md) — Connected terrain materials, theme palettes, foliage motion, and generated-course cleanup
 - [Difficulty Calculator](difficulty-calculator.md) — Per-hole difficulty from hazards, elevation, doglegs, green size, landing zones
 - [Forced Carry Distance](forced-carry.md) — Hazard carry detection, visualization, difficulty contribution
 - [Routing Overlay & Walk Penalty](routing-overlay.md) — Inter-hole walking routes, color-coded distance, pace rating penalty
@@ -33,7 +38,7 @@ Every document also includes a **Tuning Levers** table at the bottom listing all
 - [Economy & Financial System](economy.md) — Green fees, operating costs, loans, staff tiers, profit calculation
 - [Reputation System](reputation.md) — Daily decay, per-golfer mood-based gains, tournament bonuses, prestige multiplier
 - [Golfer Spawning & Tier System](golfer-spawning.md) — Spawn rates, tier selection weights, group sizes, landing zone safety
-- [Satisfaction & Feedback](satisfaction-feedback.md) — Thought bubble triggers, price sensitivity, daily satisfaction metric
+- [Satisfaction & Feedback](satisfaction-feedback.md) — Located complaints, completed-visit reviews, returning customers and daily satisfaction
 - [Golfer Needs](golfer-needs.md) — Energy, comfort, hunger, pace needs that decay over time and are satisfied by buildings
 
 ### Events & Time
@@ -71,3 +76,5 @@ Reputation ← Satisfaction + Tier + Prestige Multiplier
      ↓
 (feeds back into Course Rating via Value Rating)
 ```
+
+- [Garden and facility catalog](garden-catalog.md): shared artwork, new amenities and placement validation.

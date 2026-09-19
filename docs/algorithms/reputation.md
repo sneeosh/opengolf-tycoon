@@ -161,3 +161,7 @@ Reputation influences several systems:
 | Stagnation threshold | `game_manager.gd` | 28 days | Lower = faster pressure to expand |
 | Stagnation penalty | `game_manager.gd` | -0.3/day | Higher = more punishing to coast |
 | Stagnation rep floor | `game_manager.gd` | 40.0 | Lower = penalty applies at lower rep |
+
+## September 2026 tuning
+
+Completed-round tier rewards are multiplied by 0.1 before prestige, retaining fractional values. The mood used for reputation is capped at `value_rating / 5 + .15`: a pleasant round cannot fully erase poor value. Existing milestone and tournament rewards are separate. This slows a new club's rise to maximum reputation and ties recommendations to the price paid.

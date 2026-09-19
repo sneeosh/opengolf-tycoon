@@ -13,6 +13,7 @@ var course_name: String = "New Course"
 var current_theme: int = CourseTheme.Type.PARKLAND
 var current_difficulty: int = DifficultyPresets.Preset.NORMAL
 var heightmap_noise_seed: int = 0
+var tee_booking_interval: int = 90
 var colorblind_mode: int = ColorblindMode.Mode.OFF
 var invert_zoom_scroll: bool = false
 var multi_tee_enabled: bool = false  # Feature toggle: auto-generate forward/middle tees
@@ -54,7 +55,7 @@ const SNAPSHOT_PATH: String = "user://economic_snapshots.json"
 
 # Green fee pricing
 var green_fee: int = 10  # Default $10/hole (auto-clamped by hole count)
-const MIN_GREEN_FEE: int = 10
+const MIN_GREEN_FEE: int = 1
 const MAX_GREEN_FEE: int = 200
 
 # Bankruptcy threshold - dynamic based on difficulty preset
@@ -151,6 +152,7 @@ func get_game_speed_multiplier() -> float:
 	return float(current_speed)
 
 const HOURS_PER_DAY: float = 24.0
+const SECONDS_PER_GAME_HOUR: float = 120.0
 const COURSE_OPEN_HOUR: float = 6.0
 const COURSE_CLOSE_HOUR: float = 20.0
 
@@ -159,7 +161,7 @@ func _ready() -> void:
 	# Connect signals for daily statistics tracking
 	EventBus.green_fee_paid.connect(_on_green_fee_paid_for_stats)
 	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole_for_stats)
-	EventBus.golfer_finished_round.connect(_on_golfer_finished_round_for_stats)
+	EventBus.golfer_completed_round.connect(_on_golfer_finished_round_for_stats)
 	EventBus.hole_created.connect(_on_hole_created_for_fee_clamp)
 
 func _on_hole_created_for_fee_clamp(_hole_number: int, _par: int, _distance: int) -> void:
@@ -168,12 +170,11 @@ func _on_hole_created_for_fee_clamp(_hole_number: int, _par: int, _distance: int
 func _on_green_fee_paid_for_stats(_golfer_id: int, _golfer_name: String, amount: int) -> void:
 	daily_stats.record_green_fee(amount)
 
-func _on_golfer_finished_hole_for_stats(_golfer_id: int, hole_index: int, strokes: int, par: int) -> void:
+func _on_golfer_finished_hole_for_stats(_golfer_id: int, hole_number: int, strokes: int, par: int) -> void:
 	daily_stats.record_hole_score(strokes, par)
 
 	# Record per-hole cumulative stats
-	# Note: hole_index is 0-based from golfer, but HoleData uses 1-based hole_number
-	var hole_number = hole_index + 1
+	# golfer_finished_hole already carries the public, one-based hole number.
 	if not hole_statistics.has(hole_number):
 		hole_statistics[hole_number] = HoleStatistics.new(hole_number)
 	hole_statistics[hole_number].record_score(strokes, par)
@@ -181,26 +182,19 @@ func _on_golfer_finished_hole_for_stats(_golfer_id: int, hole_index: int, stroke
 func _on_golfer_finished_round_for_stats(_golfer_id: int, total_strokes: int, total_par: int) -> void:
 	daily_stats.record_round_finished(total_strokes, total_par)
 
-	# Distribute green fee revenue across open holes
-	if current_course:
-		var open_holes = current_course.get_open_holes()
-		if open_holes.size() > 0:
-			var per_hole = green_fee / open_holes.size()
-			for hole in open_holes:
-				hole.total_revenue += per_hole
 
 func _process(delta: float) -> void:
-	if current_mode == GameMode.SIMULATING and not is_paused:
+	if current_mode == GameMode.SIMULATING and not is_paused and current_speed != GameSpeed.PAUSED:
 		_advance_time(delta)
 
 var _closing_announced: bool = false
 var _end_of_day_triggered: bool = false
 
 func _advance_time(delta: float) -> void:
-	# 1 real minute = 1 game hour at NORMAL speed
+	# Two real minutes per game hour leaves time for foursomes to play their rounds.
 	# Note: delta is already scaled by Engine.time_scale (set in set_speed)
 	var old_hour = current_hour
-	current_hour += delta / 60.0
+	current_hour += delta / SECONDS_PER_GAME_HOUR
 
 	# Emit hour_changed for smooth time-dependent effects (day/night visual, etc.)
 	EventBus.hour_changed.emit(current_hour)
@@ -239,7 +233,7 @@ func set_speed(new_speed: GameSpeed) -> void:
 	current_speed = new_speed
 	# Use Engine.time_scale so ALL game systems (golfer movement, ball flight,
 	# tweens, timers) speed up uniformly — not just the clock.
-	Engine.time_scale = float(maxi(int(new_speed), 1))
+	Engine.time_scale = 0.000001 if new_speed == GameSpeed.PAUSED and current_mode == GameMode.SIMULATING else float(maxi(int(new_speed), 1))
 	EventBus.game_speed_changed.emit(new_speed)
 
 func toggle_pause() -> void:
@@ -305,11 +299,13 @@ func _archive_daily_stats() -> void:
 		"costs": daily_stats.operating_costs,
 		"profit": daily_stats.get_profit(),
 		"golfers_served": daily_stats.golfers_served,
+		"golfers_arrived": daily_stats.golfers_arrived,
 		"satisfaction": satisfaction,
 		"reputation": reputation,
 		"season": season,
 		"tier_counts": daily_stats.tier_counts.duplicate(),
 	}
+	entry["guest_experience"] = FeedbackManager.visit_summary()
 	daily_history.append(entry)
 	while daily_history.size() > MAX_DAILY_HISTORY:
 		daily_history.pop_front()
@@ -326,6 +322,7 @@ func _log_economic_snapshot() -> void:
 		"profit": daily_stats.get_profit(),
 		"reputation": reputation,
 		"golfers_served": daily_stats.golfers_served,
+		"golfers_arrived": daily_stats.golfers_arrived,
 		"overall_rating": course_rating.get("overall", 3.0),
 		"stars": course_rating.get("stars", 3),
 		"hole_count": get_open_hole_count(),
@@ -404,6 +401,9 @@ func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
 	if staff_manager:
 		total += int(staff_manager.get_pro_shop_revenue_bonus())
 
+	if current_course:
+		for hole in current_course.get_open_holes():
+			hole.total_revenue += green_fee
 	modify_money(total)
 	EventBus.log_transaction("%s paid green fee (%d holes x $%d)" % [golfer_name, holes, green_fee], total)
 	EventBus.green_fee_paid.emit(golfer_id, golfer_name, total)
@@ -466,6 +466,7 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 	current_day = 1
 	current_hour = COURSE_OPEN_HOUR
 
+	current_course = CourseData.new()
 	# Apply theme gameplay modifiers
 	var modifiers = CourseTheme.get_gameplay_modifiers(theme)
 	green_fee = modifiers.get("green_fee_baseline", 30)
@@ -474,7 +475,6 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 	_closing_announced = false
 	_end_of_day_triggered = false
 	_end_of_day_emitted = false
-	current_course = CourseData.new()
 	daily_stats.reset()
 	yesterday_stats = null  # No yesterday on day 1
 	hole_statistics.clear()  # Clear per-hole stats for new game
@@ -482,7 +482,10 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 	if shot_heatmap_tracker:
 		shot_heatmap_tracker.clear()
 	loan_balance = 0
+	tee_booking_interval = 90
 	daily_history.clear()
+	FeedbackManager.restore_experience({})
+	FeedbackManager.reset_daily_stats()
 	_stagnation_hole_count = 0
 	_stagnation_day_started = 1
 	heightmap_noise_seed = randi()
@@ -585,6 +588,9 @@ func advance_to_next_day() -> void:
 
 	# Save yesterday's stats before resetting
 	yesterday_stats = DailyStatistics.new()
+	yesterday_stats.golfers_arrived = daily_stats.golfers_arrived
+	yesterday_stats.hired_staff_payroll = daily_stats.hired_staff_payroll
+	yesterday_stats.marketing_cost = daily_stats.marketing_cost
 	yesterday_stats.revenue = daily_stats.revenue
 	yesterday_stats.building_revenue = daily_stats.building_revenue
 	yesterday_stats.operating_costs = daily_stats.operating_costs
@@ -612,6 +618,7 @@ func advance_to_next_day() -> void:
 	_closing_announced = false
 	_end_of_day_triggered = false
 	_end_of_day_emitted = false
+	EventBus.hour_changed.emit(current_hour)
 	EventBus.day_changed.emit(current_day)
 	# Wind is generated by WindSystem's day_changed signal handler
 	# Rotate pin positions for the new day
@@ -643,6 +650,9 @@ func start_simulation() -> bool:
 		EventBus.notify("Need at least one hole to start playing!", "error")
 		return false
 
+	# A loaded closing-time save has already paid its daily bill.
+	if current_hour >= COURSE_CLOSE_HOUR and daily_stats.operating_costs > 0:
+		advance_to_next_day()
 	set_mode(GameMode.SIMULATING)
 	set_speed(GameSpeed.NORMAL)
 	EventBus.notify("Golf course opened!", "info")
@@ -689,8 +699,8 @@ func _exit_tree() -> void:
 		EventBus.green_fee_paid.disconnect(_on_green_fee_paid_for_stats)
 	if EventBus.golfer_finished_hole.is_connected(_on_golfer_finished_hole_for_stats):
 		EventBus.golfer_finished_hole.disconnect(_on_golfer_finished_hole_for_stats)
-	if EventBus.golfer_finished_round.is_connected(_on_golfer_finished_round_for_stats):
-		EventBus.golfer_finished_round.disconnect(_on_golfer_finished_round_for_stats)
+	if EventBus.golfer_completed_round.is_connected(_on_golfer_finished_round_for_stats):
+		EventBus.golfer_completed_round.disconnect(_on_golfer_finished_round_for_stats)
 	if EventBus.hole_created.is_connected(_on_hole_created_for_fee_clamp):
 		EventBus.hole_created.disconnect(_on_hole_created_for_fee_clamp)
 
@@ -899,6 +909,9 @@ class HoleData:
 ## DailyStatistics - Tracks statistics for the current day
 class DailyStatistics:
 	var revenue: int = 0  # Green fees collected today
+	var golfers_arrived: int = 0
+	var hired_staff_payroll: int = 0
+	var marketing_cost: int = 0
 	var golfers_served: int = 0  # Number of golfers who finished their round
 	var holes_in_one: int = 0
 	var eagles: int = 0  # Par - 2 (or better on par 5s)
@@ -933,6 +946,9 @@ class DailyStatistics:
 
 	func reset() -> void:
 		revenue = 0
+		golfers_arrived = 0
+		hired_staff_payroll = 0
+		marketing_cost = 0
 		golfers_served = 0
 		holes_in_one = 0
 		eagles = 0
@@ -1010,6 +1026,7 @@ class DailyStatistics:
 		total_par_today += total_par
 
 	func record_green_fee(amount: int) -> void:
+		golfers_arrived += 1
 		revenue += amount
 
 	func record_golfer_tier(tier: int) -> void:

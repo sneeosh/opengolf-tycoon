@@ -254,3 +254,9 @@ func to_dict() -> Dictionary:
 		"pace": snappedf(pace, 0.01),
 		"overall": snappedf(get_overall_satisfaction(), 0.01),
 	}
+
+## Normal play restores patience; only delays from groups ahead drain it.
+func on_playing(seconds: float) -> void:
+	pace = minf(1.0, pace + maxf(seconds,0.0) * .0008)
+	if pace >= LOW_NEED_THRESHOLD: _triggered_low_pace = false
+	if pace >= CRITICAL_NEED_THRESHOLD: _applied_critical_pace = false

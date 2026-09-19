@@ -28,6 +28,7 @@ var build_mode_btn: Button = null
 var selection_label: Label = null
 
 var current_tool: int = -1  # Start with no tool selected
+var round_brush := true
 var brush_size: int = 1
 var _green_preset: String = ""  # Active green preset ("small"/"medium"/"large" or "" for brush)
 var is_painting: bool = false
@@ -264,6 +265,9 @@ func _process(_delta: float) -> void:
 	_update_selection_indicator()
 
 func _input(event: InputEvent) -> void:
+	# Finish strokes even when the mouse is released over a panel.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed and is_painting:
+		_stop_painting()
 	# Keyboard shortcuts - handled in _input so UI controls don't swallow them
 	if event is InputEventKey and event.pressed and not event.echo:
 		# Escape key: deselect active tool/panel first, then open pause menu
@@ -324,7 +328,7 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 		elif not text_input_focused:
 			# Only process single-key hotkeys when not typing in a text field
-			if event.keycode == KEY_F:
+			if event.keycode == KEY_F and not event.shift_pressed:
 				_toggle_panel(financial_panel)
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_U:
@@ -417,9 +421,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event.is_action_pressed("select"):
+		var was_placing := placement_manager.placement_mode != PlacementManager.PlacementMode.NONE or bulldozer_mode
 		_start_painting()
 		# Consume the event when in placement/bulldozer mode to prevent propagation
-		if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE or bulldozer_mode:
+		if was_placing:
 			get_viewport().set_input_as_handled()
 	elif event.is_action_released("select"):
 		_stop_painting()
@@ -487,11 +492,17 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.rock_placement_pressed.connect(_on_rock_placement_pressed)
 	terrain_toolbar.building_placement_pressed.connect(_on_building_placement_pressed)
 	terrain_toolbar.decoration_placement_pressed.connect(_on_decoration_placement_pressed)
+	terrain_toolbar.sculpt_terrain_pressed.connect(_on_sculpt_terrain_pressed)
 	terrain_toolbar.raise_elevation_pressed.connect(_on_raise_elevation_pressed)
 	terrain_toolbar.lower_elevation_pressed.connect(_on_lower_elevation_pressed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
 	terrain_toolbar.staff_pressed.connect(_on_staff_pressed)
+	terrain_toolbar.course_review_pressed.connect(func(): _toggle_panel(course_rating_overlay))
 	terrain_toolbar.brush_size_changed.connect(_on_brush_size_changed)
+	terrain_toolbar.brush_shape_changed.connect(func(value: bool):
+		round_brush = value
+		placement_preview.round_brush = value
+	)
 	terrain_toolbar.green_preset_selected.connect(_on_green_preset_selected)
 
 func _initialize_game() -> void:
@@ -558,7 +569,7 @@ func _on_main_menu_prebuilt_course(course_name: String, theme_type: int, package
 		placement_preview.set_terrain_painting_enabled(false)
 
 func _on_main_menu_quick_start(course_name: String, theme_type: int) -> void:
-	"""Start a new game with a pre-built 3-hole course."""
+	"""Start a new game with a landscaped nine-hole course and starter amenities."""
 	var difficulty := main_menu.get_selected_difficulty() if main_menu else DifficultyPresets.Preset.NORMAL
 	if main_menu:
 		main_menu.queue_free()
@@ -682,7 +693,7 @@ func _setup_rain_overlay() -> void:
 	# This way rain stays visible regardless of camera position/zoom
 	var rain_canvas := CanvasLayer.new()
 	rain_canvas.name = "RainCanvas"
-	rain_canvas.layer = 90  # Above game world, below UI
+	rain_canvas.layer = 0  # World is layer 0; HUD CanvasLayer is layer 1.
 	add_child(rain_canvas)
 	rain_canvas.add_child(rain_overlay)
 	if weather_system:
@@ -713,9 +724,9 @@ func _setup_bottom_bar() -> void:
 	var bg = Panel.new()
 	bg.name = "BottomBarBG"
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.08, 0.92)
+	style.bg_color = UIConstants.COLOR_BG_DARK
 	style.border_width_top = 1
-	style.border_color = Color(0.2, 0.2, 0.2, 1)
+	style.border_color = UIConstants.COLOR_BORDER
 	bg.add_theme_stylebox_override("panel", style)
 	# Position it exactly behind the BottomBar
 	bg.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -820,10 +831,10 @@ func _update_selection_indicator() -> void:
 		color = Color(1.0, 0.5, 0.3)  # Orange
 	elif elevation_tool.is_active():
 		if elevation_tool.elevation_mode == ElevationTool.ElevationMode.RAISING:
-			text += "Raise Elevation"
+			text += "Rolling hill" if elevation_tool.sculpted else "Raise Elevation"
 			color = Color(0.6, 0.8, 1.0)  # Light blue
 		else:
-			text += "Lower Elevation"
+			text += "Hollow" if elevation_tool.sculpted else "Lower Elevation"
 			color = Color(1.0, 0.6, 0.6)  # Light red
 	else:
 		# Default to terrain tool
@@ -1016,15 +1027,16 @@ func _stop_painting() -> void:
 		undo_manager.end_stroke()
 
 func _paint_at_mouse() -> void:
-	# Guard: don't paint with invalid or EMPTY terrain type
-	if current_tool <= TerrainTypes.Type.EMPTY:
-		return
-	var mouse_world = camera.get_mouse_world_position()
-	var grid_pos = terrain_grid.screen_to_grid(mouse_world)
+	if current_tool <= TerrainTypes.Type.EMPTY: return
+	var grid_pos := terrain_grid.screen_to_grid(camera.get_mouse_world_position())
 	if grid_pos == last_paint_pos: return
+	# Sample every crossed tile so quick mouse drags cannot leave holes.
+	var start := last_paint_pos if last_paint_pos != Vector2i(-1, -1) else grid_pos
+	for center in TerrainBrush.centers(start, grid_pos):
+		if terrain_grid.is_valid_position(center): _paint_terrain_stamp(center)
 	last_paint_pos = grid_pos
-	if not terrain_grid.is_valid_position(grid_pos): return
-	
+
+func _paint_terrain_stamp(grid_pos: Vector2i) -> void:
 	var cost = TerrainTypes.get_placement_cost(current_tool)
 	if cost > 0 and not GameManager.can_afford(cost):
 		if GameManager.is_bankrupt():
@@ -1039,7 +1051,7 @@ func _paint_at_mouse() -> void:
 	elif brush_size <= 1:
 		tiles_to_paint = [grid_pos]
 	else:
-		tiles_to_paint = terrain_grid.get_brush_tiles(grid_pos, brush_size)
+		tiles_to_paint = terrain_grid.get_brush_tiles(grid_pos, brush_size, round_brush)
 	var total_cost = 0
 	var obstacle_removal_cost = 0
 	var blocked_by_land = false
@@ -1048,6 +1060,7 @@ func _paint_at_mouse() -> void:
 		TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.BUNKER, TerrainTypes.Type.WATER,
 		TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.GREEN
 	]
+	_suppress_tile_undo = true
 	# Batch tile changes to avoid per-tile overlay redraw cascade
 	if tiles_to_paint.size() > 1:
 		terrain_grid.begin_batch()
@@ -1057,7 +1070,7 @@ func _paint_at_mouse() -> void:
 			blocked_by_land = true
 			continue
 		# Skip tiles occupied by buildings
-		if entity_layer and entity_layer.is_tile_occupied_by_building(tile_pos):
+		if entity_layer and (entity_layer.is_tile_occupied_by_building(tile_pos) or entity_layer.is_tile_occupied_by_decoration(tile_pos)):
 			continue
 		if terrain_grid.get_tile(tile_pos) != current_tool:
 			# Auto-remove trees and rocks when placing course terrain
@@ -1071,15 +1084,21 @@ func _paint_at_mouse() -> void:
 			var tile_total = cost + tile_removal_cost
 			if tile_total > 0 and not GameManager.can_afford(total_cost + obstacle_removal_cost + tile_total):
 				continue
+			var original_type: int = terrain_grid.get_tile(tile_pos)
+			var metadata := {"old_depth":terrain_grid.get_bunker_depth(tile_pos), "old_player_placed":terrain_grid._player_placed_tiles.has(tile_pos)}
 			# Perform removals (suppress tile undo since the paint will set the final tile)
 			if tile_removal_cost > 0:
 				_suppress_tile_undo = true
 				if entity_layer.get_tree_at(tile_pos):
+					undo_manager.record_stroke_removal("tree", tile_pos, entity_layer.get_tree_at(tile_pos).tree_type)
 					entity_layer.remove_tree(tile_pos)
 				if entity_layer.get_rock_at(tile_pos):
+					undo_manager.record_stroke_removal("rock", tile_pos, entity_layer.get_rock_at(tile_pos).rock_size)
 					entity_layer.remove_rock(tile_pos)
-				_suppress_tile_undo = false
+				_suppress_tile_undo = true
 				obstacle_removal_cost += tile_removal_cost
+			metadata["new_depth"] = CourseTheme.get_gameplay_modifiers(GameManager.current_theme).get("default_bunker_depth", 0) if current_tool == TerrainTypes.Type.BUNKER else 0
+			undo_manager.record_tile_change(tile_pos, original_type, current_tool, metadata)
 			terrain_grid.set_tile(tile_pos, current_tool)
 			# Apply theme-default bunker depth for newly placed bunkers
 			if current_tool == TerrainTypes.Type.BUNKER:
@@ -1092,6 +1111,8 @@ func _paint_at_mouse() -> void:
 	if tiles_to_paint.size() > 1:
 		terrain_grid.end_batch()
 
+	_suppress_tile_undo = false
+	undo_manager.record_stroke_cost(total_cost + obstacle_removal_cost)
 	if blocked_by_land and total_cost == 0:
 		EventBus.notify("You don't own this land! Press L to buy parcels.", "error")
 
@@ -1107,6 +1128,8 @@ func _update_measure_overlay() -> void:
 		_measure_overlay.update_measurement(_measure_start, _measure_end, _measuring)
 
 func _cancel_action() -> void:
+	if is_painting:
+		_stop_painting()
 	is_painting = false
 	last_paint_pos = Vector2i(-1, -1)
 	_measuring = false
@@ -1186,6 +1209,9 @@ func _on_tool_selected(tool_type: int) -> void:
 	print("Tool selected: " + TerrainTypes.get_type_name(tool_type))
 
 func _on_brush_size_changed(new_size: int) -> void:
+	if elevation_tool.is_active() and elevation_tool.sculpted and new_size < 7:
+		terrain_toolbar.set_brush_size(7)
+		return
 	brush_size = new_size
 	if placement_preview:
 		placement_preview.set_brush_size(new_size)
@@ -1366,38 +1392,35 @@ func _on_building_placement_pressed() -> void:
 		EventBus.notify("No buildings available!", "error")
 		return
 	
-	# Create a simple dialog with building options
 	var dialog = AcceptDialog.new()
-	dialog.title = "Select Building"
-	dialog.size = Vector2i(400, 300)
-	
-	# Create scroll container for many buildings
+	dialog.title = "The architect's book"
+	dialog.size = Vector2i(740, 560)
+	dialog.theme = preload("res://assets/themes/game_theme.tres")
 	var scroll = ScrollContainer.new()
-	var vbox = VBoxContainer.new()
-	
+	scroll.custom_minimum_size = Vector2(700, 470)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var shelf := GridContainer.new()
+	shelf.columns = 2
+	shelf.add_theme_constant_override("h_separation", 10)
+	shelf.add_theme_constant_override("v_separation", 10)
 	for building_type in building_names:
-		var building_data = building_registry[building_type]
-		var name_text = building_data.get("name", building_type)
-		var cost = building_data.get("cost", 0)
-
-		var btn = Button.new()
-		btn.text = "%s ($%d)" % [name_text, cost]
-		btn.custom_minimum_size = Vector2(350, 30)
-
-		# Disable button for unique buildings that are already placed
-		var is_unique = building_data.get("required", false)
-		if is_unique and entity_layer.has_building_of_type(building_type):
+		var data: Dictionary = building_registry[building_type]
+		var btn := Button.new()
+		btn.text = "%s\n$%d · $%d/day" % [data.get("name", building_type), data.get("cost", 0), data.get("operating_cost", 0)]
+		btn.tooltip_text = data.get("description", "")
+		if data.get("required", false) and entity_layer.has_building_of_type(building_type):
 			btn.disabled = true
-			btn.text = "%s (Already placed)" % name_text
+			btn.text = "%s\nAlready placed" % data.get("name", building_type)
 		else:
 			btn.pressed.connect(_on_building_type_selected.bind(building_type, dialog))
-
-		vbox.add_child(btn)
-	
-	scroll.add_child(vbox)
+		CatalogArtwork.decorate_button(btn, building_type, data, true)
+		shelf.add_child(btn)
+	scroll.add_child(shelf)
 	dialog.add_child(scroll)
-	get_tree().root.add_child(dialog)
-	dialog.popup_centered_ratio(0.4)
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
 
 func _on_building_type_selected(building_type: String, dialog: AcceptDialog) -> void:
 	"""Handle building type selection"""
@@ -1482,12 +1505,16 @@ func _on_decoration_placement_pressed() -> void:
 		return
 
 	var dialog = AcceptDialog.new()
-	dialog.title = "Place Decoration"
-	dialog.size = Vector2i(420, 400)
+	dialog.title = "The garden shed"
+	dialog.size = Vector2i(680, 560)
+	dialog.theme = preload("res://assets/themes/game_theme.tres")
 
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(400, 350)
+	scroll.custom_minimum_size = Vector2(640, 480)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", 12)
 
 	# Group by category
 	var categories = {"landscaping": "Landscaping", "water": "Water Features", "structures": "Structures", "furniture": "Furniture", "sculptures": "Sculptures"}
@@ -1503,11 +1530,16 @@ func _on_decoration_placement_pressed() -> void:
 
 		# Category header
 		var header = Label.new()
-		header.text = "— %s —" % cat_name
-		header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		header.add_theme_font_size_override("font_size", 13)
-		header.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
+		header.text = cat_name
+		header.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		header.add_theme_font_size_override("font_size", 16)
+		header.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
 		vbox.add_child(header)
+		var shelf := GridContainer.new()
+		shelf.columns = 2
+		shelf.add_theme_constant_override("h_separation", 10)
+		shelf.add_theme_constant_override("v_separation", 8)
+		vbox.add_child(shelf)
 
 		for dec_type in decoration_registry:
 			var dec_data = decoration_registry[dec_type]
@@ -1521,26 +1553,39 @@ func _on_decoration_placement_pressed() -> void:
 
 			var btn = Button.new()
 			if upkeep > 0:
-				btn.text = "%s ($%d, $%d/day)" % [dec_name, cost_val, upkeep]
+				btn.text = "%s\n$%d  ·  $%d/day" % [dec_name, cost_val, upkeep]
 			else:
-				btn.text = "%s ($%d)" % [dec_name, cost_val]
-			btn.custom_minimum_size = Vector2(380, 32)
+				btn.text = "%s\n$%d" % [dec_name, cost_val]
+			btn.custom_minimum_size = Vector2(305, 78)
+			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			btn.add_theme_font_size_override("font_size", 14)
+			btn.add_theme_constant_override("h_separation", 12)
+			btn.add_theme_constant_override("icon_max_width", 48)
+			btn.expand_icon = true
+			var sprite_path: String = Decoration.SPRITE_PATHS.get(dec_type, "")
+			if not sprite_path.is_empty() and ResourceLoader.exists(sprite_path):
+				btn.icon = load(sprite_path)
+			btn.tooltip_text = dec_data.get("description", "")
 
 			if not unlocked:
 				btn.disabled = true
 				var unlock = dec_data.get("unlock", {})
 				var req_text = _get_unlock_requirement_text(unlock)
-				btn.text = "%s [%s]" % [dec_name, req_text]
+				btn.text = "%s\n%s" % [dec_name, req_text]
 				btn.tooltip_text = "Requires: %s" % req_text
 			else:
 				btn.pressed.connect(_on_decoration_type_selected.bind(dec_type, dialog))
 
-			vbox.add_child(btn)
+			CatalogArtwork.decorate_button(btn, dec_type, dec_data, false)
+			shelf.add_child(btn)
 
 	scroll.add_child(vbox)
 	dialog.add_child(scroll)
-	get_tree().root.add_child(dialog)
-	dialog.popup_centered_ratio(0.4)
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
 
 func _on_decoration_type_selected(dec_type: String, dialog: AcceptDialog) -> void:
 	"""Handle decoration type selection"""
@@ -1579,6 +1624,15 @@ func _get_unlock_requirement_text(unlock) -> String:
 		"holes_built":
 			return "%d holes" % unlock.get("value", 0)
 	return "Unknown"
+
+func _on_sculpt_terrain_pressed(raising: bool) -> void:
+	if raising:
+		_on_raise_elevation_pressed()
+	else:
+		_on_lower_elevation_pressed()
+	elevation_tool.sculpted = true
+	terrain_toolbar.set_brush_size(7)
+	EventBus.notify("Sculpt a rolling hill" if raising else "Sculpt a hollow", "info")
 
 func _on_raise_elevation_pressed() -> void:
 	_cancel_hole_move_mode()
@@ -1700,6 +1754,11 @@ func _on_new_game_started() -> void:
 		terrain_grid.refresh_all_overlays()
 		_suppress_tile_undo = false
 
+	if is_quick_start:
+		camera.focus_on(terrain_grid.grid_to_screen_center(Vector2i(57,64)), true)
+		camera.set_zoom_level(1.0, true)
+		GameManager.update_course_rating()
+
 	# Remove loading screen
 	loading_overlay.queue_free()
 
@@ -1756,7 +1815,7 @@ func _handle_placement_click(grid_pos: Vector2i) -> void:
 		return
 
 	if not placement_manager.can_place_at(grid_pos, terrain_grid):
-		EventBus.notify("Cannot place here!", "error")
+		EventBus.notify(placement_manager.get_placement_error(grid_pos, terrain_grid), "error")
 		return
 
 	var cost = placement_manager.get_placement_cost()
@@ -1844,7 +1903,6 @@ func _place_decoration(grid_pos: Vector2i, cost: int) -> void:
 	if decoration:
 		GameManager.modify_money(-cost)
 		EventBus.log_transaction("Decoration: %s" % dec_name, -cost)
-		EventBus.decoration_placed.emit(dec_type, grid_pos)
 		undo_manager.record_entity_placement("decoration", grid_pos, dec_type, cost)
 		print("Placed %s at %s" % [dec_type, grid_pos])
 		_play_placement_feedback(grid_pos, "decoration")
@@ -2059,7 +2117,10 @@ func _on_end_of_day(day_number: int) -> void:
 
 	GameManager.daily_stats.calculate_operating_costs(terrain_cost, hole_count, building_costs, decoration_costs)
 
-	var total_cost = GameManager.daily_stats.operating_costs + staff_payroll + marketing_cost
+	GameManager.daily_stats.hired_staff_payroll = staff_payroll
+	GameManager.daily_stats.marketing_cost = marketing_cost
+	GameManager.daily_stats.operating_costs += staff_payroll + marketing_cost
+	var total_cost = GameManager.daily_stats.operating_costs
 	if total_cost > 0:
 		GameManager.modify_money(-total_cost)
 		EventBus.log_transaction("Daily operating costs", -total_cost)
@@ -2548,6 +2609,14 @@ func _perform_redo() -> void:
 	if not undo_manager.can_redo():
 		return
 
+	var pending: Dictionary = undo_manager.redo_stack.back()
+	var price: int = pending.get("paid_cost", pending.get("cost", 0))
+	if pending.get("type") == "terrain" and not pending.has("paid_cost"):
+		for change in pending.get("changes", []):
+			price += TerrainTypes.get_placement_cost(change.new_type)
+	if GameManager.money < price:
+		EventBus.notify("Not enough cash to redo this action", "warning")
+		return
 	var action = undo_manager.redo()
 	if action.is_empty():
 		return
@@ -2566,7 +2635,13 @@ func _execute_undo_action(action: Dictionary) -> void:
 			for i in range(changes.size() - 1, -1, -1):
 				var change = changes[i]
 				terrain_grid.set_tile(change["position"], change["old_type"])
+				if change.has("old_depth"): terrain_grid.set_bunker_depth(change.position, change.old_depth)
+				if not change.get("old_player_placed", true): terrain_grid._player_placed_tiles.erase(change.position)
 				refund += TerrainTypes.get_placement_cost(change["new_type"])
+			for removed in action.get("removed_entities", []):
+				if removed.type == "tree": entity_layer.place_tree(removed.position, removed.subtype)
+				else: entity_layer.place_rock(removed.position, removed.subtype)
+			refund = action.get("paid_cost", refund)
 			if refund > 0:
 				GameManager.modify_money(refund)
 		"elevation":
@@ -2642,9 +2717,14 @@ func _execute_redo_action(action: Dictionary) -> void:
 			# Re-apply all tile changes in order
 			var changes = action.get("changes", [])
 			var cost = 0
+			for removed in action.get("removed_entities", []):
+				if removed.type == "tree": entity_layer.remove_tree(removed.position)
+				else: entity_layer.remove_rock(removed.position)
 			for change in changes:
 				terrain_grid.set_tile(change["position"], change["new_type"])
+				if change.has("new_depth"): terrain_grid.set_bunker_depth(change.position, change.new_depth)
 				cost += TerrainTypes.get_placement_cost(change["new_type"])
+			cost = action.get("paid_cost", cost)
 			if cost > 0:
 				GameManager.modify_money(-cost)
 		"elevation":
@@ -3323,6 +3403,16 @@ func _setup_course_rating_overlay() -> void:
 	"""Add course rating panel (toggled from top bar star rating)."""
 	course_rating_overlay = CourseRatingOverlay.new()
 	course_rating_overlay.name = "CourseRatingOverlay"
+	course_rating_overlay.advice_selected.connect(func(advice: Dictionary):
+		_active_panel = null
+		if advice.has("position"):
+			_cancel_action()
+			camera.focus_on_smooth(terrain_grid.grid_to_screen_center(advice.position))
+			EventBus.notify(advice.title, "info")
+		elif advice.action == "finance": _toggle_panel(financial_panel)
+		elif advice.action == "garden": _on_decoration_placement_pressed()
+		elif advice.action == "build": _on_create_hole_pressed()
+	)
 	course_rating_overlay.close_requested.connect(func():
 		course_rating_overlay.hide()
 		if _active_panel == course_rating_overlay:
