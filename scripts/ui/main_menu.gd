@@ -296,11 +296,13 @@ func _update_card_selection() -> void:
 			var accent = CourseTheme.get_accent_color(theme_type)
 			style.bg_color = Color(0.15, 0.22, 0.15, 1.0)
 			style.border_color = accent
-			style.set_border_width_all(2)
 		else:
 			style.bg_color = Color(0.12, 0.15, 0.12, 1.0)
 			style.border_color = Color(0.3, 0.3, 0.3)
-			style.set_border_width_all(1)
+
+		# Keep the border thickness identical in both states so selecting a card
+		# cannot change its minimum size and shift the surrounding grid.
+		style.set_border_width_all(2)
 
 		style.set_corner_radius_all(6)
 		card.add_theme_stylebox_override("panel", style)
